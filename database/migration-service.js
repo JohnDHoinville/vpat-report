@@ -5,331 +5,400 @@ const fs = require('fs').promises;
 const path = require('path');
 const { db } = require('./config');
 
+/**
+ * Migration Service for Accessibility Testing Platform
+ * Converts existing JSON files to database records
+ */
+
 class MigrationService {
     constructor() {
         this.reportsDir = path.join(__dirname, '..', 'reports');
-        this.migrationLog = [];
+        this.consolidatedDir = path.join(this.reportsDir, 'consolidated-reports');
+        this.individualDir = path.join(this.reportsDir, 'individual-tests');
+        this.authStatesDir = path.join(this.reportsDir, 'auth-states');
+        
+        this.stats = {
+            totalFiles: 0,
+            processedFiles: 0,
+            skippedFiles: 0,
+            errors: 0,
+            projectsCreated: 0,
+            sessionsCreated: 0,
+            resultsCreated: 0,
+            pagesCreated: 0
+        };
     }
 
-    // Main migration orchestrator
+    /**
+     * Main migration entry point
+     */
     async migrateAll() {
-        console.log('🚀 Starting complete migration of accessibility testing data...');
+        console.log('🚀 Starting Migration of Existing Test Data');
+        console.log('==========================================');
         
         try {
-            // 1. Test database connection
-            await this.testConnection();
+            // Create default project for migrated data
+            const project = await this.createMigrationProject();
             
-            // 2. Migrate projects and sites
-            const projectData = await this.migrateProjects();
+            // Migrate consolidated reports
+            await this.migrateConsolidatedReports(project.id);
             
-            // 3. Migrate discovered pages
-            const siteDiscoveryData = await this.migrateSiteDiscovery(projectData);
+            // Migrate individual test files  
+            await this.migrateIndividualTests(project.id);
             
-            // 4. Migrate test runs and results
-            const testSessionData = await this.migrateTestSessions(projectData, siteDiscoveryData);
+            // Print migration summary
+            this.printMigrationSummary();
             
-            // 5. Migrate violations
-            await this.migrateViolations(testSessionData);
-            
-            // 6. Generate migration report
-            await this.generateMigrationReport();
-            
-            console.log('✅ Migration completed successfully!');
-            return { success: true, migrationLog: this.migrationLog };
+            console.log('\n✅ Migration completed successfully!');
             
         } catch (error) {
             console.error('❌ Migration failed:', error);
-            return { success: false, error: error.message, migrationLog: this.migrationLog };
+            throw error;
         }
     }
 
-    async testConnection() {
-        console.log('🔍 Testing database connection...');
-        const connected = await db.testConnection();
-        if (!connected) {
-            throw new Error('Database connection failed');
-        }
-        this.logMigration('Database connection verified');
-    }
-
-    // Migrate projects from existing batch data
-    async migrateProjects() {
-        console.log('📁 Migrating projects and sites...');
+    /**
+     * Create a default project for migrated historical data
+     */
+    async createMigrationProject() {
+        console.log('📁 Creating migration project for historical data...');
         
-        const consolidatedDir = path.join(this.reportsDir, 'consolidated-reports');
-        const projects = new Map();
+        const project = await db.insert('projects', {
+            name: 'Historical Test Data (Migrated)',
+            client_name: 'Various Clients',
+            primary_url: 'https://migrated-data.example.com',
+            description: 'Historical accessibility test data migrated from file-based system',
+            status: 'archived'
+        });
+
+        if (project) {
+            console.log(`✅ Created migration project: ${project.id}`);
+            this.stats.projectsCreated++;
+            return project;
+        } else {
+            throw new Error('Failed to create migration project');
+        }
+    }
+
+    /**
+     * Migrate consolidated report files
+     */
+    async migrateConsolidatedReports(projectId) {
+        console.log('\n📊 Migrating consolidated reports...');
         
         try {
-            const files = await fs.readdir(consolidatedDir);
+            const files = await fs.readdir(this.consolidatedDir);
             const jsonFiles = files.filter(f => f.endsWith('.json'));
             
-            for (const file of jsonFiles) {
-                const filePath = path.join(consolidatedDir, file);
-                const data = JSON.parse(await fs.readFile(filePath, 'utf8'));
-                
-                // Extract project information from batch data
-                const batchId = data.batchId || file.replace('.json', '');
-                const urls = this.extractUrlsFromBatchData(data);
-                
-                for (const url of urls) {
-                    const domain = new URL(url).hostname;
-                    
-                    if (!projects.has(domain)) {
-                        // Create project
-                        const project = await db.insert('projects', {
-                            name: `Accessibility Audit - ${domain}`,
-                            description: `Migrated from batch testing data`,
-                            client_name: domain,
-                            project_type: 'accessibility_audit',
-                            metadata: {
-                                migrated_from: 'file_system',
-                                original_batch_ids: [batchId],
-                                migration_date: new Date().toISOString()
-                            },
-                            created_by: 'migration_script',
-                            status: 'active'
-                        });
-                        
-                        // Create site discovery record
-                        const siteDiscovery = await db.insert('site_discovery', {
-                            project_id: project.id,
-                            primary_url: url,
-                            domain: domain,
-                            crawl_config: {
-                                maxDepth: 3,
-                                maxPages: 100,
-                                respectRobots: true,
-                                migrated: true
-                            },
-                            status: 'completed',
-                            last_crawled: data.timestamp ? new Date(data.timestamp) : new Date(),
-                            total_pages_found: urls.length,
-                            notes: `Migrated from batch: ${batchId}`
-                        });
-                        
-                        projects.set(domain, {
-                            project: project,
-                            siteDiscovery: siteDiscovery,
-                            urls: new Set([url])
-                        });
-                        
-                        this.logMigration(`Created project for ${domain}`);
-                    } else {
-                        // Add URL to existing project
-                        projects.get(domain).urls.add(url);
-                        
-                        // Update metadata
-                        const existingProject = projects.get(domain).project;
-                        const updatedMetadata = {
-                            ...existingProject.metadata,
-                            original_batch_ids: [
-                                ...existingProject.metadata.original_batch_ids,
-                                batchId
-                            ]
-                        };
-                        
-                        await db.update('projects', existingProject.id, {
-                            metadata: updatedMetadata
-                        });
-                    }
-                }
-            }
+            console.log(`Found ${jsonFiles.length} consolidated report files`);
+            this.stats.totalFiles += jsonFiles.length;
             
-            console.log(`✅ Migrated ${projects.size} projects`);
-            return projects;
+            // Process files in batches to avoid overwhelming the database
+            const batchSize = 5;
+            for (let i = 0; i < jsonFiles.length; i += batchSize) {
+                const batch = jsonFiles.slice(i, i + batchSize);
+                await Promise.all(
+                    batch.map(file => this.processConsolidatedReport(projectId, file))
+                );
+            }
             
         } catch (error) {
-            console.error('❌ Error migrating projects:', error);
-            throw error;
-        }
-    }
-
-    // Migrate site discovery and pages
-    async migrateSiteDiscovery(projectData) {
-        console.log('🕷️ Migrating site discovery and pages...');
-        
-        const siteDiscoveryMap = new Map();
-        
-        for (const [domain, data] of projectData) {
-            const { siteDiscovery, urls } = data;
-            
-            // Create discovered pages
-            const pages = [];
-            for (const url of urls) {
-                const page = await db.insert('discovered_pages', {
-                    discovery_id: siteDiscovery.id,
-                    url: url,
-                    path: new URL(url).pathname,
-                    title: `Page: ${new URL(url).pathname}`,
-                    page_type: this.determinePageType(url),
-                    discovery_method: 'migrated',
-                    depth_level: 0,
-                    requires_auth: false,
-                    testing_priority: 'normal',
-                    include_in_testing: true,
-                    page_metadata: {
-                        migrated: true,
-                        migration_source: 'batch_data'
-                    }
-                });
-                
-                pages.push(page);
+            if (error.code === 'ENOENT') {
+                console.log('⚠️ No consolidated reports directory found');
+            } else {
+                throw error;
             }
-            
-            siteDiscoveryMap.set(domain, {
-                siteDiscovery: siteDiscovery,
-                pages: pages
-            });
-            
-            this.logMigration(`Created ${pages.length} pages for ${domain}`);
         }
-        
-        console.log(`✅ Migrated pages for ${siteDiscoveryMap.size} sites`);
-        return siteDiscoveryMap;
     }
 
-    // Migrate test sessions and results
-    async migrateTestSessions(projectData, siteDiscoveryData) {
-        console.log('🧪 Migrating test sessions and results...');
-        
-        const testSessionMap = new Map();
-        const individualTestsDir = path.join(this.reportsDir, 'individual-tests');
-        
+    /**
+     * Process a single consolidated report file
+     */
+    async processConsolidatedReport(projectId, fileName) {
         try {
-            const files = await fs.readdir(individualTestsDir);
-            const testFiles = files.filter(f => f.endsWith('.json'));
+            const filePath = path.join(this.consolidatedDir, fileName);
+            const data = JSON.parse(await fs.readFile(filePath, 'utf8'));
             
-            // Group test files by batch
-            const batchGroups = this.groupTestFilesByBatch(testFiles);
+            // Extract batch ID and timestamp from filename
+            const batchId = this.extractBatchId(fileName);
+            const timestamp = this.extractTimestamp(fileName);
             
-            for (const [batchId, fileList] of batchGroups) {
-                // Find corresponding project
-                const domain = this.extractDomainFromBatch(batchId, projectData);
-                const projectInfo = projectData.get(domain);
-                
-                if (!projectInfo) {
-                    console.warn(`⚠️ No project found for batch ${batchId}`);
-                    continue;
-                }
-                
-                // Create test session
-                const testSession = await db.insert('test_sessions', {
-                    project_id: projectInfo.project.id,
-                    session_name: `Migrated Test Session - ${batchId}`,
-                    session_type: 'automated_only',
-                    description: `Migrated from file-based testing system`,
-                    scope_definition: {
-                        pages: 'all',
-                        wcag_versions: ['2.1'],
-                        wcag_levels: ['A', 'AA'],
-                        include_section_508: true,
-                        migrated: true
-                    },
-                    status: 'completed',
-                    started_at: this.extractTimestampFromBatch(batchId),
-                    completed_at: this.extractTimestampFromBatch(batchId),
-                    initiated_by: 'migration_script'
-                });
-
-                // Create automated test run
-                const testRun = await db.insert('automated_test_runs', {
-                    test_session_id: testSession.id,
-                    discovery_id: siteDiscoveryData.get(domain).siteDiscovery.id,
-                    tool_suite: 'comprehensive',
-                    tool_configuration: {
-                        migrated: true,
-                        original_tools: this.extractToolsFromFileList(fileList)
-                    },
-                    status: 'completed',
-                    started_at: testSession.started_at,
-                    completed_at: testSession.completed_at,
-                    summary_results: {
-                        migrated: true,
-                        total_files: fileList.length
-                    }
-                });
-
-                // Process individual test files
-                for (const fileName of fileList) {
-                    await this.migrateIndividualTestFile(
-                        fileName,
-                        testRun,
-                        siteDiscoveryData.get(domain).pages
-                    );
-                }
-
-                testSessionMap.set(batchId, {
-                    testSession: testSession,
-                    testRun: testRun,
-                    domain: domain
-                });
-                
-                this.logMigration(`Migrated test session for batch ${batchId}`);
-            }
-            
-            console.log(`✅ Migrated ${testSessionMap.size} test sessions`);
-            return testSessionMap;
-            
-        } catch (error) {
-            console.error('❌ Error migrating test sessions:', error);
-            throw error;
-        }
-    }
-
-    // Migrate individual test file to database
-    async migrateIndividualTestFile(fileName, testRun, pages) {
-        try {
-            const filePath = path.join(this.reportsDir, 'individual-tests', fileName);
-            const testData = JSON.parse(await fs.readFile(filePath, 'utf8'));
-            
-            // Determine tool name
-            const toolName = this.extractToolNameFromFile(fileName);
-            
-            // Find corresponding page (simplified - using first page for migration)
-            const page = pages[0]; // In real implementation, match by URL
-            
-            if (!page) {
-                console.warn(`⚠️ No page found for test file ${fileName}`);
-                return;
-            }
-            
-            // Create automated test result
-            const testResult = await db.insert('automated_test_results', {
-                test_run_id: testRun.id,
-                page_id: page.id,
-                tool_name: toolName,
-                tool_version: testData.toolVersion || 'unknown',
-                raw_results: testData,
-                violations_found: testData.violations ? testData.violations.length : 0,
-                wcag_mappings: this.extractWcagMappings(testData),
-                section_508_mappings: this.extractSection508Mappings(testData),
-                execution_time_ms: testData.executionTime || null,
+            // Create test session for this batch
+            const session = await db.insert('test_sessions', {
+                project_id: projectId,
+                name: `Migrated Batch: ${batchId}`,
+                description: `Historical test batch migrated from ${fileName}`,
                 status: 'completed',
-                executed_at: new Date(testData.timestamp || Date.now())
+                test_type: 'full',
+                started_at: timestamp,
+                completed_at: timestamp,
+                progress_summary: {
+                    migrated: true,
+                    original_file: fileName,
+                    total_violations: data.totalViolations || 0
+                }
             });
-            
-            this.logMigration(`Migrated test result: ${fileName}`);
+
+            if (session) {
+                this.stats.sessionsCreated++;
+                
+                // Extract and migrate pages and test results
+                await this.migrateTestResults(session.id, data);
+                
+                console.log(`✅ Migrated consolidated report: ${fileName}`);
+                this.stats.processedFiles++;
+            }
             
         } catch (error) {
-            console.error(`❌ Error migrating test file ${fileName}:`, error.message);
+            console.error(`❌ Error processing ${fileName}:`, error.message);
+            this.stats.errors++;
         }
     }
 
-    // Migrate violations
-    async migrateViolations(testSessionData) {
-        console.log('⚠️ Migrating violations...');
+    /**
+     * Extract and migrate test results from consolidated data
+     */
+    async migrateTestResults(sessionId, data) {
+        // Extract URLs from various possible data structures
+        const urls = this.extractUrls(data);
         
-        // This would involve processing all the automated test results
-        // and creating consolidated violations records
-        // Implementation depends on the specific violation format in your files
+        if (urls.length === 0) {
+            console.log('⚠️ No URLs found in consolidated report');
+            return;
+        }
+
+        // Create site discovery and pages
+        const discovery = await this.createSiteDiscovery(sessionId, urls[0], urls);
         
-        this.logMigration('Violations migration completed');
+        // Create test results for each URL
+        for (const url of urls) {
+            try {
+                // Create discovered page
+                const page = await this.createDiscoveredPage(discovery.id, url);
+                
+                if (page) {
+                    // Create automated test result entry
+                    await this.createAutomatedResult(sessionId, page.id, data, url);
+                }
+            } catch (error) {
+                console.error(`Error processing URL ${url}:`, error.message);
+            }
+        }
     }
 
-    // Helper methods
-    extractUrlsFromBatchData(data) {
-        // Extract URLs from batch data structure
+    /**
+     * Create site discovery entry
+     */
+    async createSiteDiscovery(sessionId, primaryUrl, allUrls) {
+        try {
+            const domain = new URL(primaryUrl).hostname;
+            
+            const discovery = await db.insert('site_discovery', {
+                project_id: await this.getProjectIdFromSession(sessionId),
+                primary_url: primaryUrl,
+                domain: domain,
+                status: 'completed',
+                total_pages_found: allUrls.length,
+                started_at: new Date().toISOString(),
+                completed_at: new Date().toISOString(),
+                notes: 'Migrated from historical test data'
+            });
+
+            return discovery;
+        } catch (error) {
+            console.error('Error creating site discovery:', error.message);
+            throw error;
+        }
+    }
+
+    /**
+     * Create discovered page entry
+     */
+    async createDiscoveredPage(discoveryId, url) {
+        try {
+            const urlObj = new URL(url);
+            const title = `Page: ${urlObj.pathname}`;
+            
+            const page = await db.insert('discovered_pages', {
+                discovery_id: discoveryId,
+                url: url,
+                title: title,
+                page_type: this.inferPageType(url),
+                discovered_at: new Date().toISOString()
+            });
+
+            if (page) {
+                this.stats.pagesCreated++;
+            }
+
+            return page;
+        } catch (error) {
+            // Skip invalid URLs
+            console.log(`⚠️ Skipping invalid URL: ${url}`);
+            return null;
+        }
+    }
+
+    /**
+     * Create automated test result
+     */
+    async createAutomatedResult(sessionId, pageId, data, url) {
+        try {
+            const result = await db.insert('automated_test_results', {
+                test_session_id: sessionId,
+                page_id: pageId,
+                tool_name: 'migrated_data',
+                tool_version: 'historical',
+                raw_results: {
+                    migrated: true,
+                    url: url,
+                    summary: data.summary || {},
+                    timestamp: data.timestamp || new Date().toISOString()
+                },
+                violations_count: this.extractViolationsCount(data, url),
+                warnings_count: 0,
+                passes_count: 0,
+                executed_at: data.timestamp || new Date().toISOString()
+            });
+
+            if (result) {
+                this.stats.resultsCreated++;
+            }
+
+            return result;
+        } catch (error) {
+            console.error('Error creating automated result:', error.message);
+            return null;
+        }
+    }
+
+    /**
+     * Migrate individual test files
+     */
+    async migrateIndividualTests(projectId) {
+        console.log('\n🔬 Migrating individual test files...');
+        
+        try {
+            const files = await fs.readdir(this.individualDir);
+            const jsonFiles = files.filter(f => f.endsWith('.json'));
+            
+            console.log(`Found ${jsonFiles.length} individual test files`);
+            this.stats.totalFiles += jsonFiles.length;
+            
+            // Group files by test run ID to create sessions
+            const groupedFiles = this.groupFilesByTestRun(jsonFiles);
+            
+            for (const [testRunId, fileGroup] of Object.entries(groupedFiles)) {
+                await this.processTestRunGroup(projectId, testRunId, fileGroup);
+            }
+            
+        } catch (error) {
+            if (error.code === 'ENOENT') {
+                console.log('⚠️ No individual tests directory found');
+            } else {
+                throw error;
+            }
+        }
+    }
+
+    /**
+     * Process a group of files from the same test run
+     */
+    async processTestRunGroup(projectId, testRunId, files) {
+        try {
+            // Create session for this test run
+            const session = await db.insert('test_sessions', {
+                project_id: projectId,
+                name: `Individual Test Run: ${testRunId}`,
+                description: `Historical individual test run migrated from ${files.length} files`,
+                status: 'completed',
+                test_type: 'automated_only',
+                started_at: this.extractTimestamp(files[0]),
+                completed_at: this.extractTimestamp(files[0])
+            });
+
+            if (session) {
+                this.stats.sessionsCreated++;
+                
+                // Process each file in the group
+                for (const file of files) {
+                    await this.processIndividualTestFile(session.id, file);
+                }
+                
+                console.log(`✅ Migrated test run group: ${testRunId} (${files.length} files)`);
+            }
+            
+        } catch (error) {
+            console.error(`❌ Error processing test run ${testRunId}:`, error.message);
+            this.stats.errors++;
+        }
+    }
+
+    /**
+     * Process individual test file
+     */
+    async processIndividualTestFile(sessionId, fileName) {
+        try {
+            const filePath = path.join(this.individualDir, fileName);
+            const data = JSON.parse(await fs.readFile(filePath, 'utf8'));
+            
+            // Extract tool name from filename
+            const toolName = this.extractToolName(fileName);
+            
+            // Create placeholder page if needed
+            const pageUrl = data.url || data.testUrl || 'https://unknown-migrated-page.com';
+            const discovery = await this.createSiteDiscovery(sessionId, pageUrl, [pageUrl]);
+            const page = await this.createDiscoveredPage(discovery.id, pageUrl);
+            
+            if (page) {
+                // Create test result
+                await db.insert('automated_test_results', {
+                    test_session_id: sessionId,
+                    page_id: page.id,
+                    tool_name: toolName,
+                    tool_version: data.toolVersion || 'unknown',
+                    raw_results: data,
+                    violations_count: this.extractViolationsFromIndividual(data),
+                    executed_at: data.timestamp || new Date().toISOString()
+                });
+                
+                this.stats.resultsCreated++;
+            }
+            
+            this.stats.processedFiles++;
+            
+        } catch (error) {
+            console.error(`❌ Error processing individual test ${fileName}:`, error.message);
+            this.stats.errors++;
+        }
+    }
+
+    /**
+     * Utility methods
+     */
+
+    extractBatchId(fileName) {
+        // Extract batch ID from filename patterns like "consolidated-report-test-run-1234567890-abc123.json"
+        const match = fileName.match(/test-run-(.+?)\.json$/);
+        return match ? match[1] : fileName.replace('.json', '');
+    }
+
+    extractTimestamp(fileName) {
+        // Try to extract timestamp from filename
+        const timestampMatch = fileName.match(/(\d{13})/);
+        if (timestampMatch) {
+            return new Date(parseInt(timestampMatch[1])).toISOString();
+        }
+        return new Date().toISOString();
+    }
+
+    extractUrls(data) {
         const urls = new Set();
+        
+        // Try different data structures
+        if (data.testUrls && Array.isArray(data.testUrls)) {
+            data.testUrls.forEach(url => urls.add(url));
+        }
         
         if (data.results && Array.isArray(data.results)) {
             data.results.forEach(result => {
@@ -338,127 +407,99 @@ class MigrationService {
             });
         }
         
-        if (data.testUrls && Array.isArray(data.testUrls)) {
-            data.testUrls.forEach(url => urls.add(url));
-        }
+        if (data.url) urls.add(data.url);
+        if (data.testUrl) urls.add(data.testUrl);
         
         return Array.from(urls);
     }
 
-    determinePageType(url) {
-        const path = new URL(url).pathname.toLowerCase();
-        
-        if (path === '/' || path === '') return 'homepage';
-        if (path.includes('contact') || path.includes('form')) return 'form';
-        if (path.includes('login') || path.includes('auth')) return 'authentication';
-        if (path.includes('about')) return 'content';
-        
-        return 'content';
+    extractViolationsCount(data, url) {
+        if (data.totalViolations) return data.totalViolations;
+        if (data.results && Array.isArray(data.results)) {
+            const urlResult = data.results.find(r => r.url === url || r.pageUrl === url);
+            if (urlResult && urlResult.violations) {
+                return Array.isArray(urlResult.violations) ? urlResult.violations.length : urlResult.violations;
+            }
+        }
+        return 0;
     }
 
-    groupTestFilesByBatch(fileList) {
-        const groups = new Map();
+    extractViolationsFromIndividual(data) {
+        if (data.violations && Array.isArray(data.violations)) {
+            return data.violations.length;
+        }
+        if (data.issues && Array.isArray(data.issues)) {
+            return data.issues.length;
+        }
+        if (data.results && data.results.violations) {
+            return Array.isArray(data.results.violations) ? data.results.violations.length : data.results.violations;
+        }
+        return 0;
+    }
+
+    extractToolName(fileName) {
+        if (fileName.includes('axe')) return 'axe';
+        if (fileName.includes('pa11y')) return 'pa11y';
+        if (fileName.includes('lighthouse')) return 'lighthouse';
+        return 'unknown';
+    }
+
+    groupFilesByTestRun(files) {
+        const groups = {};
         
-        fileList.forEach(fileName => {
-            const batchId = this.extractBatchIdFromFileName(fileName);
-            if (!groups.has(batchId)) {
-                groups.set(batchId, []);
+        files.forEach(file => {
+            // Extract test run ID from filename
+            const match = file.match(/test-run-(.+?)-[a-z0-9]+\.json$/);
+            const testRunId = match ? match[1] : 'unknown';
+            
+            if (!groups[testRunId]) {
+                groups[testRunId] = [];
             }
-            groups.get(batchId).push(fileName);
+            groups[testRunId].push(file);
         });
         
         return groups;
     }
 
-    extractBatchIdFromFileName(fileName) {
-        // Extract batch ID from file name pattern
-        const match = fileName.match(/-(\d+)-/);
-        return match ? match[1] : 'unknown';
-    }
-
-    extractDomainFromBatch(batchId, projectData) {
-        // Simple mapping - in practice you'd need more sophisticated matching
-        return projectData.keys().next().value;
-    }
-
-    extractTimestampFromBatch(batchId) {
-        const timestamp = parseInt(batchId);
-        return isNaN(timestamp) ? new Date() : new Date(timestamp);
-    }
-
-    extractToolsFromFileList(fileList) {
-        const tools = new Set();
-        
-        fileList.forEach(fileName => {
-            if (fileName.includes('axe')) tools.add('axe-core');
-            if (fileName.includes('pa11y')) tools.add('pa11y');
-            if (fileName.includes('lighthouse')) tools.add('lighthouse');
-            if (fileName.includes('contrast')) tools.add('contrast-analyzer');
-        });
-        
-        return Array.from(tools);
-    }
-
-    extractToolNameFromFile(fileName) {
-        if (fileName.includes('axe')) return 'axe-core';
-        if (fileName.includes('pa11y')) return 'pa11y';
-        if (fileName.includes('lighthouse')) return 'lighthouse';
-        if (fileName.includes('contrast')) return 'contrast-analyzer';
-        if (fileName.includes('keyboard')) return 'keyboard-tester';
-        if (fileName.includes('screen-reader')) return 'screen-reader-tester';
-        if (fileName.includes('mobile')) return 'mobile-tester';
-        if (fileName.includes('form')) return 'form-tester';
-        
-        return 'unknown';
-    }
-
-    extractWcagMappings(testData) {
-        // Extract WCAG mappings from test data
-        const mappings = {};
-        
-        if (testData.violations) {
-            testData.violations.forEach(violation => {
-                if (violation.wcagCriteria) {
-                    violation.wcagCriteria.forEach(criteria => {
-                        mappings[criteria] = mappings[criteria] || 0;
-                        mappings[criteria]++;
-                    });
-                }
-            });
+    inferPageType(url) {
+        try {
+            const urlObj = new URL(url);
+            const pathname = urlObj.pathname.toLowerCase();
+            
+            if (pathname === '/' || pathname === '/index.html') return 'homepage';
+            if (pathname.includes('form') || pathname.includes('contact')) return 'form';
+            if (pathname.includes('media') || pathname.includes('video')) return 'media';
+            if (pathname.includes('nav') || pathname.includes('menu')) return 'navigation';
+            return 'content';
+        } catch {
+            return 'content';
         }
-        
-        return mappings;
     }
 
-    extractSection508Mappings(testData) {
-        // Extract Section 508 mappings from test data
-        return {};
+    async getProjectIdFromSession(sessionId) {
+        const session = await db.findOne('test_sessions', { id: sessionId });
+        return session ? session.project_id : null;
     }
 
-    logMigration(message) {
-        const entry = {
-            timestamp: new Date().toISOString(),
-            message: message
-        };
-        this.migrationLog.push(entry);
-        console.log(`📝 ${message}`);
-    }
-
-    async generateMigrationReport() {
-        const report = {
-            migration_date: new Date().toISOString(),
-            summary: {
-                total_entries: this.migrationLog.length,
-                start_time: this.migrationLog[0]?.timestamp,
-                end_time: this.migrationLog[this.migrationLog.length - 1]?.timestamp
-            },
-            log: this.migrationLog
-        };
+    /**
+     * Print migration summary
+     */
+    printMigrationSummary() {
+        console.log('\n📊 Migration Summary');
+        console.log('===================');
+        console.log(`📁 Total files found: ${this.stats.totalFiles}`);
+        console.log(`✅ Files processed: ${this.stats.processedFiles}`);
+        console.log(`⚠️ Files skipped: ${this.stats.skippedFiles}`);
+        console.log(`❌ Errors: ${this.stats.errors}`);
+        console.log(`🏗️ Projects created: ${this.stats.projectsCreated}`);
+        console.log(`🧪 Test sessions created: ${this.stats.sessionsCreated}`);
+        console.log(`📄 Pages created: ${this.stats.pagesCreated}`);
+        console.log(`📋 Test results created: ${this.stats.resultsCreated}`);
         
-        const reportPath = path.join(__dirname, 'migration-report.json');
-        await fs.writeFile(reportPath, JSON.stringify(report, null, 2));
-        
-        console.log(`📊 Migration report saved to: ${reportPath}`);
+        const successRate = this.stats.totalFiles > 0 
+            ? ((this.stats.processedFiles / this.stats.totalFiles) * 100).toFixed(1)
+            : 0;
+        console.log(`📈 Success rate: ${successRate}%`);
     }
 }
 
