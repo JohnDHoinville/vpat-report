@@ -393,7 +393,7 @@ function dashboard() {
             const index = this.notifications.findIndex(n => n.id === id);
             if (index > -1) {
                 this.notifications[index].visible = false;
-                setTimeout(() => {
+                    setTimeout(() => {
                     this.notifications.splice(index, 1);
                 }, 300); // Wait for animation
             }
@@ -661,10 +661,11 @@ function dashboard() {
             try {
                 this.loading = true;
                 const data = await this.apiCall('/projects');
-                this.projects = data.projects || [];
+                this.projects = data.data || data.projects || [];
                 console.log(`📁 Loaded ${this.projects.length} projects`);
             } catch (error) {
                 console.error('Failed to load projects:', error);
+                this.projects = []; // Ensure projects is always an array
             } finally {
                 this.loading = false;
             }
@@ -868,17 +869,19 @@ function dashboard() {
         // Analytics
         async loadAnalytics() {
             try {
-                const data = await this.apiCall('/analytics/overview');
-                this.analytics = data.analytics || {};
+                const data = await this.apiCall('/results/statistics');
+                this.analytics = data || {};
                 console.log('📊 Analytics loaded');
             } catch (error) {
                 console.error('Failed to load analytics:', error);
                 // Set default values
                 this.analytics = {
-                    totalProjects: this.projects.length,
-                    totalPages: 0,
-                    totalTests: 0,
-                    totalViolations: 0
+                    overall: {
+                        total_projects: this.projects.length,
+                        total_pages: 0,
+                        total_tests: 0,
+                        total_violations: 0
+                    }
                 };
             }
         },
@@ -1002,15 +1005,18 @@ function copyToClipboard(text, type = 'text') {
 
 function exportData(data, filename) {
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
     a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    window.URL.revokeObjectURL(url);
-}
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        }
+
+// Make dashboard function globally available for Alpine.js
+window.dashboard = dashboard;
 
 // Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
