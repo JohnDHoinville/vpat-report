@@ -7,7 +7,20 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <title>Accessibility Testing Dashboard</title>
-    <script src="https://cdn.tailwindcss.com?plugins=forms,typography,aspect-ratio&suppress-warnings=true"></script>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,typography,aspect-ratio" data-no-warn="true"></script>
+    <script>
+        // Suppress Tailwind CSS production warnings
+        if (typeof console !== 'undefined' && console.warn) {
+            const originalWarn = console.warn;
+            console.warn = function(...args) {
+                if (args[0] && typeof args[0] === 'string' && 
+                    args[0].includes('should not be used in production')) {
+                    return; // Suppress this specific warning
+                }
+                originalWarn.apply(console, args);
+            };
+        }
+    </script>
     <script>
         tailwind.config = {
             theme: {
@@ -119,6 +132,11 @@
                             :class="activeTab === 'projects' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
                             class="py-4 px-1 border-b-2 font-medium text-sm transition-colors">
                         <i class="fas fa-folder mr-2"></i>Projects
+                    </button>
+                    <button @click="activeTab = 'authentication'" 
+                            :class="activeTab === 'authentication' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
+                            class="py-4 px-1 border-b-2 font-medium text-sm transition-colors">
+                        <i class="fas fa-shield-alt mr-2"></i>Authentication
                     </button>
                     <button @click="activeTab = 'discovery'" 
                             :class="activeTab === 'discovery' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
@@ -288,6 +306,190 @@
                                 </div>
                             </template>
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Authentication Tab -->
+            <div x-show="activeTab === 'authentication'" class="space-y-6">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h2 class="text-2xl font-bold text-gray-900">Authentication Management</h2>
+                        <p class="text-gray-600">Set up and manage authentication for secured sites</p>
+                    </div>
+                    <button @click="showSetupAuth = true" 
+                            class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors">
+                        <i class="fas fa-plus mr-2"></i>Setup Authentication
+                    </button>
+                </div>
+
+                <!-- Authentication Status Overview -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+                        <div class="flex items-center">
+                            <div class="p-3 bg-green-100 rounded-lg">
+                                <i class="fas fa-shield-check text-green-600 text-xl"></i>
+                            </div>
+                            <div class="ml-4">
+                                <div class="text-sm text-gray-600">Active Configs</div>
+                                <div class="text-2xl font-bold text-gray-900" x-text="authConfigs.filter(c => c.status === 'active').length"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+                        <div class="flex items-center">
+                            <div class="p-3 bg-yellow-100 rounded-lg">
+                                <i class="fas fa-clock text-yellow-600 text-xl"></i>
+                            </div>
+                            <div class="ml-4">
+                                <div class="text-sm text-gray-600">Pending Setup</div>
+                                <div class="text-2xl font-bold text-gray-900" x-text="authConfigs.filter(c => c.status === 'pending').length"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+                        <div class="flex items-center">
+                            <div class="p-3 bg-red-100 rounded-lg">
+                                <i class="fas fa-exclamation-triangle text-red-600 text-xl"></i>
+                            </div>
+                            <div class="ml-4">
+                                <div class="text-sm text-gray-600">Failed Configs</div>
+                                <div class="text-2xl font-bold text-gray-900" x-text="authConfigs.filter(c => c.status === 'failed').length"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Authentication Configurations List -->
+                <div class="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+                    <div class="flex justify-between items-center mb-6">
+                        <h3 class="text-lg font-semibold text-gray-900">Authentication Configurations</h3>
+                        <div class="flex space-x-2">
+                            <button @click="refreshAuthConfigs()" class="text-gray-600 hover:text-gray-800 transition-colors">
+                                <i class="fas fa-refresh"></i>
+                            </button>
+                            <button @click="importAuthConfig()" class="text-indigo-600 hover:text-indigo-800 transition-colors">
+                                <i class="fas fa-upload mr-1"></i>Import
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Auth Configs Table -->
+                    <div x-show="authConfigs.length > 0" class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Site/Domain</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Auth Type</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Used</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                <template x-for="config in authConfigs" :key="config.id">
+                                    <tr class="hover:bg-gray-50">
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="flex items-center">
+                                                <div class="text-sm font-medium text-gray-900" x-text="config.domain"></div>
+                                                <div class="text-xs text-gray-500 ml-2" x-text="config.url"></div>
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="flex items-center">
+                                                <i :class="getAuthTypeIcon(config.type)" class="mr-2"></i>
+                                                <span class="text-sm text-gray-900" x-text="config.type.toUpperCase()"></span>
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <span :class="getAuthStatusBadgeClass(config.status)" 
+                                                  class="px-2 py-1 text-xs font-medium rounded-full" 
+                                                  x-text="config.status"></span>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500" x-text="formatDate(config.last_used)"></td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                                            <button @click="testAuthConfig(config)" 
+                                                    class="text-blue-600 hover:text-blue-900 transition-colors"
+                                                    :disabled="config.status === 'testing'">
+                                                <i class="fas fa-test mr-1"></i>Test
+                                            </button>
+                                            <button @click="editAuthConfig(config)" 
+                                                    class="text-indigo-600 hover:text-indigo-900 transition-colors">
+                                                <i class="fas fa-edit mr-1"></i>Edit
+                                            </button>
+                                            <button @click="exportAuthConfig(config)" 
+                                                    class="text-green-600 hover:text-green-900 transition-colors">
+                                                <i class="fas fa-download mr-1"></i>Export
+                                            </button>
+                                            <button @click="deleteAuthConfig(config)" 
+                                                    class="text-red-600 hover:text-red-900 transition-colors">
+                                                <i class="fas fa-trash mr-1"></i>Delete
+                                            </button>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Empty State -->
+                    <div x-show="authConfigs.length === 0" class="text-center py-12">
+                        <i class="fas fa-shield-alt text-gray-400 text-6xl mb-4"></i>
+                        <h3 class="text-lg font-medium text-gray-900 mb-2">No authentication configurations</h3>
+                        <p class="text-gray-500 mb-6">Set up authentication to access protected areas of websites during testing.</p>
+                        <button @click="showSetupAuth = true" class="bg-indigo-600 text-white px-6 py-3 rounded-lg hover:bg-indigo-700 transition-colors">
+                            <i class="fas fa-plus mr-2"></i>Setup Your First Authentication
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Quick Setup Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="bg-white rounded-lg shadow-md border border-gray-200 p-6 hover:shadow-lg transition-shadow cursor-pointer" 
+                         @click="quickSetupAuth('sso')">
+                        <div class="flex items-center mb-4">
+                            <div class="p-3 bg-blue-100 rounded-lg">
+                                <i class="fas fa-university text-blue-600 text-xl"></i>
+                            </div>
+                            <div class="ml-4">
+                                <h3 class="text-lg font-semibold text-gray-900">SSO/SAML Login</h3>
+                                <p class="text-sm text-gray-600">For institutional or corporate sites</p>
+                            </div>
+                        </div>
+                        <p class="text-gray-600 text-sm">Perfect for Internet2, university, or enterprise sites that use Single Sign-On authentication.</p>
+                        <div class="mt-4 text-blue-600 text-sm font-medium">Quick Setup →</div>
+                    </div>
+
+                    <div class="bg-white rounded-lg shadow-md border border-gray-200 p-6 hover:shadow-lg transition-shadow cursor-pointer" 
+                         @click="quickSetupAuth('basic')">
+                        <div class="flex items-center mb-4">
+                            <div class="p-3 bg-green-100 rounded-lg">
+                                <i class="fas fa-user-lock text-green-600 text-xl"></i>
+                            </div>
+                            <div class="ml-4">
+                                <h3 class="text-lg font-semibold text-gray-900">Username/Password</h3>
+                                <p class="text-sm text-gray-600">Traditional login forms</p>
+                            </div>
+                        </div>
+                        <p class="text-gray-600 text-sm">For sites with standard username and password login forms.</p>
+                        <div class="mt-4 text-green-600 text-sm font-medium">Quick Setup →</div>
+                    </div>
+
+                    <div class="bg-white rounded-lg shadow-md border border-gray-200 p-6 hover:shadow-lg transition-shadow cursor-pointer" 
+                         @click="quickSetupAuth('advanced')">
+                        <div class="flex items-center mb-4">
+                            <div class="p-3 bg-purple-100 rounded-lg">
+                                <i class="fas fa-cogs text-purple-600 text-xl"></i>
+                            </div>
+                            <div class="ml-4">
+                                <h3 class="text-lg font-semibold text-gray-900">Advanced Setup</h3>
+                                <p class="text-sm text-gray-600">Custom authentication flows</p>
+                            </div>
+                        </div>
+                        <p class="text-gray-600 text-sm">For complex authentication with API keys, tokens, or multi-factor authentication.</p>
+                        <div class="mt-4 text-purple-600 text-sm font-medium">Advanced Setup →</div>
                     </div>
                 </div>
             </div>
@@ -828,7 +1030,296 @@
             </div>
         </div>
 
-        <!-- Real-time Notifications -->
+        <!-- Setup Authentication Modal -->
+        <div x-show="showSetupAuth" 
+             x-transition:enter="transition ease-out duration-300"
+             x-transition:enter-start="opacity-0"
+             x-transition:enter-end="opacity-100"
+             x-transition:leave="transition ease-in duration-200"
+             x-transition:leave-start="opacity-100"
+             x-transition:leave-end="opacity-0"
+             class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
+             @click.self="showSetupAuth = false">
+            <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <h3 class="text-lg font-semibold text-gray-900">Setup Authentication</h3>
+                    <p class="text-sm text-gray-600 mt-1">Choose the authentication method for your site</p>
+                </div>
+                <div class="p-6">
+                    <!-- Authentication Type Selection -->
+                    <div x-show="!authSetup.step || authSetup.step === 'type'" class="space-y-6">
+                        <h4 class="text-md font-medium text-gray-900 mb-4">Select Authentication Type</h4>
+                        
+                        <!-- SSO/SAML Option -->
+                        <div class="border border-gray-200 rounded-lg p-4 hover:border-indigo-300 cursor-pointer transition-colors"
+                             @click="startAuthSetup('sso')" :class="authSetup.type === 'sso' ? 'border-indigo-500 bg-indigo-50' : ''">
+                            <div class="flex items-center">
+                                <div class="p-2 bg-blue-100 rounded-lg">
+                                    <i class="fas fa-university text-blue-600"></i>
+                                </div>
+                                <div class="ml-4 flex-1">
+                                    <h5 class="font-medium text-gray-900">SSO/SAML Login</h5>
+                                    <p class="text-sm text-gray-600">For Internet2, university, or enterprise sites with institutional login</p>
+                                    <div class="text-xs text-gray-500 mt-1">
+                                        <i class="fas fa-check text-green-500 mr-1"></i>Supports Shibboleth, ADFS, Okta, and other SAML providers
+                                    </div>
+                                </div>
+                                <div x-show="authSetup.type === 'sso'" class="text-indigo-600">
+                                    <i class="fas fa-check-circle"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Basic Auth Option -->
+                        <div class="border border-gray-200 rounded-lg p-4 hover:border-green-300 cursor-pointer transition-colors"
+                             @click="startAuthSetup('basic')" :class="authSetup.type === 'basic' ? 'border-green-500 bg-green-50' : ''">
+                            <div class="flex items-center">
+                                <div class="p-2 bg-green-100 rounded-lg">
+                                    <i class="fas fa-user-lock text-green-600"></i>
+                                </div>
+                                <div class="ml-4 flex-1">
+                                    <h5 class="font-medium text-gray-900">Username/Password</h5>
+                                    <p class="text-sm text-gray-600">Standard login forms with username and password</p>
+                                    <div class="text-xs text-gray-500 mt-1">
+                                        <i class="fas fa-check text-green-500 mr-1"></i>Works with most login forms and basic authentication
+                                    </div>
+                                </div>
+                                <div x-show="authSetup.type === 'basic'" class="text-green-600">
+                                    <i class="fas fa-check-circle"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Advanced Auth Option -->
+                        <div class="border border-gray-200 rounded-lg p-4 hover:border-purple-300 cursor-pointer transition-colors"
+                             @click="startAuthSetup('advanced')" :class="authSetup.type === 'advanced' ? 'border-purple-500 bg-purple-50' : ''">
+                            <div class="flex items-center">
+                                <div class="p-2 bg-purple-100 rounded-lg">
+                                    <i class="fas fa-cogs text-purple-600"></i>
+                                </div>
+                                <div class="ml-4 flex-1">
+                                    <h5 class="font-medium text-gray-900">Advanced Setup</h5>
+                                    <p class="text-sm text-gray-600">API keys, tokens, multi-factor auth, or custom flows</p>
+                                    <div class="text-xs text-gray-500 mt-1">
+                                        <i class="fas fa-check text-green-500 mr-1"></i>Custom authentication scripts and complex workflows
+                                    </div>
+                                </div>
+                                <div x-show="authSetup.type === 'advanced'" class="text-purple-600">
+                                    <i class="fas fa-check-circle"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SSO/SAML Setup Form -->
+                    <div x-show="authSetup.step === 'sso-details'" class="space-y-6">
+                        <div class="flex items-center mb-4">
+                            <button @click="authSetup.step = 'type'" class="text-gray-500 hover:text-gray-700 mr-3">
+                                <i class="fas fa-arrow-left"></i>
+                            </button>
+                            <h4 class="text-md font-medium text-gray-900">SSO/SAML Authentication Setup</h4>
+                        </div>
+
+                        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                            <div class="flex">
+                                <i class="fas fa-info-circle text-blue-500 mr-2 mt-1"></i>
+                                <div class="text-sm">
+                                    <p class="text-blue-800 font-medium">Automated Setup Available</p>
+                                    <p class="text-blue-700">We'll open the site and capture your live login session automatically. Just provide the URL and follow the prompts.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Site URL</label>
+                            <input x-model="authSetup.sso.url" type="url" required 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                   placeholder="https://fm-dev.ti.internet2.edu/">
+                            <p class="text-xs text-gray-500 mt-1">The main URL of the site you want to set up authentication for</p>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Login Page (Optional)</label>
+                            <input x-model="authSetup.sso.loginPage" type="url" 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                   placeholder="https://fm-dev.ti.internet2.edu/login">
+                            <p class="text-xs text-gray-500 mt-1">Leave blank to auto-detect the login page</p>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Expected Success URL</label>
+                            <input x-model="authSetup.sso.successUrl" type="url" 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                   placeholder="https://fm-dev.ti.internet2.edu/home">
+                            <p class="text-xs text-gray-500 mt-1">Where you land after successful login (helps verify authentication)</p>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Configuration Name</label>
+                            <input x-model="authSetup.sso.name" type="text" required 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                   placeholder="Internet2 Federation Manager">
+                            <p class="text-xs text-gray-500 mt-1">A friendly name to identify this authentication configuration</p>
+                        </div>
+                    </div>
+
+                    <!-- Basic Auth Setup Form -->
+                    <div x-show="authSetup.step === 'basic-details'" class="space-y-6">
+                        <div class="flex items-center mb-4">
+                            <button @click="authSetup.step = 'type'" class="text-gray-500 hover:text-gray-700 mr-3">
+                                <i class="fas fa-arrow-left"></i>
+                            </button>
+                            <h4 class="text-md font-medium text-gray-900">Username/Password Authentication Setup</h4>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Site URL</label>
+                            <input x-model="authSetup.basic.url" type="url" required 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                                   placeholder="https://example.com">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Login Page URL</label>
+                            <input x-model="authSetup.basic.loginPage" type="url" required 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                                   placeholder="https://example.com/login">
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Username</label>
+                                <input x-model="authSetup.basic.username" type="text" required 
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                                <input x-model="authSetup.basic.password" type="password" required 
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Success URL (After Login)</label>
+                            <input x-model="authSetup.basic.successUrl" type="url" 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                                   placeholder="https://example.com/dashboard">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Configuration Name</label>
+                            <input x-model="authSetup.basic.name" type="text" required 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                                   placeholder="My Site Login">
+                        </div>
+                    </div>
+
+                    <!-- Advanced Auth Setup Form -->
+                    <div x-show="authSetup.step === 'advanced-details'" class="space-y-6">
+                        <div class="flex items-center mb-4">
+                            <button @click="authSetup.step = 'type'" class="text-gray-500 hover:text-gray-700 mr-3">
+                                <i class="fas fa-arrow-left"></i>
+                            </button>
+                            <h4 class="text-md font-medium text-gray-900">Advanced Authentication Setup</h4>
+                        </div>
+
+                        <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                            <div class="flex">
+                                <i class="fas fa-exclamation-triangle text-yellow-500 mr-2 mt-1"></i>
+                                <div class="text-sm">
+                                    <p class="text-yellow-800 font-medium">Advanced Configuration</p>
+                                    <p class="text-yellow-700">This option allows custom authentication scripts and complex workflows. Contact support if you need assistance.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Authentication Type</label>
+                            <select x-model="authSetup.advanced.type" 
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500">
+                                <option value="api_key">API Key Authentication</option>
+                                <option value="bearer_token">Bearer Token</option>
+                                <option value="oauth2">OAuth 2.0</option>
+                                <option value="custom_script">Custom Authentication Script</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Site URL</label>
+                            <input x-model="authSetup.advanced.url" type="url" required 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500">
+                        </div>
+
+                        <div x-show="authSetup.advanced.type === 'api_key'">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">API Key</label>
+                            <input x-model="authSetup.advanced.apiKey" type="password" 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500">
+                        </div>
+
+                        <div x-show="authSetup.advanced.type === 'bearer_token'">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Bearer Token</label>
+                            <textarea x-model="authSetup.advanced.token" rows="3"
+                                      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"></textarea>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Configuration Name</label>
+                            <input x-model="authSetup.advanced.name" type="text" required 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500">
+                        </div>
+                    </div>
+
+                    <!-- Progress Indicator -->
+                    <div x-show="authSetup.inProgress" class="space-y-4">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center space-x-3">
+                                <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600"></div>
+                                <div>
+                                    <h4 class="text-md font-medium text-gray-900">Setting up authentication...</h4>
+                                    <p class="text-sm text-gray-600" x-text="authSetup.progressMessage"></p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="w-full bg-gray-200 rounded-full h-2">
+                            <div class="bg-indigo-600 h-2 rounded-full transition-all duration-300" 
+                                 :style="`width: ${authSetup.progress}%`"></div>
+                        </div>
+
+                        <div class="text-sm text-gray-600 space-y-1">
+                            <div x-show="authSetup.currentStep">Current step: <span x-text="authSetup.currentStep"></span></div>
+                            <div x-show="authSetup.browserStatus">Browser: <span x-text="authSetup.browserStatus"></span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Modal Footer -->
+                <div class="px-6 py-4 border-t border-gray-200 flex justify-between">
+                    <button @click="showSetupAuth = false" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors">
+                        Cancel
+                    </button>
+                    <div class="space-x-2">
+                        <button x-show="authSetup.step && authSetup.step !== 'type' && !authSetup.inProgress" 
+                                @click="authSetup.step = 'type'" 
+                                class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors">
+                            Back
+                        </button>
+                        <button x-show="authSetup.type && !authSetup.step" 
+                                @click="proceedToDetails()" 
+                                class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors">
+                            Next
+                        </button>
+                        <button x-show="(authSetup.step === 'sso-details' || authSetup.step === 'basic-details' || authSetup.step === 'advanced-details') && !authSetup.inProgress" 
+                                @click="setupAuthentication()" 
+                                class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors">
+                            <i class="fas fa-shield-alt mr-2"></i>Setup Authentication
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Notifications -->
         <div class="fixed bottom-4 right-4 space-y-2 z-50" style="max-width: 400px;">
             <template x-for="notification in notifications" :key="notification.id">
                 <div x-show="notification.visible"

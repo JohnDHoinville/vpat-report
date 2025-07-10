@@ -52,6 +52,22 @@ function dashboard() {
         analytics: {},
         sessions: [],
         
+        // Authentication Management Data
+        authConfigs: [],
+        showSetupAuth: false,
+        authSetup: {
+            step: null, // 'type', 'sso-details', 'basic-details', 'advanced-details'
+            type: null, // 'sso', 'basic', 'advanced'
+            inProgress: false,
+            progress: 0,
+            progressMessage: '',
+            currentStep: '',
+            browserStatus: '',
+            sso: {},
+            basic: {},
+            advanced: {}
+        },
+        
         // Modal states
         showCreateProject: false,
         showStartDiscovery: false,
@@ -118,6 +134,7 @@ function dashboard() {
                     await this.initWebSocket();
                     await this.loadProjects();
                     await this.loadAnalytics();
+                    await this.loadAuthConfigs();
                 } else {
                     // Show login if not authenticated
                     setTimeout(() => this.showLogin = true, 500);
@@ -743,32 +760,9 @@ function dashboard() {
         },
 
         async pollDiscoveryProgress(discoveryId) {
-            const poll = async () => {
-                try {
-                    const data = await this.apiCall(`/discoveries/${discoveryId}`);
-                    const discovery = data.discovery;
-                    
-                    // Update discovery in list
-                    const index = this.discoveries.findIndex(d => d.id === discoveryId);
-                    if (index >= 0) {
-                        this.discoveries[index] = discovery;
-                    }
-                    
-                    // Continue polling if still in progress
-                    if (discovery.status === 'in_progress' || discovery.status === 'pending') {
-                        setTimeout(poll, 2000); // Poll every 2 seconds
-                    } else {
-                        console.log(`🏁 Discovery ${discoveryId} completed with status: ${discovery.status}`);
-                        if (discovery.status === 'completed') {
-                            this.showNotification(`Discovery completed! Found ${discovery.total_pages_found} pages.`, 'success');
-                        }
-                    }
-                } catch (error) {
-                    console.error('Failed to poll discovery progress:', error);
-                }
-            };
-            
-            setTimeout(poll, 1000); // Start polling after 1 second
+            // Note: Polling is no longer needed since WebSocket provides real-time updates
+            // Real-time discovery progress is handled by handleDiscoveryProgress() and handleDiscoveryComplete()
+            console.log(`📡 Real-time discovery tracking enabled for ${discoveryId} - polling disabled`);
         },
 
         // Test Session Management
@@ -990,7 +984,351 @@ function dashboard() {
 
         manualTesting(session) {
             this.showNotification('Manual testing interface coming soon!', 'info');
-        }
+        },
+
+        // Authentication Management Functions
+        async loadAuthConfigs() {
+            try {
+                const response = await this.apiCall('/api/auth/configs');
+                this.authConfigs = response.configs || [];
+                console.log('🔐 Auth configs loaded:', this.authConfigs.length);
+            } catch (error) {
+                console.error('Failed to load auth configs:', error);
+                this.authConfigs = [];
+            }
+        },
+
+        refreshAuthConfigs() {
+            this.loadAuthConfigs();
+            this.showNotification('Authentication configurations refreshed', 'success');
+        },
+
+        startAuthSetup(type) {
+            this.authSetup.type = type;
+            this.authSetup.step = `${type}-details`;
+            
+            // Initialize form data based on type
+            if (type === 'sso') {
+                this.authSetup.sso = {
+                    url: this.selectedProject?.primary_url || '',
+                    loginPage: '',
+                    successUrl: '',
+                    name: ''
+                };
+            } else if (type === 'basic') {
+                this.authSetup.basic = {
+                    url: this.selectedProject?.primary_url || '',
+                    loginPage: '',
+                    username: '',
+                    password: '',
+                    successUrl: '',
+                    name: ''
+                };
+            } else if (type === 'advanced') {
+                this.authSetup.advanced = {
+                    type: 'api_key',
+                    url: this.selectedProject?.primary_url || '',
+                    apiKey: '',
+                    token: '',
+                    name: ''
+                };
+            }
+        },
+
+        quickSetupAuth(type) {
+            this.showSetupAuth = true;
+            this.startAuthSetup(type);
+        },
+
+        proceedToDetails() {
+            if (this.authSetup.type) {
+                this.authSetup.step = `${this.authSetup.type}-details`;
+            }
+        },
+
+        async setupAuthentication() {
+            try {
+                this.authSetup.inProgress = true;
+                this.authSetup.progress = 0;
+                this.authSetup.progressMessage = 'Initializing authentication setup...';
+
+                const config = this.getAuthConfigFromForm();
+                
+                if (config.type === 'sso') {
+                    await this.setupSSOAuth(config);
+                } else if (config.type === 'basic') {
+                    await this.setupBasicAuth(config);
+                } else if (config.type === 'advanced') {
+                    await this.setupAdvancedAuth(config);
+                }
+
+                this.showNotification('Authentication setup completed successfully!', 'success');
+                this.showSetupAuth = false;
+                this.resetAuthSetup();
+                this.loadAuthConfigs();
+
+            } catch (error) {
+                console.error('Authentication setup failed:', error);
+                this.showNotification('Authentication setup failed: ' + error.message, 'error');
+            } finally {
+                this.authSetup.inProgress = false;
+            }
+        },
+
+        getAuthConfigFromForm() {
+            const { type } = this.authSetup;
+            if (type === 'sso') {
+                return { type, ...this.authSetup.sso };
+            } else if (type === 'basic') {
+                return { type, ...this.authSetup.basic };
+            } else if (type === 'advanced') {
+                return { type, ...this.authSetup.advanced };
+            }
+        },
+
+        async setupSSOAuth(config) {
+            this.authSetup.progressMessage = 'Starting browser for SSO authentication...';
+            this.authSetup.progress = 10;
+
+            // Call the auth wizard API endpoint
+            const response = await fetch('/api/auth/setup-sso', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${this.token}`
+                },
+                body: JSON.stringify({
+                    url: config.url,
+                    name: config.name,
+                    loginPage: config.loginPage,
+                    successUrl: config.successUrl
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`Setup failed: ${response.statusText}`);
+            }
+
+            const result = await response.json();
+            
+            // Simulate progress updates
+            await this.simulateAuthProgress();
+            
+            return result;
+        },
+
+        async setupBasicAuth(config) {
+            this.authSetup.progressMessage = 'Setting up username/password authentication...';
+            this.authSetup.progress = 20;
+
+            const response = await fetch('/api/auth/setup-basic', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${this.token}`
+                },
+                body: JSON.stringify(config)
+            });
+
+            if (!response.ok) {
+                throw new Error(`Setup failed: ${response.statusText}`);
+            }
+
+            await this.simulateAuthProgress();
+            return await response.json();
+        },
+
+        async setupAdvancedAuth(config) {
+            this.authSetup.progressMessage = 'Configuring advanced authentication...';
+            this.authSetup.progress = 15;
+
+            const response = await fetch('/api/auth/setup-advanced', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${this.token}`
+                },
+                body: JSON.stringify(config)
+            });
+
+            if (!response.ok) {
+                throw new Error(`Setup failed: ${response.statusText}`);
+            }
+
+            await this.simulateAuthProgress();
+            return await response.json();
+        },
+
+        async simulateAuthProgress() {
+            // Simulate progress for visual feedback
+            const steps = [
+                { progress: 30, message: 'Opening browser...' },
+                { progress: 50, message: 'Navigating to login page...' },
+                { progress: 70, message: 'Waiting for authentication...' },
+                { progress: 90, message: 'Capturing session...' },
+                { progress: 100, message: 'Authentication setup complete!' }
+            ];
+
+            for (const step of steps) {
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                this.authSetup.progress = step.progress;
+                this.authSetup.progressMessage = step.message;
+            }
+        },
+
+        async testAuthConfig(config) {
+            try {
+                config.status = 'testing';
+                this.showNotification(`Testing authentication for ${config.domain}...`, 'info');
+
+                const response = await fetch('/api/auth/test', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${this.token}`
+                    },
+                    body: JSON.stringify({ configId: config.id })
+                });
+
+                if (response.ok) {
+                    config.status = 'active';
+                    config.last_used = new Date().toISOString();
+                    this.showNotification(`Authentication test successful for ${config.domain}`, 'success');
+                } else {
+                    config.status = 'failed';
+                    this.showNotification(`Authentication test failed for ${config.domain}`, 'error');
+                }
+            } catch (error) {
+                config.status = 'failed';
+                this.showNotification(`Authentication test error: ${error.message}`, 'error');
+            }
+        },
+
+        editAuthConfig(config) {
+            // Open edit modal (would need to be implemented)
+            this.showNotification('Edit authentication feature coming soon!', 'info');
+        },
+
+        exportAuthConfig(config) {
+            const exportData = {
+                ...config,
+                exported_at: new Date().toISOString(),
+                exported_by: this.user?.username
+            };
+            
+            const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `auth-config-${config.domain}-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+            
+            this.showNotification(`Authentication config exported for ${config.domain}`, 'success');
+        },
+
+        async deleteAuthConfig(config) {
+            if (!confirm(`Are you sure you want to delete the authentication configuration for ${config.domain}?`)) {
+                return;
+            }
+
+            try {
+                const response = await this.apiCall(`/api/auth/configs/${config.id}`, {
+                    method: 'DELETE'
+                });
+
+                this.authConfigs = this.authConfigs.filter(c => c.id !== config.id);
+                this.showNotification(`Authentication config deleted for ${config.domain}`, 'success');
+            } catch (error) {
+                this.showNotification(`Failed to delete configuration: ${error.message}`, 'error');
+            }
+        },
+
+        importAuthConfig() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            input.onchange = (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        try {
+                            const config = JSON.parse(e.target.result);
+                            this.importAuthConfigData(config);
+                        } catch (error) {
+                            this.showNotification('Invalid configuration file', 'error');
+                        }
+                    };
+                    reader.readAsText(file);
+                }
+            };
+            input.click();
+        },
+
+        async importAuthConfigData(config) {
+            try {
+                const response = await fetch('/api/auth/import', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${this.token}`
+                    },
+                    body: JSON.stringify(config)
+                });
+
+                if (response.ok) {
+                    this.loadAuthConfigs();
+                    this.showNotification(`Authentication config imported for ${config.domain}`, 'success');
+                } else {
+                    throw new Error('Failed to import configuration');
+                }
+            } catch (error) {
+                this.showNotification(`Failed to import configuration: ${error.message}`, 'error');
+            }
+        },
+
+        resetAuthSetup() {
+            this.authSetup = {
+                step: null,
+                type: null,
+                inProgress: false,
+                progress: 0,
+                progressMessage: '',
+                currentStep: '',
+                browserStatus: '',
+                sso: {},
+                basic: {},
+                advanced: {}
+            };
+        },
+
+        getAuthTypeIcon(type) {
+            const icons = {
+                'sso': 'fas fa-university text-blue-600',
+                'basic': 'fas fa-user-lock text-green-600',
+                'advanced': 'fas fa-cogs text-purple-600',
+                'api_key': 'fas fa-key text-purple-600',
+                'bearer_token': 'fas fa-ticket-alt text-purple-600',
+                'oauth2': 'fas fa-shield-alt text-purple-600'
+            };
+            return icons[type] || 'fas fa-question text-gray-600';
+        },
+
+        getAuthStatusBadgeClass(status) {
+            const classes = {
+                'active': 'bg-green-100 text-green-800',
+                'pending': 'bg-yellow-100 text-yellow-800',
+                'failed': 'bg-red-100 text-red-800',
+                'testing': 'bg-blue-100 text-blue-800',
+                'expired': 'bg-gray-100 text-gray-800'
+            };
+            return classes[status] || 'bg-gray-100 text-gray-800';
+        },
+
+        // Analytics
     };
 }
 

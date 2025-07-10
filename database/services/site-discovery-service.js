@@ -2,6 +2,8 @@ const { Pool } = require('pg');
 const { pool } = require('../config');
 const SiteCrawler = require('../../scripts/site-crawler');
 const { URL } = require('url');
+const fs = require('fs');
+const path = require('path');
 
 /**
  * Site Discovery Service
@@ -13,6 +15,7 @@ class SiteDiscoveryService {
         this.pool = pool;
         this.activeCrawlers = new Map(); // Track running crawlers by discovery ID
         this.wsService = wsService; // WebSocket service for real-time updates
+        this.authStatesDir = path.join(__dirname, '../../reports/auth-states');
     }
 
     /**
@@ -110,6 +113,86 @@ class SiteDiscoveryService {
     }
 
     /**
+     * Check for available authentication sessions for a domain
+     * @param {string} url - URL to check authentication for
+     * @returns {Object|null} Authentication configuration if available
+     */
+    async checkAuthenticationAvailable(url) {
+        try {
+            const domain = new URL(url).hostname;
+            
+            if (!fs.existsSync(this.authStatesDir)) {
+                return null;
+            }
+
+            const files = fs.readdirSync(this.authStatesDir);
+            
+            // Look for live session files for this domain
+            const liveSessionFiles = files.filter(f => f.startsWith(`live-session-${domain}-`));
+            
+            if (liveSessionFiles.length > 0) {
+                // Use the most recent live session
+                liveSessionFiles.sort((a, b) => {
+                    const timestampA = parseInt(a.split('-').pop().replace('.json', ''));
+                    const timestampB = parseInt(b.split('-').pop().replace('.json', ''));
+                    return timestampB - timestampA;
+                });
+                
+                const sessionFile = path.join(this.authStatesDir, liveSessionFiles[0]);
+                
+                // Verify the session file exists and is valid
+                if (fs.existsSync(sessionFile)) {
+                    try {
+                        const sessionData = JSON.parse(fs.readFileSync(sessionFile, 'utf8'));
+                        return {
+                            type: 'live_session',
+                            sessionPath: sessionFile,
+                            domain: domain,
+                            sessionFile: liveSessionFiles[0]
+                        };
+                    } catch (error) {
+                        console.warn(`Invalid session file ${sessionFile}:`, error.message);
+                    }
+                }
+            }
+            
+            // Look for traditional auth config files
+            const authConfigFiles = files.filter(f => f.startsWith(`auth-config-${domain}-`));
+            
+            if (authConfigFiles.length > 0) {
+                // Use the most recent config
+                authConfigFiles.sort((a, b) => {
+                    const timestampA = parseInt(a.split('-').pop().replace('.json', ''));
+                    const timestampB = parseInt(b.split('-').pop().replace('.json', ''));
+                    return timestampB - timestampA;
+                });
+                
+                const configFile = path.join(this.authStatesDir, authConfigFiles[0]);
+                
+                if (fs.existsSync(configFile)) {
+                    try {
+                        const configData = JSON.parse(fs.readFileSync(configFile, 'utf8'));
+                        return {
+                            type: 'traditional',
+                            authConfig: configData,
+                            domain: domain,
+                            configFile: authConfigFiles[0]
+                        };
+                    } catch (error) {
+                        console.warn(`Invalid config file ${configFile}:`, error.message);
+                    }
+                }
+            }
+            
+            return null;
+            
+        } catch (error) {
+            console.warn(`Error checking authentication for ${url}:`, error.message);
+            return null;
+        }
+    }
+
+    /**
      * Run the actual discovery process
      * @param {string} discoveryId - Discovery session UUID
      * @param {string} primaryUrl - URL to crawl
@@ -120,8 +203,35 @@ class SiteDiscoveryService {
             // Update status to in_progress
             await this.updateDiscoveryStatus(discoveryId, 'in_progress');
 
+            // Check for authentication for this domain
+            const authConfig = await this.checkAuthenticationAvailable(primaryUrl);
+            
+            // Configure crawler settings with authentication if available
+            const crawlerSettings = { ...settings };
+            
+            if (authConfig) {
+                crawlerSettings.useAuth = true;
+                if (authConfig.type === 'traditional') {
+                    crawlerSettings.authConfig = authConfig.authConfig;
+                }
+                console.log(`🔐 Using ${authConfig.type} authentication for ${authConfig.domain} (${authConfig.sessionFile || authConfig.configFile})`);
+                
+                // Emit authentication info via WebSocket
+                if (this.wsService) {
+                    const projectId = await this.getProjectIdFromDiscovery(discoveryId);
+                    this.wsService.emitDiscoveryMilestone(projectId, discoveryId, {
+                        type: 'authentication_detected',
+                        message: `Using ${authConfig.type} authentication for ${authConfig.domain}`,
+                        authType: authConfig.type,
+                        domain: authConfig.domain
+                    });
+                }
+            } else {
+                console.log(`🌐 No authentication found for ${new URL(primaryUrl).hostname}, crawling as public site`);
+            }
+
             // Create and configure crawler
-            const crawler = new SiteCrawler(settings);
+            const crawler = new SiteCrawler(crawlerSettings);
             this.activeCrawlers.set(discoveryId, crawler);
 
             // Set up progress callback to update database and broadcast real-time updates
@@ -131,13 +241,19 @@ class SiteDiscoveryService {
                 // Emit real-time progress via WebSocket
                 if (this.wsService) {
                     const projectId = await this.getProjectIdFromDiscovery(discoveryId);
+                    
+                    // Fix undefined values by using correct property names from crawler
+                    const pagesFound = progress.discoveredPages || progress.pagesFound || 0;
+                    const currentUrl = progress.currentUrl || progress.url || 'Unknown';
+                    const maxPages = crawlerSettings.maxPages || 500;
+                    
                     this.wsService.emitDiscoveryProgress(projectId, discoveryId, {
                         stage: 'crawling',
-                        percentage: Math.round((progress.pagesFound / (progress.maxPages || 100)) * 100),
-                        pagesFound: progress.pagesFound,
-                        currentUrl: progress.currentUrl,
-                        depth: progress.currentDepth,
-                        message: `Discovered ${progress.pagesFound} pages - Currently crawling: ${progress.currentUrl}`
+                        percentage: Math.round((pagesFound / maxPages) * 100),
+                        pagesFound: pagesFound,
+                        currentUrl: currentUrl,
+                        depth: progress.currentDepth || progress.depth || 0,
+                        message: `Discovered ${pagesFound} pages - Currently crawling: ${currentUrl}`
                     });
                 }
             });
@@ -278,7 +394,8 @@ class SiteDiscoveryService {
      */
     async updateDiscoveryProgress(discoveryId, progress) {
         // For now, just log progress. Could be extended to update a progress field
-        console.log(`Discovery ${discoveryId}: ${progress.message} (${progress.discoveredPages} pages found)`);
+        const pagesFound = progress.discoveredPages || progress.pagesFound || 0;
+        console.log(`Discovery ${discoveryId}: ${progress.message} (${pagesFound} pages found)`);
     }
 
     /**

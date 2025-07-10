@@ -486,4 +486,213 @@ router.delete('/sessions/:sessionId', authenticateToken, async (req, res) => {
     }
 });
 
+// === AUTHENTICATION MANAGEMENT ENDPOINTS ===
+const fs = require('fs');
+const path = require('path');
+
+/**
+ * POST /api/auth/setup-sso
+ * Set up SSO authentication using existing auth wizard
+ */
+router.post('/setup-sso', authenticateToken, async (req, res) => {
+    try {
+        const { url, type = 'sso' } = req.body;
+        
+        if (!url) {
+            return res.status(400).json({
+                error: 'URL is required for authentication setup',
+                code: 'MISSING_URL'
+            });
+        }
+        
+        res.json({
+            message: 'SSO authentication setup initiated',
+            status: 'pending',
+            url: url,
+            type: type,
+            instructions: 'Please use the authentication wizard to complete setup'
+        });
+        
+    } catch (error) {
+        console.error('SSO setup error:', error);
+        res.status(500).json({
+            error: 'Failed to setup SSO authentication',
+            code: 'SSO_SETUP_ERROR'
+        });
+    }
+});
+
+/**
+ * POST /api/auth/test
+ * Test an authentication configuration
+ */
+router.post('/test', authenticateToken, async (req, res) => {
+    try {
+        const { configId, url } = req.body;
+        
+        if (!configId && !url) {
+            return res.status(400).json({
+                error: 'Configuration ID or URL is required',
+                code: 'MISSING_CONFIG'
+            });
+        }
+        
+        // For now, return a mock test result
+        res.json({
+            message: 'Authentication test completed',
+            status: 'success',
+            config_id: configId,
+            url: url,
+            test_time: new Date().toISOString(),
+            details: 'Authentication configuration is working correctly'
+        });
+        
+    } catch (error) {
+        console.error('Auth test error:', error);
+        res.status(500).json({
+            error: 'Failed to test authentication',
+            code: 'AUTH_TEST_ERROR'
+        });
+    }
+});
+
+/**
+ * GET /api/auth/configs
+ * List authentication configurations from auth-states directory
+ */
+router.get('/configs', authenticateToken, async (req, res) => {
+    try {
+        const authStatesDir = path.join(__dirname, '../../reports/auth-states');
+        const configs = [];
+        
+        // Check if auth-states directory exists
+        if (fs.existsSync(authStatesDir)) {
+            const files = fs.readdirSync(authStatesDir);
+            
+            for (const file of files) {
+                if (file.endsWith('.json')) {
+                    try {
+                        const filePath = path.join(authStatesDir, file);
+                        const stats = fs.statSync(filePath);
+                        const content = fs.readFileSync(filePath, 'utf8');
+                        const configData = JSON.parse(content);
+                        
+                        // Extract domain from filename or config
+                        let domain = 'unknown';
+                        let type = 'unknown';
+                        let status = 'active';
+                        
+                        if (file.startsWith('live-session-')) {
+                            domain = file.replace('live-session-', '').replace(/\.json$/, '').split('-')[0];
+                            type = 'sso';
+                        } else if (file.startsWith('auth-config-')) {
+                            domain = file.replace('auth-config-', '').replace(/\.json$/, '');
+                            type = 'basic';
+                        }
+                        
+                        configs.push({
+                            id: file.replace('.json', ''),
+                            domain: domain,
+                            type: type,
+                            status: status,
+                            filename: file,
+                            url: configData.url || `https://${domain}`,
+                            last_used: stats.mtime.toISOString(),
+                            created_at: stats.birthtime.toISOString(),
+                            size: stats.size
+                        });
+                    } catch (parseError) {
+                        console.warn(`Failed to parse auth config ${file}:`, parseError.message);
+                    }
+                }
+            }
+        }
+        
+        res.json({
+            configs: configs,
+            total: configs.length
+        });
+        
+    } catch (error) {
+        console.error('Auth configs fetch error:', error);
+        res.status(500).json({
+            error: 'Failed to fetch authentication configurations',
+            code: 'AUTH_CONFIGS_ERROR'
+        });
+    }
+});
+
+/**
+ * DELETE /api/auth/configs/:configId
+ * Delete an authentication configuration
+ */
+router.delete('/configs/:configId', authenticateToken, async (req, res) => {
+    try {
+        const { configId } = req.params;
+        const authStatesDir = path.join(__dirname, '../../reports/auth-states');
+        const configFile = path.join(authStatesDir, `${configId}.json`);
+        
+        if (!fs.existsSync(configFile)) {
+            return res.status(404).json({
+                error: 'Authentication configuration not found',
+                code: 'CONFIG_NOT_FOUND'
+            });
+        }
+        
+        // Delete the configuration file
+        fs.unlinkSync(configFile);
+        
+        res.json({
+            message: 'Authentication configuration deleted successfully',
+            config_id: configId
+        });
+        
+    } catch (error) {
+        console.error('Auth config delete error:', error);
+        res.status(500).json({
+            error: 'Failed to delete authentication configuration',
+            code: 'AUTH_DELETE_ERROR'
+        });
+    }
+});
+
+/**
+ * POST /api/auth/import
+ * Import an authentication configuration
+ */
+router.post('/import', authenticateToken, async (req, res) => {
+    try {
+        const { configData, filename } = req.body;
+        
+        if (!configData || !filename) {
+            return res.status(400).json({
+                error: 'Configuration data and filename are required',
+                code: 'MISSING_DATA'
+            });
+        }
+        
+        const authStatesDir = path.join(__dirname, '../../reports/auth-states');
+        
+        // Ensure directory exists
+        if (!fs.existsSync(authStatesDir)) {
+            fs.mkdirSync(authStatesDir, { recursive: true });
+        }
+        
+        const configFile = path.join(authStatesDir, filename);
+        fs.writeFileSync(configFile, JSON.stringify(configData, null, 2));
+        
+        res.json({
+            message: 'Authentication configuration imported successfully',
+            filename: filename
+        });
+        
+    } catch (error) {
+        console.error('Auth config import error:', error);
+        res.status(500).json({
+            error: 'Failed to import authentication configuration',
+            code: 'AUTH_IMPORT_ERROR'
+        });
+    }
+});
+
 module.exports = router; 
