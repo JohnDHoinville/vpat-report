@@ -1,0 +1,141 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Build outputs
+dist/
+build/
+out/
+
+# Cache directories
+.cache/
+.parcel-cache/
+.next/
+.nuxt/
+
+# Operating System Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE and Editor Files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.cursor/
+
+# Test and Report Files
+reports/individual-tests/
+reports/consolidated-reports/
+reports/test-runs/
+reports/auth-states/
+reports/progress/
+reports/*.html
+reports/*.json
+reports/*.png
+wave-data/
+*.log
+
+# Generated Documentation
+docs/build/
+docs/dist/
+
+# Temporary Files
+tmp/
+temp/
+*.tmp
+*.temp
+
+# Database Files
+*.db
+*.sqlite
+*.sqlite3
+
+# Archive Files
+*.zip
+*.tar.gz
+*.rar
+*.7z
+
+# Large Media Files
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.webm
+
+# Backup Files
+*.bak
+*.backup
+*~
+
+# Coverage Reports
+coverage/
+.nyc_output/
+*.lcov
+
+# Playwright
+test-results/
+playwright-report/
+playwright/.cache/
+
+# Package Manager Files
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Runtime Files
+.pid
+*.pid
+*.seed
+*.pid.lock
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Microbundle cache
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# parcel-bundler cache (https://parceljs.org/)
+.parcel-cache
+
+# Stores VSCode versions used for testing VSCode extensions
+.vscode-test
+
+# Ignore all JSON files in reports directory and subdirectories
+reports/**/*.json
+reports/**/*.html
+
+# Ignore specific large directories entirely
+Console-script/
+wave-data/ 
