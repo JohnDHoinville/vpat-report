@@ -62,7 +62,7 @@ function dashboard() {
         // API Connection
         async checkAPIConnection() {
             try {
-                const response = await fetch(`${API_BASE_URL}/health`);
+                const response = await fetch(`http://localhost:3001/health`);
                 this.apiConnected = response.ok;
                 if (this.apiConnected) {
                     console.log('✅ API Connected');
