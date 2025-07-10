@@ -1,6 +1,7 @@
 const express = require('express');
 const { db } = require('../../database/config');
 const { v4: uuidv4 } = require('uuid');
+const { authenticateToken, requireRole } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -182,9 +183,9 @@ router.get('/:id', async (req, res) => {
 
 /**
  * POST /api/projects
- * Create a new project
+ * Create a new project (requires authentication)
  */
-router.post('/', async (req, res) => {
+router.post('/', authenticateToken, async (req, res) => {
     try {
         const {
             name,
@@ -233,13 +234,13 @@ router.post('/', async (req, res) => {
         const id = uuidv4();
         const insertQuery = `
             INSERT INTO projects (
-                id, name, description, client_name, primary_url, status
-            ) VALUES ($1, $2, $3, $4, $5, $6)
+                id, name, description, client_name, primary_url, status, created_by
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7)
             RETURNING *
         `;
 
         const result = await db.query(insertQuery, [
-            id, name, description, client_name, primary_url, status
+            id, name, description, client_name, primary_url, status, req.user.id
         ]);
 
         res.status(201).json({
@@ -267,9 +268,9 @@ router.post('/', async (req, res) => {
 
 /**
  * PUT /api/projects/:id
- * Update an existing project
+ * Update an existing project (requires authentication)
  */
-router.put('/:id', async (req, res) => {
+router.put('/:id', authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
         const {
@@ -380,9 +381,9 @@ router.put('/:id', async (req, res) => {
 
 /**
  * DELETE /api/projects/:id
- * Delete a project and all related data
+ * Delete a project and all related data (requires authentication)
  */
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
 

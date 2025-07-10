@@ -12,16 +12,26 @@ function dashboard() {
         loading: false,
         selectedProject: null,
         
+        // Authentication State
+        isAuthenticated: false,
+        user: null,
+        token: null,
+        
         // Data
         projects: [],
         discoveries: [],
         testSessions: [],
         analytics: {},
+        sessions: [],
         
         // Modal states
         showCreateProject: false,
         showStartDiscovery: false,
         showCreateSession: false,
+        showLogin: false,
+        showProfile: false,
+        showChangePassword: false,
+        showSessions: false,
         
         // Form data
         newProject: {
@@ -48,14 +58,41 @@ function dashboard() {
                 wcagLevel: 'AA'
             }
         },
+        
+        // Authentication Forms
+        loginForm: {
+            username: '',
+            password: ''
+        },
+        
+        profileForm: {
+            full_name: '',
+            email: ''
+        },
+        
+        passwordForm: {
+            current_password: '',
+            new_password: '',
+            confirm_password: ''
+        },
+        
+        // Error states
+        loginError: '',
+        passwordError: '',
 
         // Initialization
         async init() {
             console.log('🚀 Initializing Accessibility Testing Dashboard...');
             await this.checkAPIConnection();
+            await this.checkExistingAuth();
             if (this.apiConnected) {
-                await this.loadProjects();
-                await this.loadAnalytics();
+                if (this.isAuthenticated) {
+                    await this.loadProjects();
+                    await this.loadAnalytics();
+                } else {
+                    // Show login if not authenticated
+                    setTimeout(() => this.showLogin = true, 500);
+                }
             }
         },
 
@@ -78,24 +115,245 @@ function dashboard() {
         // API Helper Function
         async apiCall(endpoint, options = {}) {
             try {
+                const headers = {
+                    'Content-Type': 'application/json',
+                    ...options.headers
+                };
+                
+                // Add auth token if available
+                if (this.token) {
+                    headers['Authorization'] = `Bearer ${this.token}`;
+                }
+                
                 const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-                    headers: {
-                        'Content-Type': 'application/json',
-                        ...options.headers
-                    },
+                    headers,
                     ...options
                 });
                 
+                // Handle auth errors
+                if (response.status === 401) {
+                    this.handleAuthError();
+                    throw new Error('Authentication required');
+                }
+                
                 if (!response.ok) {
-                    throw new Error(`API Error: ${response.status} ${response.statusText}`);
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.error || `API Error: ${response.status} ${response.statusText}`);
                 }
                 
                 return await response.json();
             } catch (error) {
                 console.error(`API Call Failed [${endpoint}]:`, error);
-                this.showNotification('API call failed: ' + error.message, 'error');
+                if (error.message !== 'Authentication required') {
+                    this.showNotification('API call failed: ' + error.message, 'error');
+                }
                 throw error;
             }
+        },
+
+        // Authentication Methods
+        async checkExistingAuth() {
+            const token = localStorage.getItem('auth_token');
+            if (token) {
+                this.token = token;
+                try {
+                    const response = await fetch(`${API_BASE_URL}/auth/profile`, {
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        this.user = data.user;
+                        this.isAuthenticated = true;
+                        this.profileForm.full_name = data.user.full_name || '';
+                        this.profileForm.email = data.user.email || '';
+                        console.log('✅ Existing authentication validated');
+                    } else {
+                        this.clearAuth();
+                    }
+                } catch (error) {
+                    console.error('Auth validation failed:', error);
+                    this.clearAuth();
+                }
+            }
+        },
+        
+        async login() {
+            this.loginError = '';
+            this.loading = true;
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(this.loginForm)
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    this.token = data.token;
+                    this.user = data.user;
+                    this.isAuthenticated = true;
+                    this.showLogin = false;
+                    
+                    // Store token in localStorage
+                    localStorage.setItem('auth_token', data.token);
+                    
+                    // Initialize profile form
+                    this.profileForm.full_name = data.user.full_name || '';
+                    this.profileForm.email = data.user.email || '';
+                    
+                    // Clear form
+                    this.loginForm.username = '';
+                    this.loginForm.password = '';
+                    
+                    this.showNotification(`Welcome back, ${data.user.full_name || data.user.username}!`, 'success');
+                    
+                    // Load data
+                    await this.loadProjects();
+                    await this.loadAnalytics();
+                    
+                } else {
+                    this.loginError = data.error || 'Login failed';
+                }
+            } catch (error) {
+                this.loginError = 'Connection error. Please try again.';
+                console.error('Login error:', error);
+            } finally {
+                this.loading = false;
+            }
+        },
+        
+        async logout() {
+            try {
+                if (this.token) {
+                    await fetch(`${API_BASE_URL}/auth/logout`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${this.token}`,
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                }
+            } catch (error) {
+                console.error('Logout error:', error);
+            } finally {
+                this.clearAuth();
+                this.showNotification('Logged out successfully', 'info');
+            }
+        },
+        
+        clearAuth() {
+            this.isAuthenticated = false;
+            this.user = null;
+            this.token = null;
+            localStorage.removeItem('auth_token');
+            
+            // Clear data
+            this.projects = [];
+            this.testSessions = [];
+            this.discoveries = [];
+            this.analytics = {};
+            this.selectedProject = null;
+            
+            // Reset to projects tab
+            this.activeTab = 'projects';
+        },
+        
+        handleAuthError() {
+            this.clearAuth();
+            this.showLogin = true;
+            this.showNotification('Session expired. Please log in again.', 'warning');
+        },
+        
+        async updateProfile() {
+            this.loading = true;
+            
+            try {
+                const data = await this.apiCall('/auth/profile', {
+                    method: 'PUT',
+                    body: JSON.stringify(this.profileForm)
+                });
+                
+                this.user = data.user;
+                this.showProfile = false;
+                this.showNotification('Profile updated successfully!', 'success');
+                
+            } catch (error) {
+                console.error('Profile update error:', error);
+            } finally {
+                this.loading = false;
+            }
+        },
+        
+        async changePassword() {
+            this.passwordError = '';
+            
+            if (this.passwordForm.new_password !== this.passwordForm.confirm_password) {
+                this.passwordError = 'New passwords do not match';
+                return;
+            }
+            
+            if (this.passwordForm.new_password.length < 8) {
+                this.passwordError = 'New password must be at least 8 characters long';
+                return;
+            }
+            
+            this.loading = true;
+            
+            try {
+                await this.apiCall('/auth/change-password', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        current_password: this.passwordForm.current_password,
+                        new_password: this.passwordForm.new_password
+                    })
+                });
+                
+                this.showChangePassword = false;
+                this.passwordForm = { current_password: '', new_password: '', confirm_password: '' };
+                this.showNotification('Password changed successfully!', 'success');
+                
+            } catch (error) {
+                this.passwordError = error.message || 'Failed to change password';
+                console.error('Password change error:', error);
+            } finally {
+                this.loading = false;
+            }
+        },
+        
+        async loadSessions() {
+            try {
+                const data = await this.apiCall('/auth/sessions');
+                this.sessions = data.sessions || [];
+            } catch (error) {
+                console.error('Failed to load sessions:', error);
+            }
+        },
+        
+        async revokeSession(sessionId) {
+            try {
+                await this.apiCall(`/auth/sessions/${sessionId}`, {
+                    method: 'DELETE'
+                });
+                
+                this.sessions = this.sessions.filter(s => s.id !== sessionId);
+                this.showNotification('Session revoked successfully', 'success');
+                
+            } catch (error) {
+                console.error('Failed to revoke session:', error);
+            }
+        },
+        
+        async openSessionsModal() {
+            this.showSessions = true;
+            await this.loadSessions();
         },
 
         // Project Management

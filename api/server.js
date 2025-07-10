@@ -5,10 +5,14 @@ const rateLimit = require('express-rate-limit');
 const { db } = require('../database/config');
 
 // Import route modules
+const authRoutes = require('./routes/auth');
 const projectRoutes = require('./routes/projects');
 const sessionRoutes = require('./routes/sessions');
 const pageRoutes = require('./routes/pages');
 const resultRoutes = require('./routes/results');
+
+// Import authentication middleware
+const { optionalAuth } = require('./middleware/auth');
 
 /**
  * Accessibility Testing API Server
@@ -95,6 +99,16 @@ app.get('/api', (req, res) => {
         description: 'REST API for managing accessibility test data',
         endpoints: {
             health: 'GET /health',
+            auth: {
+                login: 'POST /api/auth/login',
+                logout: 'POST /api/auth/logout',
+                register: 'POST /api/auth/register',
+                profile: 'GET /api/auth/profile',
+                updateProfile: 'PUT /api/auth/profile',
+                changePassword: 'POST /api/auth/change-password',
+                sessions: 'GET /api/auth/sessions',
+                revokeSession: 'DELETE /api/auth/sessions/:id'
+            },
             projects: {
                 list: 'GET /api/projects',
                 get: 'GET /api/projects/:id',
@@ -126,7 +140,11 @@ app.get('/api', (req, res) => {
     });
 });
 
+// Apply optional authentication to all API routes
+app.use('/api', optionalAuth);
+
 // Mount API routes
+app.use('/api/auth', authRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/sessions', sessionRoutes);
 app.use('/api/pages', pageRoutes);
