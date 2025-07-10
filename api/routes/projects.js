@@ -1,0 +1,519 @@
+const express = require('express');
+const { db } = require('../../database/config');
+const { v4: uuidv4 } = require('uuid');
+
+const router = express.Router();
+
+/**
+ * Project Routes
+ * Handles CRUD operations for accessibility testing projects
+ */
+
+/**
+ * GET /api/projects
+ * List all projects with optional filtering and pagination
+ */
+router.get('/', async (req, res) => {
+    try {
+        const {
+            page = 1,
+            limit = 50,
+            search,
+            status,
+            sort = 'created_at',
+            order = 'DESC'
+        } = req.query;
+
+        // Validate pagination
+        const pageNum = Math.max(1, parseInt(page));
+        const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
+        const offset = (pageNum - 1) * limitNum;
+
+        // Build query conditions
+        let whereClause = '';
+        let queryParams = [];
+        let paramIndex = 1;
+
+        if (search) {
+            whereClause += ` AND (name ILIKE $${paramIndex} OR description ILIKE $${paramIndex + 1})`;
+            queryParams.push(`%${search}%`, `%${search}%`);
+            paramIndex += 2;
+        }
+
+        if (status) {
+            whereClause += ` AND status = $${paramIndex}`;
+            queryParams.push(status);
+            paramIndex++;
+        }
+
+        // Validate sort column
+        const allowedSortColumns = ['name', 'status', 'created_at', 'updated_at'];
+        const sortColumn = allowedSortColumns.includes(sort) ? sort : 'created_at';
+        const sortOrder = order.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+
+        // Get total count
+        const countQuery = `
+            SELECT COUNT(*) 
+            FROM projects 
+            WHERE 1=1 ${whereClause}
+        `;
+        const countResult = await db.query(countQuery, queryParams);
+        const totalItems = parseInt(countResult.rows[0].count);
+
+        // Get projects
+        queryParams.push(limitNum, offset);
+        const projectsQuery = `
+            SELECT 
+                id,
+                name,
+                description,
+                client_name,
+                primary_url,
+                status,
+                created_at,
+                updated_at,
+                (
+                    SELECT COUNT(*) 
+                    FROM test_sessions ts 
+                    WHERE ts.project_id = projects.id
+                ) as session_count
+            FROM projects 
+            WHERE 1=1 ${whereClause}
+            ORDER BY ${sortColumn} ${sortOrder}
+            LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+        `;
+
+        const result = await db.query(projectsQuery, queryParams);
+
+        res.json({
+            data: result.rows,
+            pagination: {
+                current_page: pageNum,
+                per_page: limitNum,
+                total_items: totalItems,
+                total_pages: Math.ceil(totalItems / limitNum),
+                has_next: pageNum * limitNum < totalItems,
+                has_prev: pageNum > 1
+            },
+            meta: {
+                search,
+                status,
+                sort: sortColumn,
+                order: sortOrder
+            }
+        });
+
+    } catch (error) {
+        console.error('Error fetching projects:', error);
+        res.status(500).json({
+            error: 'Failed to fetch projects',
+            message: error.message
+        });
+    }
+});
+
+/**
+ * GET /api/projects/:id
+ * Get a specific project by ID with related data
+ */
+router.get('/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { include } = req.query;
+
+        // Get project details
+        const projectQuery = `
+            SELECT 
+                p.*,
+                (
+                    SELECT COUNT(*) 
+                    FROM test_sessions ts 
+                    WHERE ts.project_id = p.id
+                ) as session_count,
+                (
+                    SELECT COUNT(*) 
+                    FROM test_sessions ts 
+                    JOIN automated_test_results atr ON ts.id = atr.test_session_id
+                    WHERE ts.project_id = p.id
+                ) as total_test_results
+            FROM projects p 
+            WHERE p.id = $1
+        `;
+
+        const result = await db.query(projectQuery, [id]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                error: 'Project not found',
+                id
+            });
+        }
+
+        const project = result.rows[0];
+
+        // Include related data if requested
+        if (include && include.includes('sessions')) {
+            const sessionsQuery = `
+                SELECT 
+                    ts.*,
+                    (
+                        SELECT COUNT(*) 
+                        FROM automated_test_results atr 
+                        WHERE atr.test_session_id = ts.id
+                    ) as result_count
+                FROM test_sessions ts 
+                WHERE ts.project_id = $1
+                ORDER BY ts.created_at DESC
+            `;
+            const sessionResult = await db.query(sessionsQuery, [id]);
+            project.sessions = sessionResult.rows;
+        }
+
+        res.json(project);
+
+    } catch (error) {
+        console.error('Error fetching project:', error);
+        res.status(500).json({
+            error: 'Failed to fetch project',
+            message: error.message
+        });
+    }
+});
+
+/**
+ * POST /api/projects
+ * Create a new project
+ */
+router.post('/', async (req, res) => {
+    try {
+        const {
+            name,
+            description,
+            client_name,
+            primary_url,
+            status = 'active'
+        } = req.body;
+
+        // Validate required fields
+        if (!name) {
+            return res.status(400).json({
+                error: 'Validation failed',
+                message: 'Project name is required'
+            });
+        }
+
+        if (!primary_url) {
+            return res.status(400).json({
+                error: 'Validation failed',
+                message: 'Primary URL is required'
+            });
+        }
+
+        // Validate URL format
+        try {
+            new URL(primary_url);
+        } catch (error) {
+            return res.status(400).json({
+                error: 'Validation failed',
+                message: 'Invalid primary URL format'
+            });
+        }
+
+        // Validate status
+        const allowedStatuses = ['active', 'completed', 'paused', 'archived'];
+
+        if (!allowedStatuses.includes(status)) {
+            return res.status(400).json({
+                error: 'Validation failed',
+                message: `Status must be one of: ${allowedStatuses.join(', ')}`
+            });
+        }
+
+        // Create project
+        const id = uuidv4();
+        const insertQuery = `
+            INSERT INTO projects (
+                id, name, description, client_name, primary_url, status
+            ) VALUES ($1, $2, $3, $4, $5, $6)
+            RETURNING *
+        `;
+
+        const result = await db.query(insertQuery, [
+            id, name, description, client_name, primary_url, status
+        ]);
+
+        res.status(201).json({
+            message: 'Project created successfully',
+            data: result.rows[0]
+        });
+
+    } catch (error) {
+        console.error('Error creating project:', error);
+        
+        // Handle unique constraint violations
+        if (error.code === '23505') {
+            return res.status(409).json({
+                error: 'Project already exists',
+                message: 'A project with this name or URL already exists'
+            });
+        }
+
+        res.status(500).json({
+            error: 'Failed to create project',
+            message: error.message
+        });
+    }
+});
+
+/**
+ * PUT /api/projects/:id
+ * Update an existing project
+ */
+router.put('/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const {
+            name,
+            description,
+            client_name,
+            primary_url,
+            status
+        } = req.body;
+
+        // Check if project exists
+        const existsQuery = 'SELECT id FROM projects WHERE id = $1';
+        const existsResult = await db.query(existsQuery, [id]);
+
+        if (existsResult.rows.length === 0) {
+            return res.status(404).json({
+                error: 'Project not found',
+                id
+            });
+        }
+
+        // Build dynamic update query
+        const updateFields = [];
+        const values = [];
+        let paramIndex = 1;
+
+        if (name !== undefined) {
+            updateFields.push(`name = $${paramIndex}`);
+            values.push(name);
+            paramIndex++;
+        }
+
+        if (description !== undefined) {
+            updateFields.push(`description = $${paramIndex}`);
+            values.push(description);
+            paramIndex++;
+        }
+
+        if (client_name !== undefined) {
+            updateFields.push(`client_name = $${paramIndex}`);
+            values.push(client_name);
+            paramIndex++;
+        }
+
+        if (primary_url !== undefined) {
+            // Validate URL format
+            try {
+                new URL(primary_url);
+            } catch (error) {
+                return res.status(400).json({
+                    error: 'Validation failed',
+                    message: 'Invalid primary URL format'
+                });
+            }
+
+            updateFields.push(`primary_url = $${paramIndex}`);
+            values.push(primary_url);
+            paramIndex++;
+        }
+
+        if (status !== undefined) {
+            const allowedStatuses = ['active', 'completed', 'paused', 'archived'];
+            if (!allowedStatuses.includes(status)) {
+                return res.status(400).json({
+                    error: 'Validation failed',
+                    message: `Status must be one of: ${allowedStatuses.join(', ')}`
+                });
+            }
+
+            updateFields.push(`status = $${paramIndex}`);
+            values.push(status);
+            paramIndex++;
+        }
+
+        if (updateFields.length === 0) {
+            return res.status(400).json({
+                error: 'Validation failed',
+                message: 'No valid fields provided for update'
+            });
+        }
+
+        // Add updated_at and id to the query
+        updateFields.push(`updated_at = CURRENT_TIMESTAMP`);
+        values.push(id);
+
+        const updateQuery = `
+            UPDATE projects 
+            SET ${updateFields.join(', ')}
+            WHERE id = $${paramIndex}
+            RETURNING *
+        `;
+
+        const result = await db.query(updateQuery, values);
+
+        res.json({
+            message: 'Project updated successfully',
+            data: result.rows[0]
+        });
+
+    } catch (error) {
+        console.error('Error updating project:', error);
+        res.status(500).json({
+            error: 'Failed to update project',
+            message: error.message
+        });
+    }
+});
+
+/**
+ * DELETE /api/projects/:id
+ * Delete a project and all related data
+ */
+router.delete('/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        // Check if project exists and get related data count
+        const checkQuery = `
+            SELECT 
+                p.name,
+                (SELECT COUNT(*) FROM test_sessions WHERE project_id = p.id) as session_count
+            FROM projects p 
+            WHERE p.id = $1
+        `;
+        const checkResult = await db.query(checkQuery, [id]);
+
+        if (checkResult.rows.length === 0) {
+            return res.status(404).json({
+                error: 'Project not found',
+                id
+            });
+        }
+
+        const project = checkResult.rows[0];
+
+        // Delete project (cascading will handle related data)
+        const deleteQuery = 'DELETE FROM projects WHERE id = $1';
+        await db.query(deleteQuery, [id]);
+
+        res.json({
+            message: 'Project deleted successfully',
+            deleted: {
+                id,
+                name: project.name,
+                sessions_deleted: project.session_count
+            }
+        });
+
+    } catch (error) {
+        console.error('Error deleting project:', error);
+        res.status(500).json({
+            error: 'Failed to delete project',
+            message: error.message
+        });
+    }
+});
+
+/**
+ * GET /api/projects/:id/sessions
+ * Get all test sessions for a specific project
+ */
+router.get('/:id/sessions', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const {
+            page = 1,
+            limit = 50,
+            status,
+            sort = 'created_at',
+            order = 'DESC'
+        } = req.query;
+
+        // Check if project exists
+        const projectExists = await db.query('SELECT id FROM projects WHERE id = $1', [id]);
+        if (projectExists.rows.length === 0) {
+            return res.status(404).json({
+                error: 'Project not found',
+                id
+            });
+        }
+
+        // Validate pagination
+        const pageNum = Math.max(1, parseInt(page));
+        const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
+        const offset = (pageNum - 1) * limitNum;
+
+        // Build query
+        let whereClause = 'WHERE project_id = $1';
+        let queryParams = [id];
+        let paramIndex = 2;
+
+        if (status) {
+            whereClause += ` AND status = $${paramIndex}`;
+            queryParams.push(status);
+            paramIndex++;
+        }
+
+        // Validate sort
+        const allowedSortColumns = ['name', 'status', 'created_at', 'updated_at'];
+        const sortColumn = allowedSortColumns.includes(sort) ? sort : 'created_at';
+        const sortOrder = order.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+
+        // Get total count
+        const countQuery = `SELECT COUNT(*) FROM test_sessions ${whereClause}`;
+        const countResult = await db.query(countQuery, queryParams);
+        const totalItems = parseInt(countResult.rows[0].count);
+
+        // Get sessions
+        queryParams.push(limitNum, offset);
+        const sessionsQuery = `
+            SELECT 
+                ts.*,
+                (
+                    SELECT COUNT(*) 
+                    FROM automated_test_results atr 
+                    WHERE atr.test_session_id = ts.id
+                ) as result_count
+            FROM test_sessions ts 
+            ${whereClause}
+            ORDER BY ${sortColumn} ${sortOrder}
+            LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+        `;
+
+        const result = await db.query(sessionsQuery, queryParams);
+
+        res.json({
+            data: result.rows,
+            pagination: {
+                current_page: pageNum,
+                per_page: limitNum,
+                total_items: totalItems,
+                total_pages: Math.ceil(totalItems / limitNum),
+                has_next: pageNum * limitNum < totalItems,
+                has_prev: pageNum > 1
+            }
+        });
+
+    } catch (error) {
+        console.error('Error fetching project sessions:', error);
+        res.status(500).json({
+            error: 'Failed to fetch project sessions',
+            message: error.message
+        });
+    }
+});
+
+module.exports = router; 
