@@ -14,18 +14,63 @@ const {
     pool
 } = require('../middleware/auth');
 
-// Rate limiting for auth endpoints
-const authLimiter = rateLimit({
+// Rate limiting for failed auth attempts only
+const failedAuthLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 5, // Limit each IP to 5 requests per windowMs
+    max: 5, // Limit each IP to 5 failed requests per windowMs
     message: {
-        error: 'Too many authentication attempts',
+        error: 'Too many failed authentication attempts',
         code: 'RATE_LIMIT_EXCEEDED',
         retry_after: '15 minutes'
     },
     standardHeaders: true,
-    legacyHeaders: false
+    legacyHeaders: false,
+    keyGenerator: (req) => {
+        return `auth_failed_${req.ip}`;
+    }
 });
+
+// Conditional rate limiter that only applies to failed attempts
+const conditionalAuthLimiter = async (req, res, next) => {
+    const { username, password } = req.body;
+    
+    // If no credentials provided, apply rate limiting
+    if (!username || !password) {
+        return failedAuthLimiter(req, res, next);
+    }
+    
+    try {
+        // Check if this would be a successful login
+        const userQuery = `
+            SELECT id, password_hash, is_active
+            FROM users 
+            WHERE (username = $1 OR email = $1) AND is_active = true
+        `;
+        
+        const userResult = await pool.query(userQuery, [username]);
+        
+        if (userResult.rows.length === 0) {
+            // User not found - apply rate limiting
+            return failedAuthLimiter(req, res, next);
+        }
+        
+        const user = userResult.rows[0];
+        const isValidPassword = await verifyPassword(password, user.password_hash);
+        
+        if (!isValidPassword) {
+            // Invalid password - apply rate limiting  
+            return failedAuthLimiter(req, res, next);
+        }
+        
+        // Valid credentials - skip rate limiting entirely
+        return next();
+        
+    } catch (error) {
+        console.error('Auth check error:', error);
+        // On error, apply rate limiting to be safe
+        return failedAuthLimiter(req, res, next);
+    }
+};
 
 const registerLimiter = rateLimit({
     windowMs: 60 * 60 * 1000, // 1 hour
@@ -41,7 +86,7 @@ const registerLimiter = rateLimit({
  * POST /api/auth/login
  * User login with username/email and password
  */
-router.post('/login', authLimiter, async (req, res) => {
+router.post('/login', conditionalAuthLimiter, async (req, res) => {
     try {
         const { username, password, remember_me = false } = req.body;
         
