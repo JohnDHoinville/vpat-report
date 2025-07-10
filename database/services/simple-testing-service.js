@@ -1,5 +1,5 @@
 const { Pool } = require('pg');
-const config = require('../config');
+const { pool } = require('../config');
 const { v4: uuidv4 } = require('uuid');
 const ComprehensiveTestRunner = require('../../scripts/comprehensive-test-runner');
 const WCAGCriteriaMapper = require('../../scripts/wcag-criteria-mapper');
@@ -10,10 +10,11 @@ const WCAGCriteriaMapper = require('../../scripts/wcag-criteria-mapper');
  * Integrates with database for session management and result storage
  */
 class SimpleTestingService {
-    constructor() {
-        this.pool = config.getPool();
+    constructor(wsService = null) {
+        this.pool = pool;
         this.activeTestSessions = new Map(); // Track running test sessions
         this.wcagMapper = new WCAGCriteriaMapper();
+        this.wsService = wsService; // WebSocket service for real-time updates
     }
 
     /**
@@ -127,6 +128,17 @@ class SimpleTestingService {
                 ['in_progress', sessionId]
             );
             
+            // Emit milestone: Testing started
+            if (this.wsService) {
+                const testTypes = options.testTypes || ['axe', 'pa11y'];
+                this.wsService.emitTestingMilestone(sessionId, session.project_id, {
+                    type: 'testing_started',
+                    message: `Automated testing started with ${testTypes.length} tools on ${pages.length} pages`,
+                    testTypes,
+                    pageCount: pages.length
+                });
+            }
+
             // Start automated testing asynchronously
             this.runAutomatedTests(sessionId, pages, options)
                 .catch(error => {
@@ -160,6 +172,9 @@ class SimpleTestingService {
             const testTypes = options.testTypes || ['axe', 'pa11y', 'lighthouse'];
             const totalTests = pages.length * testTypes.length;
             let completedTests = 0;
+            
+            // Get project ID for WebSocket broadcasting
+            const projectId = await this.getProjectIdFromSession(sessionId);
             
             // Create test runner
             const runner = new ComprehensiveTestRunner({
@@ -196,6 +211,40 @@ class SimpleTestingService {
                             currentTool: toolName
                         });
                         
+                        // Emit real-time progress via WebSocket
+                        if (this.wsService) {
+                            this.wsService.emitSessionProgress(sessionId, projectId, {
+                                stage: 'automated_testing',
+                                percentage: progress,
+                                currentPage: page.url,
+                                currentTool: toolName,
+                                completedTests,
+                                totalTests,
+                                message: `Testing ${page.url} with ${toolName} (${completedTests}/${totalTests})`
+                            });
+                            
+                            // Emit milestone events at key progress points
+                            if (progress === 25) {
+                                this.wsService.emitTestingMilestone(sessionId, projectId, {
+                                    type: 'testing_quarter_complete',
+                                    message: '25% of testing completed',
+                                    progress: 25
+                                });
+                            } else if (progress === 50) {
+                                this.wsService.emitTestingMilestone(sessionId, projectId, {
+                                    type: 'testing_half_complete',
+                                    message: 'Halfway through testing!',
+                                    progress: 50
+                                });
+                            } else if (progress === 75) {
+                                this.wsService.emitTestingMilestone(sessionId, projectId, {
+                                    type: 'testing_three_quarter_complete',
+                                    message: '75% of testing completed',
+                                    progress: 75
+                                });
+                            }
+                        }
+                        
                     } catch (error) {
                         console.error(`Test failed for ${page.url} with ${toolName}:`, error);
                         
@@ -218,6 +267,17 @@ class SimpleTestingService {
                 automatedTestsCompleted: completedTests,
                 totalAutomatedTests: totalTests
             });
+            
+            // Emit completion event via WebSocket
+            if (this.wsService) {
+                this.wsService.emitSessionComplete(sessionId, projectId, {
+                    status: 'completed',
+                    automatedTestsCompleted: completedTests,
+                    totalAutomatedTests: totalTests,
+                    totalPages: pages.length,
+                    message: `Automated testing completed! Tested ${pages.length} pages with ${testTypes.length} tools`
+                });
+            }
             
             this.activeTestSessions.delete(sessionId);
             
@@ -749,6 +809,32 @@ class SimpleTestingService {
         } finally {
             client.release();
         }
+    }
+
+    /**
+     * Get project ID from session ID
+     * @param {string} sessionId - Session UUID
+     * @returns {string} Project UUID
+     */
+    async getProjectIdFromSession(sessionId) {
+        const client = await this.pool.connect();
+        try {
+            const result = await client.query(
+                'SELECT project_id FROM test_sessions WHERE id = $1',
+                [sessionId]
+            );
+            return result.rows[0]?.project_id;
+        } finally {
+            client.release();
+        }
+    }
+
+    /**
+     * Set WebSocket service for real-time updates
+     * @param {WebSocketService} wsService - WebSocket service instance
+     */
+    setWebSocketService(wsService) {
+        this.wsService = wsService;
     }
 }
 

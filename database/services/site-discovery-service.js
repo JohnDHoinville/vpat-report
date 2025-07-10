@@ -1,5 +1,5 @@
 const { Pool } = require('pg');
-const config = require('../config');
+const { pool } = require('../config');
 const SiteCrawler = require('../../scripts/site-crawler');
 const { URL } = require('url');
 
@@ -9,9 +9,10 @@ const { URL } = require('url');
  * Handles site crawling, page discovery, and database persistence
  */
 class SiteDiscoveryService {
-    constructor() {
-        this.pool = config.getPool();
+    constructor(wsService = null) {
+        this.pool = pool;
         this.activeCrawlers = new Map(); // Track running crawlers by discovery ID
+        this.wsService = wsService; // WebSocket service for real-time updates
     }
 
     /**
@@ -73,6 +74,16 @@ class SiteDiscoveryService {
             
             await client.query('COMMIT');
 
+            // Emit milestone: Discovery started
+            if (this.wsService) {
+                this.wsService.emitDiscoveryMilestone(projectId, discovery.id, {
+                    type: 'discovery_started',
+                    message: `Site discovery started for ${domain}`,
+                    primaryUrl,
+                    settings: discoverySettings
+                });
+            }
+
             // Start the crawling process asynchronously
             this.runDiscovery(discovery.id, primaryUrl, discoverySettings)
                 .catch(error => {
@@ -113,9 +124,22 @@ class SiteDiscoveryService {
             const crawler = new SiteCrawler(settings);
             this.activeCrawlers.set(discoveryId, crawler);
 
-            // Set up progress callback to update database
+            // Set up progress callback to update database and broadcast real-time updates
             crawler.onProgress(async (progress) => {
                 await this.updateDiscoveryProgress(discoveryId, progress);
+                
+                // Emit real-time progress via WebSocket
+                if (this.wsService) {
+                    const projectId = await this.getProjectIdFromDiscovery(discoveryId);
+                    this.wsService.emitDiscoveryProgress(projectId, discoveryId, {
+                        stage: 'crawling',
+                        percentage: Math.round((progress.pagesFound / (progress.maxPages || 100)) * 100),
+                        pagesFound: progress.pagesFound,
+                        currentUrl: progress.currentUrl,
+                        depth: progress.currentDepth,
+                        message: `Discovered ${progress.pagesFound} pages - Currently crawling: ${progress.currentUrl}`
+                    });
+                }
             });
 
             // Start crawling
@@ -130,6 +154,18 @@ class SiteDiscoveryService {
                 totalErrors: results.errors.length,
                 summary: results.summary
             });
+
+            // Emit completion event via WebSocket
+            if (this.wsService) {
+                const projectId = await this.getProjectIdFromDiscovery(discoveryId);
+                this.wsService.emitDiscoveryComplete(projectId, discoveryId, {
+                    total_pages_found: results.pages.length,
+                    total_errors: results.errors.length,
+                    duration_ms: results.summary?.duration || 0,
+                    status: 'completed',
+                    message: `Discovery completed! Found ${results.pages.length} pages`
+                });
+            }
 
             // Clean up
             this.activeCrawlers.delete(discoveryId);
@@ -447,6 +483,32 @@ class SiteDiscoveryService {
         } finally {
             client.release();
         }
+    }
+
+    /**
+     * Get project ID from discovery ID
+     * @param {string} discoveryId - Discovery UUID
+     * @returns {string} Project UUID
+     */
+    async getProjectIdFromDiscovery(discoveryId) {
+        const client = await this.pool.connect();
+        try {
+            const result = await client.query(
+                'SELECT project_id FROM site_discovery WHERE id = $1',
+                [discoveryId]
+            );
+            return result.rows[0]?.project_id;
+        } finally {
+            client.release();
+        }
+    }
+
+    /**
+     * Set WebSocket service for real-time updates
+     * @param {WebSocketService} wsService - WebSocket service instance
+     */
+    setWebSocketService(wsService) {
+        this.wsService = wsService;
     }
 }
 

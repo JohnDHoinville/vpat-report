@@ -1,0 +1,59 @@
+{
+  "testName": "Discovery-bf288e8b-691e-4d35-ae84-bce73861bf96",
+  "rootUrl": "https://example.com",
+  "startTime": "2025-07-10T19:22:27.644Z",
+  "options": {
+    "maxDepth": 1,
+    "maxPages": 3,
+    "rateLimitMs": 2000,
+    "userAgent": "AccessibilityTestingBot/1.0",
+    "respectRobots": false,
+    "timeout": 10000,
+    "useAuth": false,
+    "authConfig": null,
+    "headless": true
+  },
+  "summary": {
+    "totalRequests": 3,
+    "successfulRequests": 3,
+    "discoveredPages": 3,
+    "errors": 0,
+    "maxDepthReached": 1
+  },
+  "pages": [
+    {
+      "url": "https://example.com",
+      "title": "Example Domain",
+      "depth": 0,
+      "parentUrl": null,
+      "statusCode": 200,
+      "contentType": "text/html",
+      "wordCount": 30,
+      "lastModified": "Mon, 13 Jan 2025 20:11:20 GMT",
+      "discoveredAt": "2025-07-10T19:22:22.940Z"
+    },
+    {
+      "url": "https://example.com/app",
+      "title": "Example Domain",
+      "depth": 1,
+      "parentUrl": "https://example.com",
+      "statusCode": 404,
+      "contentType": "text/html",
+      "wordCount": 30,
+      "lastModified": "Mon, 13 Jan 2025 20:11:20 GMT",
+      "discoveredAt": "2025-07-10T19:22:25.371Z"
+    },
+    {
+      "url": "https://example.com/login",
+      "title": "Example Domain",
+      "depth": 1,
+      "parentUrl": "https://example.com",
+      "statusCode": 404,
+      "contentType": "text/html",
+      "wordCount": 30,
+      "lastModified": "Mon, 13 Jan 2025 20:11:20 GMT",
+      "discoveredAt": "2025-07-10T19:22:27.644Z"
+    }
+  ],
+  "errors": []
+}

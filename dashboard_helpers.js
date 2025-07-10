@@ -17,6 +17,34 @@ function dashboard() {
         user: null,
         token: null,
         
+        // WebSocket State
+        wsConnected: false,
+        socket: null,
+        
+        // Real-time Progress Tracking
+        discoveryProgress: {
+            active: false,
+            percentage: 0,
+            pagesFound: 0,
+            currentUrl: '',
+            depth: 0,
+            message: 'Initializing discovery...'
+        },
+        
+        testingProgress: {
+            active: false,
+            percentage: 0,
+            completedTests: 0,
+            totalTests: 0,
+            currentPage: '',
+            currentTool: '',
+            message: 'Starting automated testing...'
+        },
+        
+        // Notifications
+        notifications: [],
+        notificationId: 0,
+        
         // Data
         projects: [],
         discoveries: [],
@@ -87,6 +115,7 @@ function dashboard() {
             await this.checkExistingAuth();
             if (this.apiConnected) {
                 if (this.isAuthenticated) {
+                    await this.initWebSocket();
                     await this.loadProjects();
                     await this.loadAnalytics();
                 } else {
@@ -109,6 +138,264 @@ function dashboard() {
             } catch (error) {
                 console.error('❌ API Connection Failed:', error);
                 this.apiConnected = false;
+            }
+        },
+
+        // WebSocket Methods
+        async initWebSocket() {
+            if (!this.token || !window.io) {
+                console.warn('⚠️ WebSocket not available - missing token or Socket.IO');
+                return;
+            }
+            
+            try {
+                this.socket = io('http://localhost:3001', {
+                    auth: {
+                        token: this.token
+                    },
+                    transports: ['websocket', 'polling']
+                });
+                
+                this.socket.on('connect', () => {
+                    console.log('🔌 WebSocket connected');
+                    this.wsConnected = true;
+                    this.addNotification('Live Updates', 'Real-time updates connected', 'success');
+                    
+                    // Join project room if one is selected
+                    if (this.selectedProject) {
+                        this.socket.emit('join_project', this.selectedProject.id);
+                    }
+                });
+                
+                this.socket.on('disconnect', () => {
+                    console.log('🔌 WebSocket disconnected');
+                    this.wsConnected = false;
+                });
+                
+                this.socket.on('connect_error', (error) => {
+                    console.error('WebSocket connection error:', error);
+                    this.wsConnected = false;
+                });
+                
+                // Discovery progress events
+                this.socket.on('discovery_progress', (data) => {
+                    console.log('📡 Discovery progress:', data);
+                    this.handleDiscoveryProgress(data);
+                });
+                
+                this.socket.on('discovery_complete', (data) => {
+                    console.log('🏁 Discovery complete:', data);
+                    this.handleDiscoveryComplete(data);
+                });
+                
+                // Testing progress events
+                this.socket.on('session_progress', (data) => {
+                    console.log('📊 Session progress:', data);
+                    this.handleSessionProgress(data);
+                });
+                
+                this.socket.on('session_complete', (data) => {
+                    console.log('✅ Session complete:', data);
+                    this.handleSessionComplete(data);
+                });
+                
+                // Notification events
+                this.socket.on('notification', (data) => {
+                    this.addNotification(data.title || 'Update', data.message, data.type || 'info');
+                });
+                
+                // Milestone events
+                this.socket.on('discovery_milestone', (data) => {
+                    this.handleDiscoveryMilestone(data);
+                });
+                
+                this.socket.on('testing_milestone', (data) => {
+                    this.handleTestingMilestone(data);
+                });
+                
+                // User presence events
+                this.socket.on('user_joined_project', (data) => {
+                    this.addNotification('User Joined', `${data.username} joined the project`, 'info');
+                });
+                
+                this.socket.on('user_left_project', (data) => {
+                    this.addNotification('User Left', `${data.username} left the project`, 'info');
+                });
+                
+            } catch (error) {
+                console.error('WebSocket initialization failed:', error);
+                this.wsConnected = false;
+            }
+        },
+
+        handleDiscoveryProgress(data) {
+            this.discoveryProgress = {
+                active: true,
+                percentage: data.progress.percentage,
+                pagesFound: data.progress.pagesFound,
+                currentUrl: data.progress.currentUrl,
+                depth: data.progress.depth,
+                message: data.progress.message
+            };
+            
+            // Update progress notification
+            this.updateProgressNotification('discovery', data.progress.percentage, data.progress.message);
+        },
+
+        handleDiscoveryComplete(data) {
+            this.discoveryProgress.active = false;
+            this.addNotification('Discovery Complete', data.results.message, 'success');
+            
+            // Refresh discoveries list
+            if (this.selectedProject) {
+                this.loadProjectDiscoveries();
+            }
+        },
+
+        handleSessionProgress(data) {
+            this.testingProgress = {
+                active: true,
+                percentage: data.progress.percentage,
+                completedTests: data.progress.completedTests,
+                totalTests: data.progress.totalTests,
+                currentPage: data.progress.currentPage,
+                currentTool: data.progress.currentTool,
+                message: data.progress.message
+            };
+            
+            // Update progress notification
+            this.updateProgressNotification('testing', data.progress.percentage, data.progress.message);
+        },
+
+        handleSessionComplete(data) {
+            this.testingProgress.active = false;
+            this.addNotification('Testing Complete', data.results.message, 'success');
+            
+            // Refresh test sessions list
+            if (this.selectedProject) {
+                this.loadProjectTestSessions();
+            }
+        },
+
+        handleDiscoveryMilestone(data) {
+            const milestone = data.milestone;
+            const milestoneTypes = {
+                'discovery_started': { icon: '🚀', type: 'info' },
+                'pages_milestone_50': { icon: '📄', type: 'info' },
+                'pages_milestone_100': { icon: '📄', type: 'info' },
+                'depth_reached': { icon: '🔍', type: 'info' }
+            };
+            
+            const config = milestoneTypes[milestone.type] || { icon: '🎯', type: 'info' };
+            this.addNotification(
+                `${config.icon} Discovery Milestone`,
+                milestone.message,
+                config.type,
+                3000
+            );
+        },
+
+        handleTestingMilestone(data) {
+            const milestone = data.milestone;
+            const milestoneTypes = {
+                'testing_started': { icon: '🚀', type: 'info', sound: true },
+                'testing_quarter_complete': { icon: '🎯', type: 'info' },
+                'testing_half_complete': { icon: '🎊', type: 'success', sound: true },
+                'testing_three_quarter_complete': { icon: '🎯', type: 'info' },
+                'critical_violations_found': { icon: '⚠️', type: 'warning', sound: true }
+            };
+            
+            const config = milestoneTypes[milestone.type] || { icon: '🎯', type: 'info' };
+            this.addNotification(
+                `${config.icon} Testing Milestone`,
+                milestone.message,
+                config.type,
+                config.type === 'success' ? 8000 : 4000
+            );
+            
+            // Play notification sound for important milestones
+            if (config.sound && 'Notification' in window) {
+                this.playNotificationSound();
+            }
+        },
+
+        playNotificationSound() {
+            // Create a simple notification sound using Web Audio API
+            try {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                oscillator.frequency.value = 800;
+                oscillator.type = 'sine';
+                
+                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+                
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 0.5);
+            } catch (error) {
+                console.log('Notification sound not available:', error);
+            }
+        },
+
+        // Notification Management
+        addNotification(title, message, type = 'info', duration = 5000, progress = undefined) {
+            const notification = {
+                id: ++this.notificationId,
+                title,
+                message,
+                type,
+                progress,
+                visible: true,
+                timestamp: Date.now()
+            };
+            
+            this.notifications.unshift(notification);
+            
+            // Auto-remove after duration (except for progress notifications)
+            if (type !== 'progress' && duration > 0) {
+                setTimeout(() => {
+                    this.removeNotification(notification.id);
+                }, duration);
+            }
+            
+            // Keep only last 10 notifications
+            if (this.notifications.length > 10) {
+                this.notifications = this.notifications.slice(0, 10);
+            }
+        },
+
+        updateProgressNotification(type, percentage, message) {
+            // Find existing progress notification of this type
+            const existing = this.notifications.find(n => 
+                n.type === 'progress' && n.title.toLowerCase().includes(type)
+            );
+            
+            if (existing) {
+                existing.progress = percentage;
+                existing.message = message;
+            } else {
+                this.addNotification(
+                    type === 'discovery' ? 'Site Discovery' : 'Automated Testing',
+                    message,
+                    'progress',
+                    0, // Don't auto-remove
+                    percentage
+                );
+            }
+        },
+
+        removeNotification(id) {
+            const index = this.notifications.findIndex(n => n.id === id);
+            if (index > -1) {
+                this.notifications[index].visible = false;
+                setTimeout(() => {
+                    this.notifications.splice(index, 1);
+                }, 300); // Wait for animation
             }
         },
 
@@ -215,7 +502,8 @@ function dashboard() {
                     
                     this.showNotification(`Welcome back, ${data.user.full_name || data.user.username}!`, 'success');
                     
-                    // Load data
+                    // Initialize WebSocket and load data
+                    await this.initWebSocket();
                     await this.loadProjects();
                     await this.loadAnalytics();
                     
@@ -254,6 +542,18 @@ function dashboard() {
             this.user = null;
             this.token = null;
             localStorage.removeItem('auth_token');
+            
+            // Close WebSocket connection
+            if (this.socket) {
+                this.socket.disconnect();
+                this.socket = null;
+                this.wsConnected = false;
+            }
+            
+            // Clear progress tracking
+            this.discoveryProgress.active = false;
+            this.testingProgress.active = false;
+            this.notifications = [];
             
             // Clear data
             this.projects = [];
@@ -392,6 +692,12 @@ function dashboard() {
         selectProject(project) {
             this.selectedProject = project;
             console.log(`📂 Selected project: ${project.name}`);
+            
+            // Join WebSocket room for this project
+            if (this.socket && this.socket.connected) {
+                this.socket.emit('join_project', project.id);
+            }
+            
             this.loadProjectDiscoveries();
             this.loadProjectTestSessions();
             // Switch to discovery tab after selection
@@ -506,19 +812,23 @@ function dashboard() {
         async startAutomatedTesting(session) {
             try {
                 this.loading = true;
-                const data = await this.apiCall(`/sessions/${session.id}/automated-testing`, {
+                const data = await this.apiCall(`/projects/${this.selectedProject.id}/test-sessions`, {
                     method: 'POST',
                     body: JSON.stringify({
-                        testTypes: ['axe', 'pa11y', 'lighthouse'],
+                        name: session.name || `Automated Test - ${new Date().toLocaleDateString()}`,
+                        description: session.description,
+                        testTypes: ['axe', 'pa11y'],
                         maxPages: 50
                     })
                 });
                 
                 this.showNotification('Automated testing started!', 'success');
                 
-                // Update session status and start polling
+                // Update session status
                 session.status = 'in_progress';
-                this.pollSessionProgress(session.id);
+                
+                // Real-time updates will come via WebSocket, no need to poll
+                
             } catch (error) {
                 console.error('Failed to start automated testing:', error);
             } finally {

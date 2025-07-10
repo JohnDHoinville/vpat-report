@@ -2,7 +2,9 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const { createServer } = require('http');
 const { db } = require('../database/config');
+const WebSocketService = require('./services/websocket-service');
 
 // Import route modules
 const authRoutes = require('./routes/auth');
@@ -20,7 +22,13 @@ const { optionalAuth } = require('./middleware/auth');
  */
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
+
+// Create HTTP server for both Express and WebSocket
+const httpServer = createServer(app);
+
+// Initialize WebSocket service
+let wsService;
 
 // Security middleware
 app.use(helmet({
@@ -211,13 +219,20 @@ async function startServer() {
         
         console.log('✅ Database connection successful');
         
+        // Initialize WebSocket service
+        wsService = new WebSocketService(httpServer);
+        
+        // Make WebSocket service available globally for other modules
+        app.set('wsService', wsService);
+        
         // Start the server
-        const server = app.listen(PORT, () => {
+        const server = httpServer.listen(PORT, () => {
             console.log(`\n🚀 Accessibility Testing API Server`);
             console.log(`📡 Listening on port ${PORT}`);
             console.log(`🔗 Health check: http://localhost:${PORT}/health`);
             console.log(`📚 API docs: http://localhost:${PORT}/api`);
-            console.log(`🗄️ Database: ${process.env.DB_HOST}:${process.env.DB_PORT}/${process.env.DB_NAME}`);
+            console.log(`🔄 WebSocket: Real-time updates enabled`);
+            console.log(`🗄️ Database: ${process.env.DB_HOST || 'localhost'}:${process.env.DB_PORT || 5432}/${process.env.DB_NAME || 'accessibility_testing'}`);
             console.log(`⏰ Started at: ${new Date().toISOString()}\n`);
         });
 
@@ -227,6 +242,12 @@ async function startServer() {
             
             server.close(async () => {
                 console.log('🔌 HTTP server closed');
+                
+                // Close WebSocket service
+                if (wsService) {
+                    wsService.close();
+                    console.log('🔌 WebSocket service closed');
+                }
                 
                 try {
                     await db.end();

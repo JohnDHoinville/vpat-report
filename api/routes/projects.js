@@ -2,6 +2,8 @@ const express = require('express');
 const { db } = require('../../database/config');
 const { v4: uuidv4 } = require('uuid');
 const { authenticateToken, requireRole } = require('../middleware/auth');
+const SiteDiscoveryService = require('../../database/services/site-discovery-service');
+const SimpleTestingService = require('../../database/services/simple-testing-service');
 
 const router = express.Router();
 
@@ -512,6 +514,177 @@ router.get('/:id/sessions', async (req, res) => {
         console.error('Error fetching project sessions:', error);
         res.status(500).json({
             error: 'Failed to fetch project sessions',
+            message: error.message
+        });
+    }
+});
+
+/**
+ * POST /api/projects/:id/discoveries
+ * Start site discovery for a project (requires authentication)
+ */
+router.post('/:id/discoveries', authenticateToken, async (req, res) => {
+    try {
+        const { id: projectId } = req.params;
+        const {
+            primary_url,
+            maxDepth = 3,
+            maxPages = 100,
+            respectRobots = true,
+            timeout = 10000
+        } = req.body;
+
+        // Check if project exists
+        const projectExists = await db.query('SELECT primary_url FROM projects WHERE id = $1', [projectId]);
+        if (projectExists.rows.length === 0) {
+            return res.status(404).json({
+                error: 'Project not found',
+                id: projectId
+            });
+        }
+
+        const urlToUse = primary_url || projectExists.rows[0].primary_url;
+
+        // Get WebSocket service from app
+        const wsService = req.app.get('wsService');
+        
+        // Initialize discovery service with WebSocket
+        const discoveryService = new SiteDiscoveryService(wsService);
+
+        // Start discovery
+        const discovery = await discoveryService.startDiscovery(projectId, urlToUse, {
+            maxDepth,
+            maxPages,
+            respectRobots,
+            timeout
+        });
+
+        res.status(201).json({
+            message: 'Site discovery started',
+            discovery
+        });
+
+    } catch (error) {
+        console.error('Error starting discovery:', error);
+        res.status(500).json({
+            error: 'Failed to start discovery',
+            message: error.message
+        });
+    }
+});
+
+/**
+ * GET /api/projects/:id/discoveries
+ * Get discovery sessions for a project
+ */
+router.get('/:id/discoveries', async (req, res) => {
+    try {
+        const { id: projectId } = req.params;
+        const { status, limit = 10 } = req.query;
+
+        // Get WebSocket service from app
+        const wsService = req.app.get('wsService');
+        
+        // Initialize discovery service
+        const discoveryService = new SiteDiscoveryService(wsService);
+
+        // Get discoveries
+        const discoveries = await discoveryService.listDiscoveries(projectId, {
+            status,
+            limit: parseInt(limit)
+        });
+
+        res.json({
+            data: discoveries
+        });
+
+    } catch (error) {
+        console.error('Error fetching discoveries:', error);
+        res.status(500).json({
+            error: 'Failed to fetch discoveries',
+            message: error.message
+        });
+    }
+});
+
+/**
+ * POST /api/projects/:id/test-sessions
+ * Start automated testing for a project (requires authentication)
+ */
+router.post('/:id/test-sessions', authenticateToken, async (req, res) => {
+    try {
+        const { id: projectId } = req.params;
+        const {
+            name,
+            description,
+            testTypes = ['axe', 'pa11y'],
+            maxPages = 50
+        } = req.body;
+
+        // Get WebSocket service from app
+        const wsService = req.app.get('wsService');
+        
+        // Initialize testing service with WebSocket
+        const testingService = new SimpleTestingService(wsService);
+
+        // Create test session
+        const session = await testingService.createTestSession(projectId, {
+            name: name || `Automated Test - ${new Date().toLocaleDateString()}`,
+            description,
+            session_type: 'automated'
+        });
+
+        // Start automated testing
+        await testingService.startAutomatedTesting(session.id, {
+            testTypes,
+            maxPages
+        });
+
+        res.status(201).json({
+            message: 'Automated testing started',
+            session
+        });
+
+    } catch (error) {
+        console.error('Error starting automated testing:', error);
+        res.status(500).json({
+            error: 'Failed to start automated testing',
+            message: error.message
+        });
+    }
+});
+
+/**
+ * GET /api/projects/:id/websocket-stats
+ * Get WebSocket connection statistics for a project (requires authentication)
+ */
+router.get('/:id/websocket-stats', authenticateToken, async (req, res) => {
+    try {
+        const { id: projectId } = req.params;
+
+        // Get WebSocket service from app
+        const wsService = req.app.get('wsService');
+        
+        if (!wsService) {
+            return res.status(503).json({
+                error: 'WebSocket service not available'
+            });
+        }
+
+        const stats = wsService.getStats();
+        const projectUsers = wsService.getProjectUsers(projectId);
+
+        res.json({
+            project_id: projectId,
+            connected_users: projectUsers.length,
+            user_ids: projectUsers,
+            global_stats: stats
+        });
+
+    } catch (error) {
+        console.error('Error fetching WebSocket stats:', error);
+        res.status(500).json({
+            error: 'Failed to fetch WebSocket stats',
             message: error.message
         });
     }

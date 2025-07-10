@@ -1,0 +1,48 @@
+{
+  "testName": "Discovery-8df73815-095d-4d96-8985-a4f50c1659db",
+  "rootUrl": "https://example.com",
+  "startTime": "2025-07-10T19:24:38.580Z",
+  "options": {
+    "maxDepth": 1,
+    "maxPages": 2,
+    "rateLimitMs": 2000,
+    "userAgent": "AccessibilityTestingBot/1.0",
+    "respectRobots": false,
+    "timeout": 10000,
+    "useAuth": false,
+    "authConfig": null,
+    "headless": true
+  },
+  "summary": {
+    "totalRequests": 2,
+    "successfulRequests": 2,
+    "discoveredPages": 2,
+    "errors": 0,
+    "maxDepthReached": 1
+  },
+  "pages": [
+    {
+      "url": "https://example.com",
+      "title": "Example Domain",
+      "depth": 0,
+      "parentUrl": null,
+      "statusCode": 200,
+      "contentType": "text/html",
+      "wordCount": 30,
+      "lastModified": "Mon, 13 Jan 2025 20:11:20 GMT",
+      "discoveredAt": "2025-07-10T19:24:35.779Z"
+    },
+    {
+      "url": "https://example.com/app",
+      "title": "Example Domain",
+      "depth": 1,
+      "parentUrl": "https://example.com",
+      "statusCode": 404,
+      "contentType": "text/html",
+      "wordCount": 30,
+      "lastModified": "Mon, 13 Jan 2025 20:11:20 GMT",
+      "discoveredAt": "2025-07-10T19:24:38.579Z"
+    }
+  ],
+  "errors": []
+}
