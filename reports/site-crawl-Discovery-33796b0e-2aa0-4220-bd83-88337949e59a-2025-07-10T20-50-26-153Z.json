@@ -1,0 +1,301 @@
+{
+  "testName": "Discovery-33796b0e-2aa0-4220-bd83-88337949e59a",
+  "rootUrl": "https://fm-dev.ti.internet2.edu/",
+  "startTime": "2025-07-10T20:50:26.153Z",
+  "options": {
+    "maxDepth": "1",
+    "maxPages": "25",
+    "rateLimitMs": 2000,
+    "userAgent": "AccessibilityTestingBot/1.0",
+    "respectRobots": false,
+    "timeout": 10000,
+    "useAuth": true,
+    "authConfig": null,
+    "headless": true
+  },
+  "summary": {
+    "totalRequests": 25,
+    "successfulRequests": 25,
+    "discoveredPages": 25,
+    "errors": 0,
+    "maxDepthReached": 1
+  },
+  "pages": [
+    {
+      "url": "https://fm-dev.ti.internet2.edu/",
+      "title": "Dashboard",
+      "depth": 0,
+      "parentUrl": null,
+      "statusCode": 200,
+      "contentType": "text/html",
+      "wordCount": 24,
+      "lastModified": null,
+      "discoveredAt": "2025-07-10T20:48:51.804Z"
+    },
+    {
+      "url": "https://fm-dev.ti.internet2.edu/assets/application-34b91e7c1dde5e65cd2166347bba331e603df8a02da606cb8585425cadad437b.css",
+      "title": "No title",
+      "depth": 1,
+      "parentUrl": "https://fm-dev.ti.internet2.edu/",
+      "statusCode": 200,
+      "contentType": "text/html",
+      "wordCount": 5384,
+      "lastModified": null,
+      "discoveredAt": "2025-07-10T20:48:55.542Z"
+    },
+    {
+      "url": "https://fm-dev.ti.internet2.edu/home",
+      "title": "Dashboard",
+      "depth": 1,
+      "parentUrl": "https://fm-dev.ti.internet2.edu/",
+      "statusCode": 200,
+      "contentType": "text/html",
+      "wordCount": 24,
+      "lastModified": null,
+      "discoveredAt": "2025-07-10T20:48:59.446Z"
+    },
+    {
+      "url": "https://fm-dev.ti.internet2.edu/organizations/10009",
+      "title": "Internet2",
+      "depth": 1,
+      "parentUrl": "https://fm-dev.ti.internet2.edu/",
+      "statusCode": 200,
+      "contentType": "text/html",
+      "wordCount": 622,
+      "lastModified": null,
+      "discoveredAt": "2025-07-10T20:49:05.016Z"
+    },
+    {
+      "url": "https://fm-dev.ti.internet2.edu/eduroam/organizations/10009",
+      "title": "Internet2",
+      "depth": 1,
+      "parentUrl": "https://fm-dev.ti.internet2.edu/",
+      "statusCode": 200,
+      "contentType": "text/html",
+      "wordCount": 158,
+      "lastModified": null,
+      "discoveredAt": "2025-07-10T20:49:09.609Z"
+    },
+    {
+      "url": "https://fm-dev.ti.internet2.edu/app",
+      "title": "InCommon Federation Manager",
+      "depth": 1,
+      "parentUrl": "https://fm-dev.ti.internet2.edu/",
+      "statusCode": 404,
+      "contentType": "text/html",
+      "wordCount": 28,
+      "lastModified": null,
+      "discoveredAt": "2025-07-10T20:49:13.563Z"
+    },
+    {
+      "url": "https://fm-dev.ti.internet2.edu/login",
+      "title": "No title",
+      "depth": 1,
+      "parentUrl": "https://fm-dev.ti.internet2.edu/",
+      "statusCode": 200,
+      "contentType": "text/html",
+      "wordCount": 42,
+      "lastModified": null,
+      "discoveredAt": "2025-07-10T20:49:17.684Z"
+    },
+    {
+      "url": "https://fm-dev.ti.internet2.edu/signup",
+      "title": "InCommon Federation Manager",
+      "depth": 1,
+      "parentUrl": "https://fm-dev.ti.internet2.edu/",
+      "statusCode": 404,
+      "contentType": "text/html",
+      "wordCount": 28,
+      "lastModified": null,
+      "discoveredAt": "2025-07-10T20:49:21.639Z"
+    },
+    {
+      "url": "https://fm-dev.ti.internet2.edu/register",
+      "title": "InCommon Federation Manager",
+      "depth": 1,
+      "parentUrl": "https://fm-dev.ti.internet2.edu/",
+      "statusCode": 404,
+      "contentType": "text/html",
+      "wordCount": 28,
+      "lastModified": null,
+      "discoveredAt": "2025-07-10T20:49:25.460Z"
+    },
+    {
+      "url": "https://fm-dev.ti.internet2.edu/dashboard",
+      "title": "InCommon Federation Manager",
+      "depth": 1,
+      "parentUrl": "https://fm-dev.ti.internet2.edu/",
+      "statusCode": 404,
+      "contentType": "text/html",
+      "wordCount": 28,
+      "lastModified": null,
+      "discoveredAt": "2025-07-10T20:49:29.192Z"
+    },
+    {
+      "url": "https://fm-dev.ti.internet2.edu/profile",
+      "title": "InCommon Federation Manager",
+      "depth": 1,
+      "parentUrl": "https://fm-dev.ti.internet2.edu/",
+      "statusCode": 404,
+      "contentType": "text/html",
+      "wordCount": 28,
+      "lastModified": null,
+      "discoveredAt": "2025-07-10T20:49:32.967Z"
+    },
+    {
+      "url": "https://fm-dev.ti.internet2.edu/settings",
+      "title": "InCommon Federation Manager",
+      "depth": 1,
+      "parentUrl": "https://fm-dev.ti.internet2.edu/",
+      "statusCode": 404,
+      "contentType": "text/html",
+      "wordCount": 28,
+      "lastModified": null,
+      "discoveredAt": "2025-07-10T20:49:36.808Z"
+    },
+    {
+      "url": "https://fm-dev.ti.internet2.edu/account",
+      "title": "InCommon Federation Manager",
+      "depth": 1,
+      "parentUrl": "https://fm-dev.ti.internet2.edu/",
+      "statusCode": 404,
+      "contentType": "text/html",
+      "wordCount": 28,
+      "lastModified": null,
+      "discoveredAt": "2025-07-10T20:49:40.527Z"
+    },
+    {
+      "url": "https://fm-dev.ti.internet2.edu/about",
+      "title": "InCommon Federation Manager",
+      "depth": 1,
+      "parentUrl": "https://fm-dev.ti.internet2.edu/",
+      "statusCode": 404,
+      "contentType": "text/html",
+      "wordCount": 28,
+      "lastModified": null,
+      "discoveredAt": "2025-07-10T20:49:44.336Z"
+    },
+    {
+      "url": "https://fm-dev.ti.internet2.edu/contact",
+      "title": "InCommon Federation Manager",
+      "depth": 1,
+      "parentUrl": "https://fm-dev.ti.internet2.edu/",
+      "statusCode": 404,
+      "contentType": "text/html",
+      "wordCount": 28,
+      "lastModified": null,
+      "discoveredAt": "2025-07-10T20:49:48.124Z"
+    },
+    {
+      "url": "https://fm-dev.ti.internet2.edu/help",
+      "title": "InCommon Federation Manager",
+      "depth": 1,
+      "parentUrl": "https://fm-dev.ti.internet2.edu/",
+      "statusCode": 404,
+      "contentType": "text/html",
+      "wordCount": 28,
+      "lastModified": null,
+      "discoveredAt": "2025-07-10T20:49:51.932Z"
+    },
+    {
+      "url": "https://fm-dev.ti.internet2.edu/support",
+      "title": "InCommon Federation Manager",
+      "depth": 1,
+      "parentUrl": "https://fm-dev.ti.internet2.edu/",
+      "statusCode": 404,
+      "contentType": "text/html",
+      "wordCount": 28,
+      "lastModified": null,
+      "discoveredAt": "2025-07-10T20:49:55.736Z"
+    },
+    {
+      "url": "https://fm-dev.ti.internet2.edu/pricing",
+      "title": "InCommon Federation Manager",
+      "depth": 1,
+      "parentUrl": "https://fm-dev.ti.internet2.edu/",
+      "statusCode": 404,
+      "contentType": "text/html",
+      "wordCount": 28,
+      "lastModified": null,
+      "discoveredAt": "2025-07-10T20:49:59.527Z"
+    },
+    {
+      "url": "https://fm-dev.ti.internet2.edu/features",
+      "title": "InCommon Federation Manager",
+      "depth": 1,
+      "parentUrl": "https://fm-dev.ti.internet2.edu/",
+      "statusCode": 404,
+      "contentType": "text/html",
+      "wordCount": 28,
+      "lastModified": null,
+      "discoveredAt": "2025-07-10T20:50:03.265Z"
+    },
+    {
+      "url": "https://fm-dev.ti.internet2.edu/blog",
+      "title": "InCommon Federation Manager",
+      "depth": 1,
+      "parentUrl": "https://fm-dev.ti.internet2.edu/",
+      "statusCode": 404,
+      "contentType": "text/html",
+      "wordCount": 28,
+      "lastModified": null,
+      "discoveredAt": "2025-07-10T20:50:07.121Z"
+    },
+    {
+      "url": "https://fm-dev.ti.internet2.edu/blogs",
+      "title": "InCommon Federation Manager",
+      "depth": 1,
+      "parentUrl": "https://fm-dev.ti.internet2.edu/",
+      "statusCode": 404,
+      "contentType": "text/html",
+      "wordCount": 28,
+      "lastModified": null,
+      "discoveredAt": "2025-07-10T20:50:10.965Z"
+    },
+    {
+      "url": "https://fm-dev.ti.internet2.edu/news",
+      "title": "InCommon Federation Manager",
+      "depth": 1,
+      "parentUrl": "https://fm-dev.ti.internet2.edu/",
+      "statusCode": 404,
+      "contentType": "text/html",
+      "wordCount": 28,
+      "lastModified": null,
+      "discoveredAt": "2025-07-10T20:50:14.766Z"
+    },
+    {
+      "url": "https://fm-dev.ti.internet2.edu/docs",
+      "title": "InCommon Federation Manager",
+      "depth": 1,
+      "parentUrl": "https://fm-dev.ti.internet2.edu/",
+      "statusCode": 404,
+      "contentType": "text/html",
+      "wordCount": 28,
+      "lastModified": null,
+      "discoveredAt": "2025-07-10T20:50:18.561Z"
+    },
+    {
+      "url": "https://fm-dev.ti.internet2.edu/documentation",
+      "title": "InCommon Federation Manager",
+      "depth": 1,
+      "parentUrl": "https://fm-dev.ti.internet2.edu/",
+      "statusCode": 404,
+      "contentType": "text/html",
+      "wordCount": 28,
+      "lastModified": null,
+      "discoveredAt": "2025-07-10T20:50:22.303Z"
+    },
+    {
+      "url": "https://fm-dev.ti.internet2.edu/api",
+      "title": "InCommon Federation Manager",
+      "depth": 1,
+      "parentUrl": "https://fm-dev.ti.internet2.edu/",
+      "statusCode": 404,
+      "contentType": "text/html",
+      "wordCount": 28,
+      "lastModified": null,
+      "discoveredAt": "2025-07-10T20:50:26.079Z"
+    }
+  ],
+  "errors": []
+}

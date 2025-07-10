@@ -1090,8 +1090,13 @@ function dashboard() {
             this.authSetup.progressMessage = 'Starting browser for SSO authentication...';
             this.authSetup.progress = 10;
 
+            // Validate authentication token
+            if (!this.token) {
+                throw new Error('Authentication token not available. Please login first.');
+            }
+
             // Call the auth wizard API endpoint
-            const response = await fetch('/api/auth/setup-sso', {
+            const response = await fetch(`${this.baseUrl}/api/auth/setup-sso`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1106,7 +1111,9 @@ function dashboard() {
             });
 
             if (!response.ok) {
-                throw new Error(`Setup failed: ${response.statusText}`);
+                const errorText = await response.text();
+                console.error('SSO setup failed:', response.status, response.statusText, errorText);
+                throw new Error(`Setup failed: ${response.statusText} (${response.status})`);
             }
 
             const result = await response.json();
@@ -1121,7 +1128,11 @@ function dashboard() {
             this.authSetup.progressMessage = 'Setting up username/password authentication...';
             this.authSetup.progress = 20;
 
-            const response = await fetch('/api/auth/setup-basic', {
+            if (!this.token) {
+                throw new Error('Authentication token not available. Please login first.');
+            }
+
+            const response = await fetch(`${this.baseUrl}/api/auth/setup-basic`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1131,7 +1142,9 @@ function dashboard() {
             });
 
             if (!response.ok) {
-                throw new Error(`Setup failed: ${response.statusText}`);
+                const errorText = await response.text();
+                console.error('Basic auth setup failed:', response.status, response.statusText, errorText);
+                throw new Error(`Setup failed: ${response.statusText} (${response.status})`);
             }
 
             await this.simulateAuthProgress();
@@ -1142,7 +1155,11 @@ function dashboard() {
             this.authSetup.progressMessage = 'Configuring advanced authentication...';
             this.authSetup.progress = 15;
 
-            const response = await fetch('/api/auth/setup-advanced', {
+            if (!this.token) {
+                throw new Error('Authentication token not available. Please login first.');
+            }
+
+            const response = await fetch(`${this.baseUrl}/api/auth/setup-advanced`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1152,7 +1169,9 @@ function dashboard() {
             });
 
             if (!response.ok) {
-                throw new Error(`Setup failed: ${response.statusText}`);
+                const errorText = await response.text();
+                console.error('Advanced auth setup failed:', response.status, response.statusText, errorText);
+                throw new Error(`Setup failed: ${response.statusText} (${response.status})`);
             }
 
             await this.simulateAuthProgress();
@@ -1181,7 +1200,11 @@ function dashboard() {
                 config.status = 'testing';
                 this.showNotification(`Testing authentication for ${config.domain}...`, 'info');
 
-                const response = await fetch('/api/auth/test', {
+                if (!this.token) {
+                    throw new Error('Authentication token not available. Please login first.');
+                }
+
+                const response = await fetch(`${this.baseUrl}/api/auth/test`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -1196,6 +1219,8 @@ function dashboard() {
                     this.showNotification(`Authentication test successful for ${config.domain}`, 'success');
                 } else {
                     config.status = 'failed';
+                    const errorText = await response.text();
+                    console.error('Auth test failed:', response.status, errorText);
                     this.showNotification(`Authentication test failed for ${config.domain}`, 'error');
                 }
             } catch (error) {
@@ -1270,7 +1295,11 @@ function dashboard() {
 
         async importAuthConfigData(config) {
             try {
-                const response = await fetch('/api/auth/import', {
+                if (!this.token) {
+                    throw new Error('Authentication token not available. Please login first.');
+                }
+
+                const response = await fetch(`${this.baseUrl}/api/auth/import`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -1283,6 +1312,8 @@ function dashboard() {
                     this.loadAuthConfigs();
                     this.showNotification(`Authentication config imported for ${config.domain}`, 'success');
                 } else {
+                    const errorText = await response.text();
+                    console.error('Auth import failed:', response.status, errorText);
                     throw new Error('Failed to import configuration');
                 }
             } catch (error) {

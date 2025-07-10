@@ -1,0 +1,25 @@
+{
+  "testName": "Discovery-7e363229-e149-416a-8bbb-f219e9f3163b",
+  "rootUrl": "https://fm-dev.ti.internet2.edu/",
+  "startTime": "2025-07-10T20:48:18.003Z",
+  "options": {
+    "maxDepth": 3,
+    "maxPages": 50,
+    "rateLimitMs": 2000,
+    "userAgent": "AccessibilityTestingBot/1.0",
+    "respectRobots": true,
+    "timeout": 10000,
+    "useAuth": true,
+    "authConfig": null,
+    "headless": true
+  },
+  "summary": {
+    "totalRequests": 0,
+    "successfulRequests": 0,
+    "discoveredPages": 0,
+    "errors": 0,
+    "maxDepthReached": 0
+  },
+  "pages": [],
+  "errors": []
+}
