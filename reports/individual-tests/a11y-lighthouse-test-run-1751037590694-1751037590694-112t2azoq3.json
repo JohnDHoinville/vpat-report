@@ -1,0 +1,50 @@
+{
+  "testType": "a11y:lighthouse",
+  "status": "completed",
+  "startTime": "2025-06-27T15:19:58.821Z",
+  "endTime": "2025-06-27T15:20:11.194Z",
+  "duration": 12373,
+  "url": "https://fm-dev.ti.internet2.edu",
+  "result": {
+    "tool": "lighthouse",
+    "accessibilityScore": 94,
+    "violations": 1,
+    "passes": 70,
+    "detailedViolations": [
+      {
+        "id": "lighthouse-document-title",
+        "impact": "serious",
+        "description": "Document doesn't have a `<title>` element",
+        "help": "The title gives screen reader users an overview of the page, and search engine users rely on it heavily to determine if a page is relevant to their search. [Learn more about document titles](https://dequeuniversity.com/rules/axe/4.9/document-title).",
+        "helpUrl": "https://web.dev/document-title/",
+        "nodes": [
+          {
+            "target": [
+              "body"
+            ],
+            "html": "<element>...</element>",
+            "failureSummary": "Fix: Document doesn't have a `<title>` element"
+          }
+        ],
+        "wcagCriteria": [
+          "2.1.1"
+        ]
+      }
+    ],
+    "details": {
+      "message": "Lighthouse accessibility test completed",
+      "testMethod": "automated-lighthouse",
+      "url": "https://fm-dev.ti.internet2.edu",
+      "score": 94
+    }
+  },
+  "fileName": "a11y-lighthouse-test-run-1751037590694-1751037590694-112t2azoq3.json",
+  "summary": {
+    "tool": "lighthouse",
+    "violations": 1,
+    "passes": 70,
+    "warnings": 0,
+    "status": "fail",
+    "critical": false
+  }
+}

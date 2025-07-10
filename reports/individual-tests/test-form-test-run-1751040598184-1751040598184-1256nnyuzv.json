@@ -1,0 +1,98 @@
+{
+  "testType": "test:form",
+  "status": "completed",
+  "startTime": "2025-06-27T16:09:58.184Z",
+  "endTime": "2025-06-27T16:10:02.621Z",
+  "duration": 4437,
+  "url": "run-analysis.onrender.com",
+  "result": {
+    "tool": "form-accessibility",
+    "violations": 3,
+    "passes": 0,
+    "detailedViolations": [
+      {
+        "id": "form-form-test-error",
+        "impact": "critical",
+        "description": "Form accessibility testing failed: page.goto: Protocol error (Page.navigate): Cannot navigate to invalid URL\nCall log:\n\u001b[2m  - navigating to \"run-analysis.onrender.com\", waiting until \"networkidle\"\u001b[22m\n",
+        "help": "Ensure proper form accessibility.",
+        "helpUrl": "https://www.w3.org/WAI/WCAG21/",
+        "nodes": [
+          {
+            "target": [
+              "form"
+            ],
+            "html": "<form>...</form>",
+            "failureSummary": "Fix: Review form accessibility implementation."
+          }
+        ],
+        "wcagCriteria": [
+          "3.3.2"
+        ]
+      },
+      {
+        "id": "form-form-test-error",
+        "impact": "critical",
+        "description": "Form accessibility testing failed: page.goto: Protocol error (Page.navigate): Invalid url: \"run-analysis.onrender.com\"\nCall log:\n\u001b[2m  - navigating to \"run-analysis.onrender.com\", waiting until \"networkidle\"\u001b[22m\n",
+        "help": "Ensure proper form accessibility.",
+        "helpUrl": "https://www.w3.org/WAI/WCAG21/",
+        "nodes": [
+          {
+            "target": [
+              "form"
+            ],
+            "html": "<form>...</form>",
+            "failureSummary": "Fix: Review form accessibility implementation."
+          }
+        ],
+        "wcagCriteria": [
+          "3.3.2"
+        ]
+      },
+      {
+        "id": "form-form-test-error",
+        "impact": "critical",
+        "description": "Form accessibility testing failed: page.goto: Protocol error (Playwright.navigate): Cannot navigate to invalid URL\nCall log:\n\u001b[2m  - navigating to \"run-analysis.onrender.com\", waiting until \"networkidle\"\u001b[22m\n",
+        "help": "Ensure proper form accessibility.",
+        "helpUrl": "https://www.w3.org/WAI/WCAG21/",
+        "nodes": [
+          {
+            "target": [
+              "form"
+            ],
+            "html": "<form>...</form>",
+            "failureSummary": "Fix: Review form accessibility implementation."
+          }
+        ],
+        "wcagCriteria": [
+          "3.3.2"
+        ]
+      }
+    ],
+    "details": {
+      "message": "Form accessibility test completed",
+      "totalFormElements": 0,
+      "labeledElements": 0,
+      "unlabeledElements": 0,
+      "requiredFields": 0,
+      "summary": {
+        "totalBrowsers": 3,
+        "totalViolations": 3,
+        "totalFormElements": 0,
+        "totalLabeledElements": 0,
+        "totalUnlabeledElements": 0,
+        "totalRequiredFields": 0,
+        "totalFieldsWithErrorHandling": 0,
+        "overallPassed": false
+      }
+    }
+  },
+  "fileName": "test-form-test-run-1751040598184-1751040598184-1256nnyuzv.json",
+  "summary": {
+    "tool": "form-accessibility",
+    "violations": 3,
+    "passes": 0,
+    "warnings": 0,
+    "status": "fail",
+    "critical": false
+  }
+}

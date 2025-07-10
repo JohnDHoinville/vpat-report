@@ -1,0 +1,25 @@
+{
+  "testType": "test:keyboard",
+  "status": "completed",
+  "startTime": "2025-06-25T15:54:25.742Z",
+  "endTime": "2025-06-25T15:54:25.743Z",
+  "duration": 1,
+  "url": "https://example.com",
+  "result": {
+    "tool": "keyboard-navigation",
+    "violations": 0,
+    "details": {
+      "message": "Keyboard navigation test completed",
+      "focusableElements": 7
+    }
+  },
+  "fileName": "test-keyboard-test-run-1750866865623-wav4hc8ah2.json",
+  "summary": {
+    "tool": "keyboard-navigation",
+    "violations": 0,
+    "passes": 0,
+    "warnings": 0,
+    "status": "pass",
+    "critical": false
+  }
+}

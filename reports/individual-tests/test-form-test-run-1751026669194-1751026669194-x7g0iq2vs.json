@@ -1,0 +1,212 @@
+{
+  "testType": "test:form",
+  "status": "completed",
+  "startTime": "2025-06-27T12:17:49.194Z",
+  "endTime": "2025-06-27T12:17:58.956Z",
+  "duration": 9762,
+  "url": "https://runkeeper.com",
+  "result": {
+    "tool": "form-accessibility",
+    "violations": 9,
+    "passes": 21,
+    "detailedViolations": [
+      {
+        "id": "form-form-missing-accessible-name",
+        "impact": "critical",
+        "description": "Form select[type=\"select-one\"] missing accessible name",
+        "help": "Ensure proper form accessibility.",
+        "helpUrl": "https://www.w3.org/WAI/WCAG21/",
+        "nodes": [
+          {
+            "target": [
+              "select"
+            ],
+            "html": "<form>...</form>",
+            "failureSummary": "Fix: Review form accessibility implementation."
+          }
+        ],
+        "wcagCriteria": [
+          "3.3.2"
+        ]
+      },
+      {
+        "id": "form-duplicate-form-id",
+        "impact": "serious",
+        "description": "Duplicate form element ID: s",
+        "help": "Ensure proper form accessibility.",
+        "helpUrl": "https://www.w3.org/WAI/WCAG21/",
+        "nodes": [
+          {
+            "target": [
+              "input"
+            ],
+            "html": "<form>...</form>",
+            "failureSummary": "Fix: Review form accessibility implementation."
+          }
+        ],
+        "wcagCriteria": [
+          "3.3.2"
+        ]
+      },
+      {
+        "id": "form-duplicate-form-id",
+        "impact": "serious",
+        "description": "Duplicate form element ID: s",
+        "help": "Ensure proper form accessibility.",
+        "helpUrl": "https://www.w3.org/WAI/WCAG21/",
+        "nodes": [
+          {
+            "target": [
+              "input"
+            ],
+            "html": "<form>...</form>",
+            "failureSummary": "Fix: Review form accessibility implementation."
+          }
+        ],
+        "wcagCriteria": [
+          "3.3.2"
+        ]
+      },
+      {
+        "id": "form-form-missing-accessible-name",
+        "impact": "critical",
+        "description": "Form select[type=\"select-one\"] missing accessible name",
+        "help": "Ensure proper form accessibility.",
+        "helpUrl": "https://www.w3.org/WAI/WCAG21/",
+        "nodes": [
+          {
+            "target": [
+              "select"
+            ],
+            "html": "<form>...</form>",
+            "failureSummary": "Fix: Review form accessibility implementation."
+          }
+        ],
+        "wcagCriteria": [
+          "3.3.2"
+        ]
+      },
+      {
+        "id": "form-duplicate-form-id",
+        "impact": "serious",
+        "description": "Duplicate form element ID: s",
+        "help": "Ensure proper form accessibility.",
+        "helpUrl": "https://www.w3.org/WAI/WCAG21/",
+        "nodes": [
+          {
+            "target": [
+              "input"
+            ],
+            "html": "<form>...</form>",
+            "failureSummary": "Fix: Review form accessibility implementation."
+          }
+        ],
+        "wcagCriteria": [
+          "3.3.2"
+        ]
+      },
+      {
+        "id": "form-duplicate-form-id",
+        "impact": "serious",
+        "description": "Duplicate form element ID: s",
+        "help": "Ensure proper form accessibility.",
+        "helpUrl": "https://www.w3.org/WAI/WCAG21/",
+        "nodes": [
+          {
+            "target": [
+              "input"
+            ],
+            "html": "<form>...</form>",
+            "failureSummary": "Fix: Review form accessibility implementation."
+          }
+        ],
+        "wcagCriteria": [
+          "3.3.2"
+        ]
+      },
+      {
+        "id": "form-form-missing-accessible-name",
+        "impact": "critical",
+        "description": "Form select[type=\"select-one\"] missing accessible name",
+        "help": "Ensure proper form accessibility.",
+        "helpUrl": "https://www.w3.org/WAI/WCAG21/",
+        "nodes": [
+          {
+            "target": [
+              "select"
+            ],
+            "html": "<form>...</form>",
+            "failureSummary": "Fix: Review form accessibility implementation."
+          }
+        ],
+        "wcagCriteria": [
+          "3.3.2"
+        ]
+      },
+      {
+        "id": "form-duplicate-form-id",
+        "impact": "serious",
+        "description": "Duplicate form element ID: s",
+        "help": "Ensure proper form accessibility.",
+        "helpUrl": "https://www.w3.org/WAI/WCAG21/",
+        "nodes": [
+          {
+            "target": [
+              "input"
+            ],
+            "html": "<form>...</form>",
+            "failureSummary": "Fix: Review form accessibility implementation."
+          }
+        ],
+        "wcagCriteria": [
+          "3.3.2"
+        ]
+      },
+      {
+        "id": "form-duplicate-form-id",
+        "impact": "serious",
+        "description": "Duplicate form element ID: s",
+        "help": "Ensure proper form accessibility.",
+        "helpUrl": "https://www.w3.org/WAI/WCAG21/",
+        "nodes": [
+          {
+            "target": [
+              "input"
+            ],
+            "html": "<form>...</form>",
+            "failureSummary": "Fix: Review form accessibility implementation."
+          }
+        ],
+        "wcagCriteria": [
+          "3.3.2"
+        ]
+      }
+    ],
+    "details": {
+      "message": "Form accessibility test completed",
+      "totalFormElements": 39,
+      "labeledElements": 21,
+      "unlabeledElements": 3,
+      "requiredFields": 0,
+      "summary": {
+        "totalBrowsers": 3,
+        "totalViolations": 9,
+        "totalFormElements": 39,
+        "totalLabeledElements": 21,
+        "totalUnlabeledElements": 3,
+        "totalRequiredFields": 0,
+        "totalFieldsWithErrorHandling": 0,
+        "overallPassed": false
+      }
+    }
+  },
+  "fileName": "test-form-test-run-1751026669194-1751026669194-x7g0iq2vs.json",
+  "summary": {
+    "tool": "form-accessibility",
+    "violations": 9,
+    "passes": 21,
+    "warnings": 0,
+    "status": "fail",
+    "critical": true
+  }
+}

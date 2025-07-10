@@ -1,0 +1,56 @@
+{
+  "testType": "test:keyboard",
+  "status": "completed",
+  "startTime": "2025-06-27T13:30:10.103Z",
+  "endTime": "2025-06-27T13:30:10.627Z",
+  "duration": 524,
+  "url": "strava.com",
+  "result": {
+    "tool": "keyboard-navigation",
+    "violations": 1,
+    "details": {
+      "message": "Keyboard navigation test completed",
+      "focusableElements": 0,
+      "tabSequenceLength": 0,
+      "skipLinksFound": 0,
+      "focusIndicatorsPresent": 0,
+      "violations": [
+        {
+          "id": "keyboard-test-error",
+          "impact": "critical",
+          "description": "Testing failed: page.goto: Protocol error (Page.navigate): Cannot navigate to invalid URL\nCall log:\n\u001b[2m  - navigating to \"strava.com\", waiting until \"networkidle\"\u001b[22m\n",
+          "help": "An error occurred during keyboard navigation testing.",
+          "helpUrl": "https://www.w3.org/WAI/WCAG21/Understanding/keyboard-accessible.html",
+          "nodes": [
+            {
+              "target": [
+                "body"
+              ],
+              "html": "<body>...</body>",
+              "failureSummary": "Fix: Review and fix any JavaScript errors that may be interfering with keyboard navigation."
+            }
+          ],
+          "wcagCriteria": [
+            "2.1.1"
+          ]
+        }
+      ],
+      "summary": {
+        "focusableElements": 0,
+        "tabSequenceLength": 0,
+        "skipLinksFound": 0,
+        "focusIndicatorsPresent": 0,
+        "violationsFound": 0
+      }
+    }
+  },
+  "fileName": "test-keyboard-test-run-1751031010102-1751031010102-yqtzeemjq.json",
+  "summary": {
+    "tool": "keyboard-navigation",
+    "violations": 1,
+    "passes": 0,
+    "warnings": 0,
+    "status": "fail",
+    "critical": false
+  }
+}

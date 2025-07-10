@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Accessibility Test Report - https://run-analysis.onrender.com/</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 20px; background: #f8f9fa; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 10px; margin-bottom: 30px; }
+        .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        .summary-card { background: white; border: 1px solid #e1e5e9; border-radius: 8px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .metric-value { font-size: 2rem; font-weight: bold; margin-bottom: 5px; }
+        .metric-label { color: #6c757d; font-size: 0.9rem; }
+        .test-results { background: white; border-radius: 8px; padding: 20px; margin-bottom: 30px; border: 1px solid #e1e5e9; }
+        .test-item { display: flex; justify-content: space-between; align-items: center; padding: 15px; border-bottom: 1px solid #f8f9fa; }
+        .test-item:last-child { border-bottom: none; }
+        .status-badge { padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; }
+        .status-pass { background: #d4edda; color: #155724; }
+        .status-fail { background: #f8d7da; color: #721c24; }
+        .recommendations { background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; padding: 20px; margin-bottom: 30px; }
+        .recommendation { margin-bottom: 20px; padding: 15px; background: white; border-radius: 5px; }
+        .priority-high { border-left: 4px solid #dc3545; }
+        .priority-medium { border-left: 4px solid #ffc107; }
+        .priority-low { border-left: 4px solid #28a745; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 Accessibility Test Report</h1>
+            <p><strong>URL:</strong> https://run-analysis.onrender.com/</p>
+            <p><strong>Generated:</strong> 6/26/2025, 6:09:28 PM</p>
+            <p><strong>Test Run ID:</strong> test-run-1750975648518-1750975648518-f4e30lq7k</p>
+        </div>
+
+        <div class="summary-grid">
+            <div class="summary-card">
+                <div class="metric-value" style="color: #dc3545">50%</div>
+                <div class="metric-label">WCAG Compliance Score</div>
+            </div>
+            <div class="summary-card">
+                <div class="metric-value" style="color: #dc3545">1316</div>
+                <div class="metric-label">Total Violations</div>
+            </div>
+            <div class="summary-card">
+                <div class="metric-value" style="color: #28a745">617</div>
+                <div class="metric-label">Total Passes</div>
+            </div>
+            <div class="summary-card">
+                <div class="metric-value">100%</div>
+                <div class="metric-label">Test Coverage</div>
+            </div>
+        </div>
+
+        <div class="test-results">
+            <h2>📋 Test Results</h2>
+            
+                <div class="test-item">
+                    <div>
+                        <strong>a11y:axe</strong><br>
+                        <small>axe-core</small>
+                    </div>
+                    <div>
+                        <span class="status-badge status-fail">
+                            5 violations
+                        </span>
+                    </div>
+                </div>
+            
+                <div class="test-item">
+                    <div>
+                        <strong>a11y:pa11y</strong><br>
+                        <small>pa11y</small>
+                    </div>
+                    <div>
+                        <span class="status-badge status-fail">
+                            22 violations
+                        </span>
+                    </div>
+                </div>
+            
+                <div class="test-item">
+                    <div>
+                        <strong>a11y:lighthouse</strong><br>
+                        <small>lighthouse</small>
+                    </div>
+                    <div>
+                        <span class="status-badge status-fail">
+                            2 violations
+                        </span>
+                    </div>
+                </div>
+            
+                <div class="test-item">
+                    <div>
+                        <strong>a11y:contrast-basic</strong><br>
+                        <small>contrast-checker</small>
+                    </div>
+                    <div>
+                        <span class="status-badge status-fail">
+                            62 violations
+                        </span>
+                    </div>
+                </div>
+            
+                <div class="test-item">
+                    <div>
+                        <strong>test:keyboard</strong><br>
+                        <small>keyboard-navigation</small>
+                    </div>
+                    <div>
+                        <span class="status-badge status-fail">
+                            1 violations
+                        </span>
+                    </div>
+                </div>
+            
+                <div class="test-item">
+                    <div>
+                        <strong>test:screen-reader</strong><br>
+                        <small>screen-reader</small>
+                    </div>
+                    <div>
+                        <span class="status-badge status-fail">
+                            9 violations
+                        </span>
+                    </div>
+                </div>
+            
+                <div class="test-item">
+                    <div>
+                        <strong>test:mobile</strong><br>
+                        <small>mobile-accessibility</small>
+                    </div>
+                    <div>
+                        <span class="status-badge status-fail">
+                            1215 violations
+                        </span>
+                    </div>
+                </div>
+            
+                <div class="test-item">
+                    <div>
+                        <strong>test:form</strong><br>
+                        <small>form-accessibility</small>
+                    </div>
+                    <div>
+                        <span class="status-badge status-pass">
+                            0 violations
+                        </span>
+                    </div>
+                </div>
+            
+        </div>
+
+        <div class="recommendations">
+            <h2>💡 Recommendations</h2>
+            
+                <div class="recommendation priority-high">
+                    <h3>Improve Overall WCAG Compliance</h3>
+                    <p>Your site's WCAG compliance score is 50%, which is below the recommended 70% minimum.</p>
+                    <ul>
+                        <li>Focus on fixing critical accessibility violations first</li><li>Implement a systematic approach to accessibility testing</li><li>Consider accessibility training for your development team</li>
+                    </ul>
+                </div>
+            
+                <div class="recommendation priority-high">
+                    <h3>Fix Axe-core Violations</h3>
+                    <p>Found 5 accessibility violations that need attention.</p>
+                    <ul>
+                        <li>Review detailed axe-core violations in the test results</li><li>Prioritize high and critical impact issues</li><li>Use browser extensions for real-time axe testing</li>
+                    </ul>
+                </div>
+            
+                <div class="recommendation priority-high">
+                    <h3>Address Pa11y Issues</h3>
+                    <p>Pa11y found 22 accessibility issues.</p>
+                    <ul>
+                        <li>Review pa11y error details for specific fixes</li><li>Focus on WCAG 2.1 AA compliance issues</li><li>Test with different screen readers</li>
+                    </ul>
+                </div>
+            
+                <div class="recommendation priority-medium">
+                    <h3>Improve Keyboard Navigation</h3>
+                    <p>Keyboard accessibility needs improvement (1 issues found).</p>
+                    <ul>
+                        <li>Ensure all interactive elements are keyboard accessible</li><li>Implement proper focus management</li><li>Add visible focus indicators</li>
+                    </ul>
+                </div>
+            
+        </div>
+
+        <div class="test-results">
+            <h2>📁 Generated Files</h2>
+            
+                <div class="test-item">
+                    <div>
+                        <strong>a11y-axe-test-run-1750975648518-1750975648518-f4e30lq7k.json</strong><br>
+                        <small>individual-test - 20.8 KB</small>
+                    </div>
+                    <div>
+                        <span class="status-badge">json</span>
+                    </div>
+                </div>
+            
+                <div class="test-item">
+                    <div>
+                        <strong>a11y-pa11y-test-run-1750975648518-1750975648518-f4e30lq7k.json</strong><br>
+                        <small>individual-test - 38.8 KB</small>
+                    </div>
+                    <div>
+                        <span class="status-badge">json</span>
+                    </div>
+                </div>
+            
+                <div class="test-item">
+                    <div>
+                        <strong>a11y-lighthouse-test-run-1750975648518-1750975648518-f4e30lq7k.json</strong><br>
+                        <small>individual-test - 2.3 KB</small>
+                    </div>
+                    <div>
+                        <span class="status-badge">json</span>
+                    </div>
+                </div>
+            
+                <div class="test-item">
+                    <div>
+                        <strong>a11y-contrast-basic-test-run-1750975648518-1750975648518-f4e30lq7k.json</strong><br>
+                        <small>individual-test - 85.3 KB</small>
+                    </div>
+                    <div>
+                        <span class="status-badge">json</span>
+                    </div>
+                </div>
+            
+                <div class="test-item">
+                    <div>
+                        <strong>test-keyboard-test-run-1750975648518-1750975648518-f4e30lq7k.json</strong><br>
+                        <small>individual-test - 1.7 KB</small>
+                    </div>
+                    <div>
+                        <span class="status-badge">json</span>
+                    </div>
+                </div>
+            
+                <div class="test-item">
+                    <div>
+                        <strong>test-screen-reader-test-run-1750975648518-1750975648518-f4e30lq7k.json</strong><br>
+                        <small>individual-test - 3.5 KB</small>
+                    </div>
+                    <div>
+                        <span class="status-badge">json</span>
+                    </div>
+                </div>
+            
+                <div class="test-item">
+                    <div>
+                        <strong>test-mobile-test-run-1750975648518-1750975648518-f4e30lq7k.json</strong><br>
+                        <small>individual-test - 853.7 KB</small>
+                    </div>
+                    <div>
+                        <span class="status-badge">json</span>
+                    </div>
+                </div>
+            
+                <div class="test-item">
+                    <div>
+                        <strong>test-form-test-run-1750975648518-1750975648518-f4e30lq7k.json</strong><br>
+                        <small>individual-test - 1.0 KB</small>
+                    </div>
+                    <div>
+                        <span class="status-badge">json</span>
+                    </div>
+                </div>
+            
+        </div>
+    </div>
+</body>
+</html>

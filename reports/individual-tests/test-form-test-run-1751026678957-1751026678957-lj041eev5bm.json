@@ -1,0 +1,47 @@
+{
+  "testType": "test:form",
+  "url": "https://runkeeper.com",
+  "pageTitle": "No title",
+  "timestamp": "2025-06-27T12:17:58.957Z",
+  "batchId": "site-test-1751026647673",
+  "jobId": "job-1751026653347-x78qga7v7",
+  "executionInfo": {
+    "startTime": "2025-06-27T12:17:33.348Z",
+    "endTime": "2025-06-27T12:17:58.957Z",
+    "duration": 0,
+    "status": "completed"
+  },
+  "result": {
+    "tool": "form-accessibility",
+    "violations": 9,
+    "details": {
+      "message": "Form accessibility test completed",
+      "totalFormElements": 39,
+      "labeledElements": 21,
+      "unlabeledElements": 3,
+      "requiredFields": 0,
+      "summary": {
+        "totalBrowsers": 3,
+        "totalViolations": 9,
+        "totalFormElements": 39,
+        "totalLabeledElements": 21,
+        "totalUnlabeledElements": 3,
+        "totalRequiredFields": 0,
+        "totalFieldsWithErrorHandling": 0,
+        "overallPassed": false
+      }
+    }
+  },
+  "summary": {
+    "violations": 9,
+    "passed": 0,
+    "incomplete": 0,
+    "inapplicable": 0,
+    "successRate": 0
+  },
+  "metadata": {
+    "tool": "form-accessibility",
+    "version": "1.0.0",
+    "generatedBy": "dashboard-backend-job-queue"
+  }
+}

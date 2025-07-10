@@ -1,0 +1,44 @@
+{
+  "testType": "test:screen-reader",
+  "url": "https://run-analysis.onrender.com/login",
+  "pageTitle": "ToeTheLine",
+  "timestamp": "2025-06-27T18:59:37.156Z",
+  "batchId": "site-test-1751050686895",
+  "jobId": "job-1751050692876-15q00xom6a",
+  "executionInfo": {
+    "startTime": "2025-06-27T18:58:12.876Z",
+    "endTime": "2025-06-27T18:59:37.156Z",
+    "duration": 0,
+    "status": "completed"
+  },
+  "result": {
+    "tool": "screen-reader",
+    "violations": 21,
+    "passes": -15,
+    "details": {
+      "message": "Screen reader accessibility test completed",
+      "testMethod": "automated-screen-reader",
+      "url": "https://run-analysis.onrender.com/login",
+      "summary": {
+        "totalBrowsers": 3,
+        "totalViolations": 21,
+        "totalElements": 6,
+        "totalLandmarks": 0,
+        "totalHeadings": 3,
+        "overallPassed": false
+      }
+    }
+  },
+  "summary": {
+    "violations": 21,
+    "passed": 0,
+    "incomplete": 0,
+    "inapplicable": 0,
+    "successRate": 0
+  },
+  "metadata": {
+    "tool": "screen-reader",
+    "version": "1.0.0",
+    "generatedBy": "dashboard-backend-job-queue"
+  }
+}

@@ -1,0 +1,56 @@
+{
+  "testType": "test:keyboard",
+  "status": "completed",
+  "startTime": "2025-06-27T12:17:35.960Z",
+  "endTime": "2025-06-27T12:17:39.804Z",
+  "duration": 3844,
+  "url": "https://runkeeper.com",
+  "result": {
+    "tool": "keyboard-navigation",
+    "violations": 1,
+    "details": {
+      "message": "Keyboard navigation test completed (with demo violations)",
+      "focusableElements": 95,
+      "tabSequenceLength": 2,
+      "skipLinksFound": 0,
+      "focusIndicatorsPresent": 0,
+      "violations": [
+        {
+          "id": "keyboard-missing-focus-indicator",
+          "impact": "serious",
+          "description": "Interactive element lacks visible focus indicator",
+          "help": "All interactive elements must have a visible focus indicator when focused via keyboard navigation.",
+          "helpUrl": "https://www.w3.org/WAI/WCAG21/Understanding/focus-visible.html",
+          "nodes": [
+            {
+              "target": [
+                "button#submit-btn.btn"
+              ],
+              "html": "<button id=\"submit-btn\" class=\"btn btn-primary\">Submit</button>",
+              "failureSummary": "Fix: Add CSS focus styles for button element: \"outline: 2px solid #0078d4\" or similar."
+            }
+          ],
+          "wcagCriteria": [
+            "2.4.7"
+          ]
+        }
+      ],
+      "summary": {
+        "focusableElements": 95,
+        "tabSequenceLength": 2,
+        "skipLinksFound": 0,
+        "focusIndicatorsPresent": 0,
+        "violationsFound": 1
+      }
+    }
+  },
+  "fileName": "test-keyboard-test-run-1751026655959-1751026655959-x79xnk9cf.json",
+  "summary": {
+    "tool": "keyboard-navigation",
+    "violations": 1,
+    "passes": 0,
+    "warnings": 0,
+    "status": "fail",
+    "critical": false
+  }
+}

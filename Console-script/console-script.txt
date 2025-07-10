@@ -1,0 +1,295 @@
+// WAVE Data Extractor - Run this in browser console with WAVE extension active
+(function extractWaveData() {
+    console.log('🔍 Extracting WAVE data from active extension...');
+    
+    // Function to safely access WAVE extension data
+    function getWaveData() {
+        // Try multiple ways to access WAVE data
+        let waveResults = null;
+        
+        // Method 1: Check for WAVE global variables
+        if (typeof window.WAVE !== 'undefined') {
+            waveResults = window.WAVE;
+        }
+        
+        // Method 2: Check for WAVE extension in DOM
+        if (!waveResults) {
+            const waveElements = document.querySelectorAll('[data-wave], [id*="wave"], [class*="wave"]');
+            if (waveElements.length > 0) {
+                console.log('Found WAVE DOM elements:', waveElements.length);
+            }
+        }
+        
+        // Method 3: Check localStorage for WAVE data
+        if (!waveResults) {
+            try {
+                const stored = localStorage.getItem('wave-results') || localStorage.getItem('WAVE');
+                if (stored) {
+                    waveResults = JSON.parse(stored);
+                }
+            } catch (e) {
+                console.log('No WAVE data in localStorage');
+            }
+        }
+        
+        // Method 4: Check for WAVE extension messages/events
+        if (!waveResults && window.postMessage) {
+            // Send a message to request WAVE data
+            window.postMessage({ type: 'WAVE_GET_RESULTS' }, '*');
+        }
+        
+        return waveResults;
+    }
+    
+    // Extract WAVE extension results
+    const waveRawData = getWaveData();
+    
+    // Count different types of issues from WAVE extension
+    function countWaveIssues() {
+        let errorCount = 0;
+        let alertCount = 0;
+        let contrastCount = 0;
+        let structuralCount = 0;
+        
+        // Count WAVE icons in the page
+        const waveIcons = document.querySelectorAll('img[src*="wave"], [class*="wave_"], [id*="wave_"]');
+        waveIcons.forEach(icon => {
+            const iconClass = icon.className || icon.id || icon.src;
+            if (iconClass.includes('error') || iconClass.includes('alert_red')) errorCount++;
+            if (iconClass.includes('alert') || iconClass.includes('alert_yellow')) alertCount++;
+            if (iconClass.includes('contrast')) contrastCount++;
+            if (iconClass.includes('structure') || iconClass.includes('h1') || iconClass.includes('h2')) structuralCount++;
+        });
+        
+        // Also check WAVE summary if available
+        const waveSummary = document.querySelector('#wave_summary, [id*="wave_summary"], .wave-summary');
+        if (waveSummary) {
+            const summaryText = waveSummary.textContent || waveSummary.innerText;
+            const errorMatch = summaryText.match(/(\d+)\s*error/i);
+            const alertMatch = summaryText.match(/(\d+)\s*alert/i);
+            const contrastMatch = summaryText.match(/(\d+)\s*contrast/i);
+            
+            if (errorMatch) errorCount = Math.max(errorCount, parseInt(errorMatch[1]));
+            if (alertMatch) alertCount = Math.max(alertCount, parseInt(alertMatch[1]));
+            if (contrastMatch) contrastCount = Math.max(contrastCount, parseInt(contrastMatch[1]));
+        }
+        
+        return { errorCount, alertCount, contrastCount, structuralCount };
+    }
+    
+    // Get issue counts
+    const counts = countWaveIssues();
+    
+    // Extract detailed findings from WAVE extension
+    function extractDetailedFindings() {
+        const findings = {
+            errors: [],
+            alerts: [],
+            contrastIssues: []
+        };
+        
+        // Look for WAVE error markers in the DOM
+        const errorElements = document.querySelectorAll('[class*="wave_error"], [id*="wave_error"], img[src*="error"]');
+        errorElements.forEach((element, index) => {
+            const xpath = getXPath(element);
+            const elementType = getElementType(element);
+            
+            findings.errors.push({
+                id: index + 1,
+                type: determineErrorType(element),
+                description: getErrorDescription(element),
+                xpath: xpath,
+                severity: "CRITICAL",
+                wcagLevel: "AA",
+                elementTag: element.tagName,
+                pageUrl: window.location.href
+            });
+        });
+        
+        // Look for WAVE alert markers
+        const alertElements = document.querySelectorAll('[class*="wave_alert"], [id*="wave_alert"], img[src*="alert"]');
+        alertElements.forEach((element, index) => {
+            const xpath = getXPath(element);
+            
+            findings.alerts.push({
+                id: index + 1,
+                type: determineAlertType(element),
+                description: getAlertDescription(element),
+                xpath: xpath,
+                severity: "WARNING",
+                wcagLevel: "AA",
+                pageUrl: window.location.href
+            });
+        });
+        
+        // Look for contrast issues
+        const contrastElements = document.querySelectorAll('[class*="wave_contrast"], [class*="contrast"], img[src*="contrast"]');
+        contrastElements.forEach((element, index) => {
+            const xpath = getXPath(element);
+            
+            findings.contrastIssues.push({
+                id: index + 1,
+                type: "CONTRAST",
+                description: "Contrast issue detected",
+                xpath: xpath,
+                severity: "CRITICAL",
+                wcagLevel: "AA",
+                pageUrl: window.location.href,
+                contrastDetails: extractContrastDetails(element)
+            });
+        });
+        
+        return findings;
+    }
+    
+    // Helper functions
+    function getXPath(element) {
+        if (element.id !== '') {
+            return `//*[@id="${element.id}"]`;
+        }
+        if (element === document.body) {
+            return '/HTML/BODY[1]';
+        }
+        
+        let ix = 0;
+        const siblings = element.parentNode.childNodes;
+        for (let i = 0; i < siblings.length; i++) {
+            const sibling = siblings[i];
+            if (sibling === element) {
+                return getXPath(element.parentNode) + '/' + element.tagName + '[' + (ix + 1) + ']';
+            }
+            if (sibling.nodeType === 1 && sibling.tagName === element.tagName) {
+                ix++;
+            }
+        }
+    }
+    
+    function getElementType(element) {
+        const classes = element.className || '';
+        const src = element.src || '';
+        
+        if (classes.includes('alt') || src.includes('alt')) return 'ALT MISSING';
+        if (classes.includes('label') || src.includes('label')) return 'LABEL MISSING';
+        if (classes.includes('button') || src.includes('button')) return 'BUTTON EMPTY';
+        if (classes.includes('heading') || src.includes('heading')) return 'HEADING SKIPPED';
+        if (classes.includes('link') || src.includes('link')) return 'LINK SUSPICIOUS';
+        
+        return 'UNKNOWN ERROR';
+    }
+    
+    function determineErrorType(element) {
+        return getElementType(element);
+    }
+    
+    function determineAlertType(element) {
+        const classes = element.className || '';
+        const src = element.src || '';
+        
+        if (classes.includes('redundant') || src.includes('redundant')) return 'ALT REDUNDANT';
+        if (classes.includes('region') || src.includes('region')) return 'REGION MISSING';
+        if (classes.includes('heading') || src.includes('heading')) return 'HEADING SKIPPED';
+        if (classes.includes('link') || src.includes('link')) return 'LINK REDUNDANT';
+        
+        return 'UNKNOWN ALERT';
+    }
+    
+    function getErrorDescription(element) {
+        const type = getElementType(element);
+        const descriptions = {
+            'ALT MISSING': 'Missing alternative text',
+            'LABEL MISSING': 'Missing form label',
+            'BUTTON EMPTY': 'Empty button',
+            'HEADING SKIPPED': 'Skipped heading level',
+            'LINK SUSPICIOUS': 'Suspicious link text'
+        };
+        return descriptions[type] || 'Accessibility error detected';
+    }
+    
+    function getAlertDescription(element) {
+        const type = determineAlertType(element);
+        const descriptions = {
+            'ALT REDUNDANT': 'Redundant alternative text',
+            'REGION MISSING': 'No page regions',
+            'HEADING SKIPPED': 'Skipped heading level',
+            'LINK REDUNDANT': 'Redundant link'
+        };
+        return descriptions[type] || 'Accessibility alert detected';
+    }
+    
+    function extractContrastDetails(element) {
+        // Try to extract color information
+        const computedStyle = window.getComputedStyle(element);
+        const color = computedStyle.color;
+        const backgroundColor = computedStyle.backgroundColor;
+        
+        return {
+            ratio: 2.1, // Default low ratio
+            foregroundColor: color || "#000000",
+            backgroundColor: backgroundColor || "#ffffff",
+            requiredRatio: 4.5,
+            passes: false
+        };
+    }
+    
+    // Build the complete WAVE data structure compatible with your application
+    const detailedFindings = extractDetailedFindings();
+    
+    const waveData = {
+        metadata: {
+            url: window.location.href,
+            title: document.title,
+            timestamp: new Date().toISOString(),
+            success: true,
+            userAgent: navigator.userAgent,
+            viewport: {
+                width: window.innerWidth,
+                height: window.innerHeight
+            }
+        },
+        overview: {
+            totalErrors: Math.max(counts.errorCount, detailedFindings.errors.length),
+            totalAlerts: Math.max(counts.alertCount, detailedFindings.alerts.length),
+            totalContrastIssues: Math.max(counts.contrastCount, detailedFindings.contrastIssues.length),
+            totalStructuralElements: counts.structuralCount
+        },
+        developerSummary: {
+            criticalIssues: [
+                ...detailedFindings.errors,
+                ...detailedFindings.contrastIssues
+            ],
+            mostCommonProblems: {
+                "ALT MISSING": detailedFindings.errors.filter(e => e.type === 'ALT MISSING').length,
+                "LABEL MISSING": detailedFindings.errors.filter(e => e.type === 'LABEL MISSING').length,
+                "BUTTON EMPTY": detailedFindings.errors.filter(e => e.type === 'BUTTON EMPTY').length,
+                "CONTRAST": detailedFindings.contrastIssues.length
+            }
+        },
+        detailedFindings: detailedFindings
+    };
+    
+    // Generate filename with timestamp
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+    const filename = `wave-summary-${window.location.hostname.replace(/\./g, '_')}-${timestamp}Z.json`;
+    
+    // Download the data file
+    const blob = new Blob([JSON.stringify(waveData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    console.log('✅ WAVE data extracted and downloaded:', filename);
+    console.log('📊 Summary:', {
+        errors: waveData.overview.totalErrors,
+        alerts: waveData.overview.totalAlerts,
+        contrast: waveData.overview.totalContrastIssues,
+        url: waveData.metadata.url
+    });
+    
+    return waveData;
+})();

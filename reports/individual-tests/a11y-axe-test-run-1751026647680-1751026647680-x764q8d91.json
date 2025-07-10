@@ -1,0 +1,163 @@
+{
+  "testType": "a11y:axe",
+  "status": "completed",
+  "startTime": "2025-06-27T12:17:27.680Z",
+  "endTime": "2025-06-27T12:17:37.672Z",
+  "duration": 9992,
+  "url": "https://runkeeper.com",
+  "result": {
+    "tool": "axe-core",
+    "violations": 6,
+    "passes": 44,
+    "incomplete": 1,
+    "detailedViolations": [
+      {
+        "id": "button-name",
+        "impact": "critical",
+        "description": "Ensure buttons have discernible text",
+        "help": "Buttons must have discernible text",
+        "helpUrl": "https://dequeuniversity.com/rules/axe/4.10/button-name?application=axeAPI",
+        "nodes": [
+          {
+            "target": [
+              ".searchform-cont > .searchform-wrapper > .searchtoggle.d-lg-flex.round-icon-button"
+            ],
+            "html": "<button id=\"searchtoggle\" class=\"searchtoggle d-none d-lg-flex round-icon-button\">\n\t\t<span class=\"icon-search icon fal fa-search\"></span>\n\t\t<span class=\"icon-close icon fal fa-times\"></span>\n\t</button>",
+            "failureSummary": "Fix any of the following:\n  Element does not have inner text that is visible to screen readers\n  aria-label attribute does not exist or is empty\n  aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty\n  Element has no title attribute\n  Element does not have an implicit (wrapped) <label>\n  Element does not have an explicit <label>\n  Element's default semantics were not overridden with role=\"none\" or role=\"presentation\""
+          }
+        ],
+        "wcagCriteria": [
+          "wcag2a",
+          "wcag412"
+        ]
+      },
+      {
+        "id": "image-alt",
+        "impact": "critical",
+        "description": "Ensure <img> elements have alternative text or a role of none or presentation",
+        "help": "Images must have alternative text",
+        "helpUrl": "https://dequeuniversity.com/rules/axe/4.10/image-alt?application=axeAPI",
+        "nodes": [
+          {
+            "target": [
+              ".image-left > .container > .row > .image-col.col-sm-6.col-12 > .media-wrapper > .animated-image-wrapper.aos-init[data-aos=\"fade-up\"] > .animated-image.aos-init[data-aos-delay=\"250\"]"
+            ],
+            "html": "<img src=\"https://runkeeper.com/cms/wp-content/uploads/sites/4/2023/01/homepage-journey-2.gif\" data-aos=\"fade-up\" data-aos-delay=\"250\" class=\"animated-image aos-init\">",
+            "failureSummary": "Fix any of the following:\n  Element does not have an alt attribute\n  aria-label attribute does not exist or is empty\n  aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty\n  Element has no title attribute\n  Element's default semantics were not overridden with role=\"none\" or role=\"presentation\""
+          },
+          {
+            "target": [
+              ".image-right > .container > .row > .image-col.col-sm-6.col-12 > .media-wrapper > .animated-image-wrapper.aos-init[data-aos=\"fade-up\"] > .animated-image.aos-init[data-aos-delay=\"250\"]"
+            ],
+            "html": "<img src=\"https://runkeeper.com/cms/wp-content/uploads/sites/4/2023/01/homepage-raceplan-1.gif\" data-aos=\"fade-up\" data-aos-delay=\"250\" class=\"animated-image aos-init\">",
+            "failureSummary": "Fix any of the following:\n  Element does not have an alt attribute\n  aria-label attribute does not exist or is empty\n  aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty\n  Element has no title attribute\n  Element's default semantics were not overridden with role=\"none\" or role=\"presentation\""
+          }
+        ],
+        "wcagCriteria": [
+          "wcag2a",
+          "wcag111"
+        ]
+      },
+      {
+        "id": "landmark-banner-is-top-level",
+        "impact": "moderate",
+        "description": "Ensure the banner landmark is at top level",
+        "help": "Banner landmark should not be contained in another landmark",
+        "helpUrl": "https://dequeuniversity.com/rules/axe/4.10/landmark-banner-is-top-level?application=axeAPI",
+        "nodes": [
+          {
+            "target": [
+              "header"
+            ],
+            "html": "<header class=\"featured-hero page front\" role=\"banner\">",
+            "failureSummary": "Fix any of the following:\n  The banner landmark is contained in another landmark."
+          }
+        ],
+        "wcagCriteria": []
+      },
+      {
+        "id": "link-name",
+        "impact": "serious",
+        "description": "Ensure links have discernible text",
+        "help": "Links must have discernible text",
+        "helpUrl": "https://dequeuniversity.com/rules/axe/4.10/link-name?application=axeAPI",
+        "nodes": [
+          {
+            "target": [
+              ".app-link:nth-child(2)"
+            ],
+            "html": "<a href=\"https://apps.apple.com/us/app/runkeeper-gps-running-tracker/id300235330\" class=\"app-link\">",
+            "failureSummary": "Fix all of the following:\n  Element is in tab order and does not have accessible text\n\nFix any of the following:\n  Element does not have text that is visible to screen readers\n  aria-label attribute does not exist or is empty\n  aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty\n  Element has no title attribute"
+          },
+          {
+            "target": [
+              ".app-link:nth-child(3)"
+            ],
+            "html": "<a href=\"https://play.google.com/store/apps/details?id=com.fitnesskeeper.runkeeper.pro&amp;hl=en_CA\" class=\"app-link\">",
+            "failureSummary": "Fix all of the following:\n  Element is in tab order and does not have accessible text\n\nFix any of the following:\n  Element does not have text that is visible to screen readers\n  aria-label attribute does not exist or is empty\n  aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty\n  Element has no title attribute"
+          }
+        ],
+        "wcagCriteria": [
+          "wcag2a",
+          "wcag244",
+          "wcag412"
+        ]
+      },
+      {
+        "id": "region",
+        "impact": "moderate",
+        "description": "Ensure all page content is contained by landmarks",
+        "help": "All page content should be contained by landmarks",
+        "helpUrl": "https://dequeuniversity.com/rules/axe/4.10/region?application=axeAPI",
+        "nodes": [
+          {
+            "target": [
+              ".pre-footer-cta"
+            ],
+            "html": "<section class=\"pre-footer-cta indigo-radial-gradient two-col-ctas\">",
+            "failureSummary": "Fix any of the following:\n  Some page content is not contained by landmarks"
+          }
+        ],
+        "wcagCriteria": []
+      },
+      {
+        "id": "select-name",
+        "impact": "critical",
+        "description": "Ensure select element has an accessible name",
+        "help": "Select element must have an accessible name",
+        "helpUrl": "https://dequeuniversity.com/rules/axe/4.10/select-name?application=axeAPI",
+        "nodes": [
+          {
+            "target": [
+              ".pre-nav-language-switcher > .language-switcher > select"
+            ],
+            "html": "<select class=\"switcher\">\n\t\t\t\t\t\t\t<option value=\"\" selected=\"\">ENG</option>\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t<option value=\"https://runkeeper.com/ja\">日本語</option>\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t</select>",
+            "failureSummary": "Fix any of the following:\n  Element does not have an implicit (wrapped) <label>\n  Element does not have an explicit <label>\n  aria-label attribute does not exist or is empty\n  aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty\n  Element has no title attribute\n  Element's default semantics were not overridden with role=\"none\" or role=\"presentation\""
+          }
+        ],
+        "wcagCriteria": [
+          "wcag2a",
+          "wcag412"
+        ]
+      }
+    ],
+    "wcagMapping": {},
+    "details": {
+      "message": "Axe-core accessibility test completed",
+      "testMethod": "automated-playwright",
+      "url": "https://runkeeper.com",
+      "violationsFound": 6,
+      "passesFound": 44,
+      "incompleteFound": 1
+    }
+  },
+  "fileName": "a11y-axe-test-run-1751026647680-1751026647680-x764q8d91.json",
+  "summary": {
+    "tool": "axe-core",
+    "violations": 6,
+    "passes": 44,
+    "warnings": 0,
+    "status": "fail",
+    "critical": true
+  }
+}

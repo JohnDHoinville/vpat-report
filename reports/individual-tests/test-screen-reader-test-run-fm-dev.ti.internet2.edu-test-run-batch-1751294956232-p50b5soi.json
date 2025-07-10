@@ -1,0 +1,140 @@
+{
+  "testType": "test:screen-reader",
+  "status": "completed",
+  "startTime": "2025-06-30T14:49:16.232Z",
+  "endTime": "2025-06-30T14:49:25.273Z",
+  "duration": 9041,
+  "url": "https://fm-dev.ti.internet2.edu/",
+  "result": {
+    "tool": "screen-reader",
+    "violations": 9,
+    "passes": 15,
+    "detailedViolations": [
+      {
+        "type": "heading-hierarchy-skip",
+        "message": "Heading level skips from 0 to 2",
+        "element": {
+          "element": "H2",
+          "level": 2,
+          "text": "Login",
+          "index": 0,
+          "isValid": false,
+          "skip": 1,
+          "id": "",
+          "className": ""
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "missing-h1",
+        "message": "Page has headings but no h1 element",
+        "severity": "moderate"
+      },
+      {
+        "type": "link-missing-accessible-name",
+        "message": "Link missing accessible name",
+        "element": {
+          "href": "https://fm-dev.ti.internet2.edu/home",
+          "text": "",
+          "ariaLabel": "",
+          "ariaLabelledBy": "",
+          "title": "",
+          "hasAccessibleName": false,
+          "isGeneric": false
+        },
+        "severity": "critical"
+      },
+      {
+        "type": "heading-hierarchy-skip",
+        "message": "Heading level skips from 0 to 2",
+        "element": {
+          "element": "H2",
+          "level": 2,
+          "text": "Login",
+          "index": 0,
+          "isValid": false,
+          "skip": 1,
+          "id": "",
+          "className": ""
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "missing-h1",
+        "message": "Page has headings but no h1 element",
+        "severity": "moderate"
+      },
+      {
+        "type": "link-missing-accessible-name",
+        "message": "Link missing accessible name",
+        "element": {
+          "href": "https://fm-dev.ti.internet2.edu/home",
+          "text": "",
+          "ariaLabel": "",
+          "ariaLabelledBy": "",
+          "title": "",
+          "hasAccessibleName": false,
+          "isGeneric": false
+        },
+        "severity": "critical"
+      },
+      {
+        "type": "heading-hierarchy-skip",
+        "message": "Heading level skips from 0 to 2",
+        "element": {
+          "element": "H2",
+          "level": 2,
+          "text": "Login",
+          "index": 0,
+          "isValid": false,
+          "skip": 1,
+          "id": "",
+          "className": ""
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "missing-h1",
+        "message": "Page has headings but no h1 element",
+        "severity": "moderate"
+      },
+      {
+        "type": "link-missing-accessible-name",
+        "message": "Link missing accessible name",
+        "element": {
+          "href": "https://fm-dev.ti.internet2.edu/home",
+          "text": "",
+          "ariaLabel": "",
+          "ariaLabelledBy": "",
+          "title": "",
+          "hasAccessibleName": false,
+          "isGeneric": false
+        },
+        "severity": "critical"
+      }
+    ],
+    "details": {
+      "message": "Screen reader accessibility test completed",
+      "testMethod": "automated-screen-reader",
+      "url": "https://fm-dev.ti.internet2.edu/",
+      "summary": {
+        "totalBrowsers": 3,
+        "totalViolations": 9,
+        "totalElements": 24,
+        "totalLandmarks": 24,
+        "totalHeadings": 3,
+        "overallPassed": false
+      }
+    }
+  },
+  "fileName": "test-screen-reader-test-run-fm-dev.ti.internet2.edu-test-run-batch-1751294956232-p50b5soi.json",
+  "batchId": "batch-1751294956232-p50b5soi",
+  "summary": {
+    "tool": "screen-reader",
+    "violations": 9,
+    "passes": 15,
+    "warnings": 0,
+    "status": "fail",
+    "critical": true
+  }
+}

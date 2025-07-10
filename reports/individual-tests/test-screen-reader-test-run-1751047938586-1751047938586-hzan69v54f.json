@@ -1,0 +1,44 @@
+{
+  "testType": "test:screen-reader",
+  "url": "https://run-analysis.onrender.com/app",
+  "pageTitle": "From Sitemap",
+  "timestamp": "2025-06-27T18:12:18.586Z",
+  "batchId": "site-test-1751047884267",
+  "jobId": "job-1751047889456-14q8785oky",
+  "executionInfo": {
+    "startTime": "2025-06-27T18:11:29.456Z",
+    "endTime": "2025-06-27T18:12:18.586Z",
+    "duration": 0,
+    "status": "completed"
+  },
+  "result": {
+    "tool": "screen-reader",
+    "violations": 21,
+    "passes": -15,
+    "details": {
+      "message": "Screen reader accessibility test completed",
+      "testMethod": "automated-screen-reader",
+      "url": "https://run-analysis.onrender.com/app",
+      "summary": {
+        "totalBrowsers": 3,
+        "totalViolations": 21,
+        "totalElements": 6,
+        "totalLandmarks": 0,
+        "totalHeadings": 3,
+        "overallPassed": false
+      }
+    }
+  },
+  "summary": {
+    "violations": 21,
+    "passed": 0,
+    "incomplete": 0,
+    "inapplicable": 0,
+    "successRate": 0
+  },
+  "metadata": {
+    "tool": "screen-reader",
+    "version": "1.0.0",
+    "generatedBy": "dashboard-backend-job-queue"
+  }
+}

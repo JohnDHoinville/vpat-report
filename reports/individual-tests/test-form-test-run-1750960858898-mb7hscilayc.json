@@ -1,0 +1,25 @@
+{
+  "testType": "test:form",
+  "status": "completed",
+  "startTime": "2025-06-26T18:01:01.023Z",
+  "endTime": "2025-06-26T18:01:01.023Z",
+  "duration": 0,
+  "url": "http://127.0.0.1:3000",
+  "result": {
+    "tool": "form-accessibility",
+    "violations": 1,
+    "details": {
+      "message": "Form accessibility test completed",
+      "formsFound": 3
+    }
+  },
+  "fileName": "test-form-test-run-1750960858898-mb7hscilayc.json",
+  "summary": {
+    "tool": "form-accessibility",
+    "violations": 1,
+    "passes": 0,
+    "warnings": 0,
+    "status": "fail",
+    "critical": false
+  }
+}

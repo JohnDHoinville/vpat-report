@@ -1,0 +1,66 @@
+{
+  "testType": "a11y:pa11y",
+  "status": "completed",
+  "startTime": "2025-06-26T19:57:20.870Z",
+  "endTime": "2025-06-26T19:57:24.973Z",
+  "duration": 4103,
+  "url": "https://httpbin.org/html",
+  "result": {
+    "tool": "pa11y",
+    "violations": 2,
+    "warnings": 1,
+    "detailedViolations": [
+      {
+        "id": "pa11y-WCAG2AA.Principle1.Guideline1_1.1_1_1.H37-1",
+        "impact": "serious",
+        "description": "Img element missing an alt attribute. Use the alt attribute to specify a short text alternative.",
+        "help": "Images must have appropriate alternative text.",
+        "helpUrl": "https://www.w3.org/WAI/WCAG21/Understanding/non-text-content.html",
+        "nodes": [
+          {
+            "target": [
+              "img"
+            ],
+            "html": "<img src=\"/image.jpg\">",
+            "failureSummary": "Fix: Add meaningful alt text to images, or use alt=\"\" for decorative images."
+          }
+        ],
+        "wcagCriteria": [
+          "1.1.1"
+        ]
+      },
+      {
+        "id": "pa11y-WCAG2AA.Principle1.Guideline1_4.1_4_3.G18-2",
+        "impact": "serious",
+        "description": "This element has insufficient contrast at this conformance level.",
+        "help": "Text must have sufficient color contrast.",
+        "helpUrl": "https://www.w3.org/WAI/WCAG21/Understanding/contrast-minimum.html",
+        "nodes": [
+          {
+            "target": [
+              "button.btn-secondary"
+            ],
+            "html": "<button class=\"btn btn-secondary\">Click me</button>",
+            "failureSummary": "Fix: Increase color contrast to meet WCAG AA standards (4.5:1 for normal text)."
+          }
+        ],
+        "wcagCriteria": [
+          "1.4.3"
+        ]
+      }
+    ],
+    "details": {
+      "message": "Pa11y test completed (fallback mode: Command failed: npx pa11y \"https://httpbin.org/html\" --reporter json --standard WCAG2AA --timeout 30000)",
+      "testMethod": "automated-fallback"
+    }
+  },
+  "fileName": "a11y-pa11y-test-run-1750967838001-f167fw3zsj.json",
+  "summary": {
+    "tool": "pa11y",
+    "violations": 2,
+    "passes": 0,
+    "warnings": 1,
+    "status": "fail",
+    "critical": false
+  }
+}

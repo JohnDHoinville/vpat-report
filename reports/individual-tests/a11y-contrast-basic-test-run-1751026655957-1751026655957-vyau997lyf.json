@@ -1,0 +1,44 @@
+{
+  "testType": "a11y:contrast-basic",
+  "url": "https://runkeeper.com",
+  "pageTitle": "No title",
+  "timestamp": "2025-06-27T12:17:35.957Z",
+  "batchId": "site-test-1751026647673",
+  "jobId": "job-1751026653347-x78qg5lhe",
+  "executionInfo": {
+    "startTime": "2025-06-27T12:17:33.347Z",
+    "endTime": "2025-06-27T12:17:35.957Z",
+    "duration": 0,
+    "status": "completed"
+  },
+  "result": {
+    "tool": "contrast-checker",
+    "violations": 2,
+    "passes": 347,
+    "details": {
+      "message": "Contrast analysis completed",
+      "testMethod": "automated-contrast-analyzer",
+      "url": "https://runkeeper.com",
+      "summary": {
+        "totalElements": 506,
+        "passedElements": 347,
+        "failedElements": 2,
+        "warningElements": 25,
+        "aaViolations": 2,
+        "aaaViolations": 0
+      }
+    }
+  },
+  "summary": {
+    "violations": 2,
+    "passed": 0,
+    "incomplete": 0,
+    "inapplicable": 0,
+    "successRate": 0
+  },
+  "metadata": {
+    "tool": "contrast-checker",
+    "version": "1.0.0",
+    "generatedBy": "dashboard-backend-job-queue"
+  }
+}

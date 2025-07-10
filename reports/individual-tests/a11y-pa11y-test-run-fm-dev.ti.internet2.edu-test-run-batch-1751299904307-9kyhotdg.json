@@ -1,0 +1,63 @@
+{
+  "testType": "a11y:pa11y",
+  "status": "completed",
+  "startTime": "2025-06-30T16:11:44.307Z",
+  "endTime": "2025-06-30T16:11:50.824Z",
+  "duration": 6517,
+  "url": "https://fm-dev.ti.internet2.edu/",
+  "result": {
+    "tool": "pa11y",
+    "violations": 1,
+    "warnings": 0,
+    "detailedViolations": [
+      {
+        "id": "pa11y-WCAG2AA.Principle2.Guideline2_4.2_4_2.H25.1.EmptyTitle-1",
+        "impact": "serious",
+        "description": "The title element in the head section should be non-empty.",
+        "help": "Ensure accessibility compliance for this element.",
+        "helpUrl": "https://www.w3.org/WAI/WCAG21/",
+        "nodes": [
+          {
+            "target": [
+              "html > head > title"
+            ],
+            "html": "<title>\n  </title>",
+            "failureSummary": "Fix: Review element and ensure it meets accessibility guidelines."
+          }
+        ],
+        "wcagCriteria": [
+          "2.1.1"
+        ]
+      }
+    ],
+    "details": {
+      "message": "Pa11y accessibility test completed",
+      "testMethod": "automated-pa11y",
+      "url": "https://fm-dev.ti.internet2.edu/",
+      "errorsFound": 1,
+      "warningsFound": 0,
+      "issues": [
+        {
+          "code": "WCAG2AA.Principle2.Guideline2_4.2_4_2.H25.1.EmptyTitle",
+          "type": "error",
+          "typeCode": 1,
+          "message": "The title element in the head section should be non-empty.",
+          "context": "<title>\n  </title>",
+          "selector": "html > head > title",
+          "runner": "htmlcs",
+          "runnerExtras": {}
+        }
+      ]
+    }
+  },
+  "fileName": "a11y-pa11y-test-run-fm-dev.ti.internet2.edu-test-run-batch-1751299904307-9kyhotdg.json",
+  "batchId": "batch-1751299904307-9kyhotdg",
+  "summary": {
+    "tool": "pa11y",
+    "violations": 1,
+    "passes": 0,
+    "warnings": 0,
+    "status": "fail",
+    "critical": false
+  }
+}

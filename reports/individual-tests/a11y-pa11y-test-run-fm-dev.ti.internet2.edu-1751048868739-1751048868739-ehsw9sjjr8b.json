@@ -1,0 +1,32 @@
+{
+  "testType": "a11y:pa11y",
+  "url": "https://fm-dev.ti.internet2.edu/",
+  "pageTitle": "Single Page Test",
+  "timestamp": "2025-06-27T18:27:48.739Z",
+  "batchId": "site-test-1751048864462",
+  "jobId": "job-1751048864494-152o3xsxcz",
+  "executionInfo": {
+    "startTime": "2025-06-27T18:27:44.494Z",
+    "endTime": "2025-06-27T18:27:48.739Z",
+    "duration": 0,
+    "status": "completed"
+  },
+  "result": {
+    "tool": "pa11y",
+    "violations": 0,
+    "warnings": 0,
+    "details": []
+  },
+  "summary": {
+    "violations": 0,
+    "passed": 0,
+    "incomplete": 0,
+    "inapplicable": 0,
+    "successRate": 100
+  },
+  "metadata": {
+    "tool": "pa11y",
+    "version": "1.0.0",
+    "generatedBy": "dashboard-backend-job-queue"
+  }
+}

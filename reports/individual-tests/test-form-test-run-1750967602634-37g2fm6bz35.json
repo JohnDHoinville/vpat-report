@@ -1,0 +1,66 @@
+{
+  "testType": "test:form",
+  "status": "completed",
+  "startTime": "2025-06-26T19:53:31.460Z",
+  "endTime": "2025-06-26T19:53:39.275Z",
+  "duration": 7815,
+  "url": "https://httpbin.org/html",
+  "result": {
+    "tool": "form-accessibility",
+    "violations": 2,
+    "details": {
+      "message": "Form accessibility test completed (fallback mode)",
+      "formsFound": 3,
+      "violations": [
+        {
+          "id": "form-missing-label",
+          "impact": "serious",
+          "description": "Form input is missing an accessible label",
+          "help": "All form controls must have accessible labels to help users understand their purpose.",
+          "helpUrl": "https://www.w3.org/WAI/WCAG21/Understanding/labels-or-instructions.html",
+          "nodes": [
+            {
+              "target": [
+                "input[type=\"email\"]"
+              ],
+              "html": "<input type=\"email\" name=\"email\" placeholder=\"Email address\">",
+              "failureSummary": "Fix: Add a label element associated with this form control using the \"for\" attribute or wrap the control in a label."
+            }
+          ],
+          "wcagCriteria": [
+            "3.3.2",
+            "4.1.2"
+          ]
+        },
+        {
+          "id": "form-missing-required-indicator",
+          "impact": "moderate",
+          "description": "Required field lacks proper indication",
+          "help": "Required fields should be clearly indicated to all users.",
+          "helpUrl": "https://www.w3.org/WAI/WCAG21/Understanding/labels-or-instructions.html",
+          "nodes": [
+            {
+              "target": [
+                "input[name=\"username\"]"
+              ],
+              "html": "<input type=\"text\" name=\"username\" required>",
+              "failureSummary": "Fix: Add visual and programmatic indicators for required fields (asterisk and required attribute)."
+            }
+          ],
+          "wcagCriteria": [
+            "3.3.2"
+          ]
+        }
+      ]
+    }
+  },
+  "fileName": "test-form-test-run-1750967602634-37g2fm6bz35.json",
+  "summary": {
+    "tool": "form-accessibility",
+    "violations": 2,
+    "passes": 0,
+    "warnings": 0,
+    "status": "fail",
+    "critical": false
+  }
+}

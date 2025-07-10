@@ -1,0 +1,181 @@
+{
+  "testType": "a11y:axe",
+  "status": "completed",
+  "startTime": "2025-06-27T18:11:48.571Z",
+  "endTime": "2025-06-27T18:11:52.968Z",
+  "duration": 4397,
+  "url": "https://run-analysis.onrender.com/app",
+  "result": {
+    "tool": "axe-core",
+    "violations": 5,
+    "passes": 15,
+    "incomplete": 0,
+    "detailedViolations": [
+      {
+        "id": "color-contrast",
+        "impact": "serious",
+        "description": "Ensure the contrast between foreground and background colors meets WCAG 2 AA minimum contrast ratio thresholds",
+        "help": "Elements must meet minimum color contrast ratio thresholds",
+        "helpUrl": "https://dequeuniversity.com/rules/axe/4.10/color-contrast?application=axeAPI",
+        "nodes": [
+          {
+            "target": [
+              "p"
+            ],
+            "html": "<p class=\"login-subtitle\">Sign in to access your running analytics</p>",
+            "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 3.54 (foreground color: #6b9080, background color: #ffffff, font size: 11.4pt (15.2px), font weight: normal). Expected contrast ratio of 4.5:1"
+          },
+          {
+            "target": [
+              ".bg-teal-500"
+            ],
+            "html": "<button class=\"font-medium rounded transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 px-4 py-2 bg-teal-500 text-white hover:bg-teal-600 focus:ring-teal-400 login-button tw-mt-4 tw-w-full\" type=\"submit\">Sign In</button>",
+            "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 2.1 (foreground color: #ffffff, background color: #70c1b3, font size: 12.0pt (16px), font weight: normal). Expected contrast ratio of 4.5:1"
+          },
+          {
+            "target": [
+              ".bg-transparent"
+            ],
+            "html": "<button class=\"font-medium rounded transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 px-4 py-2 bg-transparent text-teal-600 hover:text-teal-800 hover:underline p-0 toggle-auth-button\" type=\"button\">Need an account? Create one</button>",
+            "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 2.1 (foreground color: #70c1b3, background color: #ffffff, font size: 10.8pt (14.4px), font weight: normal). Expected contrast ratio of 4.5:1"
+          },
+          {
+            "target": [
+              ".api-debug-info"
+            ],
+            "html": "<div class=\"api-debug-info\" style=\"font-size: 10px; color: rgb(153, 153, 153); margin-top: 20px; text-align: center;\">API: https://run-analysis.onrender.com</div>",
+            "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 2.84 (foreground color: #999999, background color: #ffffff, font size: 7.5pt (10px), font weight: normal). Expected contrast ratio of 4.5:1"
+          }
+        ],
+        "wcagCriteria": [
+          "wcag2aa",
+          "wcag143"
+        ]
+      },
+      {
+        "id": "label",
+        "impact": "critical",
+        "description": "Ensure every form element has a label",
+        "help": "Form elements must have labels",
+        "helpUrl": "https://dequeuniversity.com/rules/axe/4.10/label?application=axeAPI",
+        "nodes": [
+          {
+            "target": [
+              "input[type=\"text\"]"
+            ],
+            "html": "<input class=\"tw-shadow tw-appearance-none tw-border tw-rounded tw-w-full tw-text-gray-700 tw-leading-tight focus:tw-outline-none focus:tw-shadow-outline tw-py-2 tw-px-3 tw-border-gray-300 focus:tw-border-blue-500\" type=\"text\" required=\"\" value=\"\">",
+            "failureSummary": "Fix any of the following:\n  Element does not have an implicit (wrapped) <label>\n  Element does not have an explicit <label>\n  aria-label attribute does not exist or is empty\n  aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty\n  Element has no title attribute\n  Element has no placeholder attribute\n  Element's default semantics were not overridden with role=\"none\" or role=\"presentation\""
+          },
+          {
+            "target": [
+              "input[type=\"password\"]"
+            ],
+            "html": "<input class=\"tw-shadow tw-appearance-none tw-border tw-rounded tw-w-full tw-text-gray-700 tw-leading-tight focus:tw-outline-none focus:tw-shadow-outline tw-py-2 tw-px-3 tw-border-gray-300 focus:tw-border-blue-500\" type=\"password\" required=\"\" value=\"\">",
+            "failureSummary": "Fix any of the following:\n  Element does not have an implicit (wrapped) <label>\n  Element does not have an explicit <label>\n  aria-label attribute does not exist or is empty\n  aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty\n  Element has no title attribute\n  Element has no placeholder attribute\n  Element's default semantics were not overridden with role=\"none\" or role=\"presentation\""
+          }
+        ],
+        "wcagCriteria": [
+          "wcag2a",
+          "wcag412"
+        ]
+      },
+      {
+        "id": "landmark-one-main",
+        "impact": "moderate",
+        "description": "Ensure the document has a main landmark",
+        "help": "Document should have one main landmark",
+        "helpUrl": "https://dequeuniversity.com/rules/axe/4.10/landmark-one-main?application=axeAPI",
+        "nodes": [
+          {
+            "target": [
+              "html"
+            ],
+            "html": "<html lang=\"en\" data-theme=\"light\">",
+            "failureSummary": "Fix all of the following:\n  Document does not have a main landmark"
+          }
+        ],
+        "wcagCriteria": []
+      },
+      {
+        "id": "page-has-heading-one",
+        "impact": "moderate",
+        "description": "Ensure that the page, or at least one of its frames contains a level-one heading",
+        "help": "Page should contain a level-one heading",
+        "helpUrl": "https://dequeuniversity.com/rules/axe/4.10/page-has-heading-one?application=axeAPI",
+        "nodes": [
+          {
+            "target": [
+              "html"
+            ],
+            "html": "<html lang=\"en\" data-theme=\"light\">",
+            "failureSummary": "Fix all of the following:\n  Page must have a level-one heading"
+          }
+        ],
+        "wcagCriteria": []
+      },
+      {
+        "id": "region",
+        "impact": "moderate",
+        "description": "Ensure all page content is contained by landmarks",
+        "help": "All page content should be contained by landmarks",
+        "helpUrl": "https://dequeuniversity.com/rules/axe/4.10/region?application=axeAPI",
+        "nodes": [
+          {
+            "target": [
+              "h2"
+            ],
+            "html": "<h2>Welcome Back</h2>",
+            "failureSummary": "Fix any of the following:\n  Some page content is not contained by landmarks"
+          },
+          {
+            "target": [
+              "p"
+            ],
+            "html": "<p class=\"login-subtitle\">Sign in to access your running analytics</p>",
+            "failureSummary": "Fix any of the following:\n  Some page content is not contained by landmarks"
+          },
+          {
+            "target": [
+              ".tw-mb-4:nth-child(1)"
+            ],
+            "html": "<div class=\"tw-mb-4 \">",
+            "failureSummary": "Fix any of the following:\n  Some page content is not contained by landmarks"
+          },
+          {
+            "target": [
+              ".tw-mb-4.tw-mt-4"
+            ],
+            "html": "<div class=\"tw-mb-4 tw-mt-4\">",
+            "failureSummary": "Fix any of the following:\n  Some page content is not contained by landmarks"
+          },
+          {
+            "target": [
+              ".api-debug-info"
+            ],
+            "html": "<div class=\"api-debug-info\" style=\"font-size: 10px; color: rgb(153, 153, 153); margin-top: 20px; text-align: center;\">API: https://run-analysis.onrender.com</div>",
+            "failureSummary": "Fix any of the following:\n  Some page content is not contained by landmarks"
+          }
+        ],
+        "wcagCriteria": []
+      }
+    ],
+    "wcagMapping": {},
+    "details": {
+      "message": "Axe-core accessibility test completed",
+      "testMethod": "automated-playwright",
+      "url": "https://run-analysis.onrender.com/app",
+      "violationsFound": 5,
+      "passesFound": 15,
+      "incompleteFound": 0
+    }
+  },
+  "fileName": "a11y-axe-test-run-1751047908571-1751047908571-14qgzbxlnv.json",
+  "summary": {
+    "tool": "axe-core",
+    "violations": 5,
+    "passes": 15,
+    "warnings": 0,
+    "status": "fail",
+    "critical": true
+  }
+}

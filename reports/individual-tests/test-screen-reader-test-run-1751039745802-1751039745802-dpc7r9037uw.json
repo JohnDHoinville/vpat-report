@@ -1,0 +1,44 @@
+{
+  "testType": "test:screen-reader",
+  "url": "https://fm-dev.ti.internet2.edu/",
+  "pageTitle": "Single Page Test",
+  "timestamp": "2025-06-27T15:55:45.802Z",
+  "batchId": "site-test-1751039729044",
+  "jobId": "job-1751039733706-11u5j5gxg4",
+  "executionInfo": {
+    "startTime": "2025-06-27T15:55:33.706Z",
+    "endTime": "2025-06-27T15:55:45.802Z",
+    "duration": 0,
+    "status": "completed"
+  },
+  "result": {
+    "tool": "screen-reader",
+    "violations": 9,
+    "passes": 15,
+    "details": {
+      "message": "Screen reader accessibility test completed",
+      "testMethod": "automated-screen-reader",
+      "url": "https://fm-dev.ti.internet2.edu/",
+      "summary": {
+        "totalBrowsers": 3,
+        "totalViolations": 9,
+        "totalElements": 24,
+        "totalLandmarks": 24,
+        "totalHeadings": 3,
+        "overallPassed": false
+      }
+    }
+  },
+  "summary": {
+    "violations": 9,
+    "passed": 0,
+    "incomplete": 0,
+    "inapplicable": 0,
+    "successRate": 0
+  },
+  "metadata": {
+    "tool": "screen-reader",
+    "version": "1.0.0",
+    "generatedBy": "dashboard-backend-job-queue"
+  }
+}

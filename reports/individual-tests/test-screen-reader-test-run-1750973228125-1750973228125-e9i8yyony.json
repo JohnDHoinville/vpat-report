@@ -1,0 +1,337 @@
+{
+  "testType": "test:screen-reader",
+  "status": "completed",
+  "startTime": "2025-06-26T21:27:08.125Z",
+  "endTime": "2025-06-26T21:27:22.510Z",
+  "duration": 14385,
+  "url": "https://google.com",
+  "result": {
+    "tool": "screen-reader",
+    "violations": 18,
+    "passes": 84,
+    "detailedViolations": [
+      {
+        "type": "missing-main-landmark",
+        "message": "Page missing main landmark",
+        "severity": "serious"
+      },
+      {
+        "type": "form-missing-label",
+        "message": "Form input missing accessible name",
+        "element": {
+          "tagName": "INPUT",
+          "type": "hidden",
+          "id": "",
+          "name": "sca_esv",
+          "hasExplicitLabel": false,
+          "hasAriaLabel": false,
+          "hasAriaLabelledBy": false,
+          "hasAccessibleName": false,
+          "required": false,
+          "hasErrorDescription": false,
+          "hasPlaceholder": false,
+          "placeholder": ""
+        },
+        "severity": "critical"
+      },
+      {
+        "type": "form-missing-label",
+        "message": "Form input missing accessible name",
+        "element": {
+          "tagName": "INPUT",
+          "type": "hidden",
+          "id": "",
+          "name": "source",
+          "hasExplicitLabel": false,
+          "hasAriaLabel": false,
+          "hasAriaLabelledBy": false,
+          "hasAccessibleName": false,
+          "required": false,
+          "hasErrorDescription": false,
+          "hasPlaceholder": false,
+          "placeholder": ""
+        },
+        "severity": "critical"
+      },
+      {
+        "type": "form-missing-label",
+        "message": "Form input missing accessible name",
+        "element": {
+          "tagName": "INPUT",
+          "type": "hidden",
+          "id": "",
+          "name": "ei",
+          "hasExplicitLabel": false,
+          "hasAriaLabel": false,
+          "hasAriaLabelledBy": false,
+          "hasAccessibleName": false,
+          "required": false,
+          "hasErrorDescription": false,
+          "hasPlaceholder": false,
+          "placeholder": ""
+        },
+        "severity": "critical"
+      },
+      {
+        "type": "form-missing-label",
+        "message": "Form input missing accessible name",
+        "element": {
+          "tagName": "INPUT",
+          "type": "hidden",
+          "id": "",
+          "name": "iflsig",
+          "hasExplicitLabel": false,
+          "hasAriaLabel": false,
+          "hasAriaLabelledBy": false,
+          "hasAccessibleName": false,
+          "required": false,
+          "hasErrorDescription": false,
+          "hasPlaceholder": false,
+          "placeholder": ""
+        },
+        "severity": "critical"
+      },
+      {
+        "type": "form-missing-label",
+        "message": "Form textarea missing accessible name",
+        "element": {
+          "tagName": "TEXTAREA",
+          "type": "textarea",
+          "id": "",
+          "name": "csi",
+          "hasExplicitLabel": false,
+          "hasAriaLabel": false,
+          "hasAriaLabelledBy": false,
+          "hasAccessibleName": false,
+          "required": false,
+          "hasErrorDescription": false,
+          "hasPlaceholder": false,
+          "placeholder": ""
+        },
+        "severity": "critical"
+      },
+      {
+        "type": "missing-main-landmark",
+        "message": "Page missing main landmark",
+        "severity": "serious"
+      },
+      {
+        "type": "form-missing-label",
+        "message": "Form input missing accessible name",
+        "element": {
+          "tagName": "INPUT",
+          "type": "hidden",
+          "id": "",
+          "name": "sca_esv",
+          "hasExplicitLabel": false,
+          "hasAriaLabel": false,
+          "hasAriaLabelledBy": false,
+          "hasAccessibleName": false,
+          "required": false,
+          "hasErrorDescription": false,
+          "hasPlaceholder": false,
+          "placeholder": ""
+        },
+        "severity": "critical"
+      },
+      {
+        "type": "form-missing-label",
+        "message": "Form input missing accessible name",
+        "element": {
+          "tagName": "INPUT",
+          "type": "hidden",
+          "id": "",
+          "name": "source",
+          "hasExplicitLabel": false,
+          "hasAriaLabel": false,
+          "hasAriaLabelledBy": false,
+          "hasAccessibleName": false,
+          "required": false,
+          "hasErrorDescription": false,
+          "hasPlaceholder": false,
+          "placeholder": ""
+        },
+        "severity": "critical"
+      },
+      {
+        "type": "form-missing-label",
+        "message": "Form input missing accessible name",
+        "element": {
+          "tagName": "INPUT",
+          "type": "hidden",
+          "id": "",
+          "name": "ei",
+          "hasExplicitLabel": false,
+          "hasAriaLabel": false,
+          "hasAriaLabelledBy": false,
+          "hasAccessibleName": false,
+          "required": false,
+          "hasErrorDescription": false,
+          "hasPlaceholder": false,
+          "placeholder": ""
+        },
+        "severity": "critical"
+      },
+      {
+        "type": "form-missing-label",
+        "message": "Form input missing accessible name",
+        "element": {
+          "tagName": "INPUT",
+          "type": "hidden",
+          "id": "",
+          "name": "iflsig",
+          "hasExplicitLabel": false,
+          "hasAriaLabel": false,
+          "hasAriaLabelledBy": false,
+          "hasAccessibleName": false,
+          "required": false,
+          "hasErrorDescription": false,
+          "hasPlaceholder": false,
+          "placeholder": ""
+        },
+        "severity": "critical"
+      },
+      {
+        "type": "form-missing-label",
+        "message": "Form textarea missing accessible name",
+        "element": {
+          "tagName": "TEXTAREA",
+          "type": "textarea",
+          "id": "",
+          "name": "csi",
+          "hasExplicitLabel": false,
+          "hasAriaLabel": false,
+          "hasAriaLabelledBy": false,
+          "hasAccessibleName": false,
+          "required": false,
+          "hasErrorDescription": false,
+          "hasPlaceholder": false,
+          "placeholder": ""
+        },
+        "severity": "critical"
+      },
+      {
+        "type": "missing-main-landmark",
+        "message": "Page missing main landmark",
+        "severity": "serious"
+      },
+      {
+        "type": "form-missing-label",
+        "message": "Form input missing accessible name",
+        "element": {
+          "tagName": "INPUT",
+          "type": "hidden",
+          "id": "",
+          "name": "sca_esv",
+          "hasExplicitLabel": false,
+          "hasAriaLabel": false,
+          "hasAriaLabelledBy": false,
+          "hasAccessibleName": false,
+          "required": false,
+          "hasErrorDescription": false,
+          "hasPlaceholder": false,
+          "placeholder": ""
+        },
+        "severity": "critical"
+      },
+      {
+        "type": "form-missing-label",
+        "message": "Form input missing accessible name",
+        "element": {
+          "tagName": "INPUT",
+          "type": "hidden",
+          "id": "",
+          "name": "source",
+          "hasExplicitLabel": false,
+          "hasAriaLabel": false,
+          "hasAriaLabelledBy": false,
+          "hasAccessibleName": false,
+          "required": false,
+          "hasErrorDescription": false,
+          "hasPlaceholder": false,
+          "placeholder": ""
+        },
+        "severity": "critical"
+      },
+      {
+        "type": "form-missing-label",
+        "message": "Form input missing accessible name",
+        "element": {
+          "tagName": "INPUT",
+          "type": "hidden",
+          "id": "",
+          "name": "ei",
+          "hasExplicitLabel": false,
+          "hasAriaLabel": false,
+          "hasAriaLabelledBy": false,
+          "hasAccessibleName": false,
+          "required": false,
+          "hasErrorDescription": false,
+          "hasPlaceholder": false,
+          "placeholder": ""
+        },
+        "severity": "critical"
+      },
+      {
+        "type": "form-missing-label",
+        "message": "Form input missing accessible name",
+        "element": {
+          "tagName": "INPUT",
+          "type": "hidden",
+          "id": "",
+          "name": "iflsig",
+          "hasExplicitLabel": false,
+          "hasAriaLabel": false,
+          "hasAriaLabelledBy": false,
+          "hasAccessibleName": false,
+          "required": false,
+          "hasErrorDescription": false,
+          "hasPlaceholder": false,
+          "placeholder": ""
+        },
+        "severity": "critical"
+      },
+      {
+        "type": "form-missing-label",
+        "message": "Form textarea missing accessible name",
+        "element": {
+          "tagName": "TEXTAREA",
+          "type": "textarea",
+          "id": "",
+          "name": "csi",
+          "hasExplicitLabel": false,
+          "hasAriaLabel": false,
+          "hasAriaLabelledBy": false,
+          "hasAccessibleName": false,
+          "required": false,
+          "hasErrorDescription": false,
+          "hasPlaceholder": false,
+          "placeholder": ""
+        },
+        "severity": "critical"
+      }
+    ],
+    "details": {
+      "message": "Screen reader accessibility test completed",
+      "testMethod": "automated-screen-reader",
+      "url": "https://google.com",
+      "summary": {
+        "totalBrowsers": 3,
+        "totalViolations": 18,
+        "totalElements": 102,
+        "totalLandmarks": 12,
+        "totalHeadings": 0,
+        "overallPassed": false
+      }
+    }
+  },
+  "fileName": "test-screen-reader-test-run-1750973228125-1750973228125-e9i8yyony.json",
+  "summary": {
+    "tool": "screen-reader",
+    "violations": 18,
+    "passes": 84,
+    "warnings": 0,
+    "status": "fail",
+    "critical": true
+  }
+}

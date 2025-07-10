@@ -1,0 +1,46 @@
+{
+  "testType": "test:mobile",
+  "url": "run-analysis.onrender.com",
+  "pageTitle": "Single Page Test",
+  "timestamp": "2025-06-27T16:10:01.485Z",
+  "batchId": "site-test-1751040589032",
+  "jobId": "job-1751040594419-1254xesk1d",
+  "executionInfo": {
+    "startTime": "2025-06-27T16:09:54.419Z",
+    "endTime": "2025-06-27T16:10:01.485Z",
+    "duration": 0,
+    "status": "completed"
+  },
+  "result": {
+    "tool": "mobile-accessibility",
+    "violations": 18,
+    "passes": 0,
+    "details": {
+      "message": "Mobile accessibility test completed",
+      "testMethod": "automated-mobile-tester",
+      "url": "run-analysis.onrender.com",
+      "summary": {
+        "totalBrowsers": 3,
+        "totalViewports": 6,
+        "totalTests": 18,
+        "totalViolations": 18,
+        "totalTouchTargets": 0,
+        "validTouchTargets": 0,
+        "invalidTouchTargets": 0,
+        "overallPassed": false
+      }
+    }
+  },
+  "summary": {
+    "violations": 18,
+    "passed": 0,
+    "incomplete": 0,
+    "inapplicable": 0,
+    "successRate": 0
+  },
+  "metadata": {
+    "tool": "mobile-accessibility",
+    "version": "1.0.0",
+    "generatedBy": "dashboard-backend-job-queue"
+  }
+}

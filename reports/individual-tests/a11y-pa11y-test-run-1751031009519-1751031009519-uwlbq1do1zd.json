@@ -1,0 +1,32 @@
+{
+  "testType": "a11y:pa11y",
+  "url": "strava.com",
+  "pageTitle": "Manually Added",
+  "timestamp": "2025-06-27T13:30:09.519Z",
+  "batchId": "site-test-1751031003754",
+  "jobId": "job-1751031004217-yqra28waj",
+  "executionInfo": {
+    "startTime": "2025-06-27T13:30:04.217Z",
+    "endTime": "2025-06-27T13:30:09.519Z",
+    "duration": 0,
+    "status": "completed"
+  },
+  "result": {
+    "tool": "pa11y",
+    "violations": 0,
+    "warnings": 0,
+    "details": []
+  },
+  "summary": {
+    "violations": 0,
+    "passed": 0,
+    "incomplete": 0,
+    "inapplicable": 0,
+    "successRate": 100
+  },
+  "metadata": {
+    "tool": "pa11y",
+    "version": "1.0.0",
+    "generatedBy": "dashboard-backend-job-queue"
+  }
+}

@@ -1,0 +1,149 @@
+{
+  "testType": "a11y:pa11y",
+  "status": "completed",
+  "startTime": "2025-06-27T13:30:04.217Z",
+  "endTime": "2025-06-27T13:30:09.506Z",
+  "duration": 5289,
+  "url": "strava.com",
+  "result": {
+    "tool": "pa11y",
+    "violations": 4,
+    "warnings": 0,
+    "detailedViolations": [
+      {
+        "id": "pa11y-WCAG2AA.Principle1.Guideline1_4.1_4_3.G18.Fail-1",
+        "impact": "serious",
+        "description": "This element has insufficient contrast at this conformance level. Expected a contrast ratio of at least 4.5:1, but text in this element has a contrast ratio of 3.31:1. Recommendation:  change text colour to #d44500.",
+        "help": "Ensure accessibility compliance for this element.",
+        "helpUrl": "https://www.w3.org/WAI/WCAG21/",
+        "nodes": [
+          {
+            "target": [
+              "#__next > div:nth-child(2) > div:nth-child(2) > div:nth-child(1) > div:nth-child(2) > p:nth-child(3) > a"
+            ],
+            "html": "<a href=\"/login\">Log In</a>",
+            "failureSummary": "Fix: Review element and ensure it meets accessibility guidelines."
+          }
+        ],
+        "wcagCriteria": [
+          "2.1.1"
+        ]
+      },
+      {
+        "id": "pa11y-WCAG2AA.Principle1.Guideline1_4.1_4_3.G18.Fail-2",
+        "impact": "serious",
+        "description": "This element has insufficient contrast at this conformance level. Expected a contrast ratio of at least 4.5:1, but text in this element has a contrast ratio of 3.31:1. Recommendation:  change background to #d44500.",
+        "help": "Ensure accessibility compliance for this element.",
+        "helpUrl": "https://www.w3.org/WAI/WCAG21/",
+        "nodes": [
+          {
+            "target": [
+              "#__next > div:nth-child(2) > div:nth-child(2) > div:nth-child(1) > div:nth-child(2) > div > button:nth-child(3)"
+            ],
+            "html": "<button class=\"Button_btn__EdK33 Button_default__JSqPI AuthButton_authButton__RrQR_ AuthButton_emailOrange__JOxpP\" type=\"button\" data-testid=\"email_auth_btn\"><!--$--><!--/$-->Sign Up With E...</button>",
+            "failureSummary": "Fix: Review element and ensure it meets accessibility guidelines."
+          }
+        ],
+        "wcagCriteria": [
+          "2.1.1"
+        ]
+      },
+      {
+        "id": "pa11y-WCAG2AA.Principle1.Guideline1_4.1_4_3.G18.Fail-3",
+        "impact": "serious",
+        "description": "This element has insufficient contrast at this conformance level. Expected a contrast ratio of at least 4.5:1, but text in this element has a contrast ratio of 3.12:1. Recommendation:  change text colour to #1f0a00.",
+        "help": "Ensure accessibility compliance for this element.",
+        "helpUrl": "https://www.w3.org/WAI/WCAG21/",
+        "nodes": [
+          {
+            "target": [
+              "#__next > div:nth-child(2) > footer > div > section:nth-child(2) > ul > li:nth-child(4) > ul > li:nth-child(5) > a"
+            ],
+            "html": "<a href=\"https://www.strava.com/login\" class=\"Footer_highlight__3ACCZ\">Log In</a>",
+            "failureSummary": "Fix: Review element and ensure it meets accessibility guidelines."
+          }
+        ],
+        "wcagCriteria": [
+          "2.1.1"
+        ]
+      },
+      {
+        "id": "pa11y-WCAG2AA.Principle1.Guideline1_3.1_3_1.F92,ARIA4-4",
+        "impact": "serious",
+        "description": "This element's role is \"presentation\" but contains child elements with semantic meaning.",
+        "help": "Ensure accessibility compliance for this element.",
+        "helpUrl": "https://www.w3.org/WAI/WCAG21/",
+        "nodes": [
+          {
+            "target": [
+              "#splide01-list"
+            ],
+            "html": "<ul class=\"splide__list\" id=\"splide01-list\" role=\"presentation\" style=\"transform: translateX(0px);\"><li class=\"splide__slide is-act...</ul>",
+            "failureSummary": "Fix: Review element and ensure it meets accessibility guidelines."
+          }
+        ],
+        "wcagCriteria": [
+          "2.1.1"
+        ]
+      }
+    ],
+    "details": {
+      "message": "Pa11y accessibility test completed",
+      "testMethod": "automated-pa11y",
+      "url": "strava.com",
+      "errorsFound": 4,
+      "warningsFound": 0,
+      "issues": [
+        {
+          "code": "WCAG2AA.Principle1.Guideline1_4.1_4_3.G18.Fail",
+          "type": "error",
+          "typeCode": 1,
+          "message": "This element has insufficient contrast at this conformance level. Expected a contrast ratio of at least 4.5:1, but text in this element has a contrast ratio of 3.31:1. Recommendation:  change text colour to #d44500.",
+          "context": "<a href=\"/login\">Log In</a>",
+          "selector": "#__next > div:nth-child(2) > div:nth-child(2) > div:nth-child(1) > div:nth-child(2) > p:nth-child(3) > a",
+          "runner": "htmlcs",
+          "runnerExtras": {}
+        },
+        {
+          "code": "WCAG2AA.Principle1.Guideline1_4.1_4_3.G18.Fail",
+          "type": "error",
+          "typeCode": 1,
+          "message": "This element has insufficient contrast at this conformance level. Expected a contrast ratio of at least 4.5:1, but text in this element has a contrast ratio of 3.31:1. Recommendation:  change background to #d44500.",
+          "context": "<button class=\"Button_btn__EdK33 Button_default__JSqPI AuthButton_authButton__RrQR_ AuthButton_emailOrange__JOxpP\" type=\"button\" data-testid=\"email_auth_btn\"><!--$--><!--/$-->Sign Up With E...</button>",
+          "selector": "#__next > div:nth-child(2) > div:nth-child(2) > div:nth-child(1) > div:nth-child(2) > div > button:nth-child(3)",
+          "runner": "htmlcs",
+          "runnerExtras": {}
+        },
+        {
+          "code": "WCAG2AA.Principle1.Guideline1_4.1_4_3.G18.Fail",
+          "type": "error",
+          "typeCode": 1,
+          "message": "This element has insufficient contrast at this conformance level. Expected a contrast ratio of at least 4.5:1, but text in this element has a contrast ratio of 3.12:1. Recommendation:  change text colour to #1f0a00.",
+          "context": "<a href=\"https://www.strava.com/login\" class=\"Footer_highlight__3ACCZ\">Log In</a>",
+          "selector": "#__next > div:nth-child(2) > footer > div > section:nth-child(2) > ul > li:nth-child(4) > ul > li:nth-child(5) > a",
+          "runner": "htmlcs",
+          "runnerExtras": {}
+        },
+        {
+          "code": "WCAG2AA.Principle1.Guideline1_3.1_3_1.F92,ARIA4",
+          "type": "error",
+          "typeCode": 1,
+          "message": "This element's role is \"presentation\" but contains child elements with semantic meaning.",
+          "context": "<ul class=\"splide__list\" id=\"splide01-list\" role=\"presentation\" style=\"transform: translateX(0px);\"><li class=\"splide__slide is-act...</ul>",
+          "selector": "#splide01-list",
+          "runner": "htmlcs",
+          "runnerExtras": {}
+        }
+      ]
+    }
+  },
+  "fileName": "a11y-pa11y-test-run-1751031004217-1751031004217-yqra2htfh.json",
+  "summary": {
+    "tool": "pa11y",
+    "violations": 4,
+    "passes": 0,
+    "warnings": 0,
+    "status": "fail",
+    "critical": true
+  }
+}

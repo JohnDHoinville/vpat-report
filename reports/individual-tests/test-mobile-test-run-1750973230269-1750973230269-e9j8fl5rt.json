@@ -1,0 +1,4818 @@
+{
+  "testType": "test:mobile",
+  "status": "completed",
+  "startTime": "2025-06-26T21:27:10.270Z",
+  "endTime": "2025-06-26T21:28:14.556Z",
+  "duration": 64286,
+  "url": "https://google.com",
+  "result": {
+    "tool": "mobile-accessibility",
+    "violations": 189,
+    "passes": 697,
+    "detailedViolations": [
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 57x36px",
+        "element": {
+          "tagName": "A",
+          "type": "",
+          "id": "",
+          "className": "MV3Tnb",
+          "text": "About",
+          "href": "https://about.google/?fg=1&utm_source=google-US&utm_medium=referral&utm_campaign=hp-header",
+          "role": "",
+          "touchTarget": {
+            "width": 56.59375,
+            "height": 36,
+            "area": 2037.375,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 21,
+              "y": 17
+            },
+            "spacing": {
+              "top": 5,
+              "bottom": 5,
+              "left": 5,
+              "right": 5
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 53x36px",
+        "element": {
+          "tagName": "A",
+          "type": "",
+          "id": "",
+          "className": "MV3Tnb",
+          "text": "Store",
+          "href": "https://store.google.com/US?utm_source=hp_header&utm_medium=google_ooo&utm_campaign=GS100042&hl=en-US",
+          "role": "",
+          "touchTarget": {
+            "width": 53.46875,
+            "height": 36,
+            "area": 1924.875,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 77.59375,
+              "y": 17
+            },
+            "spacing": {
+              "top": 5,
+              "bottom": 5,
+              "left": 5,
+              "right": 5
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 34x24px",
+        "element": {
+          "tagName": "A",
+          "type": "",
+          "id": "",
+          "className": "gb_X",
+          "text": "Gmail",
+          "href": "https://mail.google.com/mail/&ogbl",
+          "role": "",
+          "touchTarget": {
+            "width": 33.953125,
+            "height": 24,
+            "area": 814.875,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 160.40625,
+              "y": 16.5
+            },
+            "spacing": {
+              "top": 0,
+              "bottom": 0,
+              "left": 0,
+              "right": 0
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 43x24px",
+        "element": {
+          "tagName": "A",
+          "type": "",
+          "id": "",
+          "className": "gb_X",
+          "text": "Images",
+          "href": "https://www.google.com/imghp?hl=en&ogbl",
+          "role": "",
+          "touchTarget": {
+            "width": 42.640625,
+            "height": 24,
+            "area": 1023.375,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 209.359375,
+              "y": 16.5
+            },
+            "spacing": {
+              "top": 0,
+              "bottom": 0,
+              "left": 0,
+              "right": 0
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 159x36px",
+        "element": {
+          "tagName": "INPUT",
+          "type": "submit",
+          "id": "",
+          "className": "gNO89b",
+          "text": "",
+          "href": "",
+          "role": "button",
+          "touchTarget": {
+            "width": 159.40625,
+            "height": 36,
+            "area": 5738.625,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 59.09375,
+              "y": 259
+            },
+            "spacing": {
+              "top": 0,
+              "bottom": 0,
+              "left": 16,
+              "right": 16
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 175x36px",
+        "element": {
+          "tagName": "INPUT",
+          "type": "submit",
+          "id": "gbqfbb",
+          "className": "",
+          "text": "",
+          "href": "",
+          "role": "button",
+          "touchTarget": {
+            "width": 174.5,
+            "height": 36,
+            "area": 6282,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 198.390625,
+              "y": 259
+            },
+            "spacing": {
+              "top": 0,
+              "bottom": 0,
+              "left": 16,
+              "right": 16
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "horizontal-overflow",
+        "message": "Page has horizontal overflow (400px > 320px)",
+        "severity": "serious"
+      },
+      {
+        "type": "text-too-small-mobile",
+        "message": "Text too small for mobile (13px, recommended minimum 14px)",
+        "element": {
+          "tagName": "A",
+          "fontSize": 13,
+          "lineHeight": 24,
+          "fontSizeInRem": 0.8125,
+          "text": "Images",
+          "isReadable": false,
+          "hasGoodLineHeight": true,
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "id": "",
+          "className": "gb_X"
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "text-too-small-mobile",
+        "message": "Text too small for mobile (11px, recommended minimum 14px)",
+        "element": {
+          "tagName": "DIV",
+          "fontSize": 11,
+          "lineHeight": 13.2,
+          "fontSizeInRem": 0.6875,
+          "text": "Report inappropriate predictions",
+          "isReadable": false,
+          "hasGoodLineHeight": true,
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "id": "",
+          "className": "WzNHm mWcf0e"
+        },
+        "severity": "serious"
+      },
+      {
+        "type": "text-too-small-mobile",
+        "message": "Text too small for mobile (11px, recommended minimum 14px)",
+        "element": {
+          "tagName": "DIV",
+          "fontSize": 11,
+          "lineHeight": 13.2,
+          "fontSizeInRem": 0.6875,
+          "text": "Report inappropriate predictions",
+          "isReadable": false,
+          "hasGoodLineHeight": true,
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "id": "",
+          "className": "VfL2Y LRZwuc"
+        },
+        "severity": "serious"
+      },
+      {
+        "type": "missing-viewport-meta",
+        "message": "Missing viewport meta tag for mobile optimization",
+        "severity": "serious"
+      },
+      {
+        "type": "landscape-overflow",
+        "message": "Significant content overflow in landscape orientation (125% wider than viewport)",
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 57x36px",
+        "element": {
+          "tagName": "A",
+          "type": "",
+          "id": "",
+          "className": "MV3Tnb",
+          "text": "About",
+          "href": "https://about.google/?fg=1&utm_source=google-US&utm_medium=referral&utm_campaign=hp-header",
+          "role": "",
+          "touchTarget": {
+            "width": 56.59375,
+            "height": 36,
+            "area": 2037.375,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 21,
+              "y": 17
+            },
+            "spacing": {
+              "top": 5,
+              "bottom": 5,
+              "left": 5,
+              "right": 5
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 53x36px",
+        "element": {
+          "tagName": "A",
+          "type": "",
+          "id": "",
+          "className": "MV3Tnb",
+          "text": "Store",
+          "href": "https://store.google.com/US?utm_source=hp_header&utm_medium=google_ooo&utm_campaign=GS100042&hl=en-US",
+          "role": "",
+          "touchTarget": {
+            "width": 53.46875,
+            "height": 36,
+            "area": 1924.875,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 77.59375,
+              "y": 17
+            },
+            "spacing": {
+              "top": 5,
+              "bottom": 5,
+              "left": 5,
+              "right": 5
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 34x24px",
+        "element": {
+          "tagName": "A",
+          "type": "",
+          "id": "",
+          "className": "gb_X",
+          "text": "Gmail",
+          "href": "https://mail.google.com/mail/&ogbl",
+          "role": "",
+          "touchTarget": {
+            "width": 33.953125,
+            "height": 24,
+            "area": 814.875,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 160.40625,
+              "y": 16.5
+            },
+            "spacing": {
+              "top": 0,
+              "bottom": 0,
+              "left": 0,
+              "right": 0
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 43x24px",
+        "element": {
+          "tagName": "A",
+          "type": "",
+          "id": "",
+          "className": "gb_X",
+          "text": "Images",
+          "href": "https://www.google.com/imghp?hl=en&ogbl",
+          "role": "",
+          "touchTarget": {
+            "width": 42.640625,
+            "height": 24,
+            "area": 1023.375,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 209.359375,
+              "y": 16.5
+            },
+            "spacing": {
+              "top": 0,
+              "bottom": 0,
+              "left": 0,
+              "right": 0
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 159x36px",
+        "element": {
+          "tagName": "INPUT",
+          "type": "submit",
+          "id": "",
+          "className": "gNO89b",
+          "text": "",
+          "href": "",
+          "role": "button",
+          "touchTarget": {
+            "width": 159.40625,
+            "height": 36,
+            "area": 5738.625,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 59.09375,
+              "y": 274
+            },
+            "spacing": {
+              "top": 0,
+              "bottom": 0,
+              "left": 16,
+              "right": 16
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 175x36px",
+        "element": {
+          "tagName": "INPUT",
+          "type": "submit",
+          "id": "gbqfbb",
+          "className": "",
+          "text": "",
+          "href": "",
+          "role": "button",
+          "touchTarget": {
+            "width": 174.5,
+            "height": 36,
+            "area": 6282,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 198.390625,
+              "y": 274
+            },
+            "spacing": {
+              "top": 0,
+              "bottom": 0,
+              "left": 16,
+              "right": 16
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "horizontal-overflow",
+        "message": "Page has horizontal overflow (400px > 375px)",
+        "severity": "serious"
+      },
+      {
+        "type": "text-too-small-mobile",
+        "message": "Text too small for mobile (13px, recommended minimum 14px)",
+        "element": {
+          "tagName": "A",
+          "fontSize": 13,
+          "lineHeight": 24,
+          "fontSizeInRem": 0.8125,
+          "text": "Images",
+          "isReadable": false,
+          "hasGoodLineHeight": true,
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "id": "",
+          "className": "gb_X"
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "text-too-small-mobile",
+        "message": "Text too small for mobile (11px, recommended minimum 14px)",
+        "element": {
+          "tagName": "DIV",
+          "fontSize": 11,
+          "lineHeight": 13.2,
+          "fontSizeInRem": 0.6875,
+          "text": "Report inappropriate predictions",
+          "isReadable": false,
+          "hasGoodLineHeight": true,
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "id": "",
+          "className": "WzNHm mWcf0e"
+        },
+        "severity": "serious"
+      },
+      {
+        "type": "text-too-small-mobile",
+        "message": "Text too small for mobile (11px, recommended minimum 14px)",
+        "element": {
+          "tagName": "DIV",
+          "fontSize": 11,
+          "lineHeight": 13.2,
+          "fontSizeInRem": 0.6875,
+          "text": "Report inappropriate predictions",
+          "isReadable": false,
+          "hasGoodLineHeight": true,
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "id": "",
+          "className": "VfL2Y LRZwuc"
+        },
+        "severity": "serious"
+      },
+      {
+        "type": "missing-viewport-meta",
+        "message": "Missing viewport meta tag for mobile optimization",
+        "severity": "serious"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 57x36px",
+        "element": {
+          "tagName": "A",
+          "type": "",
+          "id": "",
+          "className": "MV3Tnb",
+          "text": "About",
+          "href": "https://about.google/?fg=1&utm_source=google-US&utm_medium=referral&utm_campaign=hp-header",
+          "role": "",
+          "touchTarget": {
+            "width": 56.59375,
+            "height": 36,
+            "area": 2037.375,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 21,
+              "y": 17
+            },
+            "spacing": {
+              "top": 5,
+              "bottom": 5,
+              "left": 5,
+              "right": 5
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 53x36px",
+        "element": {
+          "tagName": "A",
+          "type": "",
+          "id": "",
+          "className": "MV3Tnb",
+          "text": "Store",
+          "href": "https://store.google.com/US?utm_source=hp_header&utm_medium=google_ooo&utm_campaign=GS100042&hl=en-US",
+          "role": "",
+          "touchTarget": {
+            "width": 53.46875,
+            "height": 36,
+            "area": 1924.875,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 77.59375,
+              "y": 17
+            },
+            "spacing": {
+              "top": 5,
+              "bottom": 5,
+              "left": 5,
+              "right": 5
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 34x24px",
+        "element": {
+          "tagName": "A",
+          "type": "",
+          "id": "",
+          "className": "gb_X",
+          "text": "Gmail",
+          "href": "https://mail.google.com/mail/&ogbl",
+          "role": "",
+          "touchTarget": {
+            "width": 33.953125,
+            "height": 24,
+            "area": 814.875,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 174.40625,
+              "y": 16.5
+            },
+            "spacing": {
+              "top": 0,
+              "bottom": 0,
+              "left": 0,
+              "right": 0
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 43x24px",
+        "element": {
+          "tagName": "A",
+          "type": "",
+          "id": "",
+          "className": "gb_X",
+          "text": "Images",
+          "href": "https://www.google.com/imghp?hl=en&ogbl",
+          "role": "",
+          "touchTarget": {
+            "width": 42.640625,
+            "height": 24,
+            "area": 1023.375,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 223.359375,
+              "y": 16.5
+            },
+            "spacing": {
+              "top": 0,
+              "bottom": 0,
+              "left": 0,
+              "right": 0
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 159x36px",
+        "element": {
+          "tagName": "INPUT",
+          "type": "submit",
+          "id": "",
+          "className": "gNO89b",
+          "text": "",
+          "href": "",
+          "role": "button",
+          "touchTarget": {
+            "width": 159.40625,
+            "height": 36,
+            "area": 5738.625,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 66.09375,
+              "y": 457
+            },
+            "spacing": {
+              "top": 0,
+              "bottom": 0,
+              "left": 16,
+              "right": 16
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 175x36px",
+        "element": {
+          "tagName": "INPUT",
+          "type": "submit",
+          "id": "gbqfbb",
+          "className": "",
+          "text": "",
+          "href": "",
+          "role": "button",
+          "touchTarget": {
+            "width": 174.5,
+            "height": 36,
+            "area": 6282,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 205.390625,
+              "y": 457
+            },
+            "spacing": {
+              "top": 0,
+              "bottom": 0,
+              "left": 16,
+              "right": 16
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "text-too-small-mobile",
+        "message": "Text too small for mobile (13px, recommended minimum 14px)",
+        "element": {
+          "tagName": "A",
+          "fontSize": 13,
+          "lineHeight": 24,
+          "fontSizeInRem": 0.8125,
+          "text": "Images",
+          "isReadable": false,
+          "hasGoodLineHeight": true,
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "id": "",
+          "className": "gb_X"
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "text-too-small-mobile",
+        "message": "Text too small for mobile (11px, recommended minimum 14px)",
+        "element": {
+          "tagName": "DIV",
+          "fontSize": 11,
+          "lineHeight": 13.2,
+          "fontSizeInRem": 0.6875,
+          "text": "Report inappropriate predictions",
+          "isReadable": false,
+          "hasGoodLineHeight": true,
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "id": "",
+          "className": "WzNHm mWcf0e"
+        },
+        "severity": "serious"
+      },
+      {
+        "type": "text-too-small-mobile",
+        "message": "Text too small for mobile (11px, recommended minimum 14px)",
+        "element": {
+          "tagName": "DIV",
+          "fontSize": 11,
+          "lineHeight": 13.2,
+          "fontSizeInRem": 0.6875,
+          "text": "Report inappropriate predictions",
+          "isReadable": false,
+          "hasGoodLineHeight": true,
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "id": "",
+          "className": "VfL2Y LRZwuc"
+        },
+        "severity": "serious"
+      },
+      {
+        "type": "missing-viewport-meta",
+        "message": "Missing viewport meta tag for mobile optimization",
+        "severity": "serious"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 57x36px",
+        "element": {
+          "tagName": "A",
+          "type": "",
+          "id": "",
+          "className": "MV3Tnb",
+          "text": "About",
+          "href": "https://about.google/?fg=1&utm_source=google-US&utm_medium=referral&utm_campaign=hp-header",
+          "role": "",
+          "touchTarget": {
+            "width": 56.59375,
+            "height": 36,
+            "area": 2037.375,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 21,
+              "y": 17
+            },
+            "spacing": {
+              "top": 5,
+              "bottom": 5,
+              "left": 5,
+              "right": 5
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 53x36px",
+        "element": {
+          "tagName": "A",
+          "type": "",
+          "id": "",
+          "className": "MV3Tnb",
+          "text": "Store",
+          "href": "https://store.google.com/US?utm_source=hp_header&utm_medium=google_ooo&utm_campaign=GS100042&hl=en-US",
+          "role": "",
+          "touchTarget": {
+            "width": 53.46875,
+            "height": 36,
+            "area": 1924.875,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 77.59375,
+              "y": 17
+            },
+            "spacing": {
+              "top": 5,
+              "bottom": 5,
+              "left": 5,
+              "right": 5
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 34x24px",
+        "element": {
+          "tagName": "A",
+          "type": "",
+          "id": "",
+          "className": "gb_X",
+          "text": "Gmail",
+          "href": "https://mail.google.com/mail/&ogbl",
+          "role": "",
+          "touchTarget": {
+            "width": 33.953125,
+            "height": 24,
+            "area": 814.875,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 518.40625,
+              "y": 16.5
+            },
+            "spacing": {
+              "top": 0,
+              "bottom": 0,
+              "left": 0,
+              "right": 0
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 43x24px",
+        "element": {
+          "tagName": "A",
+          "type": "",
+          "id": "",
+          "className": "gb_X",
+          "text": "Images",
+          "href": "https://www.google.com/imghp?hl=en&ogbl",
+          "role": "",
+          "touchTarget": {
+            "width": 42.640625,
+            "height": 24,
+            "area": 1023.375,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 567.359375,
+              "y": 16.5
+            },
+            "spacing": {
+              "top": 0,
+              "bottom": 0,
+              "left": 0,
+              "right": 0
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 159x36px",
+        "element": {
+          "tagName": "INPUT",
+          "type": "submit",
+          "id": "",
+          "className": "gNO89b",
+          "text": "",
+          "href": "",
+          "role": "button",
+          "touchTarget": {
+            "width": 159.40625,
+            "height": 36,
+            "area": 5738.625,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 243.09375,
+              "y": 457
+            },
+            "spacing": {
+              "top": 0,
+              "bottom": 0,
+              "left": 16,
+              "right": 16
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 175x36px",
+        "element": {
+          "tagName": "INPUT",
+          "type": "submit",
+          "id": "gbqfbb",
+          "className": "",
+          "text": "",
+          "href": "",
+          "role": "button",
+          "touchTarget": {
+            "width": 174.5,
+            "height": 36,
+            "area": 6282,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 382.390625,
+              "y": 457
+            },
+            "spacing": {
+              "top": 0,
+              "bottom": 0,
+              "left": 16,
+              "right": 16
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "text-too-small-mobile",
+        "message": "Text too small for mobile (13px, recommended minimum 14px)",
+        "element": {
+          "tagName": "A",
+          "fontSize": 13,
+          "lineHeight": 24,
+          "fontSizeInRem": 0.8125,
+          "text": "Images",
+          "isReadable": false,
+          "hasGoodLineHeight": true,
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "id": "",
+          "className": "gb_X"
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "text-too-small-mobile",
+        "message": "Text too small for mobile (11px, recommended minimum 14px)",
+        "element": {
+          "tagName": "DIV",
+          "fontSize": 11,
+          "lineHeight": 13.2,
+          "fontSizeInRem": 0.6875,
+          "text": "Report inappropriate predictions",
+          "isReadable": false,
+          "hasGoodLineHeight": true,
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "id": "",
+          "className": "WzNHm mWcf0e"
+        },
+        "severity": "serious"
+      },
+      {
+        "type": "text-too-small-mobile",
+        "message": "Text too small for mobile (11px, recommended minimum 14px)",
+        "element": {
+          "tagName": "DIV",
+          "fontSize": 11,
+          "lineHeight": 13.2,
+          "fontSizeInRem": 0.6875,
+          "text": "Report inappropriate predictions",
+          "isReadable": false,
+          "hasGoodLineHeight": true,
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "id": "",
+          "className": "VfL2Y LRZwuc"
+        },
+        "severity": "serious"
+      },
+      {
+        "type": "missing-viewport-meta",
+        "message": "Missing viewport meta tag for mobile optimization",
+        "severity": "serious"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 57x36px",
+        "element": {
+          "tagName": "A",
+          "type": "",
+          "id": "",
+          "className": "MV3Tnb",
+          "text": "About",
+          "href": "https://about.google/?fg=1&utm_source=google-US&utm_medium=referral&utm_campaign=hp-header",
+          "role": "",
+          "touchTarget": {
+            "width": 56.59375,
+            "height": 36,
+            "area": 2037.375,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 21,
+              "y": 17
+            },
+            "spacing": {
+              "top": 5,
+              "bottom": 5,
+              "left": 5,
+              "right": 5
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 53x36px",
+        "element": {
+          "tagName": "A",
+          "type": "",
+          "id": "",
+          "className": "MV3Tnb",
+          "text": "Store",
+          "href": "https://store.google.com/US?utm_source=hp_header&utm_medium=google_ooo&utm_campaign=GS100042&hl=en-US",
+          "role": "",
+          "touchTarget": {
+            "width": 53.46875,
+            "height": 36,
+            "area": 1924.875,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 77.59375,
+              "y": 17
+            },
+            "spacing": {
+              "top": 5,
+              "bottom": 5,
+              "left": 5,
+              "right": 5
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 34x24px",
+        "element": {
+          "tagName": "A",
+          "type": "",
+          "id": "",
+          "className": "gb_X",
+          "text": "Gmail",
+          "href": "https://mail.google.com/mail/&ogbl",
+          "role": "",
+          "touchTarget": {
+            "width": 33.953125,
+            "height": 24,
+            "area": 814.875,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 774.40625,
+              "y": 16.5
+            },
+            "spacing": {
+              "top": 0,
+              "bottom": 0,
+              "left": 0,
+              "right": 0
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 43x24px",
+        "element": {
+          "tagName": "A",
+          "type": "",
+          "id": "",
+          "className": "gb_X",
+          "text": "Images",
+          "href": "https://www.google.com/imghp?hl=en&ogbl",
+          "role": "",
+          "touchTarget": {
+            "width": 42.640625,
+            "height": 24,
+            "area": 1023.375,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 823.359375,
+              "y": 16.5
+            },
+            "spacing": {
+              "top": 0,
+              "bottom": 0,
+              "left": 0,
+              "right": 0
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 159x36px",
+        "element": {
+          "tagName": "INPUT",
+          "type": "submit",
+          "id": "",
+          "className": "gNO89b",
+          "text": "",
+          "href": "",
+          "role": "button",
+          "touchTarget": {
+            "width": 159.40625,
+            "height": 36,
+            "area": 5738.625,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 371.09375,
+              "y": 375
+            },
+            "spacing": {
+              "top": 0,
+              "bottom": 0,
+              "left": 16,
+              "right": 16
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 175x36px",
+        "element": {
+          "tagName": "INPUT",
+          "type": "submit",
+          "id": "gbqfbb",
+          "className": "",
+          "text": "",
+          "href": "",
+          "role": "button",
+          "touchTarget": {
+            "width": 174.5,
+            "height": 36,
+            "area": 6282,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 510.390625,
+              "y": 375
+            },
+            "spacing": {
+              "top": 0,
+              "bottom": 0,
+              "left": 16,
+              "right": 16
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "text-too-small-mobile",
+        "message": "Text too small for mobile (13px, recommended minimum 14px)",
+        "element": {
+          "tagName": "A",
+          "fontSize": 13,
+          "lineHeight": 24,
+          "fontSizeInRem": 0.8125,
+          "text": "Images",
+          "isReadable": false,
+          "hasGoodLineHeight": true,
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "id": "",
+          "className": "gb_X"
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "text-too-small-mobile",
+        "message": "Text too small for mobile (11px, recommended minimum 14px)",
+        "element": {
+          "tagName": "DIV",
+          "fontSize": 11,
+          "lineHeight": 13.2,
+          "fontSizeInRem": 0.6875,
+          "text": "Report inappropriate predictions",
+          "isReadable": false,
+          "hasGoodLineHeight": true,
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "id": "",
+          "className": "WzNHm mWcf0e"
+        },
+        "severity": "serious"
+      },
+      {
+        "type": "text-too-small-mobile",
+        "message": "Text too small for mobile (11px, recommended minimum 14px)",
+        "element": {
+          "tagName": "DIV",
+          "fontSize": 11,
+          "lineHeight": 13.2,
+          "fontSizeInRem": 0.6875,
+          "text": "Report inappropriate predictions",
+          "isReadable": false,
+          "hasGoodLineHeight": true,
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "id": "",
+          "className": "VfL2Y LRZwuc"
+        },
+        "severity": "serious"
+      },
+      {
+        "type": "missing-viewport-meta",
+        "message": "Missing viewport meta tag for mobile optimization",
+        "severity": "serious"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 57x36px",
+        "element": {
+          "tagName": "A",
+          "type": "",
+          "id": "",
+          "className": "MV3Tnb",
+          "text": "About",
+          "href": "https://about.google/?fg=1&utm_source=google-US&utm_medium=referral&utm_campaign=hp-header",
+          "role": "",
+          "touchTarget": {
+            "width": 56.59375,
+            "height": 36,
+            "area": 2037.375,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 21,
+              "y": 17
+            },
+            "spacing": {
+              "top": 5,
+              "bottom": 5,
+              "left": 5,
+              "right": 5
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 53x36px",
+        "element": {
+          "tagName": "A",
+          "type": "",
+          "id": "",
+          "className": "MV3Tnb",
+          "text": "Store",
+          "href": "https://store.google.com/US?utm_source=hp_header&utm_medium=google_ooo&utm_campaign=GS100042&hl=en-US",
+          "role": "",
+          "touchTarget": {
+            "width": 53.46875,
+            "height": 36,
+            "area": 1924.875,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 77.59375,
+              "y": 17
+            },
+            "spacing": {
+              "top": 5,
+              "bottom": 5,
+              "left": 5,
+              "right": 5
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 34x24px",
+        "element": {
+          "tagName": "A",
+          "type": "",
+          "id": "",
+          "className": "gb_X",
+          "text": "Gmail",
+          "href": "https://mail.google.com/mail/&ogbl",
+          "role": "",
+          "touchTarget": {
+            "width": 33.953125,
+            "height": 24,
+            "area": 814.875,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 1670.40625,
+              "y": 16.5
+            },
+            "spacing": {
+              "top": 0,
+              "bottom": 0,
+              "left": 0,
+              "right": 0
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 43x24px",
+        "element": {
+          "tagName": "A",
+          "type": "",
+          "id": "",
+          "className": "gb_X",
+          "text": "Images",
+          "href": "https://www.google.com/imghp?hl=en&ogbl",
+          "role": "",
+          "touchTarget": {
+            "width": 42.640625,
+            "height": 24,
+            "area": 1023.375,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 1719.359375,
+              "y": 16.5
+            },
+            "spacing": {
+              "top": 0,
+              "bottom": 0,
+              "left": 0,
+              "right": 0
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 159x36px",
+        "element": {
+          "tagName": "INPUT",
+          "type": "submit",
+          "id": "",
+          "className": "gNO89b",
+          "text": "",
+          "href": "",
+          "role": "button",
+          "touchTarget": {
+            "width": 159.40625,
+            "height": 36,
+            "area": 5738.625,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 819.09375,
+              "y": 457
+            },
+            "spacing": {
+              "top": 0,
+              "bottom": 0,
+              "left": 16,
+              "right": 16
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 175x36px",
+        "element": {
+          "tagName": "INPUT",
+          "type": "submit",
+          "id": "gbqfbb",
+          "className": "",
+          "text": "",
+          "href": "",
+          "role": "button",
+          "touchTarget": {
+            "width": 174.5,
+            "height": 36,
+            "area": 6282,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 958.390625,
+              "y": 457
+            },
+            "spacing": {
+              "top": 0,
+              "bottom": 0,
+              "left": 16,
+              "right": 16
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "text-too-small-mobile",
+        "message": "Text too small for mobile (13px, recommended minimum 14px)",
+        "element": {
+          "tagName": "A",
+          "fontSize": 13,
+          "lineHeight": 24,
+          "fontSizeInRem": 0.8125,
+          "text": "Images",
+          "isReadable": false,
+          "hasGoodLineHeight": true,
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "id": "",
+          "className": "gb_X"
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "text-too-small-mobile",
+        "message": "Text too small for mobile (11px, recommended minimum 14px)",
+        "element": {
+          "tagName": "DIV",
+          "fontSize": 11,
+          "lineHeight": 13.2,
+          "fontSizeInRem": 0.6875,
+          "text": "Report inappropriate predictions",
+          "isReadable": false,
+          "hasGoodLineHeight": true,
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "id": "",
+          "className": "WzNHm mWcf0e"
+        },
+        "severity": "serious"
+      },
+      {
+        "type": "text-too-small-mobile",
+        "message": "Text too small for mobile (11px, recommended minimum 14px)",
+        "element": {
+          "tagName": "DIV",
+          "fontSize": 11,
+          "lineHeight": 13.2,
+          "fontSizeInRem": 0.6875,
+          "text": "Report inappropriate predictions",
+          "isReadable": false,
+          "hasGoodLineHeight": true,
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "id": "",
+          "className": "VfL2Y LRZwuc"
+        },
+        "severity": "serious"
+      },
+      {
+        "type": "missing-viewport-meta",
+        "message": "Missing viewport meta tag for mobile optimization",
+        "severity": "serious"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 57x36px",
+        "element": {
+          "tagName": "A",
+          "type": "",
+          "id": "",
+          "className": "MV3Tnb",
+          "text": "About",
+          "href": "https://about.google/?fg=1&utm_source=google-US&utm_medium=referral&utm_campaign=hp-header",
+          "role": "",
+          "touchTarget": {
+            "width": 56.56666564941406,
+            "height": 36.44999694824219,
+            "area": 2061.8547902933788,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 21,
+              "y": 16.76666259765625
+            },
+            "spacing": {
+              "top": 5,
+              "bottom": 5,
+              "left": 5,
+              "right": 5
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 53x36px",
+        "element": {
+          "tagName": "A",
+          "type": "",
+          "id": "",
+          "className": "MV3Tnb",
+          "text": "Store",
+          "href": "https://store.google.com/US?utm_source=hp_header&utm_medium=google_ooo&utm_campaign=GS100042&hl=en-US",
+          "role": "",
+          "touchTarget": {
+            "width": 53.44999694824219,
+            "height": 36.44999694824219,
+            "area": 1948.252225646982,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 77.56666564941406,
+              "y": 16.76666259765625
+            },
+            "spacing": {
+              "top": 5,
+              "bottom": 5,
+              "left": 5,
+              "right": 5
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 34x24px",
+        "element": {
+          "tagName": "A",
+          "type": "",
+          "id": "",
+          "className": "gb_X",
+          "text": "Gmail",
+          "href": "https://mail.google.com/mail/&ogbl",
+          "role": "",
+          "touchTarget": {
+            "width": 33.95001220703125,
+            "height": 24,
+            "area": 814.80029296875,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 160.39999389648438,
+              "y": 16.383331298828125
+            },
+            "spacing": {
+              "top": 0,
+              "bottom": 0,
+              "left": 0,
+              "right": 0
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 43x24px",
+        "element": {
+          "tagName": "A",
+          "type": "",
+          "id": "",
+          "className": "gb_X",
+          "text": "Images",
+          "href": "https://www.google.com/imghp?hl=en&ogbl",
+          "role": "",
+          "touchTarget": {
+            "width": 42.649993896484375,
+            "height": 24,
+            "area": 1023.599853515625,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 209.35000610351562,
+              "y": 16.383331298828125
+            },
+            "spacing": {
+              "top": 0,
+              "bottom": 0,
+              "left": 0,
+              "right": 0
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 159x36px",
+        "element": {
+          "tagName": "INPUT",
+          "type": "submit",
+          "id": "",
+          "className": "gNO89b",
+          "text": "",
+          "href": "",
+          "role": "button",
+          "touchTarget": {
+            "width": 159.36666870117188,
+            "height": 36,
+            "area": 5737.2000732421875,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 59.133331298828125,
+              "y": 259
+            },
+            "spacing": {
+              "top": 0,
+              "bottom": 0,
+              "left": 16,
+              "right": 16
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 174x36px",
+        "element": {
+          "tagName": "INPUT",
+          "type": "submit",
+          "id": "gbqfbb",
+          "className": "",
+          "text": "",
+          "href": "",
+          "role": "button",
+          "touchTarget": {
+            "width": 174.4666748046875,
+            "height": 36,
+            "area": 6280.80029296875,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 198.38333129882812,
+              "y": 259
+            },
+            "spacing": {
+              "top": 0,
+              "bottom": 0,
+              "left": 16,
+              "right": 16
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "horizontal-overflow",
+        "message": "Page has horizontal overflow (400px > 320px)",
+        "severity": "serious"
+      },
+      {
+        "type": "text-too-small-mobile",
+        "message": "Text too small for mobile (13px, recommended minimum 14px)",
+        "element": {
+          "tagName": "A",
+          "fontSize": 13,
+          "lineHeight": 24,
+          "fontSizeInRem": 0.8125,
+          "text": "Images",
+          "isReadable": false,
+          "hasGoodLineHeight": true,
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "id": "",
+          "className": "gb_X"
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "text-too-small-mobile",
+        "message": "Text too small for mobile (11px, recommended minimum 14px)",
+        "element": {
+          "tagName": "DIV",
+          "fontSize": 11,
+          "lineHeight": 13.2,
+          "fontSizeInRem": 0.6875,
+          "text": "Report inappropriate predictions",
+          "isReadable": false,
+          "hasGoodLineHeight": true,
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "id": "",
+          "className": "WzNHm mWcf0e"
+        },
+        "severity": "serious"
+      },
+      {
+        "type": "text-too-small-mobile",
+        "message": "Text too small for mobile (11px, recommended minimum 14px)",
+        "element": {
+          "tagName": "DIV",
+          "fontSize": 11,
+          "lineHeight": 13.2,
+          "fontSizeInRem": 0.6875,
+          "text": "Report inappropriate predictions",
+          "isReadable": false,
+          "hasGoodLineHeight": true,
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "id": "",
+          "className": "VfL2Y LRZwuc"
+        },
+        "severity": "serious"
+      },
+      {
+        "type": "missing-viewport-meta",
+        "message": "Missing viewport meta tag for mobile optimization",
+        "severity": "serious"
+      },
+      {
+        "type": "landscape-overflow",
+        "message": "Significant content overflow in landscape orientation (125% wider than viewport)",
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 57x36px",
+        "element": {
+          "tagName": "A",
+          "type": "",
+          "id": "",
+          "className": "MV3Tnb",
+          "text": "About",
+          "href": "https://about.google/?fg=1&utm_source=google-US&utm_medium=referral&utm_campaign=hp-header",
+          "role": "",
+          "touchTarget": {
+            "width": 56.56666564941406,
+            "height": 36.44999694824219,
+            "area": 2061.8547902933788,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 21,
+              "y": 16.76666259765625
+            },
+            "spacing": {
+              "top": 5,
+              "bottom": 5,
+              "left": 5,
+              "right": 5
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 53x36px",
+        "element": {
+          "tagName": "A",
+          "type": "",
+          "id": "",
+          "className": "MV3Tnb",
+          "text": "Store",
+          "href": "https://store.google.com/US?utm_source=hp_header&utm_medium=google_ooo&utm_campaign=GS100042&hl=en-US",
+          "role": "",
+          "touchTarget": {
+            "width": 53.44999694824219,
+            "height": 36.44999694824219,
+            "area": 1948.252225646982,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 77.56666564941406,
+              "y": 16.76666259765625
+            },
+            "spacing": {
+              "top": 5,
+              "bottom": 5,
+              "left": 5,
+              "right": 5
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 34x24px",
+        "element": {
+          "tagName": "A",
+          "type": "",
+          "id": "",
+          "className": "gb_X",
+          "text": "Gmail",
+          "href": "https://mail.google.com/mail/&ogbl",
+          "role": "",
+          "touchTarget": {
+            "width": 33.95001220703125,
+            "height": 24,
+            "area": 814.80029296875,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 160.39999389648438,
+              "y": 16.383331298828125
+            },
+            "spacing": {
+              "top": 0,
+              "bottom": 0,
+              "left": 0,
+              "right": 0
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 43x24px",
+        "element": {
+          "tagName": "A",
+          "type": "",
+          "id": "",
+          "className": "gb_X",
+          "text": "Images",
+          "href": "https://www.google.com/imghp?hl=en&ogbl",
+          "role": "",
+          "touchTarget": {
+            "width": 42.649993896484375,
+            "height": 24,
+            "area": 1023.599853515625,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 209.35000610351562,
+              "y": 16.383331298828125
+            },
+            "spacing": {
+              "top": 0,
+              "bottom": 0,
+              "left": 0,
+              "right": 0
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 159x36px",
+        "element": {
+          "tagName": "INPUT",
+          "type": "submit",
+          "id": "",
+          "className": "gNO89b",
+          "text": "",
+          "href": "",
+          "role": "button",
+          "touchTarget": {
+            "width": 159.36666870117188,
+            "height": 36,
+            "area": 5737.2000732421875,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 59.133331298828125,
+              "y": 274
+            },
+            "spacing": {
+              "top": 0,
+              "bottom": 0,
+              "left": 16,
+              "right": 16
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 174x36px",
+        "element": {
+          "tagName": "INPUT",
+          "type": "submit",
+          "id": "gbqfbb",
+          "className": "",
+          "text": "",
+          "href": "",
+          "role": "button",
+          "touchTarget": {
+            "width": 174.4666748046875,
+            "height": 36,
+            "area": 6280.80029296875,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 198.38333129882812,
+              "y": 274
+            },
+            "spacing": {
+              "top": 0,
+              "bottom": 0,
+              "left": 16,
+              "right": 16
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "horizontal-overflow",
+        "message": "Page has horizontal overflow (400px > 375px)",
+        "severity": "serious"
+      },
+      {
+        "type": "text-too-small-mobile",
+        "message": "Text too small for mobile (13px, recommended minimum 14px)",
+        "element": {
+          "tagName": "A",
+          "fontSize": 13,
+          "lineHeight": 24,
+          "fontSizeInRem": 0.8125,
+          "text": "Images",
+          "isReadable": false,
+          "hasGoodLineHeight": true,
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "id": "",
+          "className": "gb_X"
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "text-too-small-mobile",
+        "message": "Text too small for mobile (11px, recommended minimum 14px)",
+        "element": {
+          "tagName": "DIV",
+          "fontSize": 11,
+          "lineHeight": 13.2,
+          "fontSizeInRem": 0.6875,
+          "text": "Report inappropriate predictions",
+          "isReadable": false,
+          "hasGoodLineHeight": true,
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "id": "",
+          "className": "WzNHm mWcf0e"
+        },
+        "severity": "serious"
+      },
+      {
+        "type": "text-too-small-mobile",
+        "message": "Text too small for mobile (11px, recommended minimum 14px)",
+        "element": {
+          "tagName": "DIV",
+          "fontSize": 11,
+          "lineHeight": 13.2,
+          "fontSizeInRem": 0.6875,
+          "text": "Report inappropriate predictions",
+          "isReadable": false,
+          "hasGoodLineHeight": true,
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "id": "",
+          "className": "VfL2Y LRZwuc"
+        },
+        "severity": "serious"
+      },
+      {
+        "type": "missing-viewport-meta",
+        "message": "Missing viewport meta tag for mobile optimization",
+        "severity": "serious"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 57x36px",
+        "element": {
+          "tagName": "A",
+          "type": "",
+          "id": "",
+          "className": "MV3Tnb",
+          "text": "About",
+          "href": "https://about.google/?fg=1&utm_source=google-US&utm_medium=referral&utm_campaign=hp-header",
+          "role": "",
+          "touchTarget": {
+            "width": 56.56666564941406,
+            "height": 36.44999694824219,
+            "area": 2061.8547902933788,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 21,
+              "y": 16.76666259765625
+            },
+            "spacing": {
+              "top": 5,
+              "bottom": 5,
+              "left": 5,
+              "right": 5
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 53x36px",
+        "element": {
+          "tagName": "A",
+          "type": "",
+          "id": "",
+          "className": "MV3Tnb",
+          "text": "Store",
+          "href": "https://store.google.com/US?utm_source=hp_header&utm_medium=google_ooo&utm_campaign=GS100042&hl=en-US",
+          "role": "",
+          "touchTarget": {
+            "width": 53.44999694824219,
+            "height": 36.44999694824219,
+            "area": 1948.252225646982,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 77.56666564941406,
+              "y": 16.76666259765625
+            },
+            "spacing": {
+              "top": 5,
+              "bottom": 5,
+              "left": 5,
+              "right": 5
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 34x24px",
+        "element": {
+          "tagName": "A",
+          "type": "",
+          "id": "",
+          "className": "gb_X",
+          "text": "Gmail",
+          "href": "https://mail.google.com/mail/&ogbl",
+          "role": "",
+          "touchTarget": {
+            "width": 33.95001220703125,
+            "height": 24,
+            "area": 814.80029296875,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 174.39999389648438,
+              "y": 16.383331298828125
+            },
+            "spacing": {
+              "top": 0,
+              "bottom": 0,
+              "left": 0,
+              "right": 0
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 43x24px",
+        "element": {
+          "tagName": "A",
+          "type": "",
+          "id": "",
+          "className": "gb_X",
+          "text": "Images",
+          "href": "https://www.google.com/imghp?hl=en&ogbl",
+          "role": "",
+          "touchTarget": {
+            "width": 42.649993896484375,
+            "height": 24,
+            "area": 1023.599853515625,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 223.35000610351562,
+              "y": 16.383331298828125
+            },
+            "spacing": {
+              "top": 0,
+              "bottom": 0,
+              "left": 0,
+              "right": 0
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 159x36px",
+        "element": {
+          "tagName": "INPUT",
+          "type": "submit",
+          "id": "",
+          "className": "gNO89b",
+          "text": "",
+          "href": "",
+          "role": "button",
+          "touchTarget": {
+            "width": 159.36666870117188,
+            "height": 36,
+            "area": 5737.2000732421875,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 66.13333129882812,
+              "y": 457
+            },
+            "spacing": {
+              "top": 0,
+              "bottom": 0,
+              "left": 16,
+              "right": 16
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 174x36px",
+        "element": {
+          "tagName": "INPUT",
+          "type": "submit",
+          "id": "gbqfbb",
+          "className": "",
+          "text": "",
+          "href": "",
+          "role": "button",
+          "touchTarget": {
+            "width": 174.4666748046875,
+            "height": 36,
+            "area": 6280.80029296875,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 205.38333129882812,
+              "y": 457
+            },
+            "spacing": {
+              "top": 0,
+              "bottom": 0,
+              "left": 16,
+              "right": 16
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "text-too-small-mobile",
+        "message": "Text too small for mobile (13px, recommended minimum 14px)",
+        "element": {
+          "tagName": "A",
+          "fontSize": 13,
+          "lineHeight": 24,
+          "fontSizeInRem": 0.8125,
+          "text": "Images",
+          "isReadable": false,
+          "hasGoodLineHeight": true,
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "id": "",
+          "className": "gb_X"
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "text-too-small-mobile",
+        "message": "Text too small for mobile (11px, recommended minimum 14px)",
+        "element": {
+          "tagName": "DIV",
+          "fontSize": 11,
+          "lineHeight": 13.2,
+          "fontSizeInRem": 0.6875,
+          "text": "Report inappropriate predictions",
+          "isReadable": false,
+          "hasGoodLineHeight": true,
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "id": "",
+          "className": "WzNHm mWcf0e"
+        },
+        "severity": "serious"
+      },
+      {
+        "type": "text-too-small-mobile",
+        "message": "Text too small for mobile (11px, recommended minimum 14px)",
+        "element": {
+          "tagName": "DIV",
+          "fontSize": 11,
+          "lineHeight": 13.2,
+          "fontSizeInRem": 0.6875,
+          "text": "Report inappropriate predictions",
+          "isReadable": false,
+          "hasGoodLineHeight": true,
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "id": "",
+          "className": "VfL2Y LRZwuc"
+        },
+        "severity": "serious"
+      },
+      {
+        "type": "missing-viewport-meta",
+        "message": "Missing viewport meta tag for mobile optimization",
+        "severity": "serious"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 57x36px",
+        "element": {
+          "tagName": "A",
+          "type": "",
+          "id": "",
+          "className": "MV3Tnb",
+          "text": "About",
+          "href": "https://about.google/?fg=1&utm_source=google-US&utm_medium=referral&utm_campaign=hp-header",
+          "role": "",
+          "touchTarget": {
+            "width": 56.56666564941406,
+            "height": 36.44999694824219,
+            "area": 2061.8547902933788,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 21,
+              "y": 16.76666259765625
+            },
+            "spacing": {
+              "top": 5,
+              "bottom": 5,
+              "left": 5,
+              "right": 5
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 53x36px",
+        "element": {
+          "tagName": "A",
+          "type": "",
+          "id": "",
+          "className": "MV3Tnb",
+          "text": "Store",
+          "href": "https://store.google.com/US?utm_source=hp_header&utm_medium=google_ooo&utm_campaign=GS100042&hl=en-US",
+          "role": "",
+          "touchTarget": {
+            "width": 53.44999694824219,
+            "height": 36.44999694824219,
+            "area": 1948.252225646982,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 77.56666564941406,
+              "y": 16.76666259765625
+            },
+            "spacing": {
+              "top": 5,
+              "bottom": 5,
+              "left": 5,
+              "right": 5
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 34x24px",
+        "element": {
+          "tagName": "A",
+          "type": "",
+          "id": "",
+          "className": "gb_X",
+          "text": "Gmail",
+          "href": "https://mail.google.com/mail/&ogbl",
+          "role": "",
+          "touchTarget": {
+            "width": 33.95001220703125,
+            "height": 24,
+            "area": 814.80029296875,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 518.4000244140625,
+              "y": 16.383331298828125
+            },
+            "spacing": {
+              "top": 0,
+              "bottom": 0,
+              "left": 0,
+              "right": 0
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 43x24px",
+        "element": {
+          "tagName": "A",
+          "type": "",
+          "id": "",
+          "className": "gb_X",
+          "text": "Images",
+          "href": "https://www.google.com/imghp?hl=en&ogbl",
+          "role": "",
+          "touchTarget": {
+            "width": 42.649993896484375,
+            "height": 24,
+            "area": 1023.599853515625,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 567.3499755859375,
+              "y": 16.383331298828125
+            },
+            "spacing": {
+              "top": 0,
+              "bottom": 0,
+              "left": 0,
+              "right": 0
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 159x36px",
+        "element": {
+          "tagName": "INPUT",
+          "type": "submit",
+          "id": "",
+          "className": "gNO89b",
+          "text": "",
+          "href": "",
+          "role": "button",
+          "touchTarget": {
+            "width": 159.36666870117188,
+            "height": 36,
+            "area": 5737.2000732421875,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 243.13333129882812,
+              "y": 457
+            },
+            "spacing": {
+              "top": 0,
+              "bottom": 0,
+              "left": 16,
+              "right": 16
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 174x36px",
+        "element": {
+          "tagName": "INPUT",
+          "type": "submit",
+          "id": "gbqfbb",
+          "className": "",
+          "text": "",
+          "href": "",
+          "role": "button",
+          "touchTarget": {
+            "width": 174.4666748046875,
+            "height": 36,
+            "area": 6280.80029296875,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 382.3833312988281,
+              "y": 457
+            },
+            "spacing": {
+              "top": 0,
+              "bottom": 0,
+              "left": 16,
+              "right": 16
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "text-too-small-mobile",
+        "message": "Text too small for mobile (13px, recommended minimum 14px)",
+        "element": {
+          "tagName": "A",
+          "fontSize": 13,
+          "lineHeight": 24,
+          "fontSizeInRem": 0.8125,
+          "text": "Images",
+          "isReadable": false,
+          "hasGoodLineHeight": true,
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "id": "",
+          "className": "gb_X"
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "text-too-small-mobile",
+        "message": "Text too small for mobile (11px, recommended minimum 14px)",
+        "element": {
+          "tagName": "DIV",
+          "fontSize": 11,
+          "lineHeight": 13.2,
+          "fontSizeInRem": 0.6875,
+          "text": "Report inappropriate predictions",
+          "isReadable": false,
+          "hasGoodLineHeight": true,
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "id": "",
+          "className": "WzNHm mWcf0e"
+        },
+        "severity": "serious"
+      },
+      {
+        "type": "text-too-small-mobile",
+        "message": "Text too small for mobile (11px, recommended minimum 14px)",
+        "element": {
+          "tagName": "DIV",
+          "fontSize": 11,
+          "lineHeight": 13.2,
+          "fontSizeInRem": 0.6875,
+          "text": "Report inappropriate predictions",
+          "isReadable": false,
+          "hasGoodLineHeight": true,
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "id": "",
+          "className": "VfL2Y LRZwuc"
+        },
+        "severity": "serious"
+      },
+      {
+        "type": "missing-viewport-meta",
+        "message": "Missing viewport meta tag for mobile optimization",
+        "severity": "serious"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 57x36px",
+        "element": {
+          "tagName": "A",
+          "type": "",
+          "id": "",
+          "className": "MV3Tnb",
+          "text": "About",
+          "href": "https://about.google/?fg=1&utm_source=google-US&utm_medium=referral&utm_campaign=hp-header",
+          "role": "",
+          "touchTarget": {
+            "width": 56.56666564941406,
+            "height": 36.44999694824219,
+            "area": 2061.8547902933788,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 21,
+              "y": 16.76666259765625
+            },
+            "spacing": {
+              "top": 5,
+              "bottom": 5,
+              "left": 5,
+              "right": 5
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 53x36px",
+        "element": {
+          "tagName": "A",
+          "type": "",
+          "id": "",
+          "className": "MV3Tnb",
+          "text": "Store",
+          "href": "https://store.google.com/US?utm_source=hp_header&utm_medium=google_ooo&utm_campaign=GS100042&hl=en-US",
+          "role": "",
+          "touchTarget": {
+            "width": 53.44999694824219,
+            "height": 36.44999694824219,
+            "area": 1948.252225646982,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 77.56666564941406,
+              "y": 16.76666259765625
+            },
+            "spacing": {
+              "top": 5,
+              "bottom": 5,
+              "left": 5,
+              "right": 5
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 34x24px",
+        "element": {
+          "tagName": "A",
+          "type": "",
+          "id": "",
+          "className": "gb_X",
+          "text": "Gmail",
+          "href": "https://mail.google.com/mail/&ogbl",
+          "role": "",
+          "touchTarget": {
+            "width": 33.95001220703125,
+            "height": 24,
+            "area": 814.80029296875,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 774.4000244140625,
+              "y": 16.383331298828125
+            },
+            "spacing": {
+              "top": 0,
+              "bottom": 0,
+              "left": 0,
+              "right": 0
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 43x24px",
+        "element": {
+          "tagName": "A",
+          "type": "",
+          "id": "",
+          "className": "gb_X",
+          "text": "Images",
+          "href": "https://www.google.com/imghp?hl=en&ogbl",
+          "role": "",
+          "touchTarget": {
+            "width": 42.649993896484375,
+            "height": 24,
+            "area": 1023.599853515625,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 823.3499755859375,
+              "y": 16.383331298828125
+            },
+            "spacing": {
+              "top": 0,
+              "bottom": 0,
+              "left": 0,
+              "right": 0
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 159x36px",
+        "element": {
+          "tagName": "INPUT",
+          "type": "submit",
+          "id": "",
+          "className": "gNO89b",
+          "text": "",
+          "href": "",
+          "role": "button",
+          "touchTarget": {
+            "width": 159.36666870117188,
+            "height": 36,
+            "area": 5737.2000732421875,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 371.1333312988281,
+              "y": 375
+            },
+            "spacing": {
+              "top": 0,
+              "bottom": 0,
+              "left": 16,
+              "right": 16
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 174x36px",
+        "element": {
+          "tagName": "INPUT",
+          "type": "submit",
+          "id": "gbqfbb",
+          "className": "",
+          "text": "",
+          "href": "",
+          "role": "button",
+          "touchTarget": {
+            "width": 174.4666748046875,
+            "height": 36,
+            "area": 6280.80029296875,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 510.3833312988281,
+              "y": 375
+            },
+            "spacing": {
+              "top": 0,
+              "bottom": 0,
+              "left": 16,
+              "right": 16
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "text-too-small-mobile",
+        "message": "Text too small for mobile (13px, recommended minimum 14px)",
+        "element": {
+          "tagName": "A",
+          "fontSize": 13,
+          "lineHeight": 24,
+          "fontSizeInRem": 0.8125,
+          "text": "Images",
+          "isReadable": false,
+          "hasGoodLineHeight": true,
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "id": "",
+          "className": "gb_X"
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "text-too-small-mobile",
+        "message": "Text too small for mobile (11px, recommended minimum 14px)",
+        "element": {
+          "tagName": "DIV",
+          "fontSize": 11,
+          "lineHeight": 13.2,
+          "fontSizeInRem": 0.6875,
+          "text": "Report inappropriate predictions",
+          "isReadable": false,
+          "hasGoodLineHeight": true,
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "id": "",
+          "className": "WzNHm mWcf0e"
+        },
+        "severity": "serious"
+      },
+      {
+        "type": "text-too-small-mobile",
+        "message": "Text too small for mobile (11px, recommended minimum 14px)",
+        "element": {
+          "tagName": "DIV",
+          "fontSize": 11,
+          "lineHeight": 13.2,
+          "fontSizeInRem": 0.6875,
+          "text": "Report inappropriate predictions",
+          "isReadable": false,
+          "hasGoodLineHeight": true,
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "id": "",
+          "className": "VfL2Y LRZwuc"
+        },
+        "severity": "serious"
+      },
+      {
+        "type": "missing-viewport-meta",
+        "message": "Missing viewport meta tag for mobile optimization",
+        "severity": "serious"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 57x36px",
+        "element": {
+          "tagName": "A",
+          "type": "",
+          "id": "",
+          "className": "MV3Tnb",
+          "text": "About",
+          "href": "https://about.google/?fg=1&utm_source=google-US&utm_medium=referral&utm_campaign=hp-header",
+          "role": "",
+          "touchTarget": {
+            "width": 56.56666564941406,
+            "height": 36.44999694824219,
+            "area": 2061.8547902933788,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 21,
+              "y": 16.76666259765625
+            },
+            "spacing": {
+              "top": 5,
+              "bottom": 5,
+              "left": 5,
+              "right": 5
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 53x36px",
+        "element": {
+          "tagName": "A",
+          "type": "",
+          "id": "",
+          "className": "MV3Tnb",
+          "text": "Store",
+          "href": "https://store.google.com/US?utm_source=hp_header&utm_medium=google_ooo&utm_campaign=GS100042&hl=en-US",
+          "role": "",
+          "touchTarget": {
+            "width": 53.44999694824219,
+            "height": 36.44999694824219,
+            "area": 1948.252225646982,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 77.56666564941406,
+              "y": 16.76666259765625
+            },
+            "spacing": {
+              "top": 5,
+              "bottom": 5,
+              "left": 5,
+              "right": 5
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 34x24px",
+        "element": {
+          "tagName": "A",
+          "type": "",
+          "id": "",
+          "className": "gb_X",
+          "text": "Gmail",
+          "href": "https://mail.google.com/mail/&ogbl",
+          "role": "",
+          "touchTarget": {
+            "width": 33.95001220703125,
+            "height": 24,
+            "area": 814.80029296875,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 1670.4000244140625,
+              "y": 16.383331298828125
+            },
+            "spacing": {
+              "top": 0,
+              "bottom": 0,
+              "left": 0,
+              "right": 0
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 43x24px",
+        "element": {
+          "tagName": "A",
+          "type": "",
+          "id": "",
+          "className": "gb_X",
+          "text": "Images",
+          "href": "https://www.google.com/imghp?hl=en&ogbl",
+          "role": "",
+          "touchTarget": {
+            "width": 42.649993896484375,
+            "height": 24,
+            "area": 1023.599853515625,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 1719.3499755859375,
+              "y": 16.383331298828125
+            },
+            "spacing": {
+              "top": 0,
+              "bottom": 0,
+              "left": 0,
+              "right": 0
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 159x36px",
+        "element": {
+          "tagName": "INPUT",
+          "type": "submit",
+          "id": "",
+          "className": "gNO89b",
+          "text": "",
+          "href": "",
+          "role": "button",
+          "touchTarget": {
+            "width": 159.36666870117188,
+            "height": 36,
+            "area": 5737.2000732421875,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 819.13330078125,
+              "y": 457
+            },
+            "spacing": {
+              "top": 0,
+              "bottom": 0,
+              "left": 16,
+              "right": 16
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 174x36px",
+        "element": {
+          "tagName": "INPUT",
+          "type": "submit",
+          "id": "gbqfbb",
+          "className": "",
+          "text": "",
+          "href": "",
+          "role": "button",
+          "touchTarget": {
+            "width": 174.4666748046875,
+            "height": 36,
+            "area": 6280.80029296875,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 958.38330078125,
+              "y": 457
+            },
+            "spacing": {
+              "top": 0,
+              "bottom": 0,
+              "left": 16,
+              "right": 16
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "text-too-small-mobile",
+        "message": "Text too small for mobile (13px, recommended minimum 14px)",
+        "element": {
+          "tagName": "A",
+          "fontSize": 13,
+          "lineHeight": 24,
+          "fontSizeInRem": 0.8125,
+          "text": "Images",
+          "isReadable": false,
+          "hasGoodLineHeight": true,
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "id": "",
+          "className": "gb_X"
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "text-too-small-mobile",
+        "message": "Text too small for mobile (11px, recommended minimum 14px)",
+        "element": {
+          "tagName": "DIV",
+          "fontSize": 11,
+          "lineHeight": 13.2,
+          "fontSizeInRem": 0.6875,
+          "text": "Report inappropriate predictions",
+          "isReadable": false,
+          "hasGoodLineHeight": true,
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "id": "",
+          "className": "WzNHm mWcf0e"
+        },
+        "severity": "serious"
+      },
+      {
+        "type": "text-too-small-mobile",
+        "message": "Text too small for mobile (11px, recommended minimum 14px)",
+        "element": {
+          "tagName": "DIV",
+          "fontSize": 11,
+          "lineHeight": 13.2,
+          "fontSizeInRem": 0.6875,
+          "text": "Report inappropriate predictions",
+          "isReadable": false,
+          "hasGoodLineHeight": true,
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "id": "",
+          "className": "VfL2Y LRZwuc"
+        },
+        "severity": "serious"
+      },
+      {
+        "type": "missing-viewport-meta",
+        "message": "Missing viewport meta tag for mobile optimization",
+        "severity": "serious"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 58x36px",
+        "element": {
+          "tagName": "A",
+          "type": "",
+          "id": "",
+          "className": "MV3Tnb",
+          "text": "About",
+          "href": "https://about.google/?fg=1&utm_source=google-US&utm_medium=referral&utm_campaign=hp-header",
+          "role": "",
+          "touchTarget": {
+            "width": 57.609375,
+            "height": 36,
+            "area": 2073.9375,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 21,
+              "y": 17
+            },
+            "spacing": {
+              "top": 5,
+              "bottom": 5,
+              "left": 5,
+              "right": 5
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 53x36px",
+        "element": {
+          "tagName": "A",
+          "type": "",
+          "id": "",
+          "className": "MV3Tnb",
+          "text": "Store",
+          "href": "https://store.google.com/US?utm_source=hp_header&utm_medium=google_ooo&utm_campaign=GS100042&hl=en-US",
+          "role": "",
+          "touchTarget": {
+            "width": 53.453125,
+            "height": 36,
+            "area": 1924.3125,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 78.609375,
+              "y": 17
+            },
+            "spacing": {
+              "top": 5,
+              "bottom": 5,
+              "left": 5,
+              "right": 5
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 34x24px",
+        "element": {
+          "tagName": "A",
+          "type": "",
+          "id": "",
+          "className": "gb_X",
+          "text": "Gmail",
+          "href": "https://mail.google.com/mail/&ogbl",
+          "role": "",
+          "touchTarget": {
+            "width": 33.953125,
+            "height": 24,
+            "area": 814.875,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 160.40625,
+              "y": 16.5
+            },
+            "spacing": {
+              "top": 0,
+              "bottom": 0,
+              "left": 0,
+              "right": 0
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 43x24px",
+        "element": {
+          "tagName": "A",
+          "type": "",
+          "id": "",
+          "className": "gb_X",
+          "text": "Images",
+          "href": "https://www.google.com/imghp?hl=en&ogbl",
+          "role": "",
+          "touchTarget": {
+            "width": 42.640625,
+            "height": 24,
+            "area": 1023.375,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 209.359375,
+              "y": 16.5
+            },
+            "spacing": {
+              "top": 0,
+              "bottom": 0,
+              "left": 0,
+              "right": 0
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 159x36px",
+        "element": {
+          "tagName": "INPUT",
+          "type": "submit",
+          "id": "",
+          "className": "gNO89b",
+          "text": "",
+          "href": "",
+          "role": "button",
+          "touchTarget": {
+            "width": 159.078125,
+            "height": 36,
+            "area": 5726.8125,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 58.640625,
+              "y": 259
+            },
+            "spacing": {
+              "top": 0,
+              "bottom": 0,
+              "left": 16,
+              "right": 16
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 176x36px",
+        "element": {
+          "tagName": "INPUT",
+          "type": "submit",
+          "id": "gbqfbb",
+          "className": "",
+          "text": "",
+          "href": "",
+          "role": "button",
+          "touchTarget": {
+            "width": 175.71875,
+            "height": 36,
+            "area": 6325.875,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 197.625,
+              "y": 259
+            },
+            "spacing": {
+              "top": 0,
+              "bottom": 0,
+              "left": 16,
+              "right": 16
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "horizontal-overflow",
+        "message": "Page has horizontal overflow (400px > 320px)",
+        "severity": "serious"
+      },
+      {
+        "type": "text-too-small-mobile",
+        "message": "Text too small for mobile (13px, recommended minimum 14px)",
+        "element": {
+          "tagName": "A",
+          "fontSize": 13,
+          "lineHeight": 24,
+          "fontSizeInRem": 0.8125,
+          "text": "Images",
+          "isReadable": false,
+          "hasGoodLineHeight": true,
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "id": "",
+          "className": "gb_X"
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "text-too-small-mobile",
+        "message": "Text too small for mobile (11px, recommended minimum 14px)",
+        "element": {
+          "tagName": "DIV",
+          "fontSize": 11,
+          "lineHeight": 13.2,
+          "fontSizeInRem": 0.6875,
+          "text": "Report inappropriate predictions",
+          "isReadable": false,
+          "hasGoodLineHeight": true,
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "id": "",
+          "className": "WzNHm mWcf0e"
+        },
+        "severity": "serious"
+      },
+      {
+        "type": "text-too-small-mobile",
+        "message": "Text too small for mobile (11px, recommended minimum 14px)",
+        "element": {
+          "tagName": "DIV",
+          "fontSize": 11,
+          "lineHeight": 13.2,
+          "fontSizeInRem": 0.6875,
+          "text": "Report inappropriate predictions",
+          "isReadable": false,
+          "hasGoodLineHeight": true,
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "id": "",
+          "className": "VfL2Y LRZwuc"
+        },
+        "severity": "serious"
+      },
+      {
+        "type": "missing-viewport-meta",
+        "message": "Missing viewport meta tag for mobile optimization",
+        "severity": "serious"
+      },
+      {
+        "type": "landscape-overflow",
+        "message": "Significant content overflow in landscape orientation (125% wider than viewport)",
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 58x36px",
+        "element": {
+          "tagName": "A",
+          "type": "",
+          "id": "",
+          "className": "MV3Tnb",
+          "text": "About",
+          "href": "https://about.google/?fg=1&utm_source=google-US&utm_medium=referral&utm_campaign=hp-header",
+          "role": "",
+          "touchTarget": {
+            "width": 57.609375,
+            "height": 36,
+            "area": 2073.9375,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 21,
+              "y": 17
+            },
+            "spacing": {
+              "top": 5,
+              "bottom": 5,
+              "left": 5,
+              "right": 5
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 53x36px",
+        "element": {
+          "tagName": "A",
+          "type": "",
+          "id": "",
+          "className": "MV3Tnb",
+          "text": "Store",
+          "href": "https://store.google.com/US?utm_source=hp_header&utm_medium=google_ooo&utm_campaign=GS100042&hl=en-US",
+          "role": "",
+          "touchTarget": {
+            "width": 53.453125,
+            "height": 36,
+            "area": 1924.3125,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 78.609375,
+              "y": 17
+            },
+            "spacing": {
+              "top": 5,
+              "bottom": 5,
+              "left": 5,
+              "right": 5
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 34x24px",
+        "element": {
+          "tagName": "A",
+          "type": "",
+          "id": "",
+          "className": "gb_X",
+          "text": "Gmail",
+          "href": "https://mail.google.com/mail/&ogbl",
+          "role": "",
+          "touchTarget": {
+            "width": 33.953125,
+            "height": 24,
+            "area": 814.875,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 160.40625,
+              "y": 16.5
+            },
+            "spacing": {
+              "top": 0,
+              "bottom": 0,
+              "left": 0,
+              "right": 0
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 43x24px",
+        "element": {
+          "tagName": "A",
+          "type": "",
+          "id": "",
+          "className": "gb_X",
+          "text": "Images",
+          "href": "https://www.google.com/imghp?hl=en&ogbl",
+          "role": "",
+          "touchTarget": {
+            "width": 42.640625,
+            "height": 24,
+            "area": 1023.375,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 209.359375,
+              "y": 16.5
+            },
+            "spacing": {
+              "top": 0,
+              "bottom": 0,
+              "left": 0,
+              "right": 0
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 159x36px",
+        "element": {
+          "tagName": "INPUT",
+          "type": "submit",
+          "id": "",
+          "className": "gNO89b",
+          "text": "",
+          "href": "",
+          "role": "button",
+          "touchTarget": {
+            "width": 159.078125,
+            "height": 36,
+            "area": 5726.8125,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 58.640625,
+              "y": 274
+            },
+            "spacing": {
+              "top": 0,
+              "bottom": 0,
+              "left": 16,
+              "right": 16
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 176x36px",
+        "element": {
+          "tagName": "INPUT",
+          "type": "submit",
+          "id": "gbqfbb",
+          "className": "",
+          "text": "",
+          "href": "",
+          "role": "button",
+          "touchTarget": {
+            "width": 175.71875,
+            "height": 36,
+            "area": 6325.875,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 197.625,
+              "y": 274
+            },
+            "spacing": {
+              "top": 0,
+              "bottom": 0,
+              "left": 16,
+              "right": 16
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "horizontal-overflow",
+        "message": "Page has horizontal overflow (400px > 375px)",
+        "severity": "serious"
+      },
+      {
+        "type": "text-too-small-mobile",
+        "message": "Text too small for mobile (13px, recommended minimum 14px)",
+        "element": {
+          "tagName": "A",
+          "fontSize": 13,
+          "lineHeight": 24,
+          "fontSizeInRem": 0.8125,
+          "text": "Images",
+          "isReadable": false,
+          "hasGoodLineHeight": true,
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "id": "",
+          "className": "gb_X"
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "text-too-small-mobile",
+        "message": "Text too small for mobile (11px, recommended minimum 14px)",
+        "element": {
+          "tagName": "DIV",
+          "fontSize": 11,
+          "lineHeight": 13.2,
+          "fontSizeInRem": 0.6875,
+          "text": "Report inappropriate predictions",
+          "isReadable": false,
+          "hasGoodLineHeight": true,
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "id": "",
+          "className": "WzNHm mWcf0e"
+        },
+        "severity": "serious"
+      },
+      {
+        "type": "text-too-small-mobile",
+        "message": "Text too small for mobile (11px, recommended minimum 14px)",
+        "element": {
+          "tagName": "DIV",
+          "fontSize": 11,
+          "lineHeight": 13.2,
+          "fontSizeInRem": 0.6875,
+          "text": "Report inappropriate predictions",
+          "isReadable": false,
+          "hasGoodLineHeight": true,
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "id": "",
+          "className": "VfL2Y LRZwuc"
+        },
+        "severity": "serious"
+      },
+      {
+        "type": "missing-viewport-meta",
+        "message": "Missing viewport meta tag for mobile optimization",
+        "severity": "serious"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 58x36px",
+        "element": {
+          "tagName": "A",
+          "type": "",
+          "id": "",
+          "className": "MV3Tnb",
+          "text": "About",
+          "href": "https://about.google/?fg=1&utm_source=google-US&utm_medium=referral&utm_campaign=hp-header",
+          "role": "",
+          "touchTarget": {
+            "width": 57.609375,
+            "height": 36,
+            "area": 2073.9375,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 21,
+              "y": 17
+            },
+            "spacing": {
+              "top": 5,
+              "bottom": 5,
+              "left": 5,
+              "right": 5
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 53x36px",
+        "element": {
+          "tagName": "A",
+          "type": "",
+          "id": "",
+          "className": "MV3Tnb",
+          "text": "Store",
+          "href": "https://store.google.com/US?utm_source=hp_header&utm_medium=google_ooo&utm_campaign=GS100042&hl=en-US",
+          "role": "",
+          "touchTarget": {
+            "width": 53.453125,
+            "height": 36,
+            "area": 1924.3125,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 78.609375,
+              "y": 17
+            },
+            "spacing": {
+              "top": 5,
+              "bottom": 5,
+              "left": 5,
+              "right": 5
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 34x24px",
+        "element": {
+          "tagName": "A",
+          "type": "",
+          "id": "",
+          "className": "gb_X",
+          "text": "Gmail",
+          "href": "https://mail.google.com/mail/&ogbl",
+          "role": "",
+          "touchTarget": {
+            "width": 33.953125,
+            "height": 24,
+            "area": 814.875,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 174.40625,
+              "y": 16.5
+            },
+            "spacing": {
+              "top": 0,
+              "bottom": 0,
+              "left": 0,
+              "right": 0
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 43x24px",
+        "element": {
+          "tagName": "A",
+          "type": "",
+          "id": "",
+          "className": "gb_X",
+          "text": "Images",
+          "href": "https://www.google.com/imghp?hl=en&ogbl",
+          "role": "",
+          "touchTarget": {
+            "width": 42.640625,
+            "height": 24,
+            "area": 1023.375,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 223.359375,
+              "y": 16.5
+            },
+            "spacing": {
+              "top": 0,
+              "bottom": 0,
+              "left": 0,
+              "right": 0
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 159x36px",
+        "element": {
+          "tagName": "INPUT",
+          "type": "submit",
+          "id": "",
+          "className": "gNO89b",
+          "text": "",
+          "href": "",
+          "role": "button",
+          "touchTarget": {
+            "width": 159.078125,
+            "height": 36,
+            "area": 5726.8125,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 65.640625,
+              "y": 457
+            },
+            "spacing": {
+              "top": 0,
+              "bottom": 0,
+              "left": 16,
+              "right": 16
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 176x36px",
+        "element": {
+          "tagName": "INPUT",
+          "type": "submit",
+          "id": "gbqfbb",
+          "className": "",
+          "text": "",
+          "href": "",
+          "role": "button",
+          "touchTarget": {
+            "width": 175.71875,
+            "height": 36,
+            "area": 6325.875,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 204.625,
+              "y": 457
+            },
+            "spacing": {
+              "top": 0,
+              "bottom": 0,
+              "left": 16,
+              "right": 16
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "text-too-small-mobile",
+        "message": "Text too small for mobile (13px, recommended minimum 14px)",
+        "element": {
+          "tagName": "A",
+          "fontSize": 13,
+          "lineHeight": 24,
+          "fontSizeInRem": 0.8125,
+          "text": "Images",
+          "isReadable": false,
+          "hasGoodLineHeight": true,
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "id": "",
+          "className": "gb_X"
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "text-too-small-mobile",
+        "message": "Text too small for mobile (11px, recommended minimum 14px)",
+        "element": {
+          "tagName": "DIV",
+          "fontSize": 11,
+          "lineHeight": 13.2,
+          "fontSizeInRem": 0.6875,
+          "text": "Report inappropriate predictions",
+          "isReadable": false,
+          "hasGoodLineHeight": true,
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "id": "",
+          "className": "WzNHm mWcf0e"
+        },
+        "severity": "serious"
+      },
+      {
+        "type": "text-too-small-mobile",
+        "message": "Text too small for mobile (11px, recommended minimum 14px)",
+        "element": {
+          "tagName": "DIV",
+          "fontSize": 11,
+          "lineHeight": 13.2,
+          "fontSizeInRem": 0.6875,
+          "text": "Report inappropriate predictions",
+          "isReadable": false,
+          "hasGoodLineHeight": true,
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "id": "",
+          "className": "VfL2Y LRZwuc"
+        },
+        "severity": "serious"
+      },
+      {
+        "type": "missing-viewport-meta",
+        "message": "Missing viewport meta tag for mobile optimization",
+        "severity": "serious"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 58x36px",
+        "element": {
+          "tagName": "A",
+          "type": "",
+          "id": "",
+          "className": "MV3Tnb",
+          "text": "About",
+          "href": "https://about.google/?fg=1&utm_source=google-US&utm_medium=referral&utm_campaign=hp-header",
+          "role": "",
+          "touchTarget": {
+            "width": 57.609375,
+            "height": 36,
+            "area": 2073.9375,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 21,
+              "y": 17
+            },
+            "spacing": {
+              "top": 5,
+              "bottom": 5,
+              "left": 5,
+              "right": 5
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 53x36px",
+        "element": {
+          "tagName": "A",
+          "type": "",
+          "id": "",
+          "className": "MV3Tnb",
+          "text": "Store",
+          "href": "https://store.google.com/US?utm_source=hp_header&utm_medium=google_ooo&utm_campaign=GS100042&hl=en-US",
+          "role": "",
+          "touchTarget": {
+            "width": 53.453125,
+            "height": 36,
+            "area": 1924.3125,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 78.609375,
+              "y": 17
+            },
+            "spacing": {
+              "top": 5,
+              "bottom": 5,
+              "left": 5,
+              "right": 5
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 34x24px",
+        "element": {
+          "tagName": "A",
+          "type": "",
+          "id": "",
+          "className": "gb_X",
+          "text": "Gmail",
+          "href": "https://mail.google.com/mail/&ogbl",
+          "role": "",
+          "touchTarget": {
+            "width": 33.953125,
+            "height": 24,
+            "area": 814.875,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 518.40625,
+              "y": 16.5
+            },
+            "spacing": {
+              "top": 0,
+              "bottom": 0,
+              "left": 0,
+              "right": 0
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 43x24px",
+        "element": {
+          "tagName": "A",
+          "type": "",
+          "id": "",
+          "className": "gb_X",
+          "text": "Images",
+          "href": "https://www.google.com/imghp?hl=en&ogbl",
+          "role": "",
+          "touchTarget": {
+            "width": 42.640625,
+            "height": 24,
+            "area": 1023.375,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 567.359375,
+              "y": 16.5
+            },
+            "spacing": {
+              "top": 0,
+              "bottom": 0,
+              "left": 0,
+              "right": 0
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 159x36px",
+        "element": {
+          "tagName": "INPUT",
+          "type": "submit",
+          "id": "",
+          "className": "gNO89b",
+          "text": "",
+          "href": "",
+          "role": "button",
+          "touchTarget": {
+            "width": 159.078125,
+            "height": 36,
+            "area": 5726.8125,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 242.640625,
+              "y": 457
+            },
+            "spacing": {
+              "top": 0,
+              "bottom": 0,
+              "left": 16,
+              "right": 16
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 176x36px",
+        "element": {
+          "tagName": "INPUT",
+          "type": "submit",
+          "id": "gbqfbb",
+          "className": "",
+          "text": "",
+          "href": "",
+          "role": "button",
+          "touchTarget": {
+            "width": 175.71875,
+            "height": 36,
+            "area": 6325.875,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 381.625,
+              "y": 457
+            },
+            "spacing": {
+              "top": 0,
+              "bottom": 0,
+              "left": 16,
+              "right": 16
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "text-too-small-mobile",
+        "message": "Text too small for mobile (13px, recommended minimum 14px)",
+        "element": {
+          "tagName": "A",
+          "fontSize": 13,
+          "lineHeight": 24,
+          "fontSizeInRem": 0.8125,
+          "text": "Images",
+          "isReadable": false,
+          "hasGoodLineHeight": true,
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "id": "",
+          "className": "gb_X"
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "text-too-small-mobile",
+        "message": "Text too small for mobile (11px, recommended minimum 14px)",
+        "element": {
+          "tagName": "DIV",
+          "fontSize": 11,
+          "lineHeight": 13.2,
+          "fontSizeInRem": 0.6875,
+          "text": "Report inappropriate predictions",
+          "isReadable": false,
+          "hasGoodLineHeight": true,
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "id": "",
+          "className": "WzNHm mWcf0e"
+        },
+        "severity": "serious"
+      },
+      {
+        "type": "text-too-small-mobile",
+        "message": "Text too small for mobile (11px, recommended minimum 14px)",
+        "element": {
+          "tagName": "DIV",
+          "fontSize": 11,
+          "lineHeight": 13.2,
+          "fontSizeInRem": 0.6875,
+          "text": "Report inappropriate predictions",
+          "isReadable": false,
+          "hasGoodLineHeight": true,
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "id": "",
+          "className": "VfL2Y LRZwuc"
+        },
+        "severity": "serious"
+      },
+      {
+        "type": "missing-viewport-meta",
+        "message": "Missing viewport meta tag for mobile optimization",
+        "severity": "serious"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 58x36px",
+        "element": {
+          "tagName": "A",
+          "type": "",
+          "id": "",
+          "className": "MV3Tnb",
+          "text": "About",
+          "href": "https://about.google/?fg=1&utm_source=google-US&utm_medium=referral&utm_campaign=hp-header",
+          "role": "",
+          "touchTarget": {
+            "width": 57.609375,
+            "height": 36,
+            "area": 2073.9375,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 21,
+              "y": 17
+            },
+            "spacing": {
+              "top": 5,
+              "bottom": 5,
+              "left": 5,
+              "right": 5
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 53x36px",
+        "element": {
+          "tagName": "A",
+          "type": "",
+          "id": "",
+          "className": "MV3Tnb",
+          "text": "Store",
+          "href": "https://store.google.com/US?utm_source=hp_header&utm_medium=google_ooo&utm_campaign=GS100042&hl=en-US",
+          "role": "",
+          "touchTarget": {
+            "width": 53.453125,
+            "height": 36,
+            "area": 1924.3125,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 78.609375,
+              "y": 17
+            },
+            "spacing": {
+              "top": 5,
+              "bottom": 5,
+              "left": 5,
+              "right": 5
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 34x24px",
+        "element": {
+          "tagName": "A",
+          "type": "",
+          "id": "",
+          "className": "gb_X",
+          "text": "Gmail",
+          "href": "https://mail.google.com/mail/&ogbl",
+          "role": "",
+          "touchTarget": {
+            "width": 33.953125,
+            "height": 24,
+            "area": 814.875,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 774.40625,
+              "y": 16.5
+            },
+            "spacing": {
+              "top": 0,
+              "bottom": 0,
+              "left": 0,
+              "right": 0
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 43x24px",
+        "element": {
+          "tagName": "A",
+          "type": "",
+          "id": "",
+          "className": "gb_X",
+          "text": "Images",
+          "href": "https://www.google.com/imghp?hl=en&ogbl",
+          "role": "",
+          "touchTarget": {
+            "width": 42.640625,
+            "height": 24,
+            "area": 1023.375,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 823.359375,
+              "y": 16.5
+            },
+            "spacing": {
+              "top": 0,
+              "bottom": 0,
+              "left": 0,
+              "right": 0
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 159x36px",
+        "element": {
+          "tagName": "INPUT",
+          "type": "submit",
+          "id": "",
+          "className": "gNO89b",
+          "text": "",
+          "href": "",
+          "role": "button",
+          "touchTarget": {
+            "width": 159.078125,
+            "height": 36,
+            "area": 5726.8125,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 370.640625,
+              "y": 375
+            },
+            "spacing": {
+              "top": 0,
+              "bottom": 0,
+              "left": 16,
+              "right": 16
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 176x36px",
+        "element": {
+          "tagName": "INPUT",
+          "type": "submit",
+          "id": "gbqfbb",
+          "className": "",
+          "text": "",
+          "href": "",
+          "role": "button",
+          "touchTarget": {
+            "width": 175.71875,
+            "height": 36,
+            "area": 6325.875,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 509.625,
+              "y": 375
+            },
+            "spacing": {
+              "top": 0,
+              "bottom": 0,
+              "left": 16,
+              "right": 16
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "text-too-small-mobile",
+        "message": "Text too small for mobile (13px, recommended minimum 14px)",
+        "element": {
+          "tagName": "A",
+          "fontSize": 13,
+          "lineHeight": 24,
+          "fontSizeInRem": 0.8125,
+          "text": "Images",
+          "isReadable": false,
+          "hasGoodLineHeight": true,
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "id": "",
+          "className": "gb_X"
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "text-too-small-mobile",
+        "message": "Text too small for mobile (11px, recommended minimum 14px)",
+        "element": {
+          "tagName": "DIV",
+          "fontSize": 11,
+          "lineHeight": 13.2,
+          "fontSizeInRem": 0.6875,
+          "text": "Report inappropriate predictions",
+          "isReadable": false,
+          "hasGoodLineHeight": true,
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "id": "",
+          "className": "WzNHm mWcf0e"
+        },
+        "severity": "serious"
+      },
+      {
+        "type": "text-too-small-mobile",
+        "message": "Text too small for mobile (11px, recommended minimum 14px)",
+        "element": {
+          "tagName": "DIV",
+          "fontSize": 11,
+          "lineHeight": 13.2,
+          "fontSizeInRem": 0.6875,
+          "text": "Report inappropriate predictions",
+          "isReadable": false,
+          "hasGoodLineHeight": true,
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "id": "",
+          "className": "VfL2Y LRZwuc"
+        },
+        "severity": "serious"
+      },
+      {
+        "type": "missing-viewport-meta",
+        "message": "Missing viewport meta tag for mobile optimization",
+        "severity": "serious"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 58x36px",
+        "element": {
+          "tagName": "A",
+          "type": "",
+          "id": "",
+          "className": "MV3Tnb",
+          "text": "About",
+          "href": "https://about.google/?fg=1&utm_source=google-US&utm_medium=referral&utm_campaign=hp-header",
+          "role": "",
+          "touchTarget": {
+            "width": 57.609375,
+            "height": 36,
+            "area": 2073.9375,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 21,
+              "y": 17
+            },
+            "spacing": {
+              "top": 5,
+              "bottom": 5,
+              "left": 5,
+              "right": 5
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 53x36px",
+        "element": {
+          "tagName": "A",
+          "type": "",
+          "id": "",
+          "className": "MV3Tnb",
+          "text": "Store",
+          "href": "https://store.google.com/US?utm_source=hp_header&utm_medium=google_ooo&utm_campaign=GS100042&hl=en-US",
+          "role": "",
+          "touchTarget": {
+            "width": 53.453125,
+            "height": 36,
+            "area": 1924.3125,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 78.609375,
+              "y": 17
+            },
+            "spacing": {
+              "top": 5,
+              "bottom": 5,
+              "left": 5,
+              "right": 5
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 34x24px",
+        "element": {
+          "tagName": "A",
+          "type": "",
+          "id": "",
+          "className": "gb_X",
+          "text": "Gmail",
+          "href": "https://mail.google.com/mail/&ogbl",
+          "role": "",
+          "touchTarget": {
+            "width": 33.953125,
+            "height": 24,
+            "area": 814.875,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 1670.40625,
+              "y": 16.5
+            },
+            "spacing": {
+              "top": 0,
+              "bottom": 0,
+              "left": 0,
+              "right": 0
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 43x24px",
+        "element": {
+          "tagName": "A",
+          "type": "",
+          "id": "",
+          "className": "gb_X",
+          "text": "Images",
+          "href": "https://www.google.com/imghp?hl=en&ogbl",
+          "role": "",
+          "touchTarget": {
+            "width": 42.640625,
+            "height": 24,
+            "area": 1023.375,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 1719.359375,
+              "y": 16.5
+            },
+            "spacing": {
+              "top": 0,
+              "bottom": 0,
+              "left": 0,
+              "right": 0
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 159x36px",
+        "element": {
+          "tagName": "INPUT",
+          "type": "submit",
+          "id": "",
+          "className": "gNO89b",
+          "text": "",
+          "href": "",
+          "role": "button",
+          "touchTarget": {
+            "width": 159.078125,
+            "height": 36,
+            "area": 5726.8125,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 818.640625,
+              "y": 457
+            },
+            "spacing": {
+              "top": 0,
+              "bottom": 0,
+              "left": 16,
+              "right": 16
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "touch-target-too-small",
+        "message": "Touch target smaller than 44x44px: 176x36px",
+        "element": {
+          "tagName": "INPUT",
+          "type": "submit",
+          "id": "gbqfbb",
+          "className": "",
+          "text": "",
+          "href": "",
+          "role": "button",
+          "touchTarget": {
+            "width": 175.71875,
+            "height": 36,
+            "area": 6325.875,
+            "meetsMinimum": false,
+            "isVisible": true,
+            "position": {
+              "x": 957.625,
+              "y": 457
+            },
+            "spacing": {
+              "top": 0,
+              "bottom": 0,
+              "left": 16,
+              "right": 16
+            }
+          },
+          "isVisible": true,
+          "tabIndex": 0,
+          "isDisabled": false
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "text-too-small-mobile",
+        "message": "Text too small for mobile (13px, recommended minimum 14px)",
+        "element": {
+          "tagName": "A",
+          "fontSize": 13,
+          "lineHeight": 24,
+          "fontSizeInRem": 0.8125,
+          "text": "Images",
+          "isReadable": false,
+          "hasGoodLineHeight": true,
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "id": "",
+          "className": "gb_X"
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "text-too-small-mobile",
+        "message": "Text too small for mobile (11px, recommended minimum 14px)",
+        "element": {
+          "tagName": "DIV",
+          "fontSize": 11,
+          "lineHeight": 13.2,
+          "fontSizeInRem": 0.6875,
+          "text": "Report inappropriate predictions",
+          "isReadable": false,
+          "hasGoodLineHeight": true,
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "id": "",
+          "className": "WzNHm mWcf0e"
+        },
+        "severity": "serious"
+      },
+      {
+        "type": "text-too-small-mobile",
+        "message": "Text too small for mobile (11px, recommended minimum 14px)",
+        "element": {
+          "tagName": "DIV",
+          "fontSize": 11,
+          "lineHeight": 13.2,
+          "fontSizeInRem": 0.6875,
+          "text": "Report inappropriate predictions",
+          "isReadable": false,
+          "hasGoodLineHeight": true,
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "id": "",
+          "className": "VfL2Y LRZwuc"
+        },
+        "severity": "serious"
+      },
+      {
+        "type": "missing-viewport-meta",
+        "message": "Missing viewport meta tag for mobile optimization",
+        "severity": "serious"
+      }
+    ],
+    "details": {
+      "message": "Mobile accessibility test completed",
+      "testMethod": "automated-mobile-tester",
+      "url": "https://google.com",
+      "summary": {
+        "totalBrowsers": 3,
+        "totalViewports": 6,
+        "totalTests": 18,
+        "totalViolations": 189,
+        "totalTouchTargets": 805,
+        "validTouchTargets": 697,
+        "invalidTouchTargets": 108,
+        "overallPassed": true
+      }
+    }
+  },
+  "fileName": "test-mobile-test-run-1750973230269-1750973230269-e9j8fl5rt.json",
+  "summary": {
+    "tool": "mobile-accessibility",
+    "violations": 189,
+    "passes": 697,
+    "warnings": 0,
+    "status": "fail",
+    "critical": true
+  }
+}

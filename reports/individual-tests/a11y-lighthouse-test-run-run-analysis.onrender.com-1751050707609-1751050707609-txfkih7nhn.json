@@ -1,0 +1,78 @@
+{
+  "testType": "a11y:lighthouse",
+  "url": "https://run-analysis.onrender.com/",
+  "pageTitle": "From Sitemap",
+  "timestamp": "2025-06-27T18:58:27.609Z",
+  "batchId": "site-test-1751050686895",
+  "jobId": "job-1751050692873-15q00vld7t",
+  "executionInfo": {
+    "startTime": "2025-06-27T18:58:12.873Z",
+    "endTime": "2025-06-27T18:58:27.609Z",
+    "duration": 0,
+    "status": "completed"
+  },
+  "result": {
+    "tool": "lighthouse",
+    "accessibilityScore": 93,
+    "violations": 2,
+    "passes": 69,
+    "detailedViolations": [
+      {
+        "id": "lighthouse-color-contrast",
+        "impact": "serious",
+        "description": "Background and foreground colors do not have a sufficient contrast ratio.",
+        "help": "Low-contrast text is difficult or impossible for many users to read. [Learn how to provide sufficient color contrast](https://dequeuniversity.com/rules/axe/4.9/color-contrast).",
+        "helpUrl": "https://web.dev/color-contrast/",
+        "nodes": [
+          {
+            "target": [
+              "body"
+            ],
+            "html": "<element>...</element>",
+            "failureSummary": "Fix: Background and foreground colors do not have a sufficient contrast ratio."
+          }
+        ],
+        "wcagCriteria": [
+          "2.1.1"
+        ]
+      },
+      {
+        "id": "lighthouse-heading-order",
+        "impact": "serious",
+        "description": "Heading elements are not in a sequentially-descending order",
+        "help": "Properly ordered headings that do not skip levels convey the semantic structure of the page, making it easier to navigate and understand when using assistive technologies. [Learn more about heading order](https://dequeuniversity.com/rules/axe/4.9/heading-order).",
+        "helpUrl": "https://web.dev/heading-order/",
+        "nodes": [
+          {
+            "target": [
+              "body"
+            ],
+            "html": "<element>...</element>",
+            "failureSummary": "Fix: Heading elements are not in a sequentially-descending order"
+          }
+        ],
+        "wcagCriteria": [
+          "2.1.1"
+        ]
+      }
+    ],
+    "details": {
+      "message": "Lighthouse accessibility test completed",
+      "testMethod": "automated-lighthouse",
+      "url": "https://run-analysis.onrender.com/",
+      "score": 93
+    }
+  },
+  "summary": {
+    "violations": 2,
+    "passed": 0,
+    "incomplete": 0,
+    "inapplicable": 0,
+    "successRate": 0
+  },
+  "metadata": {
+    "tool": "lighthouse",
+    "version": "1.0.0",
+    "generatedBy": "dashboard-backend-job-queue"
+  }
+}

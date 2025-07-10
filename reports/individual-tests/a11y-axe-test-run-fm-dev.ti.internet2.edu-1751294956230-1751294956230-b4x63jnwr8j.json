@@ -1,0 +1,34 @@
+{
+  "testType": "a11y:axe",
+  "url": "https://fm-dev.ti.internet2.edu/",
+  "pageTitle": "Single Page Test",
+  "timestamp": "2025-06-30T14:49:16.230Z",
+  "batchId": "site-test-1751294945532",
+  "jobId": "job-1751294945535-3katzoqz0k",
+  "executionInfo": {
+    "startTime": "2025-06-30T14:49:05.535Z",
+    "endTime": "2025-06-30T14:49:16.230Z",
+    "duration": 0,
+    "status": "completed"
+  },
+  "result": {
+    "tool": "axe-core",
+    "violations": 0,
+    "passes": 0,
+    "incomplete": 0,
+    "inapplicable": 0,
+    "details": []
+  },
+  "summary": {
+    "violations": 0,
+    "passed": 0,
+    "incomplete": 0,
+    "inapplicable": 0,
+    "successRate": 100
+  },
+  "metadata": {
+    "tool": "axe-core",
+    "version": "1.0.0",
+    "generatedBy": "dashboard-backend-job-queue"
+  }
+}

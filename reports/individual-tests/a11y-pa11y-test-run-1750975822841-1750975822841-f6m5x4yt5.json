@@ -1,0 +1,671 @@
+{
+  "testType": "a11y:pa11y",
+  "status": "completed",
+  "startTime": "2025-06-26T22:10:22.841Z",
+  "endTime": "2025-06-26T22:10:26.755Z",
+  "duration": 3914,
+  "url": "https://run-analysis.onrender.com/",
+  "result": {
+    "tool": "pa11y",
+    "violations": 22,
+    "warnings": 0,
+    "detailedViolations": [
+      {
+        "id": "pa11y-WCAG2AA.Principle1.Guideline1_4.1_4_3.G18.Fail-1",
+        "impact": "serious",
+        "description": "This element has insufficient contrast at this conformance level. Expected a contrast ratio of at least 4.5:1, but text in this element has a contrast ratio of 2.78:1. Recommendation:  change background to #258829.",
+        "help": "Ensure accessibility compliance for this element.",
+        "helpUrl": "https://www.w3.org/WAI/WCAG21/",
+        "nodes": [
+          {
+            "target": [
+              "#root > div > div > div > header > div > a"
+            ],
+            "html": "<a href=\"/login\" style=\"background-color: rgb(76, 175, 80); color: white; border: none; padding: 8px 15px; border-radius: 5px; text-decoration: none; font-weight: 600; transition: 0.3s; font-size: 14px; white-space: nowrap; display: block;\">Login</a>",
+            "failureSummary": "Fix: Review element and ensure it meets accessibility guidelines."
+          }
+        ],
+        "wcagCriteria": [
+          "2.1.1"
+        ]
+      },
+      {
+        "id": "pa11y-WCAG2AA.Principle1.Guideline1_4.1_4_3.G18.Fail-2",
+        "impact": "serious",
+        "description": "This element has insufficient contrast at this conformance level. Expected a contrast ratio of at least 4.5:1, but text in this element has a contrast ratio of 2.78:1. Recommendation:  change background to #258829.",
+        "help": "Ensure accessibility compliance for this element.",
+        "helpUrl": "https://www.w3.org/WAI/WCAG21/",
+        "nodes": [
+          {
+            "target": [
+              "#explore-features-btn"
+            ],
+            "html": "<button id=\"explore-features-btn\" class=\"mx-2 mb-3 explore-features-btn\" style=\"background-color: rgb(76, 175, 80); color: white; padding: 15px 35px; border-radius: 5px; text-decoration: none; font-weight: 600; font-size: 1.1rem; transition: 0.3s; di...",
+            "failureSummary": "Fix: Review element and ensure it meets accessibility guidelines."
+          }
+        ],
+        "wcagCriteria": [
+          "2.1.1"
+        ]
+      },
+      {
+        "id": "pa11y-WCAG2AA.Principle1.Guideline1_4.1_4_3.G18.Fail-3",
+        "impact": "serious",
+        "description": "This element has insufficient contrast at this conformance level. Expected a contrast ratio of at least 4.5:1, but text in this element has a contrast ratio of 2.78:1. Recommendation:  change background to #258829.",
+        "help": "Ensure accessibility compliance for this element.",
+        "helpUrl": "https://www.w3.org/WAI/WCAG21/",
+        "nodes": [
+          {
+            "target": [
+              "#root > div > div > div > section:nth-child(5) > div > div:nth-child(2) > div:nth-child(1) > div > a"
+            ],
+            "html": "<a href=\"/app\" style=\"background-color: rgb(76, 175, 80); color: white; padding: 10px 25px; border-radius: 5px; text-decoration: none; font-weight: 600; transition: 0.3s; display: inline-block;\">Try Now</a>",
+            "failureSummary": "Fix: Review element and ensure it meets accessibility guidelines."
+          }
+        ],
+        "wcagCriteria": [
+          "2.1.1"
+        ]
+      },
+      {
+        "id": "pa11y-WCAG2AA.Principle1.Guideline1_4.1_4_3.G18.Fail-4",
+        "impact": "serious",
+        "description": "This element has insufficient contrast at this conformance level. Expected a contrast ratio of at least 4.5:1, but text in this element has a contrast ratio of 2.78:1. Recommendation:  change background to #258829.",
+        "help": "Ensure accessibility compliance for this element.",
+        "helpUrl": "https://www.w3.org/WAI/WCAG21/",
+        "nodes": [
+          {
+            "target": [
+              "#root > div > div > div > section:nth-child(5) > div > div:nth-child(2) > div:nth-child(2) > div > a"
+            ],
+            "html": "<a href=\"/app\" style=\"background-color: rgb(76, 175, 80); color: white; padding: 10px 25px; border-radius: 5px; text-decoration: none; font-weight: 600; transition: 0.3s; display: inline-block;\">Try Now</a>",
+            "failureSummary": "Fix: Review element and ensure it meets accessibility guidelines."
+          }
+        ],
+        "wcagCriteria": [
+          "2.1.1"
+        ]
+      },
+      {
+        "id": "pa11y-WCAG2AA.Principle1.Guideline1_4.1_4_3.G18.Fail-5",
+        "impact": "serious",
+        "description": "This element has insufficient contrast at this conformance level. Expected a contrast ratio of at least 4.5:1, but text in this element has a contrast ratio of 2.78:1. Recommendation:  change background to #258829.",
+        "help": "Ensure accessibility compliance for this element.",
+        "helpUrl": "https://www.w3.org/WAI/WCAG21/",
+        "nodes": [
+          {
+            "target": [
+              "#root > div > div > div > section:nth-child(5) > div > div:nth-child(2) > div:nth-child(3) > div > a"
+            ],
+            "html": "<a href=\"/app\" style=\"background-color: rgb(76, 175, 80); color: white; padding: 10px 25px; border-radius: 5px; text-decoration: none; font-weight: 600; transition: 0.3s; display: inline-block;\">Try Now</a>",
+            "failureSummary": "Fix: Review element and ensure it meets accessibility guidelines."
+          }
+        ],
+        "wcagCriteria": [
+          "2.1.1"
+        ]
+      },
+      {
+        "id": "pa11y-WCAG2AA.Principle1.Guideline1_4.1_4_3.G145.Fail-6",
+        "impact": "serious",
+        "description": "This element has insufficient contrast at this conformance level. Expected a contrast ratio of at least 3:1, but text in this element has a contrast ratio of 2.78:1. Recommendation:  change background to #45a849.",
+        "help": "Ensure accessibility compliance for this element.",
+        "helpUrl": "https://www.w3.org/WAI/WCAG21/",
+        "nodes": [
+          {
+            "target": [
+              "#root > div > div > div > section:nth-child(6) > div > div:nth-child(2) > div:nth-child(1) > div:nth-child(1) > h3"
+            ],
+            "html": "<h3 style=\"font-size: 1.8rem; margin-bottom: 10px;\">Basic</h3>",
+            "failureSummary": "Fix: Review element and ensure it meets accessibility guidelines."
+          }
+        ],
+        "wcagCriteria": [
+          "2.1.1"
+        ]
+      },
+      {
+        "id": "pa11y-WCAG2AA.Principle1.Guideline1_4.1_4_3.G145.Fail-7",
+        "impact": "serious",
+        "description": "This element has insufficient contrast at this conformance level. Expected a contrast ratio of at least 3:1, but text in this element has a contrast ratio of 2.78:1. Recommendation:  change background to #45a849.",
+        "help": "Ensure accessibility compliance for this element.",
+        "helpUrl": "https://www.w3.org/WAI/WCAG21/",
+        "nodes": [
+          {
+            "target": [
+              "#root > div > div > div > section:nth-child(6) > div > div:nth-child(2) > div:nth-child(1) > div:nth-child(1) > div"
+            ],
+            "html": "<div style=\"font-size: 3rem; font-weight: bold;\">Free</div>",
+            "failureSummary": "Fix: Review element and ensure it meets accessibility guidelines."
+          }
+        ],
+        "wcagCriteria": [
+          "2.1.1"
+        ]
+      },
+      {
+        "id": "pa11y-WCAG2AA.Principle1.Guideline1_4.1_4_3.G18.Fail-8",
+        "impact": "serious",
+        "description": "This element has insufficient contrast at this conformance level. Expected a contrast ratio of at least 4.5:1, but text in this element has a contrast ratio of 2.78:1. Recommendation:  change background to #258829.",
+        "help": "Ensure accessibility compliance for this element.",
+        "helpUrl": "https://www.w3.org/WAI/WCAG21/",
+        "nodes": [
+          {
+            "target": [
+              "#root > div > div > div > section:nth-child(6) > div > div:nth-child(2) > div:nth-child(1) > div:nth-child(3) > div"
+            ],
+            "html": "<div style=\"background-color: rgb(76, 175, 80); color: white; padding: 15px 35px; border-radius: 5px; font-weight: 600; font-size: 1.1rem; display: inline-block; pointer-events: none;\">Get Started</div>",
+            "failureSummary": "Fix: Review element and ensure it meets accessibility guidelines."
+          }
+        ],
+        "wcagCriteria": [
+          "2.1.1"
+        ]
+      },
+      {
+        "id": "pa11y-WCAG2AA.Principle1.Guideline1_4.1_4_3.G18.Fail-9",
+        "impact": "serious",
+        "description": "This element has insufficient contrast at this conformance level. Expected a contrast ratio of at least 4.5:1, but text in this element has a contrast ratio of 3.19:1. Recommendation:  change background to #df3232.",
+        "help": "Ensure accessibility compliance for this element.",
+        "helpUrl": "https://www.w3.org/WAI/WCAG21/",
+        "nodes": [
+          {
+            "target": [
+              "#root > div > div > div > section:nth-child(6) > div > div:nth-child(2) > div:nth-child(2) > div:nth-child(1) > div > span"
+            ],
+            "html": "<span style=\"font-size: 1rem; font-weight: normal;\">/month</span>",
+            "failureSummary": "Fix: Review element and ensure it meets accessibility guidelines."
+          }
+        ],
+        "wcagCriteria": [
+          "2.1.1"
+        ]
+      },
+      {
+        "id": "pa11y-WCAG2AA.Principle1.Guideline1_4.1_4_3.G18.Fail-10",
+        "impact": "serious",
+        "description": "This element has insufficient contrast at this conformance level. Expected a contrast ratio of at least 4.5:1, but text in this element has a contrast ratio of 3.19:1. Recommendation:  change background to #df3232.",
+        "help": "Ensure accessibility compliance for this element.",
+        "helpUrl": "https://www.w3.org/WAI/WCAG21/",
+        "nodes": [
+          {
+            "target": [
+              "#root > div > div > div > section:nth-child(6) > div > div:nth-child(2) > div:nth-child(2) > div:nth-child(3) > div"
+            ],
+            "html": "<div style=\"background-color: rgb(255, 82, 82); color: white; padding: 15px 35px; border-radius: 5px; font-weight: 600; font-size: 1.1rem; display: inline-block; pointer-events: none;\">Go Premium</div>",
+            "failureSummary": "Fix: Review element and ensure it meets accessibility guidelines."
+          }
+        ],
+        "wcagCriteria": [
+          "2.1.1"
+        ]
+      },
+      {
+        "id": "pa11y-WCAG2AA.Principle1.Guideline1_4.1_4_3.G18.Fail-11",
+        "impact": "serious",
+        "description": "This element has insufficient contrast at this conformance level. Expected a contrast ratio of at least 4.5:1, but text in this element has a contrast ratio of 2.64:1. Recommendation:  change text colour to #002b02.",
+        "help": "Ensure accessibility compliance for this element.",
+        "helpUrl": "https://www.w3.org/WAI/WCAG21/",
+        "nodes": [
+          {
+            "target": [
+              "#root > div > div > div > section:nth-child(8) > div > div:nth-child(2) > a:nth-child(1) > div > div > div:nth-child(1)"
+            ],
+            "html": "<div style=\"background-color: rgb(248, 249, 250); padding: 5px 10px; border-radius: 5px; display: inline-block; margin-bottom: 15px; color: rgb(76, 175, 80); font-weight: 600; font-size: 0.85rem;\">Training</div>",
+            "failureSummary": "Fix: Review element and ensure it meets accessibility guidelines."
+          }
+        ],
+        "wcagCriteria": [
+          "2.1.1"
+        ]
+      },
+      {
+        "id": "pa11y-WCAG2AA.Principle1.Guideline1_4.1_4_3.G18.Fail-12",
+        "impact": "serious",
+        "description": "This element has insufficient contrast at this conformance level. Expected a contrast ratio of at least 4.5:1, but text in this element has a contrast ratio of 3.54:1. Recommendation:  change text colour to #767676.",
+        "help": "Ensure accessibility compliance for this element.",
+        "helpUrl": "https://www.w3.org/WAI/WCAG21/",
+        "nodes": [
+          {
+            "target": [
+              "#root > div > div > div > section:nth-child(8) > div > div:nth-child(2) > a:nth-child(1) > div > div > div:nth-child(4) > div:nth-child(1)"
+            ],
+            "html": "<div>May 15, 2023</div>",
+            "failureSummary": "Fix: Review element and ensure it meets accessibility guidelines."
+          }
+        ],
+        "wcagCriteria": [
+          "2.1.1"
+        ]
+      },
+      {
+        "id": "pa11y-WCAG2AA.Principle1.Guideline1_4.1_4_3.G18.Fail-13",
+        "impact": "serious",
+        "description": "This element has insufficient contrast at this conformance level. Expected a contrast ratio of at least 4.5:1, but text in this element has a contrast ratio of 3.54:1. Recommendation:  change text colour to #767676.",
+        "help": "Ensure accessibility compliance for this element.",
+        "helpUrl": "https://www.w3.org/WAI/WCAG21/",
+        "nodes": [
+          {
+            "target": [
+              "#root > div > div > div > section:nth-child(8) > div > div:nth-child(2) > a:nth-child(1) > div > div > div:nth-child(4) > div:nth-child(2)"
+            ],
+            "html": "<div>12 min read</div>",
+            "failureSummary": "Fix: Review element and ensure it meets accessibility guidelines."
+          }
+        ],
+        "wcagCriteria": [
+          "2.1.1"
+        ]
+      },
+      {
+        "id": "pa11y-WCAG2AA.Principle1.Guideline1_4.1_4_3.G18.Fail-14",
+        "impact": "serious",
+        "description": "This element has insufficient contrast at this conformance level. Expected a contrast ratio of at least 4.5:1, but text in this element has a contrast ratio of 2.64:1. Recommendation:  change text colour to #002b02.",
+        "help": "Ensure accessibility compliance for this element.",
+        "helpUrl": "https://www.w3.org/WAI/WCAG21/",
+        "nodes": [
+          {
+            "target": [
+              "#root > div > div > div > section:nth-child(8) > div > div:nth-child(2) > a:nth-child(2) > div > div > div:nth-child(1)"
+            ],
+            "html": "<div style=\"background-color: rgb(248, 249, 250); padding: 5px 10px; border-radius: 5px; display: inline-block; margin-bottom: 15px; color: rgb(76, 175, 80); font-weight: 600; font-size: 0.85rem;\">Running</div>",
+            "failureSummary": "Fix: Review element and ensure it meets accessibility guidelines."
+          }
+        ],
+        "wcagCriteria": [
+          "2.1.1"
+        ]
+      },
+      {
+        "id": "pa11y-WCAG2AA.Principle1.Guideline1_4.1_4_3.G18.Fail-15",
+        "impact": "serious",
+        "description": "This element has insufficient contrast at this conformance level. Expected a contrast ratio of at least 4.5:1, but text in this element has a contrast ratio of 3.54:1. Recommendation:  change text colour to #767676.",
+        "help": "Ensure accessibility compliance for this element.",
+        "helpUrl": "https://www.w3.org/WAI/WCAG21/",
+        "nodes": [
+          {
+            "target": [
+              "#root > div > div > div > section:nth-child(8) > div > div:nth-child(2) > a:nth-child(2) > div > div > div:nth-child(4) > div:nth-child(1)"
+            ],
+            "html": "<div>April 28, 2023</div>",
+            "failureSummary": "Fix: Review element and ensure it meets accessibility guidelines."
+          }
+        ],
+        "wcagCriteria": [
+          "2.1.1"
+        ]
+      },
+      {
+        "id": "pa11y-WCAG2AA.Principle1.Guideline1_4.1_4_3.G18.Fail-16",
+        "impact": "serious",
+        "description": "This element has insufficient contrast at this conformance level. Expected a contrast ratio of at least 4.5:1, but text in this element has a contrast ratio of 3.54:1. Recommendation:  change text colour to #767676.",
+        "help": "Ensure accessibility compliance for this element.",
+        "helpUrl": "https://www.w3.org/WAI/WCAG21/",
+        "nodes": [
+          {
+            "target": [
+              "#root > div > div > div > section:nth-child(8) > div > div:nth-child(2) > a:nth-child(2) > div > div > div:nth-child(4) > div:nth-child(2)"
+            ],
+            "html": "<div>8 min read</div>",
+            "failureSummary": "Fix: Review element and ensure it meets accessibility guidelines."
+          }
+        ],
+        "wcagCriteria": [
+          "2.1.1"
+        ]
+      },
+      {
+        "id": "pa11y-WCAG2AA.Principle1.Guideline1_4.1_4_3.G18.Fail-17",
+        "impact": "serious",
+        "description": "This element has insufficient contrast at this conformance level. Expected a contrast ratio of at least 4.5:1, but text in this element has a contrast ratio of 2.64:1. Recommendation:  change text colour to #002b02.",
+        "help": "Ensure accessibility compliance for this element.",
+        "helpUrl": "https://www.w3.org/WAI/WCAG21/",
+        "nodes": [
+          {
+            "target": [
+              "#root > div > div > div > section:nth-child(8) > div > div:nth-child(2) > a:nth-child(3) > div > div > div:nth-child(1)"
+            ],
+            "html": "<div style=\"background-color: rgb(248, 249, 250); padding: 5px 10px; border-radius: 5px; display: inline-block; margin-bottom: 15px; color: rgb(76, 175, 80); font-weight: 600; font-size: 0.85rem;\">Health</div>",
+            "failureSummary": "Fix: Review element and ensure it meets accessibility guidelines."
+          }
+        ],
+        "wcagCriteria": [
+          "2.1.1"
+        ]
+      },
+      {
+        "id": "pa11y-WCAG2AA.Principle1.Guideline1_4.1_4_3.G18.Fail-18",
+        "impact": "serious",
+        "description": "This element has insufficient contrast at this conformance level. Expected a contrast ratio of at least 4.5:1, but text in this element has a contrast ratio of 3.54:1. Recommendation:  change text colour to #767676.",
+        "help": "Ensure accessibility compliance for this element.",
+        "helpUrl": "https://www.w3.org/WAI/WCAG21/",
+        "nodes": [
+          {
+            "target": [
+              "#root > div > div > div > section:nth-child(8) > div > div:nth-child(2) > a:nth-child(3) > div > div > div:nth-child(4) > div:nth-child(1)"
+            ],
+            "html": "<div>April 18, 2023</div>",
+            "failureSummary": "Fix: Review element and ensure it meets accessibility guidelines."
+          }
+        ],
+        "wcagCriteria": [
+          "2.1.1"
+        ]
+      },
+      {
+        "id": "pa11y-WCAG2AA.Principle1.Guideline1_4.1_4_3.G18.Fail-19",
+        "impact": "serious",
+        "description": "This element has insufficient contrast at this conformance level. Expected a contrast ratio of at least 4.5:1, but text in this element has a contrast ratio of 3.54:1. Recommendation:  change text colour to #767676.",
+        "help": "Ensure accessibility compliance for this element.",
+        "helpUrl": "https://www.w3.org/WAI/WCAG21/",
+        "nodes": [
+          {
+            "target": [
+              "#root > div > div > div > section:nth-child(8) > div > div:nth-child(2) > a:nth-child(3) > div > div > div:nth-child(4) > div:nth-child(2)"
+            ],
+            "html": "<div>10 min read</div>",
+            "failureSummary": "Fix: Review element and ensure it meets accessibility guidelines."
+          }
+        ],
+        "wcagCriteria": [
+          "2.1.1"
+        ]
+      },
+      {
+        "id": "pa11y-WCAG2AA.Principle1.Guideline1_4.1_4_3.G18.Fail-20",
+        "impact": "serious",
+        "description": "This element has insufficient contrast at this conformance level. Expected a contrast ratio of at least 4.5:1, but text in this element has a contrast ratio of 2.78:1. Recommendation:  change background to #258829.",
+        "help": "Ensure accessibility compliance for this element.",
+        "helpUrl": "https://www.w3.org/WAI/WCAG21/",
+        "nodes": [
+          {
+            "target": [
+              "#root > div > div > div > section:nth-child(8) > div > div:nth-child(3) > a"
+            ],
+            "html": "<a href=\"/blog.html\" style=\"background-color: rgb(76, 175, 80); color: white; padding: 15px 35px; border-radius: 5px; text-decoration: none; font-weight: 600; font-size: 1.1rem; transition: 0.3s; display: inline-block;\">View All Articles</a>",
+            "failureSummary": "Fix: Review element and ensure it meets accessibility guidelines."
+          }
+        ],
+        "wcagCriteria": [
+          "2.1.1"
+        ]
+      },
+      {
+        "id": "pa11y-WCAG2AA.Principle1.Guideline1_4.1_4_3.G18.Fail-21",
+        "impact": "serious",
+        "description": "This element has insufficient contrast at this conformance level. Expected a contrast ratio of at least 4.5:1, but text in this element has a contrast ratio of 2.78:1. Recommendation:  change background to #258829.",
+        "help": "Ensure accessibility compliance for this element.",
+        "helpUrl": "https://www.w3.org/WAI/WCAG21/",
+        "nodes": [
+          {
+            "target": [
+              "#root > div > div > div > section:nth-child(9) > div > div > div > a:nth-child(1)"
+            ],
+            "html": "<a href=\"/app?isRegistering=true\" style=\"background-color: rgb(76, 175, 80); color: white; padding: 15px 35px; border-radius: 5px; text-decoration: none; font-weight: 600; font-size: 1.1rem; transition: 0.3s; display: inline-block; margin: 10px;\">Sig...",
+            "failureSummary": "Fix: Review element and ensure it meets accessibility guidelines."
+          }
+        ],
+        "wcagCriteria": [
+          "2.1.1"
+        ]
+      },
+      {
+        "id": "pa11y-WCAG2AA.Principle1.Guideline1_4.1_4_3.G18.Fail-22",
+        "impact": "serious",
+        "description": "This element has insufficient contrast at this conformance level. Expected a contrast ratio of at least 4.5:1, but text in this element has a contrast ratio of 2.78:1. Recommendation:  change text colour to #258829.",
+        "help": "Ensure accessibility compliance for this element.",
+        "helpUrl": "https://www.w3.org/WAI/WCAG21/",
+        "nodes": [
+          {
+            "target": [
+              "#root > div > div > div > section:nth-child(9) > div > div > div > a:nth-child(2)"
+            ],
+            "html": "<a href=\"/app\" style=\"background-color: transparent; border: 2px solid rgb(76, 175, 80); color: rgb(76, 175, 80); padding: 15px 35px; border-radius: 5px; text-decoration: none; font-weight: 600; font-size: 1.1rem; transition: 0.3s; display: inline-bl...",
+            "failureSummary": "Fix: Review element and ensure it meets accessibility guidelines."
+          }
+        ],
+        "wcagCriteria": [
+          "2.1.1"
+        ]
+      }
+    ],
+    "details": {
+      "message": "Pa11y accessibility test completed",
+      "testMethod": "automated-pa11y",
+      "url": "https://run-analysis.onrender.com/",
+      "errorsFound": 22,
+      "warningsFound": 0,
+      "issues": [
+        {
+          "code": "WCAG2AA.Principle1.Guideline1_4.1_4_3.G18.Fail",
+          "type": "error",
+          "typeCode": 1,
+          "message": "This element has insufficient contrast at this conformance level. Expected a contrast ratio of at least 4.5:1, but text in this element has a contrast ratio of 2.78:1. Recommendation:  change background to #258829.",
+          "context": "<a href=\"/login\" style=\"background-color: rgb(76, 175, 80); color: white; border: none; padding: 8px 15px; border-radius: 5px; text-decoration: none; font-weight: 600; transition: 0.3s; font-size: 14px; white-space: nowrap; display: block;\">Login</a>",
+          "selector": "#root > div > div > div > header > div > a",
+          "runner": "htmlcs",
+          "runnerExtras": {}
+        },
+        {
+          "code": "WCAG2AA.Principle1.Guideline1_4.1_4_3.G18.Fail",
+          "type": "error",
+          "typeCode": 1,
+          "message": "This element has insufficient contrast at this conformance level. Expected a contrast ratio of at least 4.5:1, but text in this element has a contrast ratio of 2.78:1. Recommendation:  change background to #258829.",
+          "context": "<button id=\"explore-features-btn\" class=\"mx-2 mb-3 explore-features-btn\" style=\"background-color: rgb(76, 175, 80); color: white; padding: 15px 35px; border-radius: 5px; text-decoration: none; font-weight: 600; font-size: 1.1rem; transition: 0.3s; di...",
+          "selector": "#explore-features-btn",
+          "runner": "htmlcs",
+          "runnerExtras": {}
+        },
+        {
+          "code": "WCAG2AA.Principle1.Guideline1_4.1_4_3.G18.Fail",
+          "type": "error",
+          "typeCode": 1,
+          "message": "This element has insufficient contrast at this conformance level. Expected a contrast ratio of at least 4.5:1, but text in this element has a contrast ratio of 2.78:1. Recommendation:  change background to #258829.",
+          "context": "<a href=\"/app\" style=\"background-color: rgb(76, 175, 80); color: white; padding: 10px 25px; border-radius: 5px; text-decoration: none; font-weight: 600; transition: 0.3s; display: inline-block;\">Try Now</a>",
+          "selector": "#root > div > div > div > section:nth-child(5) > div > div:nth-child(2) > div:nth-child(1) > div > a",
+          "runner": "htmlcs",
+          "runnerExtras": {}
+        },
+        {
+          "code": "WCAG2AA.Principle1.Guideline1_4.1_4_3.G18.Fail",
+          "type": "error",
+          "typeCode": 1,
+          "message": "This element has insufficient contrast at this conformance level. Expected a contrast ratio of at least 4.5:1, but text in this element has a contrast ratio of 2.78:1. Recommendation:  change background to #258829.",
+          "context": "<a href=\"/app\" style=\"background-color: rgb(76, 175, 80); color: white; padding: 10px 25px; border-radius: 5px; text-decoration: none; font-weight: 600; transition: 0.3s; display: inline-block;\">Try Now</a>",
+          "selector": "#root > div > div > div > section:nth-child(5) > div > div:nth-child(2) > div:nth-child(2) > div > a",
+          "runner": "htmlcs",
+          "runnerExtras": {}
+        },
+        {
+          "code": "WCAG2AA.Principle1.Guideline1_4.1_4_3.G18.Fail",
+          "type": "error",
+          "typeCode": 1,
+          "message": "This element has insufficient contrast at this conformance level. Expected a contrast ratio of at least 4.5:1, but text in this element has a contrast ratio of 2.78:1. Recommendation:  change background to #258829.",
+          "context": "<a href=\"/app\" style=\"background-color: rgb(76, 175, 80); color: white; padding: 10px 25px; border-radius: 5px; text-decoration: none; font-weight: 600; transition: 0.3s; display: inline-block;\">Try Now</a>",
+          "selector": "#root > div > div > div > section:nth-child(5) > div > div:nth-child(2) > div:nth-child(3) > div > a",
+          "runner": "htmlcs",
+          "runnerExtras": {}
+        },
+        {
+          "code": "WCAG2AA.Principle1.Guideline1_4.1_4_3.G145.Fail",
+          "type": "error",
+          "typeCode": 1,
+          "message": "This element has insufficient contrast at this conformance level. Expected a contrast ratio of at least 3:1, but text in this element has a contrast ratio of 2.78:1. Recommendation:  change background to #45a849.",
+          "context": "<h3 style=\"font-size: 1.8rem; margin-bottom: 10px;\">Basic</h3>",
+          "selector": "#root > div > div > div > section:nth-child(6) > div > div:nth-child(2) > div:nth-child(1) > div:nth-child(1) > h3",
+          "runner": "htmlcs",
+          "runnerExtras": {}
+        },
+        {
+          "code": "WCAG2AA.Principle1.Guideline1_4.1_4_3.G145.Fail",
+          "type": "error",
+          "typeCode": 1,
+          "message": "This element has insufficient contrast at this conformance level. Expected a contrast ratio of at least 3:1, but text in this element has a contrast ratio of 2.78:1. Recommendation:  change background to #45a849.",
+          "context": "<div style=\"font-size: 3rem; font-weight: bold;\">Free</div>",
+          "selector": "#root > div > div > div > section:nth-child(6) > div > div:nth-child(2) > div:nth-child(1) > div:nth-child(1) > div",
+          "runner": "htmlcs",
+          "runnerExtras": {}
+        },
+        {
+          "code": "WCAG2AA.Principle1.Guideline1_4.1_4_3.G18.Fail",
+          "type": "error",
+          "typeCode": 1,
+          "message": "This element has insufficient contrast at this conformance level. Expected a contrast ratio of at least 4.5:1, but text in this element has a contrast ratio of 2.78:1. Recommendation:  change background to #258829.",
+          "context": "<div style=\"background-color: rgb(76, 175, 80); color: white; padding: 15px 35px; border-radius: 5px; font-weight: 600; font-size: 1.1rem; display: inline-block; pointer-events: none;\">Get Started</div>",
+          "selector": "#root > div > div > div > section:nth-child(6) > div > div:nth-child(2) > div:nth-child(1) > div:nth-child(3) > div",
+          "runner": "htmlcs",
+          "runnerExtras": {}
+        },
+        {
+          "code": "WCAG2AA.Principle1.Guideline1_4.1_4_3.G18.Fail",
+          "type": "error",
+          "typeCode": 1,
+          "message": "This element has insufficient contrast at this conformance level. Expected a contrast ratio of at least 4.5:1, but text in this element has a contrast ratio of 3.19:1. Recommendation:  change background to #df3232.",
+          "context": "<span style=\"font-size: 1rem; font-weight: normal;\">/month</span>",
+          "selector": "#root > div > div > div > section:nth-child(6) > div > div:nth-child(2) > div:nth-child(2) > div:nth-child(1) > div > span",
+          "runner": "htmlcs",
+          "runnerExtras": {}
+        },
+        {
+          "code": "WCAG2AA.Principle1.Guideline1_4.1_4_3.G18.Fail",
+          "type": "error",
+          "typeCode": 1,
+          "message": "This element has insufficient contrast at this conformance level. Expected a contrast ratio of at least 4.5:1, but text in this element has a contrast ratio of 3.19:1. Recommendation:  change background to #df3232.",
+          "context": "<div style=\"background-color: rgb(255, 82, 82); color: white; padding: 15px 35px; border-radius: 5px; font-weight: 600; font-size: 1.1rem; display: inline-block; pointer-events: none;\">Go Premium</div>",
+          "selector": "#root > div > div > div > section:nth-child(6) > div > div:nth-child(2) > div:nth-child(2) > div:nth-child(3) > div",
+          "runner": "htmlcs",
+          "runnerExtras": {}
+        },
+        {
+          "code": "WCAG2AA.Principle1.Guideline1_4.1_4_3.G18.Fail",
+          "type": "error",
+          "typeCode": 1,
+          "message": "This element has insufficient contrast at this conformance level. Expected a contrast ratio of at least 4.5:1, but text in this element has a contrast ratio of 2.64:1. Recommendation:  change text colour to #002b02.",
+          "context": "<div style=\"background-color: rgb(248, 249, 250); padding: 5px 10px; border-radius: 5px; display: inline-block; margin-bottom: 15px; color: rgb(76, 175, 80); font-weight: 600; font-size: 0.85rem;\">Training</div>",
+          "selector": "#root > div > div > div > section:nth-child(8) > div > div:nth-child(2) > a:nth-child(1) > div > div > div:nth-child(1)",
+          "runner": "htmlcs",
+          "runnerExtras": {}
+        },
+        {
+          "code": "WCAG2AA.Principle1.Guideline1_4.1_4_3.G18.Fail",
+          "type": "error",
+          "typeCode": 1,
+          "message": "This element has insufficient contrast at this conformance level. Expected a contrast ratio of at least 4.5:1, but text in this element has a contrast ratio of 3.54:1. Recommendation:  change text colour to #767676.",
+          "context": "<div>May 15, 2023</div>",
+          "selector": "#root > div > div > div > section:nth-child(8) > div > div:nth-child(2) > a:nth-child(1) > div > div > div:nth-child(4) > div:nth-child(1)",
+          "runner": "htmlcs",
+          "runnerExtras": {}
+        },
+        {
+          "code": "WCAG2AA.Principle1.Guideline1_4.1_4_3.G18.Fail",
+          "type": "error",
+          "typeCode": 1,
+          "message": "This element has insufficient contrast at this conformance level. Expected a contrast ratio of at least 4.5:1, but text in this element has a contrast ratio of 3.54:1. Recommendation:  change text colour to #767676.",
+          "context": "<div>12 min read</div>",
+          "selector": "#root > div > div > div > section:nth-child(8) > div > div:nth-child(2) > a:nth-child(1) > div > div > div:nth-child(4) > div:nth-child(2)",
+          "runner": "htmlcs",
+          "runnerExtras": {}
+        },
+        {
+          "code": "WCAG2AA.Principle1.Guideline1_4.1_4_3.G18.Fail",
+          "type": "error",
+          "typeCode": 1,
+          "message": "This element has insufficient contrast at this conformance level. Expected a contrast ratio of at least 4.5:1, but text in this element has a contrast ratio of 2.64:1. Recommendation:  change text colour to #002b02.",
+          "context": "<div style=\"background-color: rgb(248, 249, 250); padding: 5px 10px; border-radius: 5px; display: inline-block; margin-bottom: 15px; color: rgb(76, 175, 80); font-weight: 600; font-size: 0.85rem;\">Running</div>",
+          "selector": "#root > div > div > div > section:nth-child(8) > div > div:nth-child(2) > a:nth-child(2) > div > div > div:nth-child(1)",
+          "runner": "htmlcs",
+          "runnerExtras": {}
+        },
+        {
+          "code": "WCAG2AA.Principle1.Guideline1_4.1_4_3.G18.Fail",
+          "type": "error",
+          "typeCode": 1,
+          "message": "This element has insufficient contrast at this conformance level. Expected a contrast ratio of at least 4.5:1, but text in this element has a contrast ratio of 3.54:1. Recommendation:  change text colour to #767676.",
+          "context": "<div>April 28, 2023</div>",
+          "selector": "#root > div > div > div > section:nth-child(8) > div > div:nth-child(2) > a:nth-child(2) > div > div > div:nth-child(4) > div:nth-child(1)",
+          "runner": "htmlcs",
+          "runnerExtras": {}
+        },
+        {
+          "code": "WCAG2AA.Principle1.Guideline1_4.1_4_3.G18.Fail",
+          "type": "error",
+          "typeCode": 1,
+          "message": "This element has insufficient contrast at this conformance level. Expected a contrast ratio of at least 4.5:1, but text in this element has a contrast ratio of 3.54:1. Recommendation:  change text colour to #767676.",
+          "context": "<div>8 min read</div>",
+          "selector": "#root > div > div > div > section:nth-child(8) > div > div:nth-child(2) > a:nth-child(2) > div > div > div:nth-child(4) > div:nth-child(2)",
+          "runner": "htmlcs",
+          "runnerExtras": {}
+        },
+        {
+          "code": "WCAG2AA.Principle1.Guideline1_4.1_4_3.G18.Fail",
+          "type": "error",
+          "typeCode": 1,
+          "message": "This element has insufficient contrast at this conformance level. Expected a contrast ratio of at least 4.5:1, but text in this element has a contrast ratio of 2.64:1. Recommendation:  change text colour to #002b02.",
+          "context": "<div style=\"background-color: rgb(248, 249, 250); padding: 5px 10px; border-radius: 5px; display: inline-block; margin-bottom: 15px; color: rgb(76, 175, 80); font-weight: 600; font-size: 0.85rem;\">Health</div>",
+          "selector": "#root > div > div > div > section:nth-child(8) > div > div:nth-child(2) > a:nth-child(3) > div > div > div:nth-child(1)",
+          "runner": "htmlcs",
+          "runnerExtras": {}
+        },
+        {
+          "code": "WCAG2AA.Principle1.Guideline1_4.1_4_3.G18.Fail",
+          "type": "error",
+          "typeCode": 1,
+          "message": "This element has insufficient contrast at this conformance level. Expected a contrast ratio of at least 4.5:1, but text in this element has a contrast ratio of 3.54:1. Recommendation:  change text colour to #767676.",
+          "context": "<div>April 18, 2023</div>",
+          "selector": "#root > div > div > div > section:nth-child(8) > div > div:nth-child(2) > a:nth-child(3) > div > div > div:nth-child(4) > div:nth-child(1)",
+          "runner": "htmlcs",
+          "runnerExtras": {}
+        },
+        {
+          "code": "WCAG2AA.Principle1.Guideline1_4.1_4_3.G18.Fail",
+          "type": "error",
+          "typeCode": 1,
+          "message": "This element has insufficient contrast at this conformance level. Expected a contrast ratio of at least 4.5:1, but text in this element has a contrast ratio of 3.54:1. Recommendation:  change text colour to #767676.",
+          "context": "<div>10 min read</div>",
+          "selector": "#root > div > div > div > section:nth-child(8) > div > div:nth-child(2) > a:nth-child(3) > div > div > div:nth-child(4) > div:nth-child(2)",
+          "runner": "htmlcs",
+          "runnerExtras": {}
+        },
+        {
+          "code": "WCAG2AA.Principle1.Guideline1_4.1_4_3.G18.Fail",
+          "type": "error",
+          "typeCode": 1,
+          "message": "This element has insufficient contrast at this conformance level. Expected a contrast ratio of at least 4.5:1, but text in this element has a contrast ratio of 2.78:1. Recommendation:  change background to #258829.",
+          "context": "<a href=\"/blog.html\" style=\"background-color: rgb(76, 175, 80); color: white; padding: 15px 35px; border-radius: 5px; text-decoration: none; font-weight: 600; font-size: 1.1rem; transition: 0.3s; display: inline-block;\">View All Articles</a>",
+          "selector": "#root > div > div > div > section:nth-child(8) > div > div:nth-child(3) > a",
+          "runner": "htmlcs",
+          "runnerExtras": {}
+        },
+        {
+          "code": "WCAG2AA.Principle1.Guideline1_4.1_4_3.G18.Fail",
+          "type": "error",
+          "typeCode": 1,
+          "message": "This element has insufficient contrast at this conformance level. Expected a contrast ratio of at least 4.5:1, but text in this element has a contrast ratio of 2.78:1. Recommendation:  change background to #258829.",
+          "context": "<a href=\"/app?isRegistering=true\" style=\"background-color: rgb(76, 175, 80); color: white; padding: 15px 35px; border-radius: 5px; text-decoration: none; font-weight: 600; font-size: 1.1rem; transition: 0.3s; display: inline-block; margin: 10px;\">Sig...",
+          "selector": "#root > div > div > div > section:nth-child(9) > div > div > div > a:nth-child(1)",
+          "runner": "htmlcs",
+          "runnerExtras": {}
+        },
+        {
+          "code": "WCAG2AA.Principle1.Guideline1_4.1_4_3.G18.Fail",
+          "type": "error",
+          "typeCode": 1,
+          "message": "This element has insufficient contrast at this conformance level. Expected a contrast ratio of at least 4.5:1, but text in this element has a contrast ratio of 2.78:1. Recommendation:  change text colour to #258829.",
+          "context": "<a href=\"/app\" style=\"background-color: transparent; border: 2px solid rgb(76, 175, 80); color: rgb(76, 175, 80); padding: 15px 35px; border-radius: 5px; text-decoration: none; font-weight: 600; font-size: 1.1rem; transition: 0.3s; display: inline-bl...",
+          "selector": "#root > div > div > div > section:nth-child(9) > div > div > div > a:nth-child(2)",
+          "runner": "htmlcs",
+          "runnerExtras": {}
+        }
+      ]
+    }
+  },
+  "fileName": "a11y-pa11y-test-run-1750975822841-1750975822841-f6m5x4yt5.json",
+  "summary": {
+    "tool": "pa11y",
+    "violations": 22,
+    "passes": 0,
+    "warnings": 0,
+    "status": "fail",
+    "critical": true
+  }
+}

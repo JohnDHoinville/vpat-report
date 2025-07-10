@@ -1,0 +1,25 @@
+{
+  "testType": "a11y:pa11y",
+  "status": "completed",
+  "startTime": "2025-06-26T17:34:55.350Z",
+  "endTime": "2025-06-26T17:34:55.366Z",
+  "duration": 16,
+  "url": "https://httpbin.org/html",
+  "result": {
+    "tool": "pa11y",
+    "violations": 0,
+    "warnings": 1,
+    "details": {
+      "message": "Simulated pa11y test (pa11y not available)"
+    }
+  },
+  "fileName": "a11y-pa11y-test-run-1750959295286-d8qva1m0c4l.json",
+  "summary": {
+    "tool": "pa11y",
+    "violations": 0,
+    "passes": 0,
+    "warnings": 1,
+    "status": "pass",
+    "critical": false
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "testType": "a11y:axe",
+  "url": "https://runkeeper.com",
+  "pageTitle": "No title",
+  "timestamp": "2025-06-27T12:17:37.674Z",
+  "batchId": "site-test-1751026647673",
+  "jobId": "job-1751026647677-x764oe36l",
+  "executionInfo": {
+    "startTime": "2025-06-27T12:17:27.678Z",
+    "endTime": "2025-06-27T12:17:37.674Z",
+    "duration": 0,
+    "status": "completed"
+  },
+  "result": {
+    "tool": "axe-core",
+    "violations": 0,
+    "passes": 0,
+    "incomplete": 0,
+    "inapplicable": 0,
+    "details": []
+  },
+  "summary": {
+    "violations": 0,
+    "passed": 0,
+    "incomplete": 0,
+    "inapplicable": 0,
+    "successRate": 100
+  },
+  "metadata": {
+    "tool": "axe-core",
+    "version": "1.0.0",
+    "generatedBy": "dashboard-backend-job-queue"
+  }
+}

@@ -1,0 +1,1076 @@
+{
+  "metadata": {
+    "url": "http://127.0.0.1:8080/test-accessibility-page.html",
+    "title": "VPAT Test Page - Accessibility Issues",
+    "timestamp": "2025-06-19T14:30:42.598Z",
+    "success": true,
+    "userAgent": "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Mobile Safari/537.36",
+    "viewport": {
+      "width": 678,
+      "height": 838
+    }
+  },
+  "overview": {
+    "totalErrors": 5,
+    "totalAlerts": 8,
+    "totalContrastIssues": 2,
+    "totalStructuralElements": 3
+  },
+  "developerSummary": {
+    "criticalIssues": [
+      {
+        "id": 1,
+        "type": "ALT MISSING",
+        "description": "Missing alternative text",
+        "developerInfo": "Missing alternative text",
+        "elementTag": null,
+        "elementText": null,
+        "className": null,
+        "cssSelector": null,
+        "selector": null,
+        "xpath": "/HTML/BODY[1]/DIV[2]/IMG[1]",
+        "url": "http://127.0.0.1:8080/test-accessibility-page.html",
+        "pageUrl": "http://127.0.0.1:8080/test-accessibility-page.html",
+        "severity": "CRITICAL",
+        "wcagLevel": "AA",
+        "rawData": {
+          "id": "alt_missing",
+          "description": "Missing alternative text",
+          "count": 1,
+          "xpaths": [
+            "/HTML/BODY[1]/DIV[2]/IMG[1]"
+          ],
+          "selectors": [
+            false
+          ],
+          "text": [
+            false
+          ],
+          "hidden": [
+            false
+          ]
+        }
+      },
+      {
+        "id": 2,
+        "type": "LABEL MISSING",
+        "description": "Missing form label",
+        "developerInfo": "Missing form label",
+        "elementTag": null,
+        "elementText": null,
+        "className": null,
+        "cssSelector": null,
+        "selector": null,
+        "xpath": "/HTML/BODY[1]/DIV[2]/FORM[1]/INPUT[1]",
+        "url": "http://127.0.0.1:8080/test-accessibility-page.html",
+        "pageUrl": "http://127.0.0.1:8080/test-accessibility-page.html",
+        "severity": "CRITICAL",
+        "wcagLevel": "AA",
+        "rawData": {
+          "id": "label_missing",
+          "description": "Missing form label",
+          "count": 3,
+          "xpaths": [
+            "/HTML/BODY[1]/DIV[2]/FORM[1]/INPUT[1]",
+            "/HTML/BODY[1]/DIV[2]/FORM[1]/INPUT[3]",
+            "/HTML/BODY[1]/DIV[2]/INPUT[1]"
+          ],
+          "selectors": [
+            false,
+            false,
+            false
+          ],
+          "text": [
+            false,
+            false,
+            false
+          ],
+          "hidden": [
+            false,
+            false,
+            false
+          ]
+        }
+      },
+      {
+        "id": 3,
+        "type": "LABEL MISSING",
+        "description": "Missing form label",
+        "developerInfo": "Missing form label",
+        "elementTag": null,
+        "elementText": null,
+        "className": null,
+        "cssSelector": null,
+        "selector": null,
+        "xpath": "/HTML/BODY[1]/DIV[2]/FORM[1]/INPUT[3]",
+        "url": "http://127.0.0.1:8080/test-accessibility-page.html",
+        "pageUrl": "http://127.0.0.1:8080/test-accessibility-page.html",
+        "severity": "CRITICAL",
+        "wcagLevel": "AA",
+        "rawData": {
+          "id": "label_missing",
+          "description": "Missing form label",
+          "count": 3,
+          "xpaths": [
+            "/HTML/BODY[1]/DIV[2]/FORM[1]/INPUT[1]",
+            "/HTML/BODY[1]/DIV[2]/FORM[1]/INPUT[3]",
+            "/HTML/BODY[1]/DIV[2]/INPUT[1]"
+          ],
+          "selectors": [
+            false,
+            false,
+            false
+          ],
+          "text": [
+            false,
+            false,
+            false
+          ],
+          "hidden": [
+            false,
+            false,
+            false
+          ]
+        }
+      },
+      {
+        "id": 4,
+        "type": "LABEL MISSING",
+        "description": "Missing form label",
+        "developerInfo": "Missing form label",
+        "elementTag": null,
+        "elementText": null,
+        "className": null,
+        "cssSelector": null,
+        "selector": null,
+        "xpath": "/HTML/BODY[1]/DIV[2]/INPUT[1]",
+        "url": "http://127.0.0.1:8080/test-accessibility-page.html",
+        "pageUrl": "http://127.0.0.1:8080/test-accessibility-page.html",
+        "severity": "CRITICAL",
+        "wcagLevel": "AA",
+        "rawData": {
+          "id": "label_missing",
+          "description": "Missing form label",
+          "count": 3,
+          "xpaths": [
+            "/HTML/BODY[1]/DIV[2]/FORM[1]/INPUT[1]",
+            "/HTML/BODY[1]/DIV[2]/FORM[1]/INPUT[3]",
+            "/HTML/BODY[1]/DIV[2]/INPUT[1]"
+          ],
+          "selectors": [
+            false,
+            false,
+            false
+          ],
+          "text": [
+            false,
+            false,
+            false
+          ],
+          "hidden": [
+            false,
+            false,
+            false
+          ]
+        }
+      },
+      {
+        "id": 5,
+        "type": "BUTTON EMPTY",
+        "description": "Empty button",
+        "developerInfo": "Empty button",
+        "elementTag": null,
+        "elementText": null,
+        "className": null,
+        "cssSelector": null,
+        "selector": null,
+        "xpath": "/HTML/BODY[1]/DIV[2]/BUTTON[1]",
+        "url": "http://127.0.0.1:8080/test-accessibility-page.html",
+        "pageUrl": "http://127.0.0.1:8080/test-accessibility-page.html",
+        "severity": "CRITICAL",
+        "wcagLevel": "AA",
+        "rawData": {
+          "id": "button_empty",
+          "description": "Empty button",
+          "count": 1,
+          "xpaths": [
+            "/HTML/BODY[1]/DIV[2]/BUTTON[1]"
+          ],
+          "selectors": [
+            false
+          ],
+          "text": [
+            false
+          ],
+          "hidden": [
+            false
+          ]
+        }
+      },
+      {
+        "id": 1,
+        "type": "CONTRAST",
+        "description": "Very low contrast",
+        "developerInfo": " .low-contrast | Contrast: 1.18:1 (#cccccc on #dddddd)",
+        "elementTag": null,
+        "elementText": null,
+        "className": "low-contrast",
+        "cssSelector": null,
+        "selector": null,
+        "xpath": "/HTML/BODY[1]/DIV[2]/DIV[1]",
+        "url": "http://127.0.0.1:8080/test-accessibility-page.html",
+        "pageUrl": "http://127.0.0.1:8080/test-accessibility-page.html",
+        "severity": "CRITICAL",
+        "wcagLevel": "AA",
+        "contrastDetails": {
+          "ratio": 1.18,
+          "foregroundColor": "#cccccc",
+          "backgroundColor": "#dddddd",
+          "isLargeText": false,
+          "requiredRatio": 4.5,
+          "passes": false
+        },
+        "rawData": {
+          "id": "contrast",
+          "description": "Very low contrast",
+          "count": 2,
+          "xpaths": [
+            "/HTML/BODY[1]/DIV[2]/DIV[1]",
+            "/HTML/BODY[1]/DIV[2]/P[3]/SPAN[1]"
+          ],
+          "selectors": [
+            false,
+            false
+          ],
+          "text": [
+            false,
+            false
+          ],
+          "hidden": [
+            false,
+            false
+          ],
+          "contrastdata": [
+            [
+              1.18,
+              "#cccccc",
+              "#dddddd",
+              false
+            ],
+            [
+              3.99,
+              "#ff0000",
+              "#ffffff",
+              false
+            ]
+          ]
+        }
+      },
+      {
+        "id": 2,
+        "type": "CONTRAST",
+        "description": "Very low contrast",
+        "developerInfo": " .red-text | Contrast: 3.99:1 (#ff0000 on #ffffff)",
+        "elementTag": null,
+        "elementText": null,
+        "className": "red-text",
+        "cssSelector": null,
+        "selector": null,
+        "xpath": "/HTML/BODY[1]/DIV[2]/P[3]/SPAN[1]",
+        "url": "http://127.0.0.1:8080/test-accessibility-page.html",
+        "pageUrl": "http://127.0.0.1:8080/test-accessibility-page.html",
+        "severity": "CRITICAL",
+        "wcagLevel": "AA",
+        "contrastDetails": {
+          "ratio": 3.99,
+          "foregroundColor": "#ff0000",
+          "backgroundColor": "#ffffff",
+          "isLargeText": false,
+          "requiredRatio": 4.5,
+          "passes": false
+        },
+        "rawData": {
+          "id": "contrast",
+          "description": "Very low contrast",
+          "count": 2,
+          "xpaths": [
+            "/HTML/BODY[1]/DIV[2]/DIV[1]",
+            "/HTML/BODY[1]/DIV[2]/P[3]/SPAN[1]"
+          ],
+          "selectors": [
+            false,
+            false
+          ],
+          "text": [
+            false,
+            false
+          ],
+          "hidden": [
+            false,
+            false
+          ],
+          "contrastdata": [
+            [
+              1.18,
+              "#cccccc",
+              "#dddddd",
+              false
+            ],
+            [
+              3.99,
+              "#ff0000",
+              "#ffffff",
+              false
+            ]
+          ]
+        }
+      }
+    ],
+    "mostCommonProblems": {
+      "ALT MISSING": 1,
+      "LABEL MISSING": 3,
+      "BUTTON EMPTY": 1,
+      "ALT REDUNDANT": 1,
+      "REGION MISSING": 1,
+      "HEADING SKIPPED": 1,
+      "LINK SUSPICIOUS": 2,
+      "LINK REDUNDANT": 2,
+      "TABLE LAYOUT": 1,
+      "CONTRAST": 2
+    },
+    "affectedColors": [
+      "#cccccc",
+      "#dddddd",
+      "#ff0000",
+      "#ffffff"
+    ],
+    "recommendedActions": [
+      "🎨 Update color palette to meet WCAG contrast requirements (4.5:1 for normal text, 3:1 for large text)",
+      "🚨 Fix all accessibility errors - these prevent users from accessing content",
+      "🖼️ Review and update redundant alt text to be unique and descriptive",
+      "📝 Fix heading hierarchy - maintain sequential order (H1→H2→H3→H4)",
+      "🔗 Consolidate or differentiate redundant links"
+    ]
+  },
+  "detailedFindings": {
+    "errors": [
+      {
+        "id": 1,
+        "type": "ALT MISSING",
+        "description": "Missing alternative text",
+        "developerInfo": "Missing alternative text",
+        "elementTag": null,
+        "elementText": null,
+        "className": null,
+        "cssSelector": null,
+        "selector": null,
+        "xpath": "/HTML/BODY[1]/DIV[2]/IMG[1]",
+        "url": "http://127.0.0.1:8080/test-accessibility-page.html",
+        "pageUrl": "http://127.0.0.1:8080/test-accessibility-page.html",
+        "severity": "CRITICAL",
+        "wcagLevel": "AA",
+        "rawData": {
+          "id": "alt_missing",
+          "description": "Missing alternative text",
+          "count": 1,
+          "xpaths": [
+            "/HTML/BODY[1]/DIV[2]/IMG[1]"
+          ],
+          "selectors": [
+            false
+          ],
+          "text": [
+            false
+          ],
+          "hidden": [
+            false
+          ]
+        }
+      },
+      {
+        "id": 2,
+        "type": "LABEL MISSING",
+        "description": "Missing form label",
+        "developerInfo": "Missing form label",
+        "elementTag": null,
+        "elementText": null,
+        "className": null,
+        "cssSelector": null,
+        "selector": null,
+        "xpath": "/HTML/BODY[1]/DIV[2]/FORM[1]/INPUT[1]",
+        "url": "http://127.0.0.1:8080/test-accessibility-page.html",
+        "pageUrl": "http://127.0.0.1:8080/test-accessibility-page.html",
+        "severity": "CRITICAL",
+        "wcagLevel": "AA",
+        "rawData": {
+          "id": "label_missing",
+          "description": "Missing form label",
+          "count": 3,
+          "xpaths": [
+            "/HTML/BODY[1]/DIV[2]/FORM[1]/INPUT[1]",
+            "/HTML/BODY[1]/DIV[2]/FORM[1]/INPUT[3]",
+            "/HTML/BODY[1]/DIV[2]/INPUT[1]"
+          ],
+          "selectors": [
+            false,
+            false,
+            false
+          ],
+          "text": [
+            false,
+            false,
+            false
+          ],
+          "hidden": [
+            false,
+            false,
+            false
+          ]
+        }
+      },
+      {
+        "id": 3,
+        "type": "LABEL MISSING",
+        "description": "Missing form label",
+        "developerInfo": "Missing form label",
+        "elementTag": null,
+        "elementText": null,
+        "className": null,
+        "cssSelector": null,
+        "selector": null,
+        "xpath": "/HTML/BODY[1]/DIV[2]/FORM[1]/INPUT[3]",
+        "url": "http://127.0.0.1:8080/test-accessibility-page.html",
+        "pageUrl": "http://127.0.0.1:8080/test-accessibility-page.html",
+        "severity": "CRITICAL",
+        "wcagLevel": "AA",
+        "rawData": {
+          "id": "label_missing",
+          "description": "Missing form label",
+          "count": 3,
+          "xpaths": [
+            "/HTML/BODY[1]/DIV[2]/FORM[1]/INPUT[1]",
+            "/HTML/BODY[1]/DIV[2]/FORM[1]/INPUT[3]",
+            "/HTML/BODY[1]/DIV[2]/INPUT[1]"
+          ],
+          "selectors": [
+            false,
+            false,
+            false
+          ],
+          "text": [
+            false,
+            false,
+            false
+          ],
+          "hidden": [
+            false,
+            false,
+            false
+          ]
+        }
+      },
+      {
+        "id": 4,
+        "type": "LABEL MISSING",
+        "description": "Missing form label",
+        "developerInfo": "Missing form label",
+        "elementTag": null,
+        "elementText": null,
+        "className": null,
+        "cssSelector": null,
+        "selector": null,
+        "xpath": "/HTML/BODY[1]/DIV[2]/INPUT[1]",
+        "url": "http://127.0.0.1:8080/test-accessibility-page.html",
+        "pageUrl": "http://127.0.0.1:8080/test-accessibility-page.html",
+        "severity": "CRITICAL",
+        "wcagLevel": "AA",
+        "rawData": {
+          "id": "label_missing",
+          "description": "Missing form label",
+          "count": 3,
+          "xpaths": [
+            "/HTML/BODY[1]/DIV[2]/FORM[1]/INPUT[1]",
+            "/HTML/BODY[1]/DIV[2]/FORM[1]/INPUT[3]",
+            "/HTML/BODY[1]/DIV[2]/INPUT[1]"
+          ],
+          "selectors": [
+            false,
+            false,
+            false
+          ],
+          "text": [
+            false,
+            false,
+            false
+          ],
+          "hidden": [
+            false,
+            false,
+            false
+          ]
+        }
+      },
+      {
+        "id": 5,
+        "type": "BUTTON EMPTY",
+        "description": "Empty button",
+        "developerInfo": "Empty button",
+        "elementTag": null,
+        "elementText": null,
+        "className": null,
+        "cssSelector": null,
+        "selector": null,
+        "xpath": "/HTML/BODY[1]/DIV[2]/BUTTON[1]",
+        "url": "http://127.0.0.1:8080/test-accessibility-page.html",
+        "pageUrl": "http://127.0.0.1:8080/test-accessibility-page.html",
+        "severity": "CRITICAL",
+        "wcagLevel": "AA",
+        "rawData": {
+          "id": "button_empty",
+          "description": "Empty button",
+          "count": 1,
+          "xpaths": [
+            "/HTML/BODY[1]/DIV[2]/BUTTON[1]"
+          ],
+          "selectors": [
+            false
+          ],
+          "text": [
+            false
+          ],
+          "hidden": [
+            false
+          ]
+        }
+      }
+    ],
+    "alerts": [
+      {
+        "id": 1,
+        "type": "ALT REDUNDANT",
+        "description": "Redundant alternative text",
+        "developerInfo": " .wave5icon",
+        "elementTag": null,
+        "elementText": "Properly described image showing green background with text",
+        "className": "wave5icon",
+        "cssSelector": null,
+        "selector": null,
+        "xpath": "/HTML/BODY[1]/DIV[2]/IMG[3]",
+        "url": "http://127.0.0.1:8080/test-accessibility-page.html",
+        "pageUrl": "http://127.0.0.1:8080/test-accessibility-page.html",
+        "severity": "WARNING",
+        "wcagLevel": "AA",
+        "rawData": {
+          "id": "alt_redundant",
+          "description": "Redundant alternative text",
+          "count": 1,
+          "xpaths": [
+            "/HTML/BODY[1]/DIV[2]/IMG[3]"
+          ],
+          "selectors": [
+            false
+          ],
+          "text": [
+            "Properly described image showing green background with text"
+          ],
+          "hidden": [
+            false
+          ]
+        }
+      },
+      {
+        "id": 2,
+        "type": "REGION MISSING",
+        "description": "No page regions",
+        "developerInfo": "No page regions",
+        "elementTag": null,
+        "elementText": null,
+        "className": null,
+        "cssSelector": null,
+        "selector": null,
+        "xpath": "#",
+        "url": "http://127.0.0.1:8080/test-accessibility-page.html",
+        "pageUrl": "http://127.0.0.1:8080/test-accessibility-page.html",
+        "severity": "WARNING",
+        "wcagLevel": "AA",
+        "rawData": {
+          "id": "region_missing",
+          "description": "No page regions",
+          "count": 1,
+          "xpaths": [
+            "#"
+          ],
+          "selectors": [
+            false
+          ],
+          "text": [
+            false
+          ],
+          "hidden": [
+            false
+          ]
+        }
+      },
+      {
+        "id": 3,
+        "type": "HEADING SKIPPED",
+        "description": "Skipped heading level",
+        "developerInfo": "Skipped heading level",
+        "elementTag": null,
+        "elementText": null,
+        "className": null,
+        "cssSelector": null,
+        "selector": null,
+        "xpath": "/HTML/BODY[1]/DIV[2]/H4[1]",
+        "url": "http://127.0.0.1:8080/test-accessibility-page.html",
+        "pageUrl": "http://127.0.0.1:8080/test-accessibility-page.html",
+        "severity": "WARNING",
+        "wcagLevel": "AA",
+        "rawData": {
+          "id": "heading_skipped",
+          "description": "Skipped heading level",
+          "count": 1,
+          "xpaths": [
+            "/HTML/BODY[1]/DIV[2]/H4[1]"
+          ],
+          "selectors": [
+            false
+          ],
+          "text": [
+            false
+          ],
+          "hidden": [
+            false
+          ]
+        }
+      },
+      {
+        "id": 4,
+        "type": "LINK SUSPICIOUS",
+        "description": "Suspicious link text",
+        "developerInfo": "Suspicious link text",
+        "elementTag": null,
+        "elementText": null,
+        "className": null,
+        "cssSelector": null,
+        "selector": null,
+        "xpath": "/HTML/BODY[1]/DIV[2]/A[1]",
+        "url": "http://127.0.0.1:8080/test-accessibility-page.html",
+        "pageUrl": "http://127.0.0.1:8080/test-accessibility-page.html",
+        "severity": "WARNING",
+        "wcagLevel": "AA",
+        "rawData": {
+          "id": "link_suspicious",
+          "description": "Suspicious link text",
+          "count": 2,
+          "xpaths": [
+            "/HTML/BODY[1]/DIV[2]/A[1]",
+            "/HTML/BODY[1]/DIV[2]/A[3]"
+          ],
+          "selectors": [
+            false,
+            false
+          ],
+          "text": [
+            false,
+            false
+          ],
+          "hidden": [
+            false,
+            false
+          ]
+        }
+      },
+      {
+        "id": 5,
+        "type": "LINK SUSPICIOUS",
+        "description": "Suspicious link text",
+        "developerInfo": "Suspicious link text",
+        "elementTag": null,
+        "elementText": null,
+        "className": null,
+        "cssSelector": null,
+        "selector": null,
+        "xpath": "/HTML/BODY[1]/DIV[2]/A[3]",
+        "url": "http://127.0.0.1:8080/test-accessibility-page.html",
+        "pageUrl": "http://127.0.0.1:8080/test-accessibility-page.html",
+        "severity": "WARNING",
+        "wcagLevel": "AA",
+        "rawData": {
+          "id": "link_suspicious",
+          "description": "Suspicious link text",
+          "count": 2,
+          "xpaths": [
+            "/HTML/BODY[1]/DIV[2]/A[1]",
+            "/HTML/BODY[1]/DIV[2]/A[3]"
+          ],
+          "selectors": [
+            false,
+            false
+          ],
+          "text": [
+            false,
+            false
+          ],
+          "hidden": [
+            false,
+            false
+          ]
+        }
+      },
+      {
+        "id": 6,
+        "type": "LINK REDUNDANT",
+        "description": "Redundant link",
+        "developerInfo": "Redundant link",
+        "elementTag": null,
+        "elementText": null,
+        "className": null,
+        "cssSelector": null,
+        "selector": null,
+        "xpath": "/HTML/BODY[1]/DIV[2]/A[2]",
+        "url": "http://127.0.0.1:8080/test-accessibility-page.html",
+        "pageUrl": "http://127.0.0.1:8080/test-accessibility-page.html",
+        "severity": "WARNING",
+        "wcagLevel": "AA",
+        "rawData": {
+          "id": "link_redundant",
+          "description": "Redundant link",
+          "count": 2,
+          "xpaths": [
+            "/HTML/BODY[1]/DIV[2]/A[2]",
+            "/HTML/BODY[1]/DIV[2]/A[3]"
+          ],
+          "selectors": [
+            false,
+            false
+          ],
+          "text": [
+            false,
+            false
+          ],
+          "hidden": [
+            false,
+            false
+          ]
+        }
+      },
+      {
+        "id": 7,
+        "type": "LINK REDUNDANT",
+        "description": "Redundant link",
+        "developerInfo": "Redundant link",
+        "elementTag": null,
+        "elementText": null,
+        "className": null,
+        "cssSelector": null,
+        "selector": null,
+        "xpath": "/HTML/BODY[1]/DIV[2]/A[3]",
+        "url": "http://127.0.0.1:8080/test-accessibility-page.html",
+        "pageUrl": "http://127.0.0.1:8080/test-accessibility-page.html",
+        "severity": "WARNING",
+        "wcagLevel": "AA",
+        "rawData": {
+          "id": "link_redundant",
+          "description": "Redundant link",
+          "count": 2,
+          "xpaths": [
+            "/HTML/BODY[1]/DIV[2]/A[2]",
+            "/HTML/BODY[1]/DIV[2]/A[3]"
+          ],
+          "selectors": [
+            false,
+            false
+          ],
+          "text": [
+            false,
+            false
+          ],
+          "hidden": [
+            false,
+            false
+          ]
+        }
+      },
+      {
+        "id": 8,
+        "type": "TABLE LAYOUT",
+        "description": "Layout table",
+        "developerInfo": "Layout table",
+        "elementTag": null,
+        "elementText": null,
+        "className": null,
+        "cssSelector": null,
+        "selector": null,
+        "xpath": "/HTML/BODY[1]/DIV[2]/TABLE[1]/TBODY[1]/TR[1]/TD[1]",
+        "url": "http://127.0.0.1:8080/test-accessibility-page.html",
+        "pageUrl": "http://127.0.0.1:8080/test-accessibility-page.html",
+        "severity": "WARNING",
+        "wcagLevel": "AA",
+        "rawData": {
+          "id": "table_layout",
+          "description": "Layout table",
+          "count": 1,
+          "xpaths": [
+            "/HTML/BODY[1]/DIV[2]/TABLE[1]/TBODY[1]/TR[1]/TD[1]"
+          ],
+          "selectors": [
+            false
+          ],
+          "text": [
+            false
+          ],
+          "hidden": [
+            false
+          ]
+        }
+      }
+    ],
+    "contrastIssues": [
+      {
+        "id": 1,
+        "type": "CONTRAST",
+        "description": "Very low contrast",
+        "developerInfo": " .low-contrast | Contrast: 1.18:1 (#cccccc on #dddddd)",
+        "elementTag": null,
+        "elementText": null,
+        "className": "low-contrast",
+        "cssSelector": null,
+        "selector": null,
+        "xpath": "/HTML/BODY[1]/DIV[2]/DIV[1]",
+        "url": "http://127.0.0.1:8080/test-accessibility-page.html",
+        "pageUrl": "http://127.0.0.1:8080/test-accessibility-page.html",
+        "severity": "CRITICAL",
+        "wcagLevel": "AA",
+        "contrastDetails": {
+          "ratio": 1.18,
+          "foregroundColor": "#cccccc",
+          "backgroundColor": "#dddddd",
+          "isLargeText": false,
+          "requiredRatio": 4.5,
+          "passes": false
+        },
+        "rawData": {
+          "id": "contrast",
+          "description": "Very low contrast",
+          "count": 2,
+          "xpaths": [
+            "/HTML/BODY[1]/DIV[2]/DIV[1]",
+            "/HTML/BODY[1]/DIV[2]/P[3]/SPAN[1]"
+          ],
+          "selectors": [
+            false,
+            false
+          ],
+          "text": [
+            false,
+            false
+          ],
+          "hidden": [
+            false,
+            false
+          ],
+          "contrastdata": [
+            [
+              1.18,
+              "#cccccc",
+              "#dddddd",
+              false
+            ],
+            [
+              3.99,
+              "#ff0000",
+              "#ffffff",
+              false
+            ]
+          ]
+        }
+      },
+      {
+        "id": 2,
+        "type": "CONTRAST",
+        "description": "Very low contrast",
+        "developerInfo": " .red-text | Contrast: 3.99:1 (#ff0000 on #ffffff)",
+        "elementTag": null,
+        "elementText": null,
+        "className": "red-text",
+        "cssSelector": null,
+        "selector": null,
+        "xpath": "/HTML/BODY[1]/DIV[2]/P[3]/SPAN[1]",
+        "url": "http://127.0.0.1:8080/test-accessibility-page.html",
+        "pageUrl": "http://127.0.0.1:8080/test-accessibility-page.html",
+        "severity": "CRITICAL",
+        "wcagLevel": "AA",
+        "contrastDetails": {
+          "ratio": 3.99,
+          "foregroundColor": "#ff0000",
+          "backgroundColor": "#ffffff",
+          "isLargeText": false,
+          "requiredRatio": 4.5,
+          "passes": false
+        },
+        "rawData": {
+          "id": "contrast",
+          "description": "Very low contrast",
+          "count": 2,
+          "xpaths": [
+            "/HTML/BODY[1]/DIV[2]/DIV[1]",
+            "/HTML/BODY[1]/DIV[2]/P[3]/SPAN[1]"
+          ],
+          "selectors": [
+            false,
+            false
+          ],
+          "text": [
+            false,
+            false
+          ],
+          "hidden": [
+            false,
+            false
+          ],
+          "contrastdata": [
+            [
+              1.18,
+              "#cccccc",
+              "#dddddd",
+              false
+            ],
+            [
+              3.99,
+              "#ff0000",
+              "#ffffff",
+              false
+            ]
+          ]
+        }
+      }
+    ],
+    "structuralElements": [
+      {
+        "id": 1,
+        "type": "H1",
+        "description": "Heading level 1",
+        "developerInfo": "Heading level 1",
+        "elementTag": null,
+        "elementText": null,
+        "className": null,
+        "cssSelector": null,
+        "selector": null,
+        "xpath": "/HTML/BODY[1]/DIV[2]/H1[1]",
+        "url": "http://127.0.0.1:8080/test-accessibility-page.html",
+        "pageUrl": "http://127.0.0.1:8080/test-accessibility-page.html",
+        "severity": "INFO",
+        "rawData": {
+          "id": "h1",
+          "description": "Heading level 1",
+          "count": 1,
+          "xpaths": [
+            "/HTML/BODY[1]/DIV[2]/H1[1]"
+          ],
+          "selectors": [
+            false
+          ],
+          "text": [
+            false
+          ],
+          "hidden": [
+            false
+          ]
+        }
+      },
+      {
+        "id": 2,
+        "type": "H2",
+        "description": "Heading level 2",
+        "developerInfo": "Heading level 2",
+        "elementTag": null,
+        "elementText": null,
+        "className": null,
+        "cssSelector": null,
+        "selector": null,
+        "xpath": "/HTML/BODY[1]/DIV[2]/H2[1]",
+        "url": "http://127.0.0.1:8080/test-accessibility-page.html",
+        "pageUrl": "http://127.0.0.1:8080/test-accessibility-page.html",
+        "severity": "INFO",
+        "rawData": {
+          "id": "h2",
+          "description": "Heading level 2",
+          "count": 8,
+          "xpaths": [
+            "/HTML/BODY[1]/DIV[2]/H2[1]",
+            "/HTML/BODY[1]/DIV[2]/H2[2]",
+            "/HTML/BODY[1]/DIV[2]/H2[3]",
+            "/HTML/BODY[1]/DIV[2]/H2[4]",
+            "/HTML/BODY[1]/DIV[2]/H2[5]",
+            "/HTML/BODY[1]/DIV[2]/H2[6]",
+            "/HTML/BODY[1]/DIV[2]/H2[7]",
+            "/HTML/BODY[1]/DIV[2]/H2[8]"
+          ],
+          "selectors": [
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false
+          ],
+          "text": [
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false
+          ],
+          "hidden": [
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false
+          ]
+        }
+      },
+      {
+        "id": 3,
+        "type": "H4",
+        "description": "Heading level 4",
+        "developerInfo": "Heading level 4",
+        "elementTag": null,
+        "elementText": null,
+        "className": null,
+        "cssSelector": null,
+        "selector": null,
+        "xpath": "/HTML/BODY[1]/DIV[2]/H4[1]",
+        "url": "http://127.0.0.1:8080/test-accessibility-page.html",
+        "pageUrl": "http://127.0.0.1:8080/test-accessibility-page.html",
+        "severity": "INFO",
+        "rawData": {
+          "id": "h4",
+          "description": "Heading level 4",
+          "count": 1,
+          "xpaths": [
+            "/HTML/BODY[1]/DIV[2]/H4[1]"
+          ],
+          "selectors": [
+            false
+          ],
+          "text": [
+            false
+          ],
+          "hidden": [
+            false
+          ]
+        }
+      }
+    ]
+  }
+}

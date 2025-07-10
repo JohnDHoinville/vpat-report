@@ -1,0 +1,44 @@
+{
+  "testType": "a11y:contrast-basic",
+  "url": "https://run-analysis.onrender.com/login",
+  "pageTitle": "ToeTheLine",
+  "timestamp": "2025-06-27T18:13:23.491Z",
+  "batchId": "site-test-1751047884267",
+  "jobId": "job-1751047889457-14q878kwqe",
+  "executionInfo": {
+    "startTime": "2025-06-27T18:11:29.457Z",
+    "endTime": "2025-06-27T18:13:23.491Z",
+    "duration": 0,
+    "status": "completed"
+  },
+  "result": {
+    "tool": "contrast-checker",
+    "violations": 4,
+    "passes": 11,
+    "details": {
+      "message": "Contrast analysis completed",
+      "testMethod": "automated-contrast-analyzer",
+      "url": "https://run-analysis.onrender.com/login",
+      "summary": {
+        "totalElements": 18,
+        "passedElements": 11,
+        "failedElements": 4,
+        "warningElements": 0,
+        "aaViolations": 4,
+        "aaaViolations": 0
+      }
+    }
+  },
+  "summary": {
+    "violations": 4,
+    "passed": 0,
+    "incomplete": 0,
+    "inapplicable": 0,
+    "successRate": 0
+  },
+  "metadata": {
+    "tool": "contrast-checker",
+    "version": "1.0.0",
+    "generatedBy": "dashboard-backend-job-queue"
+  }
+}

@@ -1,0 +1,357 @@
+{
+  "testType": "a11y:axe",
+  "status": "completed",
+  "startTime": "2025-06-26T22:13:56.797Z",
+  "endTime": "2025-06-26T22:14:05.656Z",
+  "duration": 8859,
+  "url": "https://run-analysis.onrender.com/",
+  "result": {
+    "tool": "axe-core",
+    "violations": 5,
+    "passes": 35,
+    "incomplete": 1,
+    "detailedViolations": [
+      {
+        "id": "color-contrast",
+        "impact": "serious",
+        "description": "Ensure the contrast between foreground and background colors meets WCAG 2 AA minimum contrast ratio thresholds",
+        "help": "Elements must meet minimum color contrast ratio thresholds",
+        "helpUrl": "https://dequeuniversity.com/rules/axe/4.10/color-contrast?application=axeAPI",
+        "nodes": [
+          {
+            "target": [
+              "header > div > a[href$=\"login\"]"
+            ],
+            "html": "<a href=\"/login\" style=\"background-color: rgb(76, 175, 80); color: white; border: none; padding: 8px 15px; border-radius: 5px; text-decoration: none; font-weight: 600; transition: 0.3s; font-size: 14px; white-space: nowrap; display: block;\">Login</a>",
+            "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 2.77 (foreground color: #ffffff, background color: #4caf50, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+          },
+          {
+            "target": [
+              "#explore-features-btn"
+            ],
+            "html": "<button id=\"explore-features-btn\" class=\"mx-2 mb-3 explore-features-btn\" style=\"background-color: rgb(76, 175, 80); color: white; padding: 15px 35px; border-radius: 5px; text-decoration: none; font-weight: 600; font-size: 1.1rem; transition: 0.3s; display: inline-block; margin: 10px; border: none; c...",
+            "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 2.77 (foreground color: #ffffff, background color: #4caf50, font size: 13.2pt (17.6px), font weight: normal). Expected contrast ratio of 4.5:1"
+          },
+          {
+            "target": [
+              "div:nth-child(2) > div:nth-child(1) > div > a[href$=\"app\"]"
+            ],
+            "html": "<a href=\"/app\" style=\"background-color: rgb(76, 175, 80); color: white; padding: 10px 25px; border-radius: 5px; text-decoration: none; font-weight: 600; transition: 0.3s; display: inline-block;\">Try Now</a>",
+            "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 2.77 (foreground color: #ffffff, background color: #4caf50, font size: 12.0pt (16px), font weight: normal). Expected contrast ratio of 4.5:1"
+          },
+          {
+            "target": [
+              "div:nth-child(2) > div > a[href$=\"app\"]"
+            ],
+            "html": "<a href=\"/app\" style=\"background-color: rgb(76, 175, 80); color: white; padding: 10px 25px; border-radius: 5px; text-decoration: none; font-weight: 600; transition: 0.3s; display: inline-block;\">Try Now</a>",
+            "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 2.77 (foreground color: #ffffff, background color: #4caf50, font size: 12.0pt (16px), font weight: normal). Expected contrast ratio of 4.5:1"
+          },
+          {
+            "target": [
+              "div:nth-child(3) > div > a[href$=\"app\"]"
+            ],
+            "html": "<a href=\"/app\" style=\"background-color: rgb(76, 175, 80); color: white; padding: 10px 25px; border-radius: 5px; text-decoration: none; font-weight: 600; transition: 0.3s; display: inline-block;\">Try Now</a>",
+            "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 2.77 (foreground color: #ffffff, background color: #4caf50, font size: 12.0pt (16px), font weight: normal). Expected contrast ratio of 4.5:1"
+          },
+          {
+            "target": [
+              "section:nth-child(6) > div > div:nth-child(2) > div:nth-child(1) > div:nth-child(1) > h3"
+            ],
+            "html": "<h3 style=\"font-size: 1.8rem; margin-bottom: 10px;\">Basic</h3>",
+            "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 2.77 (foreground color: #ffffff, background color: #4caf50, font size: 21.6pt (28.8px), font weight: normal). Expected contrast ratio of 3:1"
+          },
+          {
+            "target": [
+              "div > div:nth-child(2) > div:nth-child(1) > div:nth-child(1) > div"
+            ],
+            "html": "<div style=\"font-size: 3rem; font-weight: bold;\">Free</div>",
+            "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 2.77 (foreground color: #ffffff, background color: #4caf50, font size: 36.0pt (48px), font weight: bold). Expected contrast ratio of 3:1"
+          },
+          {
+            "target": [
+              "div:nth-child(2) > div:nth-child(1) > div:nth-child(3) > div"
+            ],
+            "html": "<div style=\"background-color: rgb(76, 175, 80); color: white; padding: 15px 35px; border-radius: 5px; font-weight: 600; font-size: 1.1rem; display: inline-block; pointer-events: none;\">Get Started</div>",
+            "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 2.77 (foreground color: #ffffff, background color: #4caf50, font size: 13.2pt (17.6px), font weight: normal). Expected contrast ratio of 4.5:1"
+          },
+          {
+            "target": [
+              "div:nth-child(2) > div:nth-child(2) > div:nth-child(1) > div > span"
+            ],
+            "html": "<span style=\"font-size: 1rem; font-weight: normal;\">/month</span>",
+            "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 3.19 (foreground color: #ffffff, background color: #ff5252, font size: 12.0pt (16px), font weight: normal). Expected contrast ratio of 4.5:1"
+          },
+          {
+            "target": [
+              "div:nth-child(2) > div:nth-child(2) > div:nth-child(3) > div"
+            ],
+            "html": "<div style=\"background-color: rgb(255, 82, 82); color: white; padding: 15px 35px; border-radius: 5px; font-weight: 600; font-size: 1.1rem; display: inline-block; pointer-events: none;\">Go Premium</div>",
+            "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 3.19 (foreground color: #ffffff, background color: #ff5252, font size: 13.2pt (17.6px), font weight: normal). Expected contrast ratio of 4.5:1"
+          },
+          {
+            "target": [
+              "a[href$=\"blog.html\"]:nth-child(1) > div > div > div:nth-child(1)"
+            ],
+            "html": "<div style=\"background-color: rgb(248, 249, 250); padding: 5px 10px; border-radius: 5px; display: inline-block; margin-bottom: 15px; color: rgb(76, 175, 80); font-weight: 600; font-size: 0.85rem;\">Training</div>",
+            "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 2.63 (foreground color: #4caf50, background color: #f8f9fa, font size: 10.2pt (13.6px), font weight: normal). Expected contrast ratio of 4.5:1"
+          },
+          {
+            "target": [
+              "a[href$=\"blog.html\"]:nth-child(1) > div > div > div:nth-child(4) > div:nth-child(1)"
+            ],
+            "html": "<div>May 15, 2023</div>",
+            "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 3.54 (foreground color: #888888, background color: #ffffff, font size: 10.2pt (13.6px), font weight: normal). Expected contrast ratio of 4.5:1"
+          },
+          {
+            "target": [
+              "a[href$=\"blog.html\"]:nth-child(1) > div > div > div:nth-child(4) > div:nth-child(2)"
+            ],
+            "html": "<div>12 min read</div>",
+            "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 3.54 (foreground color: #888888, background color: #ffffff, font size: 10.2pt (13.6px), font weight: normal). Expected contrast ratio of 4.5:1"
+          },
+          {
+            "target": [
+              "a[href$=\"blog.html\"]:nth-child(2) > div > div > div:nth-child(1)"
+            ],
+            "html": "<div style=\"background-color: rgb(248, 249, 250); padding: 5px 10px; border-radius: 5px; display: inline-block; margin-bottom: 15px; color: rgb(76, 175, 80); font-weight: 600; font-size: 0.85rem;\">Running</div>",
+            "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 2.63 (foreground color: #4caf50, background color: #f8f9fa, font size: 10.2pt (13.6px), font weight: normal). Expected contrast ratio of 4.5:1"
+          },
+          {
+            "target": [
+              "a[href$=\"blog.html\"]:nth-child(2) > div > div > div:nth-child(4) > div:nth-child(1)"
+            ],
+            "html": "<div>April 28, 2023</div>",
+            "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 3.54 (foreground color: #888888, background color: #ffffff, font size: 10.2pt (13.6px), font weight: normal). Expected contrast ratio of 4.5:1"
+          },
+          {
+            "target": [
+              "a[href$=\"blog.html\"]:nth-child(2) > div > div > div:nth-child(4) > div:nth-child(2)"
+            ],
+            "html": "<div>8 min read</div>",
+            "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 3.54 (foreground color: #888888, background color: #ffffff, font size: 10.2pt (13.6px), font weight: normal). Expected contrast ratio of 4.5:1"
+          },
+          {
+            "target": [
+              "a[href$=\"blog.html\"]:nth-child(3) > div > div > div:nth-child(1)"
+            ],
+            "html": "<div style=\"background-color: rgb(248, 249, 250); padding: 5px 10px; border-radius: 5px; display: inline-block; margin-bottom: 15px; color: rgb(76, 175, 80); font-weight: 600; font-size: 0.85rem;\">Health</div>",
+            "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 2.63 (foreground color: #4caf50, background color: #f8f9fa, font size: 10.2pt (13.6px), font weight: normal). Expected contrast ratio of 4.5:1"
+          },
+          {
+            "target": [
+              "a[href$=\"blog.html\"]:nth-child(3) > div > div > div:nth-child(4) > div:nth-child(1)"
+            ],
+            "html": "<div>April 18, 2023</div>",
+            "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 3.54 (foreground color: #888888, background color: #ffffff, font size: 10.2pt (13.6px), font weight: normal). Expected contrast ratio of 4.5:1"
+          },
+          {
+            "target": [
+              "a[href$=\"blog.html\"]:nth-child(3) > div > div > div:nth-child(4) > div:nth-child(2)"
+            ],
+            "html": "<div>10 min read</div>",
+            "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 3.54 (foreground color: #888888, background color: #ffffff, font size: 10.2pt (13.6px), font weight: normal). Expected contrast ratio of 4.5:1"
+          },
+          {
+            "target": [
+              "div:nth-child(3) > a[href$=\"blog.html\"]"
+            ],
+            "html": "<a href=\"/blog.html\" style=\"background-color: rgb(76, 175, 80); color: white; padding: 15px 35px; border-radius: 5px; text-decoration: none; font-weight: 600; font-size: 1.1rem; transition: 0.3s; display: inline-block;\">View All Articles</a>",
+            "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 2.77 (foreground color: #ffffff, background color: #4caf50, font size: 13.2pt (17.6px), font weight: normal). Expected contrast ratio of 4.5:1"
+          },
+          {
+            "target": [
+              "a[href=\"/app?isRegistering=true\"]"
+            ],
+            "html": "<a href=\"/app?isRegistering=true\" style=\"background-color: rgb(76, 175, 80); color: white; padding: 15px 35px; border-radius: 5px; text-decoration: none; font-weight: 600; font-size: 1.1rem; transition: 0.3s; display: inline-block; margin: 10px;\">Sign Up Now</a>",
+            "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 2.77 (foreground color: #ffffff, background color: #4caf50, font size: 13.2pt (17.6px), font weight: normal). Expected contrast ratio of 4.5:1"
+          },
+          {
+            "target": [
+              "section:nth-child(9) > div > div > div > a[href$=\"app\"]"
+            ],
+            "html": "<a href=\"/app\" style=\"background-color: transparent; border: 2px solid rgb(76, 175, 80); color: rgb(76, 175, 80); padding: 15px 35px; border-radius: 5px; text-decoration: none; font-weight: 600; font-size: 1.1rem; transition: 0.3s; display: inline-block; margin: 10px;\">View Demo</a>",
+            "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 2.77 (foreground color: #4caf50, background color: #ffffff, font size: 13.2pt (17.6px), font weight: normal). Expected contrast ratio of 4.5:1"
+          }
+        ],
+        "wcagCriteria": [
+          "wcag2aa",
+          "wcag143"
+        ]
+      },
+      {
+        "id": "heading-order",
+        "impact": "moderate",
+        "description": "Ensure the order of headings is semantically correct",
+        "help": "Heading levels should only increase by one",
+        "helpUrl": "https://dequeuniversity.com/rules/axe/4.10/heading-order?application=axeAPI",
+        "nodes": [
+          {
+            "target": [
+              "div:nth-child(2) > div > div > h4"
+            ],
+            "html": "<h4 style=\"margin: 0px; color: rgb(51, 51, 51); font-size: 1.1rem; font-weight: 600;\">Allison Pavlock</h4>",
+            "failureSummary": "Fix any of the following:\n  Heading order invalid"
+          },
+          {
+            "target": [
+              "div:nth-child(1) > h4"
+            ],
+            "html": "<h4 style=\"color: rgb(76, 175, 80); font-weight: 600; margin-bottom: 1rem;\">Company</h4>",
+            "failureSummary": "Fix any of the following:\n  Heading order invalid"
+          }
+        ],
+        "wcagCriteria": []
+      },
+      {
+        "id": "landmark-one-main",
+        "impact": "moderate",
+        "description": "Ensure the document has a main landmark",
+        "help": "Document should have one main landmark",
+        "helpUrl": "https://dequeuniversity.com/rules/axe/4.10/landmark-one-main?application=axeAPI",
+        "nodes": [
+          {
+            "target": [
+              "html"
+            ],
+            "html": "<html lang=\"en\" data-theme=\"light\">",
+            "failureSummary": "Fix all of the following:\n  Document does not have a main landmark"
+          }
+        ],
+        "wcagCriteria": []
+      },
+      {
+        "id": "region",
+        "impact": "moderate",
+        "description": "Ensure all page content is contained by landmarks",
+        "help": "All page content should be contained by landmarks",
+        "helpUrl": "https://dequeuniversity.com/rules/axe/4.10/region?application=axeAPI",
+        "nodes": [
+          {
+            "target": [
+              "div > h1"
+            ],
+            "html": "<h1 style=\"font-size: 3.5rem; margin-bottom: 20px; font-weight: 700;\">Track, Analyze, and Improve<br>Your Fitness Journey</h1>",
+            "failureSummary": "Fix any of the following:\n  Some page content is not contained by landmarks"
+          },
+          {
+            "target": [
+              "section:nth-child(2) > div > p"
+            ],
+            "html": "<p style=\"font-size: 1.2rem; margin-bottom: 30px; opacity: 1;\">ToeTheLine-Life is a comprehensive GPX activity tracking and analysis tool that transforms your workout data into actionable insights, helping you achieve your fitness goals.</p>",
+            "failureSummary": "Fix any of the following:\n  Some page content is not contained by landmarks"
+          },
+          {
+            "target": [
+              ".mx-2.mb-3[href$=\"login\"]"
+            ],
+            "html": "<a class=\"mx-2 mb-3\" href=\"/login\" style=\"background-color: transparent; border: 2px solid rgb(76, 175, 80); color: white; padding: 15px 35px; border-radius: 5px; text-decoration: none; font-weight: 600; font-size: 1.1rem; transition: 0.3s; display: inline-block; margin: 10px;\">Start Now</a>",
+            "failureSummary": "Fix any of the following:\n  Some page content is not contained by landmarks"
+          },
+          {
+            "target": [
+              "#features"
+            ],
+            "html": "<section id=\"features\" style=\"padding: 80px 0px; background-color: rgb(255, 255, 255); scroll-margin-top: 70px;\">",
+            "failureSummary": "Fix any of the following:\n  Some page content is not contained by landmarks"
+          },
+          {
+            "target": [
+              "section:nth-child(4)"
+            ],
+            "html": "<section style=\"background-color: rgb(241, 248, 233); padding: 100px 50px;\">",
+            "failureSummary": "Fix any of the following:\n  Some page content is not contained by landmarks"
+          },
+          {
+            "target": [
+              "section:nth-child(5)"
+            ],
+            "html": "<section style=\"padding: 100px 50px;\">",
+            "failureSummary": "Fix any of the following:\n  Some page content is not contained by landmarks"
+          },
+          {
+            "target": [
+              "section:nth-child(6)"
+            ],
+            "html": "<section style=\"background-color: rgb(232, 245, 233); padding: 100px 50px;\">",
+            "failureSummary": "Fix any of the following:\n  Some page content is not contained by landmarks"
+          },
+          {
+            "target": [
+              "section:nth-child(7)"
+            ],
+            "html": "<section style=\"background-color: rgb(245, 245, 245); padding: 100px 50px;\">",
+            "failureSummary": "Fix any of the following:\n  Some page content is not contained by landmarks"
+          },
+          {
+            "target": [
+              "section:nth-child(8)"
+            ],
+            "html": "<section style=\"background-color: rgb(241, 248, 233); padding: 100px 50px;\">",
+            "failureSummary": "Fix any of the following:\n  Some page content is not contained by landmarks"
+          },
+          {
+            "target": [
+              "section:nth-child(9)"
+            ],
+            "html": "<section style=\"padding: 100px 50px; background-color: rgb(232, 245, 233);\">",
+            "failureSummary": "Fix any of the following:\n  Some page content is not contained by landmarks"
+          }
+        ],
+        "wcagCriteria": []
+      },
+      {
+        "id": "scrollable-region-focusable",
+        "impact": "serious",
+        "description": "Ensure elements that have scrollable content are accessible by keyboard",
+        "help": "Scrollable region must have keyboard access",
+        "helpUrl": "https://dequeuniversity.com/rules/axe/4.10/scrollable-region-focusable?application=axeAPI",
+        "nodes": [
+          {
+            "target": [
+              "#features > div > div:nth-child(2) > div:nth-child(1) > div:nth-child(2)"
+            ],
+            "html": "<div style=\"background-color: white; border-radius: 0px 0px 8px 8px; box-shadow: rgba(0, 0, 0, 0.1) 0px 4px 6px; padding: 20px; flex-grow: 1; height: 350px; overflow: auto;\">",
+            "failureSummary": "Fix any of the following:\n  Element should have focusable content\n  Element should be focusable"
+          },
+          {
+            "target": [
+              "#features > div > div:nth-child(2) > div:nth-child(2) > div:nth-child(2)"
+            ],
+            "html": "<div style=\"background-color: white; border-radius: 0px 0px 8px 8px; box-shadow: rgba(0, 0, 0, 0.1) 0px 4px 6px; padding: 20px; flex-grow: 1; height: 350px; overflow: auto;\">",
+            "failureSummary": "Fix any of the following:\n  Element should have focusable content\n  Element should be focusable"
+          },
+          {
+            "target": [
+              "div:nth-child(2) > div:nth-child(5) > div:nth-child(2)"
+            ],
+            "html": "<div style=\"background-color: white; border-radius: 0px 0px 8px 8px; box-shadow: rgba(0, 0, 0, 0.1) 0px 4px 6px; padding: 20px; flex-grow: 1; height: 350px; overflow: auto;\">",
+            "failureSummary": "Fix any of the following:\n  Element should have focusable content\n  Element should be focusable"
+          }
+        ],
+        "wcagCriteria": [
+          "wcag2a",
+          "wcag211",
+          "wcag213"
+        ]
+      }
+    ],
+    "wcagMapping": {},
+    "details": {
+      "message": "Axe-core accessibility test completed",
+      "testMethod": "automated-playwright",
+      "url": "https://run-analysis.onrender.com/",
+      "violationsFound": 5,
+      "passesFound": 35,
+      "incompleteFound": 1
+    }
+  },
+  "fileName": "a11y-axe-test-run-1750976036797-1750976036797-f9cg967ga.json",
+  "summary": {
+    "tool": "axe-core",
+    "violations": 5,
+    "passes": 35,
+    "warnings": 0,
+    "status": "fail",
+    "critical": true
+  }
+}

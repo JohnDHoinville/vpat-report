@@ -1,0 +1,25 @@
+{
+  "testType": "test:form",
+  "status": "completed",
+  "startTime": "2025-06-25T21:50:29.841Z",
+  "endTime": "2025-06-25T21:50:29.841Z",
+  "duration": 0,
+  "url": "https://example.com",
+  "result": {
+    "tool": "form-accessibility",
+    "violations": 1,
+    "details": {
+      "message": "Form accessibility test completed",
+      "formsFound": 1
+    }
+  },
+  "fileName": "test-form-test-run-1750888229747-z8gkksdoynn.json",
+  "summary": {
+    "tool": "form-accessibility",
+    "violations": 1,
+    "passes": 0,
+    "warnings": 0,
+    "status": "fail",
+    "critical": false
+  }
+}

@@ -1,0 +1,143 @@
+{
+  "testType": "test:screen-reader",
+  "status": "completed",
+  "startTime": "2025-06-28T10:15:27.054Z",
+  "endTime": "2025-06-28T10:15:37.339Z",
+  "duration": 10285,
+  "url": "https://run-analysis.onrender.com/",
+  "result": {
+    "tool": "screen-reader",
+    "violations": 9,
+    "passes": 48,
+    "detailedViolations": [
+      {
+        "type": "heading-hierarchy-skip",
+        "message": "Heading level skips from 2 to 4",
+        "element": {
+          "element": "H4",
+          "level": 4,
+          "text": "Allison Pavlock",
+          "index": 9,
+          "isValid": false,
+          "skip": 1,
+          "id": "",
+          "className": ""
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "heading-hierarchy-skip",
+        "message": "Heading level skips from 2 to 4",
+        "element": {
+          "element": "H4",
+          "level": 4,
+          "text": "Company",
+          "index": 28,
+          "isValid": false,
+          "skip": 1,
+          "id": "",
+          "className": ""
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "missing-main-landmark",
+        "message": "Page missing main landmark",
+        "severity": "serious"
+      },
+      {
+        "type": "heading-hierarchy-skip",
+        "message": "Heading level skips from 2 to 4",
+        "element": {
+          "element": "H4",
+          "level": 4,
+          "text": "Allison Pavlock",
+          "index": 9,
+          "isValid": false,
+          "skip": 1,
+          "id": "",
+          "className": ""
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "heading-hierarchy-skip",
+        "message": "Heading level skips from 2 to 4",
+        "element": {
+          "element": "H4",
+          "level": 4,
+          "text": "Company",
+          "index": 28,
+          "isValid": false,
+          "skip": 1,
+          "id": "",
+          "className": ""
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "missing-main-landmark",
+        "message": "Page missing main landmark",
+        "severity": "serious"
+      },
+      {
+        "type": "heading-hierarchy-skip",
+        "message": "Heading level skips from 2 to 4",
+        "element": {
+          "element": "H4",
+          "level": 4,
+          "text": "Allison Pavlock",
+          "index": 9,
+          "isValid": false,
+          "skip": 1,
+          "id": "",
+          "className": ""
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "heading-hierarchy-skip",
+        "message": "Heading level skips from 2 to 4",
+        "element": {
+          "element": "H4",
+          "level": 4,
+          "text": "Company",
+          "index": 28,
+          "isValid": false,
+          "skip": 1,
+          "id": "",
+          "className": ""
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "missing-main-landmark",
+        "message": "Page missing main landmark",
+        "severity": "serious"
+      }
+    ],
+    "details": {
+      "message": "Screen reader accessibility test completed",
+      "testMethod": "automated-screen-reader",
+      "url": "https://run-analysis.onrender.com/",
+      "summary": {
+        "totalBrowsers": 3,
+        "totalViolations": 9,
+        "totalElements": 57,
+        "totalLandmarks": 30,
+        "totalHeadings": 93,
+        "overallPassed": true
+      }
+    }
+  },
+  "fileName": "test-screen-reader-test-run-run-analysis.onrender.com-test-run-batch-1751105695880-fawowjfo.json",
+  "batchId": "batch-1751105695880-fawowjfo",
+  "summary": {
+    "tool": "screen-reader",
+    "violations": 9,
+    "passes": 48,
+    "warnings": 0,
+    "status": "fail",
+    "critical": true
+  }
+}

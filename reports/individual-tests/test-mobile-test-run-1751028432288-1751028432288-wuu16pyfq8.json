@@ -1,0 +1,46 @@
+{
+  "testType": "test:mobile",
+  "url": "https://runkeeper.com",
+  "pageTitle": "No title",
+  "timestamp": "2025-06-27T12:47:12.288Z",
+  "batchId": "site-test-1751028354718",
+  "jobId": "job-1751028360126-xt0raao83",
+  "executionInfo": {
+    "startTime": "2025-06-27T12:46:00.126Z",
+    "endTime": "2025-06-27T12:47:12.288Z",
+    "duration": 0,
+    "status": "completed"
+  },
+  "result": {
+    "tool": "mobile-accessibility",
+    "violations": 2137,
+    "passes": 1543,
+    "details": {
+      "message": "Mobile accessibility test completed",
+      "testMethod": "automated-mobile-tester",
+      "url": "https://runkeeper.com",
+      "summary": {
+        "totalBrowsers": 3,
+        "totalViewports": 6,
+        "totalTests": 18,
+        "totalViolations": 2137,
+        "totalTouchTargets": 1800,
+        "validTouchTargets": 1543,
+        "invalidTouchTargets": 257,
+        "overallPassed": true
+      }
+    }
+  },
+  "summary": {
+    "violations": 2137,
+    "passed": 0,
+    "incomplete": 0,
+    "inapplicable": 0,
+    "successRate": 0
+  },
+  "metadata": {
+    "tool": "mobile-accessibility",
+    "version": "1.0.0",
+    "generatedBy": "dashboard-backend-job-queue"
+  }
+}

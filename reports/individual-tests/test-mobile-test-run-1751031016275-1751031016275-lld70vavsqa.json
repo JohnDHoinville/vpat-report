@@ -1,0 +1,46 @@
+{
+  "testType": "test:mobile",
+  "url": "strava.com",
+  "pageTitle": "Manually Added",
+  "timestamp": "2025-06-27T13:30:16.275Z",
+  "batchId": "site-test-1751031003754",
+  "jobId": "job-1751031009505-yqtpispxp",
+  "executionInfo": {
+    "startTime": "2025-06-27T13:30:09.505Z",
+    "endTime": "2025-06-27T13:30:16.275Z",
+    "duration": 0,
+    "status": "completed"
+  },
+  "result": {
+    "tool": "mobile-accessibility",
+    "violations": 18,
+    "passes": 0,
+    "details": {
+      "message": "Mobile accessibility test completed",
+      "testMethod": "automated-mobile-tester",
+      "url": "strava.com",
+      "summary": {
+        "totalBrowsers": 3,
+        "totalViewports": 6,
+        "totalTests": 18,
+        "totalViolations": 18,
+        "totalTouchTargets": 0,
+        "validTouchTargets": 0,
+        "invalidTouchTargets": 0,
+        "overallPassed": false
+      }
+    }
+  },
+  "summary": {
+    "violations": 18,
+    "passed": 0,
+    "incomplete": 0,
+    "inapplicable": 0,
+    "successRate": 0
+  },
+  "metadata": {
+    "tool": "mobile-accessibility",
+    "version": "1.0.0",
+    "generatedBy": "dashboard-backend-job-queue"
+  }
+}

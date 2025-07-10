@@ -1,0 +1,36 @@
+{
+  "testType": "test:keyboard",
+  "status": "completed",
+  "startTime": "2025-06-26T17:59:19.809Z",
+  "endTime": "2025-06-26T17:59:28.145Z",
+  "duration": 8336,
+  "url": "http://localhost:3000/dashboard.html",
+  "result": {
+    "tool": "keyboard-navigation",
+    "violations": 0,
+    "details": {
+      "message": "Keyboard navigation test completed",
+      "focusableElements": 1336,
+      "tabSequenceLength": 24,
+      "skipLinksFound": 0,
+      "focusIndicatorsPresent": 0,
+      "violations": [],
+      "summary": {
+        "focusableElements": 1336,
+        "tabSequenceLength": 24,
+        "skipLinksFound": 0,
+        "focusIndicatorsPresent": 0,
+        "violationsFound": 0
+      }
+    }
+  },
+  "fileName": "test-keyboard-test-run-1750960759723-s1yb2mlqf9p.json",
+  "summary": {
+    "tool": "keyboard-navigation",
+    "violations": 0,
+    "passes": 0,
+    "warnings": 0,
+    "status": "pass",
+    "critical": false
+  }
+}

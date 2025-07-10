@@ -1,0 +1,733 @@
+{
+  "statistics": {
+    "allitemcount": 105,
+    "totalelements": 113,
+    "pagetitle": "VPAT Test Page - Accessibility Issues",
+    "error": 5,
+    "contrast": 2,
+    "alert": 8,
+    "feature": 28,
+    "structure": 10,
+    "aria": 52
+  },
+  "categories": {
+    "error": {
+      "description": "Errors",
+      "count": 5,
+      "items": {
+        "alt_missing": {
+          "id": "alt_missing",
+          "description": "Missing alternative text",
+          "count": 1,
+          "xpaths": [
+            "/HTML/BODY[1]/DIV[2]/IMG[1]"
+          ],
+          "selectors": [
+            false
+          ],
+          "text": [
+            false
+          ],
+          "hidden": [
+            false
+          ]
+        },
+        "label_missing": {
+          "id": "label_missing",
+          "description": "Missing form label",
+          "count": 3,
+          "xpaths": [
+            "/HTML/BODY[1]/DIV[2]/FORM[1]/INPUT[1]",
+            "/HTML/BODY[1]/DIV[2]/FORM[1]/INPUT[3]",
+            "/HTML/BODY[1]/DIV[2]/INPUT[1]"
+          ],
+          "selectors": [
+            false,
+            false,
+            false
+          ],
+          "text": [
+            false,
+            false,
+            false
+          ],
+          "hidden": [
+            false,
+            false,
+            false
+          ]
+        },
+        "button_empty": {
+          "id": "button_empty",
+          "description": "Empty button",
+          "count": 1,
+          "xpaths": [
+            "/HTML/BODY[1]/DIV[2]/BUTTON[1]"
+          ],
+          "selectors": [
+            false
+          ],
+          "text": [
+            false
+          ],
+          "hidden": [
+            false
+          ]
+        }
+      }
+    },
+    "contrast": {
+      "description": "Contrast Errors",
+      "count": 2,
+      "items": {
+        "contrast": {
+          "id": "contrast",
+          "description": "Very low contrast",
+          "count": 2,
+          "xpaths": [
+            "/HTML/BODY[1]/DIV[2]/DIV[1]",
+            "/HTML/BODY[1]/DIV[2]/P[3]/SPAN[1]"
+          ],
+          "selectors": [
+            false,
+            false
+          ],
+          "text": [
+            false,
+            false
+          ],
+          "hidden": [
+            false,
+            false
+          ],
+          "contrastdata": [
+            [
+              1.18,
+              "#cccccc",
+              "#dddddd",
+              false
+            ],
+            [
+              3.99,
+              "#ff0000",
+              "#ffffff",
+              false
+            ]
+          ]
+        }
+      }
+    },
+    "alert": {
+      "description": "Alerts",
+      "count": 8,
+      "items": {
+        "alt_redundant": {
+          "id": "alt_redundant",
+          "description": "Redundant alternative text",
+          "count": 1,
+          "xpaths": [
+            "/HTML/BODY[1]/DIV[2]/IMG[3]"
+          ],
+          "selectors": [
+            false
+          ],
+          "text": [
+            "Properly described image showing green background with text"
+          ],
+          "hidden": [
+            false
+          ]
+        },
+        "region_missing": {
+          "id": "region_missing",
+          "description": "No page regions",
+          "count": 1,
+          "xpaths": [
+            "#"
+          ],
+          "selectors": [
+            false
+          ],
+          "text": [
+            false
+          ],
+          "hidden": [
+            false
+          ]
+        },
+        "heading_skipped": {
+          "id": "heading_skipped",
+          "description": "Skipped heading level",
+          "count": 1,
+          "xpaths": [
+            "/HTML/BODY[1]/DIV[2]/H4[1]"
+          ],
+          "selectors": [
+            false
+          ],
+          "text": [
+            false
+          ],
+          "hidden": [
+            false
+          ]
+        },
+        "link_suspicious": {
+          "id": "link_suspicious",
+          "description": "Suspicious link text",
+          "count": 2,
+          "xpaths": [
+            "/HTML/BODY[1]/DIV[2]/A[1]",
+            "/HTML/BODY[1]/DIV[2]/A[3]"
+          ],
+          "selectors": [
+            false,
+            false
+          ],
+          "text": [
+            false,
+            false
+          ],
+          "hidden": [
+            false,
+            false
+          ]
+        },
+        "link_redundant": {
+          "id": "link_redundant",
+          "description": "Redundant link",
+          "count": 2,
+          "xpaths": [
+            "/HTML/BODY[1]/DIV[2]/A[2]",
+            "/HTML/BODY[1]/DIV[2]/A[3]"
+          ],
+          "selectors": [
+            false,
+            false
+          ],
+          "text": [
+            false,
+            false
+          ],
+          "hidden": [
+            false,
+            false
+          ]
+        },
+        "table_layout": {
+          "id": "table_layout",
+          "description": "Layout table",
+          "count": 1,
+          "xpaths": [
+            "/HTML/BODY[1]/DIV[2]/TABLE[1]/TBODY[1]/TR[1]/TD[1]"
+          ],
+          "selectors": [
+            false
+          ],
+          "text": [
+            false
+          ],
+          "hidden": [
+            false
+          ]
+        }
+      }
+    },
+    "feature": {
+      "description": "Features",
+      "count": 28,
+      "items": {
+        "alt": {
+          "id": "alt",
+          "description": "Alternative text",
+          "count": 25,
+          "xpaths": [
+            "/HTML/BODY[1]/DIV[2]/H1[1]/IMG[1]",
+            "/HTML/BODY[1]/DIV[2]/H2[1]/IMG[1]",
+            "/HTML/BODY[1]/DIV[2]/IMG[2]",
+            "/HTML/BODY[1]/DIV[2]/IMG[4]",
+            "/HTML/BODY[1]/DIV[2]/H2[2]/IMG[1]",
+            "/HTML/BODY[1]/DIV[2]/A[2]/IMG[1]",
+            "/HTML/BODY[1]/DIV[2]/A[2]/IMG[2]",
+            "/HTML/BODY[1]/DIV[2]/A[3]/IMG[1]",
+            "/HTML/BODY[1]/DIV[2]/A[3]/IMG[2]",
+            "/HTML/BODY[1]/DIV[2]/H2[3]/IMG[1]",
+            "/HTML/BODY[1]/DIV[2]/FORM[1]/IMG[1]",
+            "/HTML/BODY[1]/DIV[2]/FORM[1]/LABEL[1]/IMG[1]",
+            "/HTML/BODY[1]/DIV[2]/FORM[1]/IMG[2]",
+            "/HTML/BODY[1]/DIV[2]/H2[4]/IMG[1]",
+            "/HTML/BODY[1]/DIV[2]/DIV[1]/IMG[1]",
+            "/HTML/BODY[1]/DIV[2]/H2[5]/IMG[1]",
+            "/HTML/BODY[1]/DIV[2]/P[3]/SPAN[1]/IMG[1]",
+            "/HTML/BODY[1]/DIV[2]/IMG[5]",
+            "/HTML/BODY[1]/DIV[2]/H4[1]/IMG[1]",
+            "/HTML/BODY[1]/DIV[2]/H4[1]/IMG[2]",
+            "/HTML/BODY[1]/DIV[2]/H2[6]/IMG[1]",
+            "/HTML/BODY[1]/DIV[2]/TABLE[1]/TBODY[1]/TR[1]/TD[1]/IMG[1]",
+            "/HTML/BODY[1]/DIV[2]/H2[7]/IMG[1]",
+            "/HTML/BODY[1]/DIV[2]/IMG[6]",
+            "/HTML/BODY[1]/DIV[2]/H2[8]/IMG[1]"
+          ],
+          "selectors": [
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false
+          ],
+          "text": [
+            "STRUCTURAL ELEMENTS: Heading level 1",
+            "STRUCTURAL ELEMENTS: Heading level 2",
+            "ERRORS: Missing alternative text",
+            "FEATURES: Alternative text",
+            "STRUCTURAL ELEMENTS: Heading level 2",
+            "ERRORS: Empty link",
+            "ALERTS: Redundant link",
+            "ALERTS: Suspicious link text",
+            "ALERTS: Redundant link",
+            "STRUCTURAL ELEMENTS: Heading level 2",
+            "ERRORS: Missing form label",
+            "FEATURES: Form label",
+            "ERRORS: Missing form label",
+            "STRUCTURAL ELEMENTS: Heading level 2",
+            "CONTRAST ERRORS: Very low contrast",
+            "STRUCTURAL ELEMENTS: Heading level 2",
+            "CONTRAST ERRORS: Very low contrast",
+            "ERRORS: Missing form label",
+            "STRUCTURAL ELEMENTS: Heading level 4",
+            "ALERTS: Skipped heading level",
+            "STRUCTURAL ELEMENTS: Heading level 2",
+            "ALERTS: Layout table",
+            "STRUCTURAL ELEMENTS: Heading level 2",
+            "ERRORS: Empty button",
+            "STRUCTURAL ELEMENTS: Heading level 2"
+          ],
+          "hidden": [
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false
+          ]
+        },
+        "alt_link": {
+          "id": "alt_link",
+          "description": "Linked image with alternative text",
+          "count": 1,
+          "xpaths": [
+            "/HTML/BODY[1]/DIV[2]/A[1]/IMG[1]"
+          ],
+          "selectors": [
+            false
+          ],
+          "text": [
+            "ALERTS: Suspicious link text"
+          ],
+          "hidden": [
+            false
+          ]
+        },
+        "label": {
+          "id": "label",
+          "description": "Form label",
+          "count": 1,
+          "xpaths": [
+            "/HTML/BODY[1]/DIV[2]/FORM[1]/LABEL[1]"
+          ],
+          "selectors": [
+            false
+          ],
+          "text": [
+            false
+          ],
+          "hidden": [
+            false
+          ]
+        },
+        "lang": {
+          "id": "lang",
+          "description": "Language",
+          "count": 1,
+          "xpaths": [
+            "#"
+          ],
+          "selectors": [
+            false
+          ],
+          "text": [
+            "en"
+          ],
+          "hidden": [
+            false
+          ]
+        }
+      }
+    },
+    "structure": {
+      "description": "Structural Elements",
+      "count": 10,
+      "items": {
+        "h1": {
+          "id": "h1",
+          "description": "Heading level 1",
+          "count": 1,
+          "xpaths": [
+            "/HTML/BODY[1]/DIV[2]/H1[1]"
+          ],
+          "selectors": [
+            false
+          ],
+          "text": [
+            false
+          ],
+          "hidden": [
+            false
+          ]
+        },
+        "h2": {
+          "id": "h2",
+          "description": "Heading level 2",
+          "count": 8,
+          "xpaths": [
+            "/HTML/BODY[1]/DIV[2]/H2[1]",
+            "/HTML/BODY[1]/DIV[2]/H2[2]",
+            "/HTML/BODY[1]/DIV[2]/H2[3]",
+            "/HTML/BODY[1]/DIV[2]/H2[4]",
+            "/HTML/BODY[1]/DIV[2]/H2[5]",
+            "/HTML/BODY[1]/DIV[2]/H2[6]",
+            "/HTML/BODY[1]/DIV[2]/H2[7]",
+            "/HTML/BODY[1]/DIV[2]/H2[8]"
+          ],
+          "selectors": [
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false
+          ],
+          "text": [
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false
+          ],
+          "hidden": [
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false
+          ]
+        },
+        "h4": {
+          "id": "h4",
+          "description": "Heading level 4",
+          "count": 1,
+          "xpaths": [
+            "/HTML/BODY[1]/DIV[2]/H4[1]"
+          ],
+          "selectors": [
+            false
+          ],
+          "text": [
+            false
+          ],
+          "hidden": [
+            false
+          ]
+        }
+      }
+    },
+    "aria": {
+      "description": "ARIA",
+      "count": 52,
+      "items": {
+        "aria_tabindex": {
+          "id": "aria_tabindex",
+          "description": "ARIA tabindex",
+          "count": 26,
+          "xpaths": [
+            "/HTML/BODY[1]/DIV[2]/H1[1]/IMG[1]",
+            "/HTML/BODY[1]/DIV[2]/H2[1]/IMG[1]",
+            "/HTML/BODY[1]/DIV[2]/IMG[2]",
+            "/HTML/BODY[1]/DIV[2]/IMG[4]",
+            "/HTML/BODY[1]/DIV[2]/H2[2]/IMG[1]",
+            "/HTML/BODY[1]/DIV[2]/A[1]/IMG[1]",
+            "/HTML/BODY[1]/DIV[2]/A[2]/IMG[1]",
+            "/HTML/BODY[1]/DIV[2]/A[2]/IMG[2]",
+            "/HTML/BODY[1]/DIV[2]/A[3]/IMG[1]",
+            "/HTML/BODY[1]/DIV[2]/A[3]/IMG[2]",
+            "/HTML/BODY[1]/DIV[2]/H2[3]/IMG[1]",
+            "/HTML/BODY[1]/DIV[2]/FORM[1]/IMG[1]",
+            "/HTML/BODY[1]/DIV[2]/FORM[1]/LABEL[1]/IMG[1]",
+            "/HTML/BODY[1]/DIV[2]/FORM[1]/IMG[2]",
+            "/HTML/BODY[1]/DIV[2]/H2[4]/IMG[1]",
+            "/HTML/BODY[1]/DIV[2]/DIV[1]/IMG[1]",
+            "/HTML/BODY[1]/DIV[2]/H2[5]/IMG[1]",
+            "/HTML/BODY[1]/DIV[2]/P[3]/SPAN[1]/IMG[1]",
+            "/HTML/BODY[1]/DIV[2]/IMG[5]",
+            "/HTML/BODY[1]/DIV[2]/H4[1]/IMG[1]",
+            "/HTML/BODY[1]/DIV[2]/H4[1]/IMG[2]",
+            "/HTML/BODY[1]/DIV[2]/H2[6]/IMG[1]",
+            "/HTML/BODY[1]/DIV[2]/TABLE[1]/TBODY[1]/TR[1]/TD[1]/IMG[1]",
+            "/HTML/BODY[1]/DIV[2]/H2[7]/IMG[1]",
+            "/HTML/BODY[1]/DIV[2]/IMG[6]",
+            "/HTML/BODY[1]/DIV[2]/H2[8]/IMG[1]"
+          ],
+          "selectors": [
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false
+          ],
+          "text": [
+            "tabindex=0",
+            "tabindex=0",
+            "tabindex=0",
+            "tabindex=0",
+            "tabindex=0",
+            "tabindex=0",
+            "tabindex=0",
+            "tabindex=0",
+            "tabindex=0",
+            "tabindex=0",
+            "tabindex=0",
+            "tabindex=0",
+            "tabindex=0",
+            "tabindex=0",
+            "tabindex=0",
+            "tabindex=0",
+            "tabindex=0",
+            "tabindex=0",
+            "tabindex=0",
+            "tabindex=0",
+            "tabindex=0",
+            "tabindex=0",
+            "tabindex=0",
+            "tabindex=0",
+            "tabindex=0",
+            "tabindex=0"
+          ],
+          "hidden": [
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false
+          ]
+        },
+        "aria_button": {
+          "id": "aria_button",
+          "description": "ARIA button",
+          "count": 26,
+          "xpaths": [
+            "/HTML/BODY[1]/DIV[2]/H1[1]/IMG[1]",
+            "/HTML/BODY[1]/DIV[2]/H2[1]/IMG[1]",
+            "/HTML/BODY[1]/DIV[2]/IMG[2]",
+            "/HTML/BODY[1]/DIV[2]/IMG[4]",
+            "/HTML/BODY[1]/DIV[2]/H2[2]/IMG[1]",
+            "/HTML/BODY[1]/DIV[2]/A[1]/IMG[1]",
+            "/HTML/BODY[1]/DIV[2]/A[2]/IMG[1]",
+            "/HTML/BODY[1]/DIV[2]/A[2]/IMG[2]",
+            "/HTML/BODY[1]/DIV[2]/A[3]/IMG[1]",
+            "/HTML/BODY[1]/DIV[2]/A[3]/IMG[2]",
+            "/HTML/BODY[1]/DIV[2]/H2[3]/IMG[1]",
+            "/HTML/BODY[1]/DIV[2]/FORM[1]/IMG[1]",
+            "/HTML/BODY[1]/DIV[2]/FORM[1]/LABEL[1]/IMG[1]",
+            "/HTML/BODY[1]/DIV[2]/FORM[1]/IMG[2]",
+            "/HTML/BODY[1]/DIV[2]/H2[4]/IMG[1]",
+            "/HTML/BODY[1]/DIV[2]/DIV[1]/IMG[1]",
+            "/HTML/BODY[1]/DIV[2]/H2[5]/IMG[1]",
+            "/HTML/BODY[1]/DIV[2]/P[3]/SPAN[1]/IMG[1]",
+            "/HTML/BODY[1]/DIV[2]/IMG[5]",
+            "/HTML/BODY[1]/DIV[2]/H4[1]/IMG[1]",
+            "/HTML/BODY[1]/DIV[2]/H4[1]/IMG[2]",
+            "/HTML/BODY[1]/DIV[2]/H2[6]/IMG[1]",
+            "/HTML/BODY[1]/DIV[2]/TABLE[1]/TBODY[1]/TR[1]/TD[1]/IMG[1]",
+            "/HTML/BODY[1]/DIV[2]/H2[7]/IMG[1]",
+            "/HTML/BODY[1]/DIV[2]/IMG[6]",
+            "/HTML/BODY[1]/DIV[2]/H2[8]/IMG[1]"
+          ],
+          "selectors": [
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false
+          ],
+          "text": [
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false
+          ],
+          "hidden": [
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false
+          ]
+        }
+      }
+    }
+  },
+  "success": true
+}

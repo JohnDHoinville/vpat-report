@@ -1,0 +1,40 @@
+{
+  "testType": "test:form",
+  "status": "completed",
+  "startTime": "2025-06-27T15:21:22.793Z",
+  "endTime": "2025-06-27T15:21:31.834Z",
+  "duration": 9041,
+  "url": "https://fm-dev.ti.internet2.edu",
+  "result": {
+    "tool": "form-accessibility",
+    "violations": 0,
+    "passes": 0,
+    "detailedViolations": [],
+    "details": {
+      "message": "Form accessibility test completed",
+      "totalFormElements": 0,
+      "labeledElements": 0,
+      "unlabeledElements": 0,
+      "requiredFields": 0,
+      "summary": {
+        "totalBrowsers": 3,
+        "totalViolations": 0,
+        "totalFormElements": 0,
+        "totalLabeledElements": 0,
+        "totalUnlabeledElements": 0,
+        "totalRequiredFields": 0,
+        "totalFieldsWithErrorHandling": 0,
+        "overallPassed": true
+      }
+    }
+  },
+  "fileName": "test-form-test-run-1751037590694-1751037590694-112t2azoq3.json",
+  "summary": {
+    "tool": "form-accessibility",
+    "violations": 0,
+    "passes": 0,
+    "warnings": 0,
+    "status": "pass",
+    "critical": false
+  }
+}

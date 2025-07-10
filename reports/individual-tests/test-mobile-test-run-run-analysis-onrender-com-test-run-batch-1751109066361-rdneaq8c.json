@@ -1,0 +1,148 @@
+{
+  "testType": "test:mobile",
+  "status": "completed",
+  "startTime": "2025-06-28T11:11:06.361Z",
+  "endTime": "2025-06-28T11:11:12.401Z",
+  "duration": 6040,
+  "url": "run-analysis.onrender.com",
+  "result": {
+    "tool": "mobile-accessibility",
+    "violations": 18,
+    "passes": 0,
+    "detailedViolations": [
+      {
+        "type": "mobile-test-error",
+        "message": "Mobile accessibility testing failed: page.goto: Protocol error (Page.navigate): Cannot navigate to invalid URL\nCall log:\n\u001b[2m  - navigating to \"run-analysis.onrender.com\", waiting until \"networkidle\"\u001b[22m\n",
+        "severity": "critical",
+        "stack": "page.goto: Protocol error (Page.navigate): Cannot navigate to invalid URL\nCall log:\n\u001b[2m  - navigating to \"run-analysis.onrender.com\", waiting until \"networkidle\"\u001b[22m\n\n    at testMobileAccessibility (/Users/johnhoinville/Desktop/vpat-reporting/scripts/mobile-accessibility-tester.js:52:16)\n    at async runMobileAccessibilityTests (/Users/johnhoinville/Desktop/vpat-reporting/scripts/mobile-accessibility-tester.js:605:25)\n    at async ComprehensiveTestRunner.runMobileTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:1461:29)\n    at async ComprehensiveTestRunner.runSingleTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:226:26)\n    at async runMobileTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:3712:24)\n    at async TestQueueManager.runMobileTestForJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:593:24)\n    at async TestQueueManager.startJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:175:30)\n    at async TestQueueManager.processQueue (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:130:13)"
+      },
+      {
+        "type": "mobile-test-error",
+        "message": "Mobile accessibility testing failed: page.goto: Protocol error (Page.navigate): Cannot navigate to invalid URL\nCall log:\n\u001b[2m  - navigating to \"run-analysis.onrender.com\", waiting until \"networkidle\"\u001b[22m\n",
+        "severity": "critical",
+        "stack": "page.goto: Protocol error (Page.navigate): Cannot navigate to invalid URL\nCall log:\n\u001b[2m  - navigating to \"run-analysis.onrender.com\", waiting until \"networkidle\"\u001b[22m\n\n    at testMobileAccessibility (/Users/johnhoinville/Desktop/vpat-reporting/scripts/mobile-accessibility-tester.js:52:16)\n    at async runMobileAccessibilityTests (/Users/johnhoinville/Desktop/vpat-reporting/scripts/mobile-accessibility-tester.js:605:25)\n    at async ComprehensiveTestRunner.runMobileTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:1461:29)\n    at async ComprehensiveTestRunner.runSingleTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:226:26)\n    at async runMobileTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:3712:24)\n    at async TestQueueManager.runMobileTestForJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:593:24)\n    at async TestQueueManager.startJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:175:30)\n    at async TestQueueManager.processQueue (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:130:13)"
+      },
+      {
+        "type": "mobile-test-error",
+        "message": "Mobile accessibility testing failed: page.goto: Protocol error (Page.navigate): Cannot navigate to invalid URL\nCall log:\n\u001b[2m  - navigating to \"run-analysis.onrender.com\", waiting until \"networkidle\"\u001b[22m\n",
+        "severity": "critical",
+        "stack": "page.goto: Protocol error (Page.navigate): Cannot navigate to invalid URL\nCall log:\n\u001b[2m  - navigating to \"run-analysis.onrender.com\", waiting until \"networkidle\"\u001b[22m\n\n    at testMobileAccessibility (/Users/johnhoinville/Desktop/vpat-reporting/scripts/mobile-accessibility-tester.js:52:16)\n    at async runMobileAccessibilityTests (/Users/johnhoinville/Desktop/vpat-reporting/scripts/mobile-accessibility-tester.js:605:25)\n    at async ComprehensiveTestRunner.runMobileTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:1461:29)\n    at async ComprehensiveTestRunner.runSingleTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:226:26)\n    at async runMobileTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:3712:24)\n    at async TestQueueManager.runMobileTestForJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:593:24)\n    at async TestQueueManager.startJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:175:30)\n    at async TestQueueManager.processQueue (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:130:13)"
+      },
+      {
+        "type": "mobile-test-error",
+        "message": "Mobile accessibility testing failed: page.goto: Protocol error (Page.navigate): Cannot navigate to invalid URL\nCall log:\n\u001b[2m  - navigating to \"run-analysis.onrender.com\", waiting until \"networkidle\"\u001b[22m\n",
+        "severity": "critical",
+        "stack": "page.goto: Protocol error (Page.navigate): Cannot navigate to invalid URL\nCall log:\n\u001b[2m  - navigating to \"run-analysis.onrender.com\", waiting until \"networkidle\"\u001b[22m\n\n    at testMobileAccessibility (/Users/johnhoinville/Desktop/vpat-reporting/scripts/mobile-accessibility-tester.js:52:16)\n    at async runMobileAccessibilityTests (/Users/johnhoinville/Desktop/vpat-reporting/scripts/mobile-accessibility-tester.js:605:25)\n    at async ComprehensiveTestRunner.runMobileTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:1461:29)\n    at async ComprehensiveTestRunner.runSingleTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:226:26)\n    at async runMobileTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:3712:24)\n    at async TestQueueManager.runMobileTestForJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:593:24)\n    at async TestQueueManager.startJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:175:30)\n    at async TestQueueManager.processQueue (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:130:13)"
+      },
+      {
+        "type": "mobile-test-error",
+        "message": "Mobile accessibility testing failed: page.goto: Protocol error (Page.navigate): Cannot navigate to invalid URL\nCall log:\n\u001b[2m  - navigating to \"run-analysis.onrender.com\", waiting until \"networkidle\"\u001b[22m\n",
+        "severity": "critical",
+        "stack": "page.goto: Protocol error (Page.navigate): Cannot navigate to invalid URL\nCall log:\n\u001b[2m  - navigating to \"run-analysis.onrender.com\", waiting until \"networkidle\"\u001b[22m\n\n    at testMobileAccessibility (/Users/johnhoinville/Desktop/vpat-reporting/scripts/mobile-accessibility-tester.js:52:16)\n    at async runMobileAccessibilityTests (/Users/johnhoinville/Desktop/vpat-reporting/scripts/mobile-accessibility-tester.js:605:25)\n    at async ComprehensiveTestRunner.runMobileTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:1461:29)\n    at async ComprehensiveTestRunner.runSingleTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:226:26)\n    at async runMobileTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:3712:24)\n    at async TestQueueManager.runMobileTestForJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:593:24)\n    at async TestQueueManager.startJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:175:30)\n    at async TestQueueManager.processQueue (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:130:13)"
+      },
+      {
+        "type": "mobile-test-error",
+        "message": "Mobile accessibility testing failed: page.goto: Protocol error (Page.navigate): Cannot navigate to invalid URL\nCall log:\n\u001b[2m  - navigating to \"run-analysis.onrender.com\", waiting until \"networkidle\"\u001b[22m\n",
+        "severity": "critical",
+        "stack": "page.goto: Protocol error (Page.navigate): Cannot navigate to invalid URL\nCall log:\n\u001b[2m  - navigating to \"run-analysis.onrender.com\", waiting until \"networkidle\"\u001b[22m\n\n    at testMobileAccessibility (/Users/johnhoinville/Desktop/vpat-reporting/scripts/mobile-accessibility-tester.js:52:16)\n    at async runMobileAccessibilityTests (/Users/johnhoinville/Desktop/vpat-reporting/scripts/mobile-accessibility-tester.js:605:25)\n    at async ComprehensiveTestRunner.runMobileTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:1461:29)\n    at async ComprehensiveTestRunner.runSingleTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:226:26)\n    at async runMobileTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:3712:24)\n    at async TestQueueManager.runMobileTestForJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:593:24)\n    at async TestQueueManager.startJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:175:30)\n    at async TestQueueManager.processQueue (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:130:13)"
+      },
+      {
+        "type": "mobile-test-error",
+        "message": "Mobile accessibility testing failed: page.goto: Protocol error (Page.navigate): Invalid url: \"run-analysis.onrender.com\"\nCall log:\n\u001b[2m  - navigating to \"run-analysis.onrender.com\", waiting until \"networkidle\"\u001b[22m\n",
+        "severity": "critical",
+        "stack": "page.goto: Protocol error (Page.navigate): Invalid url: \"run-analysis.onrender.com\"\nCall log:\n\u001b[2m  - navigating to \"run-analysis.onrender.com\", waiting until \"networkidle\"\u001b[22m\n\n    at testMobileAccessibility (/Users/johnhoinville/Desktop/vpat-reporting/scripts/mobile-accessibility-tester.js:52:16)\n    at async runMobileAccessibilityTests (/Users/johnhoinville/Desktop/vpat-reporting/scripts/mobile-accessibility-tester.js:605:25)\n    at async ComprehensiveTestRunner.runMobileTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:1461:29)\n    at async ComprehensiveTestRunner.runSingleTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:226:26)\n    at async runMobileTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:3712:24)\n    at async TestQueueManager.runMobileTestForJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:593:24)\n    at async TestQueueManager.startJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:175:30)\n    at async TestQueueManager.processQueue (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:130:13)"
+      },
+      {
+        "type": "mobile-test-error",
+        "message": "Mobile accessibility testing failed: page.goto: Protocol error (Page.navigate): Invalid url: \"run-analysis.onrender.com\"\nCall log:\n\u001b[2m  - navigating to \"run-analysis.onrender.com\", waiting until \"networkidle\"\u001b[22m\n",
+        "severity": "critical",
+        "stack": "page.goto: Protocol error (Page.navigate): Invalid url: \"run-analysis.onrender.com\"\nCall log:\n\u001b[2m  - navigating to \"run-analysis.onrender.com\", waiting until \"networkidle\"\u001b[22m\n\n    at testMobileAccessibility (/Users/johnhoinville/Desktop/vpat-reporting/scripts/mobile-accessibility-tester.js:52:16)\n    at async runMobileAccessibilityTests (/Users/johnhoinville/Desktop/vpat-reporting/scripts/mobile-accessibility-tester.js:605:25)\n    at async ComprehensiveTestRunner.runMobileTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:1461:29)\n    at async ComprehensiveTestRunner.runSingleTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:226:26)\n    at async runMobileTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:3712:24)\n    at async TestQueueManager.runMobileTestForJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:593:24)\n    at async TestQueueManager.startJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:175:30)\n    at async TestQueueManager.processQueue (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:130:13)"
+      },
+      {
+        "type": "mobile-test-error",
+        "message": "Mobile accessibility testing failed: page.goto: Protocol error (Page.navigate): Invalid url: \"run-analysis.onrender.com\"\nCall log:\n\u001b[2m  - navigating to \"run-analysis.onrender.com\", waiting until \"networkidle\"\u001b[22m\n",
+        "severity": "critical",
+        "stack": "page.goto: Protocol error (Page.navigate): Invalid url: \"run-analysis.onrender.com\"\nCall log:\n\u001b[2m  - navigating to \"run-analysis.onrender.com\", waiting until \"networkidle\"\u001b[22m\n\n    at testMobileAccessibility (/Users/johnhoinville/Desktop/vpat-reporting/scripts/mobile-accessibility-tester.js:52:16)\n    at async runMobileAccessibilityTests (/Users/johnhoinville/Desktop/vpat-reporting/scripts/mobile-accessibility-tester.js:605:25)\n    at async ComprehensiveTestRunner.runMobileTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:1461:29)\n    at async ComprehensiveTestRunner.runSingleTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:226:26)\n    at async runMobileTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:3712:24)\n    at async TestQueueManager.runMobileTestForJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:593:24)\n    at async TestQueueManager.startJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:175:30)\n    at async TestQueueManager.processQueue (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:130:13)"
+      },
+      {
+        "type": "mobile-test-error",
+        "message": "Mobile accessibility testing failed: page.goto: Protocol error (Page.navigate): Invalid url: \"run-analysis.onrender.com\"\nCall log:\n\u001b[2m  - navigating to \"run-analysis.onrender.com\", waiting until \"networkidle\"\u001b[22m\n",
+        "severity": "critical",
+        "stack": "page.goto: Protocol error (Page.navigate): Invalid url: \"run-analysis.onrender.com\"\nCall log:\n\u001b[2m  - navigating to \"run-analysis.onrender.com\", waiting until \"networkidle\"\u001b[22m\n\n    at testMobileAccessibility (/Users/johnhoinville/Desktop/vpat-reporting/scripts/mobile-accessibility-tester.js:52:16)\n    at async runMobileAccessibilityTests (/Users/johnhoinville/Desktop/vpat-reporting/scripts/mobile-accessibility-tester.js:605:25)\n    at async ComprehensiveTestRunner.runMobileTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:1461:29)\n    at async ComprehensiveTestRunner.runSingleTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:226:26)\n    at async runMobileTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:3712:24)\n    at async TestQueueManager.runMobileTestForJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:593:24)\n    at async TestQueueManager.startJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:175:30)\n    at async TestQueueManager.processQueue (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:130:13)"
+      },
+      {
+        "type": "mobile-test-error",
+        "message": "Mobile accessibility testing failed: page.goto: Protocol error (Page.navigate): Invalid url: \"run-analysis.onrender.com\"\nCall log:\n\u001b[2m  - navigating to \"run-analysis.onrender.com\", waiting until \"networkidle\"\u001b[22m\n",
+        "severity": "critical",
+        "stack": "page.goto: Protocol error (Page.navigate): Invalid url: \"run-analysis.onrender.com\"\nCall log:\n\u001b[2m  - navigating to \"run-analysis.onrender.com\", waiting until \"networkidle\"\u001b[22m\n\n    at testMobileAccessibility (/Users/johnhoinville/Desktop/vpat-reporting/scripts/mobile-accessibility-tester.js:52:16)\n    at async runMobileAccessibilityTests (/Users/johnhoinville/Desktop/vpat-reporting/scripts/mobile-accessibility-tester.js:605:25)\n    at async ComprehensiveTestRunner.runMobileTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:1461:29)\n    at async ComprehensiveTestRunner.runSingleTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:226:26)\n    at async runMobileTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:3712:24)\n    at async TestQueueManager.runMobileTestForJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:593:24)\n    at async TestQueueManager.startJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:175:30)\n    at async TestQueueManager.processQueue (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:130:13)"
+      },
+      {
+        "type": "mobile-test-error",
+        "message": "Mobile accessibility testing failed: page.goto: Protocol error (Page.navigate): Invalid url: \"run-analysis.onrender.com\"\nCall log:\n\u001b[2m  - navigating to \"run-analysis.onrender.com\", waiting until \"networkidle\"\u001b[22m\n",
+        "severity": "critical",
+        "stack": "page.goto: Protocol error (Page.navigate): Invalid url: \"run-analysis.onrender.com\"\nCall log:\n\u001b[2m  - navigating to \"run-analysis.onrender.com\", waiting until \"networkidle\"\u001b[22m\n\n    at testMobileAccessibility (/Users/johnhoinville/Desktop/vpat-reporting/scripts/mobile-accessibility-tester.js:52:16)\n    at async runMobileAccessibilityTests (/Users/johnhoinville/Desktop/vpat-reporting/scripts/mobile-accessibility-tester.js:605:25)\n    at async ComprehensiveTestRunner.runMobileTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:1461:29)\n    at async ComprehensiveTestRunner.runSingleTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:226:26)\n    at async runMobileTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:3712:24)\n    at async TestQueueManager.runMobileTestForJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:593:24)\n    at async TestQueueManager.startJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:175:30)\n    at async TestQueueManager.processQueue (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:130:13)"
+      },
+      {
+        "type": "mobile-test-error",
+        "message": "Mobile accessibility testing failed: page.goto: Protocol error (Playwright.navigate): Cannot navigate to invalid URL\nCall log:\n\u001b[2m  - navigating to \"run-analysis.onrender.com\", waiting until \"networkidle\"\u001b[22m\n",
+        "severity": "critical",
+        "stack": "page.goto: Protocol error (Playwright.navigate): Cannot navigate to invalid URL\nCall log:\n\u001b[2m  - navigating to \"run-analysis.onrender.com\", waiting until \"networkidle\"\u001b[22m\n\n    at testMobileAccessibility (/Users/johnhoinville/Desktop/vpat-reporting/scripts/mobile-accessibility-tester.js:52:16)\n    at async runMobileAccessibilityTests (/Users/johnhoinville/Desktop/vpat-reporting/scripts/mobile-accessibility-tester.js:605:25)\n    at async ComprehensiveTestRunner.runMobileTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:1461:29)\n    at async ComprehensiveTestRunner.runSingleTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:226:26)\n    at async runMobileTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:3712:24)\n    at async TestQueueManager.runMobileTestForJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:593:24)\n    at async TestQueueManager.startJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:175:30)\n    at async TestQueueManager.processQueue (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:130:13)"
+      },
+      {
+        "type": "mobile-test-error",
+        "message": "Mobile accessibility testing failed: page.goto: Protocol error (Playwright.navigate): Cannot navigate to invalid URL\nCall log:\n\u001b[2m  - navigating to \"run-analysis.onrender.com\", waiting until \"networkidle\"\u001b[22m\n",
+        "severity": "critical",
+        "stack": "page.goto: Protocol error (Playwright.navigate): Cannot navigate to invalid URL\nCall log:\n\u001b[2m  - navigating to \"run-analysis.onrender.com\", waiting until \"networkidle\"\u001b[22m\n\n    at testMobileAccessibility (/Users/johnhoinville/Desktop/vpat-reporting/scripts/mobile-accessibility-tester.js:52:16)\n    at async runMobileAccessibilityTests (/Users/johnhoinville/Desktop/vpat-reporting/scripts/mobile-accessibility-tester.js:605:25)\n    at async ComprehensiveTestRunner.runMobileTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:1461:29)\n    at async ComprehensiveTestRunner.runSingleTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:226:26)\n    at async runMobileTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:3712:24)\n    at async TestQueueManager.runMobileTestForJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:593:24)\n    at async TestQueueManager.startJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:175:30)\n    at async TestQueueManager.processQueue (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:130:13)"
+      },
+      {
+        "type": "mobile-test-error",
+        "message": "Mobile accessibility testing failed: page.goto: Protocol error (Playwright.navigate): Cannot navigate to invalid URL\nCall log:\n\u001b[2m  - navigating to \"run-analysis.onrender.com\", waiting until \"networkidle\"\u001b[22m\n",
+        "severity": "critical",
+        "stack": "page.goto: Protocol error (Playwright.navigate): Cannot navigate to invalid URL\nCall log:\n\u001b[2m  - navigating to \"run-analysis.onrender.com\", waiting until \"networkidle\"\u001b[22m\n\n    at testMobileAccessibility (/Users/johnhoinville/Desktop/vpat-reporting/scripts/mobile-accessibility-tester.js:52:16)\n    at async runMobileAccessibilityTests (/Users/johnhoinville/Desktop/vpat-reporting/scripts/mobile-accessibility-tester.js:605:25)\n    at async ComprehensiveTestRunner.runMobileTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:1461:29)\n    at async ComprehensiveTestRunner.runSingleTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:226:26)\n    at async runMobileTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:3712:24)\n    at async TestQueueManager.runMobileTestForJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:593:24)\n    at async TestQueueManager.startJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:175:30)\n    at async TestQueueManager.processQueue (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:130:13)"
+      },
+      {
+        "type": "mobile-test-error",
+        "message": "Mobile accessibility testing failed: page.goto: Protocol error (Playwright.navigate): Cannot navigate to invalid URL\nCall log:\n\u001b[2m  - navigating to \"run-analysis.onrender.com\", waiting until \"networkidle\"\u001b[22m\n",
+        "severity": "critical",
+        "stack": "page.goto: Protocol error (Playwright.navigate): Cannot navigate to invalid URL\nCall log:\n\u001b[2m  - navigating to \"run-analysis.onrender.com\", waiting until \"networkidle\"\u001b[22m\n\n    at testMobileAccessibility (/Users/johnhoinville/Desktop/vpat-reporting/scripts/mobile-accessibility-tester.js:52:16)\n    at async runMobileAccessibilityTests (/Users/johnhoinville/Desktop/vpat-reporting/scripts/mobile-accessibility-tester.js:605:25)\n    at async ComprehensiveTestRunner.runMobileTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:1461:29)\n    at async ComprehensiveTestRunner.runSingleTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:226:26)\n    at async runMobileTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:3712:24)\n    at async TestQueueManager.runMobileTestForJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:593:24)\n    at async TestQueueManager.startJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:175:30)\n    at async TestQueueManager.processQueue (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:130:13)"
+      },
+      {
+        "type": "mobile-test-error",
+        "message": "Mobile accessibility testing failed: page.goto: Protocol error (Playwright.navigate): Cannot navigate to invalid URL\nCall log:\n\u001b[2m  - navigating to \"run-analysis.onrender.com\", waiting until \"networkidle\"\u001b[22m\n",
+        "severity": "critical",
+        "stack": "page.goto: Protocol error (Playwright.navigate): Cannot navigate to invalid URL\nCall log:\n\u001b[2m  - navigating to \"run-analysis.onrender.com\", waiting until \"networkidle\"\u001b[22m\n\n    at testMobileAccessibility (/Users/johnhoinville/Desktop/vpat-reporting/scripts/mobile-accessibility-tester.js:52:16)\n    at async runMobileAccessibilityTests (/Users/johnhoinville/Desktop/vpat-reporting/scripts/mobile-accessibility-tester.js:605:25)\n    at async ComprehensiveTestRunner.runMobileTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:1461:29)\n    at async ComprehensiveTestRunner.runSingleTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:226:26)\n    at async runMobileTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:3712:24)\n    at async TestQueueManager.runMobileTestForJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:593:24)\n    at async TestQueueManager.startJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:175:30)\n    at async TestQueueManager.processQueue (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:130:13)"
+      },
+      {
+        "type": "mobile-test-error",
+        "message": "Mobile accessibility testing failed: page.goto: Protocol error (Playwright.navigate): Cannot navigate to invalid URL\nCall log:\n\u001b[2m  - navigating to \"run-analysis.onrender.com\", waiting until \"networkidle\"\u001b[22m\n",
+        "severity": "critical",
+        "stack": "page.goto: Protocol error (Playwright.navigate): Cannot navigate to invalid URL\nCall log:\n\u001b[2m  - navigating to \"run-analysis.onrender.com\", waiting until \"networkidle\"\u001b[22m\n\n    at testMobileAccessibility (/Users/johnhoinville/Desktop/vpat-reporting/scripts/mobile-accessibility-tester.js:52:16)\n    at async runMobileAccessibilityTests (/Users/johnhoinville/Desktop/vpat-reporting/scripts/mobile-accessibility-tester.js:605:25)\n    at async ComprehensiveTestRunner.runMobileTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:1461:29)\n    at async ComprehensiveTestRunner.runSingleTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:226:26)\n    at async runMobileTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:3712:24)\n    at async TestQueueManager.runMobileTestForJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:593:24)\n    at async TestQueueManager.startJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:175:30)\n    at async TestQueueManager.processQueue (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:130:13)"
+      }
+    ],
+    "details": {
+      "message": "Mobile accessibility test completed",
+      "testMethod": "automated-mobile-tester",
+      "url": "run-analysis.onrender.com",
+      "summary": {
+        "totalBrowsers": 3,
+        "totalViewports": 6,
+        "totalTests": 18,
+        "totalViolations": 18,
+        "totalTouchTargets": 0,
+        "validTouchTargets": 0,
+        "invalidTouchTargets": 0,
+        "overallPassed": false
+      }
+    }
+  },
+  "fileName": "test-mobile-test-run-run-analysis-onrender-com-test-run-batch-1751109066361-rdneaq8c.json",
+  "batchId": "batch-1751109066361-rdneaq8c",
+  "summary": {
+    "tool": "mobile-accessibility",
+    "violations": 18,
+    "passes": 0,
+    "warnings": 0,
+    "status": "fail",
+    "critical": true
+  }
+}

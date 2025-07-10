@@ -1,0 +1,25 @@
+{
+  "testType": "a11y:axe",
+  "status": "completed",
+  "startTime": "2025-06-25T21:51:00.133Z",
+  "endTime": "2025-06-25T21:51:00.133Z",
+  "duration": 0,
+  "url": "https://google.com",
+  "result": {
+    "tool": "axe-core",
+    "violations": 3,
+    "passes": 22,
+    "details": {
+      "message": "Simulated axe test (no axe script found)"
+    }
+  },
+  "fileName": "a11y-axe-test-run-1750888260110-x4xubjxu94s.json",
+  "summary": {
+    "tool": "axe-core",
+    "violations": 3,
+    "passes": 22,
+    "warnings": 0,
+    "status": "fail",
+    "critical": false
+  }
+}

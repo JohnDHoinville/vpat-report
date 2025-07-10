@@ -1,0 +1,25 @@
+{
+  "testType": "a11y:axe",
+  "status": "completed",
+  "startTime": "2025-06-25T22:07:49.519Z",
+  "endTime": "2025-06-25T22:07:49.520Z",
+  "duration": 1,
+  "url": "https://httpbin.org/html",
+  "result": {
+    "tool": "axe-core",
+    "violations": 0,
+    "passes": 13,
+    "details": {
+      "message": "Simulated axe test (no axe script found)"
+    }
+  },
+  "fileName": "a11y-axe-test-run-1750889269497-3hr5myzs0u8.json",
+  "summary": {
+    "tool": "axe-core",
+    "violations": 0,
+    "passes": 13,
+    "warnings": 0,
+    "status": "pass",
+    "critical": false
+  }
+}

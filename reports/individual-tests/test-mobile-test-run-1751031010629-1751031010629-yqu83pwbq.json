@@ -1,0 +1,147 @@
+{
+  "testType": "test:mobile",
+  "status": "completed",
+  "startTime": "2025-06-27T13:30:10.629Z",
+  "endTime": "2025-06-27T13:30:16.273Z",
+  "duration": 5644,
+  "url": "strava.com",
+  "result": {
+    "tool": "mobile-accessibility",
+    "violations": 18,
+    "passes": 0,
+    "detailedViolations": [
+      {
+        "type": "mobile-test-error",
+        "message": "Mobile accessibility testing failed: page.goto: Protocol error (Page.navigate): Cannot navigate to invalid URL\nCall log:\n\u001b[2m  - navigating to \"strava.com\", waiting until \"networkidle\"\u001b[22m\n",
+        "severity": "critical",
+        "stack": "page.goto: Protocol error (Page.navigate): Cannot navigate to invalid URL\nCall log:\n\u001b[2m  - navigating to \"strava.com\", waiting until \"networkidle\"\u001b[22m\n\n    at testMobileAccessibility (/Users/johnhoinville/Desktop/vpat-reporting/scripts/mobile-accessibility-tester.js:52:16)\n    at async runMobileAccessibilityTests (/Users/johnhoinville/Desktop/vpat-reporting/scripts/mobile-accessibility-tester.js:605:25)\n    at async ComprehensiveTestRunner.runMobileTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:1297:29)\n    at async ComprehensiveTestRunner.runSingleTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:156:26)\n    at async runMobileTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:3131:24)\n    at async TestQueueManager.runMobileTestForJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:591:24)\n    at async TestQueueManager.startJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:173:30)\n    at async TestQueueManager.processQueue (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:128:13)"
+      },
+      {
+        "type": "mobile-test-error",
+        "message": "Mobile accessibility testing failed: page.goto: Protocol error (Page.navigate): Cannot navigate to invalid URL\nCall log:\n\u001b[2m  - navigating to \"strava.com\", waiting until \"networkidle\"\u001b[22m\n",
+        "severity": "critical",
+        "stack": "page.goto: Protocol error (Page.navigate): Cannot navigate to invalid URL\nCall log:\n\u001b[2m  - navigating to \"strava.com\", waiting until \"networkidle\"\u001b[22m\n\n    at testMobileAccessibility (/Users/johnhoinville/Desktop/vpat-reporting/scripts/mobile-accessibility-tester.js:52:16)\n    at async runMobileAccessibilityTests (/Users/johnhoinville/Desktop/vpat-reporting/scripts/mobile-accessibility-tester.js:605:25)\n    at async ComprehensiveTestRunner.runMobileTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:1297:29)\n    at async ComprehensiveTestRunner.runSingleTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:156:26)\n    at async runMobileTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:3131:24)\n    at async TestQueueManager.runMobileTestForJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:591:24)\n    at async TestQueueManager.startJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:173:30)\n    at async TestQueueManager.processQueue (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:128:13)"
+      },
+      {
+        "type": "mobile-test-error",
+        "message": "Mobile accessibility testing failed: page.goto: Protocol error (Page.navigate): Cannot navigate to invalid URL\nCall log:\n\u001b[2m  - navigating to \"strava.com\", waiting until \"networkidle\"\u001b[22m\n",
+        "severity": "critical",
+        "stack": "page.goto: Protocol error (Page.navigate): Cannot navigate to invalid URL\nCall log:\n\u001b[2m  - navigating to \"strava.com\", waiting until \"networkidle\"\u001b[22m\n\n    at testMobileAccessibility (/Users/johnhoinville/Desktop/vpat-reporting/scripts/mobile-accessibility-tester.js:52:16)\n    at async runMobileAccessibilityTests (/Users/johnhoinville/Desktop/vpat-reporting/scripts/mobile-accessibility-tester.js:605:25)\n    at async ComprehensiveTestRunner.runMobileTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:1297:29)\n    at async ComprehensiveTestRunner.runSingleTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:156:26)\n    at async runMobileTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:3131:24)\n    at async TestQueueManager.runMobileTestForJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:591:24)\n    at async TestQueueManager.startJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:173:30)\n    at async TestQueueManager.processQueue (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:128:13)"
+      },
+      {
+        "type": "mobile-test-error",
+        "message": "Mobile accessibility testing failed: page.goto: Protocol error (Page.navigate): Cannot navigate to invalid URL\nCall log:\n\u001b[2m  - navigating to \"strava.com\", waiting until \"networkidle\"\u001b[22m\n",
+        "severity": "critical",
+        "stack": "page.goto: Protocol error (Page.navigate): Cannot navigate to invalid URL\nCall log:\n\u001b[2m  - navigating to \"strava.com\", waiting until \"networkidle\"\u001b[22m\n\n    at testMobileAccessibility (/Users/johnhoinville/Desktop/vpat-reporting/scripts/mobile-accessibility-tester.js:52:16)\n    at async runMobileAccessibilityTests (/Users/johnhoinville/Desktop/vpat-reporting/scripts/mobile-accessibility-tester.js:605:25)\n    at async ComprehensiveTestRunner.runMobileTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:1297:29)\n    at async ComprehensiveTestRunner.runSingleTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:156:26)\n    at async runMobileTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:3131:24)\n    at async TestQueueManager.runMobileTestForJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:591:24)\n    at async TestQueueManager.startJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:173:30)\n    at async TestQueueManager.processQueue (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:128:13)"
+      },
+      {
+        "type": "mobile-test-error",
+        "message": "Mobile accessibility testing failed: page.goto: Protocol error (Page.navigate): Cannot navigate to invalid URL\nCall log:\n\u001b[2m  - navigating to \"strava.com\", waiting until \"networkidle\"\u001b[22m\n",
+        "severity": "critical",
+        "stack": "page.goto: Protocol error (Page.navigate): Cannot navigate to invalid URL\nCall log:\n\u001b[2m  - navigating to \"strava.com\", waiting until \"networkidle\"\u001b[22m\n\n    at testMobileAccessibility (/Users/johnhoinville/Desktop/vpat-reporting/scripts/mobile-accessibility-tester.js:52:16)\n    at async runMobileAccessibilityTests (/Users/johnhoinville/Desktop/vpat-reporting/scripts/mobile-accessibility-tester.js:605:25)\n    at async ComprehensiveTestRunner.runMobileTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:1297:29)\n    at async ComprehensiveTestRunner.runSingleTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:156:26)\n    at async runMobileTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:3131:24)\n    at async TestQueueManager.runMobileTestForJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:591:24)\n    at async TestQueueManager.startJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:173:30)\n    at async TestQueueManager.processQueue (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:128:13)"
+      },
+      {
+        "type": "mobile-test-error",
+        "message": "Mobile accessibility testing failed: page.goto: Protocol error (Page.navigate): Cannot navigate to invalid URL\nCall log:\n\u001b[2m  - navigating to \"strava.com\", waiting until \"networkidle\"\u001b[22m\n",
+        "severity": "critical",
+        "stack": "page.goto: Protocol error (Page.navigate): Cannot navigate to invalid URL\nCall log:\n\u001b[2m  - navigating to \"strava.com\", waiting until \"networkidle\"\u001b[22m\n\n    at testMobileAccessibility (/Users/johnhoinville/Desktop/vpat-reporting/scripts/mobile-accessibility-tester.js:52:16)\n    at async runMobileAccessibilityTests (/Users/johnhoinville/Desktop/vpat-reporting/scripts/mobile-accessibility-tester.js:605:25)\n    at async ComprehensiveTestRunner.runMobileTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:1297:29)\n    at async ComprehensiveTestRunner.runSingleTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:156:26)\n    at async runMobileTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:3131:24)\n    at async TestQueueManager.runMobileTestForJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:591:24)\n    at async TestQueueManager.startJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:173:30)\n    at async TestQueueManager.processQueue (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:128:13)"
+      },
+      {
+        "type": "mobile-test-error",
+        "message": "Mobile accessibility testing failed: page.goto: Protocol error (Page.navigate): Invalid url: \"strava.com\"\nCall log:\n\u001b[2m  - navigating to \"strava.com\", waiting until \"networkidle\"\u001b[22m\n",
+        "severity": "critical",
+        "stack": "page.goto: Protocol error (Page.navigate): Invalid url: \"strava.com\"\nCall log:\n\u001b[2m  - navigating to \"strava.com\", waiting until \"networkidle\"\u001b[22m\n\n    at testMobileAccessibility (/Users/johnhoinville/Desktop/vpat-reporting/scripts/mobile-accessibility-tester.js:52:16)\n    at async runMobileAccessibilityTests (/Users/johnhoinville/Desktop/vpat-reporting/scripts/mobile-accessibility-tester.js:605:25)\n    at async ComprehensiveTestRunner.runMobileTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:1297:29)\n    at async ComprehensiveTestRunner.runSingleTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:156:26)\n    at async runMobileTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:3131:24)\n    at async TestQueueManager.runMobileTestForJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:591:24)\n    at async TestQueueManager.startJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:173:30)\n    at async TestQueueManager.processQueue (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:128:13)"
+      },
+      {
+        "type": "mobile-test-error",
+        "message": "Mobile accessibility testing failed: page.goto: Protocol error (Page.navigate): Invalid url: \"strava.com\"\nCall log:\n\u001b[2m  - navigating to \"strava.com\", waiting until \"networkidle\"\u001b[22m\n",
+        "severity": "critical",
+        "stack": "page.goto: Protocol error (Page.navigate): Invalid url: \"strava.com\"\nCall log:\n\u001b[2m  - navigating to \"strava.com\", waiting until \"networkidle\"\u001b[22m\n\n    at testMobileAccessibility (/Users/johnhoinville/Desktop/vpat-reporting/scripts/mobile-accessibility-tester.js:52:16)\n    at async runMobileAccessibilityTests (/Users/johnhoinville/Desktop/vpat-reporting/scripts/mobile-accessibility-tester.js:605:25)\n    at async ComprehensiveTestRunner.runMobileTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:1297:29)\n    at async ComprehensiveTestRunner.runSingleTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:156:26)\n    at async runMobileTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:3131:24)\n    at async TestQueueManager.runMobileTestForJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:591:24)\n    at async TestQueueManager.startJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:173:30)\n    at async TestQueueManager.processQueue (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:128:13)"
+      },
+      {
+        "type": "mobile-test-error",
+        "message": "Mobile accessibility testing failed: page.goto: Protocol error (Page.navigate): Invalid url: \"strava.com\"\nCall log:\n\u001b[2m  - navigating to \"strava.com\", waiting until \"networkidle\"\u001b[22m\n",
+        "severity": "critical",
+        "stack": "page.goto: Protocol error (Page.navigate): Invalid url: \"strava.com\"\nCall log:\n\u001b[2m  - navigating to \"strava.com\", waiting until \"networkidle\"\u001b[22m\n\n    at testMobileAccessibility (/Users/johnhoinville/Desktop/vpat-reporting/scripts/mobile-accessibility-tester.js:52:16)\n    at async runMobileAccessibilityTests (/Users/johnhoinville/Desktop/vpat-reporting/scripts/mobile-accessibility-tester.js:605:25)\n    at async ComprehensiveTestRunner.runMobileTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:1297:29)\n    at async ComprehensiveTestRunner.runSingleTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:156:26)\n    at async runMobileTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:3131:24)\n    at async TestQueueManager.runMobileTestForJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:591:24)\n    at async TestQueueManager.startJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:173:30)\n    at async TestQueueManager.processQueue (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:128:13)"
+      },
+      {
+        "type": "mobile-test-error",
+        "message": "Mobile accessibility testing failed: page.goto: Protocol error (Page.navigate): Invalid url: \"strava.com\"\nCall log:\n\u001b[2m  - navigating to \"strava.com\", waiting until \"networkidle\"\u001b[22m\n",
+        "severity": "critical",
+        "stack": "page.goto: Protocol error (Page.navigate): Invalid url: \"strava.com\"\nCall log:\n\u001b[2m  - navigating to \"strava.com\", waiting until \"networkidle\"\u001b[22m\n\n    at testMobileAccessibility (/Users/johnhoinville/Desktop/vpat-reporting/scripts/mobile-accessibility-tester.js:52:16)\n    at async runMobileAccessibilityTests (/Users/johnhoinville/Desktop/vpat-reporting/scripts/mobile-accessibility-tester.js:605:25)\n    at async ComprehensiveTestRunner.runMobileTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:1297:29)\n    at async ComprehensiveTestRunner.runSingleTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:156:26)\n    at async runMobileTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:3131:24)\n    at async TestQueueManager.runMobileTestForJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:591:24)\n    at async TestQueueManager.startJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:173:30)\n    at async TestQueueManager.processQueue (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:128:13)"
+      },
+      {
+        "type": "mobile-test-error",
+        "message": "Mobile accessibility testing failed: page.goto: Protocol error (Page.navigate): Invalid url: \"strava.com\"\nCall log:\n\u001b[2m  - navigating to \"strava.com\", waiting until \"networkidle\"\u001b[22m\n",
+        "severity": "critical",
+        "stack": "page.goto: Protocol error (Page.navigate): Invalid url: \"strava.com\"\nCall log:\n\u001b[2m  - navigating to \"strava.com\", waiting until \"networkidle\"\u001b[22m\n\n    at testMobileAccessibility (/Users/johnhoinville/Desktop/vpat-reporting/scripts/mobile-accessibility-tester.js:52:16)\n    at async runMobileAccessibilityTests (/Users/johnhoinville/Desktop/vpat-reporting/scripts/mobile-accessibility-tester.js:605:25)\n    at async ComprehensiveTestRunner.runMobileTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:1297:29)\n    at async ComprehensiveTestRunner.runSingleTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:156:26)\n    at async runMobileTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:3131:24)\n    at async TestQueueManager.runMobileTestForJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:591:24)\n    at async TestQueueManager.startJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:173:30)\n    at async TestQueueManager.processQueue (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:128:13)"
+      },
+      {
+        "type": "mobile-test-error",
+        "message": "Mobile accessibility testing failed: page.goto: Protocol error (Page.navigate): Invalid url: \"strava.com\"\nCall log:\n\u001b[2m  - navigating to \"strava.com\", waiting until \"networkidle\"\u001b[22m\n",
+        "severity": "critical",
+        "stack": "page.goto: Protocol error (Page.navigate): Invalid url: \"strava.com\"\nCall log:\n\u001b[2m  - navigating to \"strava.com\", waiting until \"networkidle\"\u001b[22m\n\n    at testMobileAccessibility (/Users/johnhoinville/Desktop/vpat-reporting/scripts/mobile-accessibility-tester.js:52:16)\n    at async runMobileAccessibilityTests (/Users/johnhoinville/Desktop/vpat-reporting/scripts/mobile-accessibility-tester.js:605:25)\n    at async ComprehensiveTestRunner.runMobileTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:1297:29)\n    at async ComprehensiveTestRunner.runSingleTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:156:26)\n    at async runMobileTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:3131:24)\n    at async TestQueueManager.runMobileTestForJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:591:24)\n    at async TestQueueManager.startJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:173:30)\n    at async TestQueueManager.processQueue (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:128:13)"
+      },
+      {
+        "type": "mobile-test-error",
+        "message": "Mobile accessibility testing failed: page.goto: Protocol error (Playwright.navigate): Cannot navigate to invalid URL\nCall log:\n\u001b[2m  - navigating to \"strava.com\", waiting until \"networkidle\"\u001b[22m\n",
+        "severity": "critical",
+        "stack": "page.goto: Protocol error (Playwright.navigate): Cannot navigate to invalid URL\nCall log:\n\u001b[2m  - navigating to \"strava.com\", waiting until \"networkidle\"\u001b[22m\n\n    at testMobileAccessibility (/Users/johnhoinville/Desktop/vpat-reporting/scripts/mobile-accessibility-tester.js:52:16)\n    at async runMobileAccessibilityTests (/Users/johnhoinville/Desktop/vpat-reporting/scripts/mobile-accessibility-tester.js:605:25)\n    at async ComprehensiveTestRunner.runMobileTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:1297:29)\n    at async ComprehensiveTestRunner.runSingleTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:156:26)\n    at async runMobileTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:3131:24)\n    at async TestQueueManager.runMobileTestForJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:591:24)\n    at async TestQueueManager.startJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:173:30)\n    at async TestQueueManager.processQueue (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:128:13)"
+      },
+      {
+        "type": "mobile-test-error",
+        "message": "Mobile accessibility testing failed: page.goto: Protocol error (Playwright.navigate): Cannot navigate to invalid URL\nCall log:\n\u001b[2m  - navigating to \"strava.com\", waiting until \"networkidle\"\u001b[22m\n",
+        "severity": "critical",
+        "stack": "page.goto: Protocol error (Playwright.navigate): Cannot navigate to invalid URL\nCall log:\n\u001b[2m  - navigating to \"strava.com\", waiting until \"networkidle\"\u001b[22m\n\n    at testMobileAccessibility (/Users/johnhoinville/Desktop/vpat-reporting/scripts/mobile-accessibility-tester.js:52:16)\n    at async runMobileAccessibilityTests (/Users/johnhoinville/Desktop/vpat-reporting/scripts/mobile-accessibility-tester.js:605:25)\n    at async ComprehensiveTestRunner.runMobileTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:1297:29)\n    at async ComprehensiveTestRunner.runSingleTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:156:26)\n    at async runMobileTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:3131:24)\n    at async TestQueueManager.runMobileTestForJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:591:24)\n    at async TestQueueManager.startJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:173:30)\n    at async TestQueueManager.processQueue (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:128:13)"
+      },
+      {
+        "type": "mobile-test-error",
+        "message": "Mobile accessibility testing failed: page.goto: Protocol error (Playwright.navigate): Cannot navigate to invalid URL\nCall log:\n\u001b[2m  - navigating to \"strava.com\", waiting until \"networkidle\"\u001b[22m\n",
+        "severity": "critical",
+        "stack": "page.goto: Protocol error (Playwright.navigate): Cannot navigate to invalid URL\nCall log:\n\u001b[2m  - navigating to \"strava.com\", waiting until \"networkidle\"\u001b[22m\n\n    at testMobileAccessibility (/Users/johnhoinville/Desktop/vpat-reporting/scripts/mobile-accessibility-tester.js:52:16)\n    at async runMobileAccessibilityTests (/Users/johnhoinville/Desktop/vpat-reporting/scripts/mobile-accessibility-tester.js:605:25)\n    at async ComprehensiveTestRunner.runMobileTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:1297:29)\n    at async ComprehensiveTestRunner.runSingleTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:156:26)\n    at async runMobileTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:3131:24)\n    at async TestQueueManager.runMobileTestForJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:591:24)\n    at async TestQueueManager.startJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:173:30)\n    at async TestQueueManager.processQueue (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:128:13)"
+      },
+      {
+        "type": "mobile-test-error",
+        "message": "Mobile accessibility testing failed: page.goto: Protocol error (Playwright.navigate): Cannot navigate to invalid URL\nCall log:\n\u001b[2m  - navigating to \"strava.com\", waiting until \"networkidle\"\u001b[22m\n",
+        "severity": "critical",
+        "stack": "page.goto: Protocol error (Playwright.navigate): Cannot navigate to invalid URL\nCall log:\n\u001b[2m  - navigating to \"strava.com\", waiting until \"networkidle\"\u001b[22m\n\n    at testMobileAccessibility (/Users/johnhoinville/Desktop/vpat-reporting/scripts/mobile-accessibility-tester.js:52:16)\n    at async runMobileAccessibilityTests (/Users/johnhoinville/Desktop/vpat-reporting/scripts/mobile-accessibility-tester.js:605:25)\n    at async ComprehensiveTestRunner.runMobileTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:1297:29)\n    at async ComprehensiveTestRunner.runSingleTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:156:26)\n    at async runMobileTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:3131:24)\n    at async TestQueueManager.runMobileTestForJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:591:24)\n    at async TestQueueManager.startJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:173:30)\n    at async TestQueueManager.processQueue (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:128:13)"
+      },
+      {
+        "type": "mobile-test-error",
+        "message": "Mobile accessibility testing failed: page.goto: Protocol error (Playwright.navigate): Cannot navigate to invalid URL\nCall log:\n\u001b[2m  - navigating to \"strava.com\", waiting until \"networkidle\"\u001b[22m\n",
+        "severity": "critical",
+        "stack": "page.goto: Protocol error (Playwright.navigate): Cannot navigate to invalid URL\nCall log:\n\u001b[2m  - navigating to \"strava.com\", waiting until \"networkidle\"\u001b[22m\n\n    at testMobileAccessibility (/Users/johnhoinville/Desktop/vpat-reporting/scripts/mobile-accessibility-tester.js:52:16)\n    at async runMobileAccessibilityTests (/Users/johnhoinville/Desktop/vpat-reporting/scripts/mobile-accessibility-tester.js:605:25)\n    at async ComprehensiveTestRunner.runMobileTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:1297:29)\n    at async ComprehensiveTestRunner.runSingleTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:156:26)\n    at async runMobileTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:3131:24)\n    at async TestQueueManager.runMobileTestForJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:591:24)\n    at async TestQueueManager.startJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:173:30)\n    at async TestQueueManager.processQueue (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:128:13)"
+      },
+      {
+        "type": "mobile-test-error",
+        "message": "Mobile accessibility testing failed: page.goto: Protocol error (Playwright.navigate): Cannot navigate to invalid URL\nCall log:\n\u001b[2m  - navigating to \"strava.com\", waiting until \"networkidle\"\u001b[22m\n",
+        "severity": "critical",
+        "stack": "page.goto: Protocol error (Playwright.navigate): Cannot navigate to invalid URL\nCall log:\n\u001b[2m  - navigating to \"strava.com\", waiting until \"networkidle\"\u001b[22m\n\n    at testMobileAccessibility (/Users/johnhoinville/Desktop/vpat-reporting/scripts/mobile-accessibility-tester.js:52:16)\n    at async runMobileAccessibilityTests (/Users/johnhoinville/Desktop/vpat-reporting/scripts/mobile-accessibility-tester.js:605:25)\n    at async ComprehensiveTestRunner.runMobileTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:1297:29)\n    at async ComprehensiveTestRunner.runSingleTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:156:26)\n    at async runMobileTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:3131:24)\n    at async TestQueueManager.runMobileTestForJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:591:24)\n    at async TestQueueManager.startJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:173:30)\n    at async TestQueueManager.processQueue (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:128:13)"
+      }
+    ],
+    "details": {
+      "message": "Mobile accessibility test completed",
+      "testMethod": "automated-mobile-tester",
+      "url": "strava.com",
+      "summary": {
+        "totalBrowsers": 3,
+        "totalViewports": 6,
+        "totalTests": 18,
+        "totalViolations": 18,
+        "totalTouchTargets": 0,
+        "validTouchTargets": 0,
+        "invalidTouchTargets": 0,
+        "overallPassed": false
+      }
+    }
+  },
+  "fileName": "test-mobile-test-run-1751031010629-1751031010629-yqu83pwbq.json",
+  "summary": {
+    "tool": "mobile-accessibility",
+    "violations": 18,
+    "passes": 0,
+    "warnings": 0,
+    "status": "fail",
+    "critical": true
+  }
+}

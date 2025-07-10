@@ -1,0 +1,46 @@
+{
+  "testType": "test:mobile",
+  "url": "https://fm-dev.ti.internet2.edu/",
+  "pageTitle": "Single Page Test",
+  "timestamp": "2025-06-30T15:50:46.705Z",
+  "batchId": "site-test-1751298578785",
+  "jobId": "job-1751298582863-3ll8y2129z",
+  "executionInfo": {
+    "startTime": "2025-06-30T15:49:42.863Z",
+    "endTime": "2025-06-30T15:50:46.705Z",
+    "duration": 0,
+    "status": "completed"
+  },
+  "result": {
+    "tool": "mobile-accessibility",
+    "violations": 522,
+    "passes": 36,
+    "details": {
+      "message": "Mobile accessibility test completed",
+      "testMethod": "automated-mobile-tester",
+      "url": "https://fm-dev.ti.internet2.edu/",
+      "summary": {
+        "totalBrowsers": 3,
+        "totalViewports": 6,
+        "totalTests": 18,
+        "totalViolations": 522,
+        "totalTouchTargets": 162,
+        "validTouchTargets": 36,
+        "invalidTouchTargets": 126,
+        "overallPassed": true
+      }
+    }
+  },
+  "summary": {
+    "violations": 522,
+    "passed": 0,
+    "incomplete": 0,
+    "inapplicable": 0,
+    "successRate": 0
+  },
+  "metadata": {
+    "tool": "mobile-accessibility",
+    "version": "1.0.0",
+    "generatedBy": "dashboard-backend-job-queue"
+  }
+}

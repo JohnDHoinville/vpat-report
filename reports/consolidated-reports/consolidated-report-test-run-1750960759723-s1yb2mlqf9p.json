@@ -1,0 +1,296 @@
+{
+  "testRunId": "test-run-1750960759723-s1yb2mlqf9p",
+  "generatedAt": "2025-06-26T17:59:28.147Z",
+  "url": "http://localhost:3000/dashboard.html",
+  "summary": {
+    "totalTests": 4,
+    "completedTests": 4,
+    "failedTests": 0,
+    "totalViolations": 5,
+    "totalPasses": 12,
+    "criticalIssues": 0,
+    "wcagComplianceScore": 75,
+    "overallStatus": "fail",
+    "testCoverage": 100,
+    "duration": 8424,
+    "completedAt": "2025-06-26T17:59:28.147Z"
+  },
+  "tests": [
+    {
+      "testType": "a11y:axe",
+      "status": "completed",
+      "startTime": "2025-06-26T17:59:19.777Z",
+      "endTime": "2025-06-26T17:59:19.778Z",
+      "duration": 1,
+      "url": "http://localhost:3000/dashboard.html",
+      "result": {
+        "tool": "axe-core",
+        "violations": 3,
+        "passes": 12,
+        "detailedViolations": [
+          {
+            "id": "color-contrast-1",
+            "impact": "serious",
+            "wcagTags": [
+              "2.1.4",
+              "2.1.AA"
+            ],
+            "description": "Elements must have sufficient color contrast",
+            "helpUrl": "https://dequeuniversity.com/rules/axe/4.4/color-contrast",
+            "selector": "button.btn-primary",
+            "message": "Element has insufficient color contrast ratio of 2.34 (foreground color: #ffffff, background color: #007bff, font size: 14px, font weight: normal). Expected contrast ratio of 4.5:1",
+            "remediation": {
+              "summary": "Ensure text has adequate contrast against background",
+              "steps": [
+                "Use a darker blue background color (e.g., #0056b3)",
+                "Increase font weight to bold",
+                "Use a color contrast checker tool",
+                "Test with different browser zoom levels"
+              ],
+              "priority": "high"
+            },
+            "node": {
+              "target": [
+                "button.btn-primary"
+              ],
+              "html": "<button class=\"btn btn-primary\">Submit</button>",
+              "impact": "serious"
+            }
+          },
+          {
+            "id": "button-name-2",
+            "impact": "critical",
+            "wcagTags": [
+              "4.1.2",
+              "4.1.A"
+            ],
+            "description": "Buttons must have discernible text",
+            "helpUrl": "https://dequeuniversity.com/rules/axe/4.4/button-name",
+            "selector": "button:nth-child(3)",
+            "message": "Element does not have an accessible name",
+            "remediation": {
+              "summary": "Provide accessible text for buttons",
+              "steps": [
+                "Add descriptive text content to button",
+                "Use aria-label attribute",
+                "Use aria-labelledby to reference other elements",
+                "Include screen reader only text with sr-only class"
+              ],
+              "priority": "critical"
+            },
+            "node": {
+              "target": [
+                "button:nth-child(3)"
+              ],
+              "html": "<button></button>",
+              "impact": "critical"
+            }
+          },
+          {
+            "id": "image-alt-3",
+            "impact": "critical",
+            "wcagTags": [
+              "1.1.1",
+              "1.1.A"
+            ],
+            "description": "Images must have alternate text",
+            "helpUrl": "https://dequeuniversity.com/rules/axe/4.4/image-alt",
+            "selector": "img[src=\"/logo.png\"]",
+            "message": "Image element missing alternative text",
+            "remediation": {
+              "summary": "Add meaningful alternative text to images",
+              "steps": [
+                "Add alt attribute with descriptive text",
+                "Use empty alt=\"\" for decorative images",
+                "Consider context and purpose of image",
+                "Keep alt text concise but descriptive"
+              ],
+              "priority": "critical"
+            },
+            "node": {
+              "target": [
+                "img[src=\"/logo.png\"]"
+              ],
+              "html": "<img src=\"/logo.png\">",
+              "impact": "critical"
+            }
+          }
+        ],
+        "wcagMapping": {},
+        "details": {
+          "message": "Enhanced simulated axe test with detailed violations",
+          "testMethod": "automated-simulation"
+        }
+      },
+      "fileName": "a11y-axe-test-run-1750960759723-s1yb2mlqf9p.json",
+      "summary": {
+        "tool": "axe-core",
+        "violations": 3,
+        "passes": 12,
+        "warnings": 0,
+        "status": "fail",
+        "critical": false
+      }
+    },
+    {
+      "testType": "a11y:pa11y",
+      "status": "completed",
+      "startTime": "2025-06-26T17:59:19.781Z",
+      "endTime": "2025-06-26T17:59:19.808Z",
+      "duration": 27,
+      "url": "http://localhost:3000/dashboard.html",
+      "result": {
+        "tool": "pa11y",
+        "violations": 1,
+        "warnings": 1,
+        "details": {
+          "message": "Simulated pa11y test (pa11y not available)"
+        }
+      },
+      "fileName": "a11y-pa11y-test-run-1750960759723-s1yb2mlqf9p.json",
+      "summary": {
+        "tool": "pa11y",
+        "violations": 1,
+        "passes": 0,
+        "warnings": 1,
+        "status": "fail",
+        "critical": false
+      }
+    },
+    {
+      "testType": "test:keyboard",
+      "status": "completed",
+      "startTime": "2025-06-26T17:59:19.809Z",
+      "endTime": "2025-06-26T17:59:28.145Z",
+      "duration": 8336,
+      "url": "http://localhost:3000/dashboard.html",
+      "result": {
+        "tool": "keyboard-navigation",
+        "violations": 0,
+        "details": {
+          "message": "Keyboard navigation test completed",
+          "focusableElements": 1336,
+          "tabSequenceLength": 24,
+          "skipLinksFound": 0,
+          "focusIndicatorsPresent": 0,
+          "violations": [],
+          "summary": {
+            "focusableElements": 1336,
+            "tabSequenceLength": 24,
+            "skipLinksFound": 0,
+            "focusIndicatorsPresent": 0,
+            "violationsFound": 0
+          }
+        }
+      },
+      "fileName": "test-keyboard-test-run-1750960759723-s1yb2mlqf9p.json",
+      "summary": {
+        "tool": "keyboard-navigation",
+        "violations": 0,
+        "passes": 0,
+        "warnings": 0,
+        "status": "pass",
+        "critical": false
+      }
+    },
+    {
+      "testType": "test:form",
+      "status": "completed",
+      "startTime": "2025-06-26T17:59:28.146Z",
+      "endTime": "2025-06-26T17:59:28.146Z",
+      "duration": 0,
+      "url": "http://localhost:3000/dashboard.html",
+      "result": {
+        "tool": "form-accessibility",
+        "violations": 1,
+        "details": {
+          "message": "Form accessibility test completed",
+          "formsFound": 4
+        }
+      },
+      "fileName": "test-form-test-run-1750960759723-s1yb2mlqf9p.json",
+      "summary": {
+        "tool": "form-accessibility",
+        "violations": 1,
+        "passes": 0,
+        "warnings": 0,
+        "status": "fail",
+        "critical": false
+      }
+    }
+  ],
+  "recommendations": [
+    {
+      "priority": "medium",
+      "category": "a11y:axe",
+      "title": "Fix Axe-core Violations",
+      "description": "Found 3 accessibility violations that need attention.",
+      "actions": [
+        "Review detailed axe-core violations in the test results",
+        "Prioritize high and critical impact issues",
+        "Use browser extensions for real-time axe testing"
+      ]
+    },
+    {
+      "priority": "medium",
+      "category": "a11y:pa11y",
+      "title": "Address Pa11y Issues",
+      "description": "Pa11y found 1 accessibility issues.",
+      "actions": [
+        "Review pa11y error details for specific fixes",
+        "Focus on WCAG 2.1 AA compliance issues",
+        "Test with different screen readers"
+      ]
+    },
+    {
+      "priority": "medium",
+      "category": "test:form",
+      "title": "Enhance Form Accessibility",
+      "description": "Form accessibility issues detected (1 violations).",
+      "actions": [
+        "Add proper labels to all form controls",
+        "Implement clear error messaging",
+        "Provide form instructions and help text"
+      ]
+    }
+  ],
+  "metadata": {
+    "testTypes": [
+      "a11y:axe",
+      "a11y:pa11y",
+      "test:keyboard",
+      "test:form"
+    ],
+    "duration": 8424,
+    "files": [
+      {
+        "type": "individual-test",
+        "fileName": "a11y-axe-test-run-1750960759723-s1yb2mlqf9p.json",
+        "filePath": "/Users/johnhoinville/Desktop/vpat-reporting/reports/individual-tests/a11y-axe-test-run-1750960759723-s1yb2mlqf9p.json",
+        "testType": "a11y:axe",
+        "size": 3714
+      },
+      {
+        "type": "individual-test",
+        "fileName": "a11y-pa11y-test-run-1750960759723-s1yb2mlqf9p.json",
+        "filePath": "/Users/johnhoinville/Desktop/vpat-reporting/reports/individual-tests/a11y-pa11y-test-run-1750960759723-s1yb2mlqf9p.json",
+        "testType": "a11y:pa11y",
+        "size": 581
+      },
+      {
+        "type": "individual-test",
+        "fileName": "test-keyboard-test-run-1750960759723-s1yb2mlqf9p.json",
+        "filePath": "/Users/johnhoinville/Desktop/vpat-reporting/reports/individual-tests/test-keyboard-test-run-1750960759723-s1yb2mlqf9p.json",
+        "testType": "test:keyboard",
+        "size": 931
+      },
+      {
+        "type": "individual-test",
+        "fileName": "test-form-test-run-1750960759723-s1yb2mlqf9p.json",
+        "filePath": "/Users/johnhoinville/Desktop/vpat-reporting/reports/individual-tests/test-form-test-run-1750960759723-s1yb2mlqf9p.json",
+        "testType": "test:form",
+        "size": 599
+      }
+    ]
+  }
+}

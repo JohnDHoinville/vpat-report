@@ -1,0 +1,55 @@
+{
+  "testType": "test:screen-reader",
+  "status": "completed",
+  "startTime": "2025-06-27T13:30:10.236Z",
+  "endTime": "2025-06-27T13:30:15.952Z",
+  "duration": 5716,
+  "url": "strava.com",
+  "result": {
+    "tool": "screen-reader",
+    "violations": 3,
+    "passes": -3,
+    "detailedViolations": [
+      {
+        "type": "screen-reader-test-error",
+        "message": "Screen reader testing failed: page.goto: Protocol error (Page.navigate): Cannot navigate to invalid URL\nCall log:\n\u001b[2m  - navigating to \"strava.com\", waiting until \"networkidle\"\u001b[22m\n",
+        "severity": "critical",
+        "stack": "page.goto: Protocol error (Page.navigate): Cannot navigate to invalid URL\nCall log:\n\u001b[2m  - navigating to \"strava.com\", waiting until \"networkidle\"\u001b[22m\n\n    at testScreenReaderMarkup (/Users/johnhoinville/Desktop/vpat-reporting/scripts/screen-reader-tester.js:50:16)\n    at async runScreenReaderTests (/Users/johnhoinville/Desktop/vpat-reporting/scripts/screen-reader-tester.js:709:23)\n    at async ComprehensiveTestRunner.runScreenReaderTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:1274:29)\n    at async ComprehensiveTestRunner.runSingleTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:153:26)\n    at async runScreenReaderTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:3108:24)\n    at async TestQueueManager.runScreenReaderTestForJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:584:24)\n    at async TestQueueManager.startJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:170:30)\n    at async TestQueueManager.processQueue (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:128:13)"
+      },
+      {
+        "type": "screen-reader-test-error",
+        "message": "Screen reader testing failed: page.goto: Protocol error (Page.navigate): Invalid url: \"strava.com\"\nCall log:\n\u001b[2m  - navigating to \"strava.com\", waiting until \"networkidle\"\u001b[22m\n",
+        "severity": "critical",
+        "stack": "page.goto: Protocol error (Page.navigate): Invalid url: \"strava.com\"\nCall log:\n\u001b[2m  - navigating to \"strava.com\", waiting until \"networkidle\"\u001b[22m\n\n    at testScreenReaderMarkup (/Users/johnhoinville/Desktop/vpat-reporting/scripts/screen-reader-tester.js:50:16)\n    at async runScreenReaderTests (/Users/johnhoinville/Desktop/vpat-reporting/scripts/screen-reader-tester.js:709:23)\n    at async ComprehensiveTestRunner.runScreenReaderTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:1274:29)\n    at async ComprehensiveTestRunner.runSingleTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:153:26)\n    at async runScreenReaderTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:3108:24)\n    at async TestQueueManager.runScreenReaderTestForJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:584:24)\n    at async TestQueueManager.startJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:170:30)\n    at async TestQueueManager.processQueue (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:128:13)"
+      },
+      {
+        "type": "screen-reader-test-error",
+        "message": "Screen reader testing failed: page.goto: Protocol error (Playwright.navigate): Cannot navigate to invalid URL\nCall log:\n\u001b[2m  - navigating to \"strava.com\", waiting until \"networkidle\"\u001b[22m\n",
+        "severity": "critical",
+        "stack": "page.goto: Protocol error (Playwright.navigate): Cannot navigate to invalid URL\nCall log:\n\u001b[2m  - navigating to \"strava.com\", waiting until \"networkidle\"\u001b[22m\n\n    at testScreenReaderMarkup (/Users/johnhoinville/Desktop/vpat-reporting/scripts/screen-reader-tester.js:50:16)\n    at async runScreenReaderTests (/Users/johnhoinville/Desktop/vpat-reporting/scripts/screen-reader-tester.js:709:23)\n    at async ComprehensiveTestRunner.runScreenReaderTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:1274:29)\n    at async ComprehensiveTestRunner.runSingleTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/comprehensive-test-runner.js:153:26)\n    at async runScreenReaderTest (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:3108:24)\n    at async TestQueueManager.runScreenReaderTestForJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:584:24)\n    at async TestQueueManager.startJob (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:170:30)\n    at async TestQueueManager.processQueue (/Users/johnhoinville/Desktop/vpat-reporting/scripts/dashboard-backend.js:128:13)"
+      }
+    ],
+    "details": {
+      "message": "Screen reader accessibility test completed",
+      "testMethod": "automated-screen-reader",
+      "url": "strava.com",
+      "summary": {
+        "totalBrowsers": 3,
+        "totalViolations": 3,
+        "totalElements": 0,
+        "totalLandmarks": 0,
+        "totalHeadings": 0,
+        "overallPassed": false
+      }
+    }
+  },
+  "fileName": "test-screen-reader-test-run-1751031010236-1751031010236-yqu1lyshj.json",
+  "summary": {
+    "tool": "screen-reader",
+    "violations": 3,
+    "passes": -3,
+    "warnings": 0,
+    "status": "fail",
+    "critical": false
+  }
+}

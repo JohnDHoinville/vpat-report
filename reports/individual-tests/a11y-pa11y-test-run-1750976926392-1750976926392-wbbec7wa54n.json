@@ -1,0 +1,32 @@
+{
+  "testType": "a11y:pa11y",
+  "url": "https://run-analysis.onrender.com/",
+  "pageTitle": "Test Page",
+  "timestamp": "2025-06-26T22:28:46.392Z",
+  "batchId": "fixed-single-row-test",
+  "jobId": "job-1750976920459-fkmdd5wfh",
+  "executionInfo": {
+    "startTime": "2025-06-26T22:28:40.459Z",
+    "endTime": "2025-06-26T22:28:46.393Z",
+    "duration": 0,
+    "status": "completed"
+  },
+  "result": {
+    "tool": "pa11y",
+    "violations": 0,
+    "warnings": 0,
+    "details": []
+  },
+  "summary": {
+    "violations": 0,
+    "passed": 0,
+    "incomplete": 0,
+    "inapplicable": 0,
+    "successRate": 100
+  },
+  "metadata": {
+    "tool": "pa11y",
+    "version": "1.0.0",
+    "generatedBy": "dashboard-backend-job-queue"
+  }
+}

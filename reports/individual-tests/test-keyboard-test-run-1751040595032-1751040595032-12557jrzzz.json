@@ -1,0 +1,56 @@
+{
+  "testType": "test:keyboard",
+  "status": "completed",
+  "startTime": "2025-06-27T16:09:55.033Z",
+  "endTime": "2025-06-27T16:09:55.605Z",
+  "duration": 572,
+  "url": "run-analysis.onrender.com",
+  "result": {
+    "tool": "keyboard-navigation",
+    "violations": 1,
+    "details": {
+      "message": "Keyboard navigation test completed",
+      "focusableElements": 0,
+      "tabSequenceLength": 0,
+      "skipLinksFound": 0,
+      "focusIndicatorsPresent": 0,
+      "violations": [
+        {
+          "id": "keyboard-test-error",
+          "impact": "critical",
+          "description": "Testing failed: page.goto: Protocol error (Page.navigate): Cannot navigate to invalid URL\nCall log:\n\u001b[2m  - navigating to \"run-analysis.onrender.com\", waiting until \"networkidle\"\u001b[22m\n",
+          "help": "An error occurred during keyboard navigation testing.",
+          "helpUrl": "https://www.w3.org/WAI/WCAG21/Understanding/keyboard-accessible.html",
+          "nodes": [
+            {
+              "target": [
+                "body"
+              ],
+              "html": "<body>...</body>",
+              "failureSummary": "Fix: Review and fix any JavaScript errors that may be interfering with keyboard navigation."
+            }
+          ],
+          "wcagCriteria": [
+            "2.1.1"
+          ]
+        }
+      ],
+      "summary": {
+        "focusableElements": 0,
+        "tabSequenceLength": 0,
+        "skipLinksFound": 0,
+        "focusIndicatorsPresent": 0,
+        "violationsFound": 0
+      }
+    }
+  },
+  "fileName": "test-keyboard-test-run-1751040595032-1751040595032-12557jrzzz.json",
+  "summary": {
+    "tool": "keyboard-navigation",
+    "violations": 1,
+    "passes": 0,
+    "warnings": 0,
+    "status": "fail",
+    "critical": false
+  }
+}

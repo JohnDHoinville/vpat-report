@@ -1,0 +1,265 @@
+{
+  "testType": "a11y:pa11y",
+  "status": "completed",
+  "startTime": "2025-06-27T18:13:16.325Z",
+  "endTime": "2025-06-27T18:13:20.515Z",
+  "duration": 4190,
+  "url": "https://run-analysis.onrender.com/login",
+  "result": {
+    "tool": "pa11y",
+    "violations": 8,
+    "warnings": 0,
+    "detailedViolations": [
+      {
+        "id": "pa11y-WCAG2AA.Principle1.Guideline1_4.1_4_3.G18.Fail-1",
+        "impact": "serious",
+        "description": "This element has insufficient contrast at this conformance level. Expected a contrast ratio of at least 4.5:1, but text in this element has a contrast ratio of 3.54:1. Recommendation:  change text colour to #597e6e.",
+        "help": "Ensure accessibility compliance for this element.",
+        "helpUrl": "https://www.w3.org/WAI/WCAG21/",
+        "nodes": [
+          {
+            "target": [
+              "#root > div > div > div > div > p"
+            ],
+            "html": "<p class=\"login-subtitle\">Sign in to access your running ...</p>",
+            "failureSummary": "Fix: Review element and ensure it meets accessibility guidelines."
+          }
+        ],
+        "wcagCriteria": [
+          "2.1.1"
+        ]
+      },
+      {
+        "id": "pa11y-WCAG2AA.Principle4.Guideline4_1.4_1_2.H91.InputText.Name-2",
+        "impact": "serious",
+        "description": "This textinput element does not have a name available to an accessibility API. Valid names are: label element, title undefined, aria-label undefined, aria-labelledby undefined.",
+        "help": "Ensure accessibility compliance for this element.",
+        "helpUrl": "https://www.w3.org/WAI/WCAG21/",
+        "nodes": [
+          {
+            "target": [
+              "#root > div > div > div > div > form > div:nth-child(1) > input"
+            ],
+            "html": "<input class=\"tw-shadow tw-appearance-none tw-border tw-rounded tw-w-full tw-text-gray-700 tw-leading-tight focus:tw-outline-none focus:tw-shadow-outline tw-py-2 tw-px-3 tw-border-gray-300 focus:tw-border-blue-500\" type=\"text\" required=\"\" value=\"\">",
+            "failureSummary": "Fix: Review element and ensure it meets accessibility guidelines."
+          }
+        ],
+        "wcagCriteria": [
+          "2.1.1"
+        ]
+      },
+      {
+        "id": "pa11y-WCAG2AA.Principle1.Guideline1_3.1_3_1.F68-3",
+        "impact": "serious",
+        "description": "This form field should be labelled in some way. Use the label element (either with a \"for\" attribute or wrapped around the form field), or \"title\", \"aria-label\" or \"aria-labelledby\" attributes as appropriate.",
+        "help": "Ensure accessibility compliance for this element.",
+        "helpUrl": "https://www.w3.org/WAI/WCAG21/",
+        "nodes": [
+          {
+            "target": [
+              "#root > div > div > div > div > form > div:nth-child(1) > input"
+            ],
+            "html": "<input class=\"tw-shadow tw-appearance-none tw-border tw-rounded tw-w-full tw-text-gray-700 tw-leading-tight focus:tw-outline-none focus:tw-shadow-outline tw-py-2 tw-px-3 tw-border-gray-300 focus:tw-border-blue-500\" type=\"text\" required=\"\" value=\"\">",
+            "failureSummary": "Fix: Review element and ensure it meets accessibility guidelines."
+          }
+        ],
+        "wcagCriteria": [
+          "2.1.1"
+        ]
+      },
+      {
+        "id": "pa11y-WCAG2AA.Principle4.Guideline4_1.4_1_2.H91.InputPassword.Name-4",
+        "impact": "serious",
+        "description": "This passwordinput element does not have a name available to an accessibility API. Valid names are: label element, title undefined, aria-label undefined, aria-labelledby undefined.",
+        "help": "Ensure accessibility compliance for this element.",
+        "helpUrl": "https://www.w3.org/WAI/WCAG21/",
+        "nodes": [
+          {
+            "target": [
+              "#root > div > div > div > div > form > div:nth-child(2) > input"
+            ],
+            "html": "<input class=\"tw-shadow tw-appearance-none tw-border tw-rounded tw-w-full tw-text-gray-700 tw-leading-tight focus:tw-outline-none focus:tw-shadow-outline tw-py-2 tw-px-3 tw-border-gray-300 focus:tw-border-blue-500\" type=\"password\" required=\"\" value=\"...",
+            "failureSummary": "Fix: Review element and ensure it meets accessibility guidelines."
+          }
+        ],
+        "wcagCriteria": [
+          "2.1.1"
+        ]
+      },
+      {
+        "id": "pa11y-WCAG2AA.Principle1.Guideline1_3.1_3_1.F68-5",
+        "impact": "serious",
+        "description": "This form field should be labelled in some way. Use the label element (either with a \"for\" attribute or wrapped around the form field), or \"title\", \"aria-label\" or \"aria-labelledby\" attributes as appropriate.",
+        "help": "Ensure accessibility compliance for this element.",
+        "helpUrl": "https://www.w3.org/WAI/WCAG21/",
+        "nodes": [
+          {
+            "target": [
+              "#root > div > div > div > div > form > div:nth-child(2) > input"
+            ],
+            "html": "<input class=\"tw-shadow tw-appearance-none tw-border tw-rounded tw-w-full tw-text-gray-700 tw-leading-tight focus:tw-outline-none focus:tw-shadow-outline tw-py-2 tw-px-3 tw-border-gray-300 focus:tw-border-blue-500\" type=\"password\" required=\"\" value=\"...",
+            "failureSummary": "Fix: Review element and ensure it meets accessibility guidelines."
+          }
+        ],
+        "wcagCriteria": [
+          "2.1.1"
+        ]
+      },
+      {
+        "id": "pa11y-WCAG2AA.Principle1.Guideline1_4.1_4_3.G18.Fail-6",
+        "impact": "serious",
+        "description": "This element has insufficient contrast at this conformance level. Expected a contrast ratio of at least 4.5:1, but text in this element has a contrast ratio of 2.11:1. Recommendation:  change background to #328375.",
+        "help": "Ensure accessibility compliance for this element.",
+        "helpUrl": "https://www.w3.org/WAI/WCAG21/",
+        "nodes": [
+          {
+            "target": [
+              "#root > div > div > div > div > form > button"
+            ],
+            "html": "<button class=\"font-medium rounded transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 px-4 py-2 bg-teal-500 text-white hover:bg-teal-600 focus:ring-teal-400 login-button tw-mt-4 tw-w-full\" type=\"submit\">Sign In</button>",
+            "failureSummary": "Fix: Review element and ensure it meets accessibility guidelines."
+          }
+        ],
+        "wcagCriteria": [
+          "2.1.1"
+        ]
+      },
+      {
+        "id": "pa11y-WCAG2AA.Principle1.Guideline1_4.1_4_3.G18.Fail-7",
+        "impact": "serious",
+        "description": "This element has insufficient contrast at this conformance level. Expected a contrast ratio of at least 4.5:1, but text in this element has a contrast ratio of 2.11:1. Recommendation:  change text colour to #328375.",
+        "help": "Ensure accessibility compliance for this element.",
+        "helpUrl": "https://www.w3.org/WAI/WCAG21/",
+        "nodes": [
+          {
+            "target": [
+              "#root > div > div > div > div > div:nth-child(4) > button"
+            ],
+            "html": "<button class=\"font-medium rounded transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 px-4 py-2 bg-transparent text-teal-600 hover:text-teal-800 hover:underline p-0 toggle-auth-button\" type=\"button\">Need an account? Cr...",
+            "failureSummary": "Fix: Review element and ensure it meets accessibility guidelines."
+          }
+        ],
+        "wcagCriteria": [
+          "2.1.1"
+        ]
+      },
+      {
+        "id": "pa11y-WCAG2AA.Principle1.Guideline1_4.1_4_3.G18.Fail-8",
+        "impact": "serious",
+        "description": "This element has insufficient contrast at this conformance level. Expected a contrast ratio of at least 4.5:1, but text in this element has a contrast ratio of 2.85:1. Recommendation:  change text colour to #767676.",
+        "help": "Ensure accessibility compliance for this element.",
+        "helpUrl": "https://www.w3.org/WAI/WCAG21/",
+        "nodes": [
+          {
+            "target": [
+              "#root > div > div > div > div > div:nth-child(5)"
+            ],
+            "html": "<div class=\"api-debug-info\" style=\"font-size: 10px; color: rgb(153, 153, 153); margin-top: 20px; text-align: center;\">API: https://run-analysis.onren...</div>",
+            "failureSummary": "Fix: Review element and ensure it meets accessibility guidelines."
+          }
+        ],
+        "wcagCriteria": [
+          "2.1.1"
+        ]
+      }
+    ],
+    "details": {
+      "message": "Pa11y accessibility test completed",
+      "testMethod": "automated-pa11y",
+      "url": "https://run-analysis.onrender.com/login",
+      "errorsFound": 8,
+      "warningsFound": 0,
+      "issues": [
+        {
+          "code": "WCAG2AA.Principle1.Guideline1_4.1_4_3.G18.Fail",
+          "type": "error",
+          "typeCode": 1,
+          "message": "This element has insufficient contrast at this conformance level. Expected a contrast ratio of at least 4.5:1, but text in this element has a contrast ratio of 3.54:1. Recommendation:  change text colour to #597e6e.",
+          "context": "<p class=\"login-subtitle\">Sign in to access your running ...</p>",
+          "selector": "#root > div > div > div > div > p",
+          "runner": "htmlcs",
+          "runnerExtras": {}
+        },
+        {
+          "code": "WCAG2AA.Principle4.Guideline4_1.4_1_2.H91.InputText.Name",
+          "type": "error",
+          "typeCode": 1,
+          "message": "This textinput element does not have a name available to an accessibility API. Valid names are: label element, title undefined, aria-label undefined, aria-labelledby undefined.",
+          "context": "<input class=\"tw-shadow tw-appearance-none tw-border tw-rounded tw-w-full tw-text-gray-700 tw-leading-tight focus:tw-outline-none focus:tw-shadow-outline tw-py-2 tw-px-3 tw-border-gray-300 focus:tw-border-blue-500\" type=\"text\" required=\"\" value=\"\">",
+          "selector": "#root > div > div > div > div > form > div:nth-child(1) > input",
+          "runner": "htmlcs",
+          "runnerExtras": {}
+        },
+        {
+          "code": "WCAG2AA.Principle1.Guideline1_3.1_3_1.F68",
+          "type": "error",
+          "typeCode": 1,
+          "message": "This form field should be labelled in some way. Use the label element (either with a \"for\" attribute or wrapped around the form field), or \"title\", \"aria-label\" or \"aria-labelledby\" attributes as appropriate.",
+          "context": "<input class=\"tw-shadow tw-appearance-none tw-border tw-rounded tw-w-full tw-text-gray-700 tw-leading-tight focus:tw-outline-none focus:tw-shadow-outline tw-py-2 tw-px-3 tw-border-gray-300 focus:tw-border-blue-500\" type=\"text\" required=\"\" value=\"\">",
+          "selector": "#root > div > div > div > div > form > div:nth-child(1) > input",
+          "runner": "htmlcs",
+          "runnerExtras": {}
+        },
+        {
+          "code": "WCAG2AA.Principle4.Guideline4_1.4_1_2.H91.InputPassword.Name",
+          "type": "error",
+          "typeCode": 1,
+          "message": "This passwordinput element does not have a name available to an accessibility API. Valid names are: label element, title undefined, aria-label undefined, aria-labelledby undefined.",
+          "context": "<input class=\"tw-shadow tw-appearance-none tw-border tw-rounded tw-w-full tw-text-gray-700 tw-leading-tight focus:tw-outline-none focus:tw-shadow-outline tw-py-2 tw-px-3 tw-border-gray-300 focus:tw-border-blue-500\" type=\"password\" required=\"\" value=\"...",
+          "selector": "#root > div > div > div > div > form > div:nth-child(2) > input",
+          "runner": "htmlcs",
+          "runnerExtras": {}
+        },
+        {
+          "code": "WCAG2AA.Principle1.Guideline1_3.1_3_1.F68",
+          "type": "error",
+          "typeCode": 1,
+          "message": "This form field should be labelled in some way. Use the label element (either with a \"for\" attribute or wrapped around the form field), or \"title\", \"aria-label\" or \"aria-labelledby\" attributes as appropriate.",
+          "context": "<input class=\"tw-shadow tw-appearance-none tw-border tw-rounded tw-w-full tw-text-gray-700 tw-leading-tight focus:tw-outline-none focus:tw-shadow-outline tw-py-2 tw-px-3 tw-border-gray-300 focus:tw-border-blue-500\" type=\"password\" required=\"\" value=\"...",
+          "selector": "#root > div > div > div > div > form > div:nth-child(2) > input",
+          "runner": "htmlcs",
+          "runnerExtras": {}
+        },
+        {
+          "code": "WCAG2AA.Principle1.Guideline1_4.1_4_3.G18.Fail",
+          "type": "error",
+          "typeCode": 1,
+          "message": "This element has insufficient contrast at this conformance level. Expected a contrast ratio of at least 4.5:1, but text in this element has a contrast ratio of 2.11:1. Recommendation:  change background to #328375.",
+          "context": "<button class=\"font-medium rounded transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 px-4 py-2 bg-teal-500 text-white hover:bg-teal-600 focus:ring-teal-400 login-button tw-mt-4 tw-w-full\" type=\"submit\">Sign In</button>",
+          "selector": "#root > div > div > div > div > form > button",
+          "runner": "htmlcs",
+          "runnerExtras": {}
+        },
+        {
+          "code": "WCAG2AA.Principle1.Guideline1_4.1_4_3.G18.Fail",
+          "type": "error",
+          "typeCode": 1,
+          "message": "This element has insufficient contrast at this conformance level. Expected a contrast ratio of at least 4.5:1, but text in this element has a contrast ratio of 2.11:1. Recommendation:  change text colour to #328375.",
+          "context": "<button class=\"font-medium rounded transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 px-4 py-2 bg-transparent text-teal-600 hover:text-teal-800 hover:underline p-0 toggle-auth-button\" type=\"button\">Need an account? Cr...",
+          "selector": "#root > div > div > div > div > div:nth-child(4) > button",
+          "runner": "htmlcs",
+          "runnerExtras": {}
+        },
+        {
+          "code": "WCAG2AA.Principle1.Guideline1_4.1_4_3.G18.Fail",
+          "type": "error",
+          "typeCode": 1,
+          "message": "This element has insufficient contrast at this conformance level. Expected a contrast ratio of at least 4.5:1, but text in this element has a contrast ratio of 2.85:1. Recommendation:  change text colour to #767676.",
+          "context": "<div class=\"api-debug-info\" style=\"font-size: 10px; color: rgb(153, 153, 153); margin-top: 20px; text-align: center;\">API: https://run-analysis.onren...</div>",
+          "selector": "#root > div > div > div > div > div:nth-child(5)",
+          "runner": "htmlcs",
+          "runnerExtras": {}
+        }
+      ]
+    }
+  },
+  "fileName": "a11y-pa11y-test-run-1751047996325-1751047996325-14rlakv12h.json",
+  "summary": {
+    "tool": "pa11y",
+    "violations": 8,
+    "passes": 0,
+    "warnings": 0,
+    "status": "fail",
+    "critical": true
+  }
+}

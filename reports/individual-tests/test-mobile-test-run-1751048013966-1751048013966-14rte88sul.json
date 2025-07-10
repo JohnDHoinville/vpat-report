@@ -1,0 +1,363 @@
+{
+  "testType": "test:mobile",
+  "status": "completed",
+  "startTime": "2025-06-27T18:13:33.966Z",
+  "endTime": "2025-06-27T18:14:34.666Z",
+  "duration": 60700,
+  "url": "https://run-analysis.onrender.com/login",
+  "result": {
+    "tool": "mobile-accessibility",
+    "violations": 18,
+    "passes": 90,
+    "detailedViolations": [
+      {
+        "type": "text-too-small-mobile",
+        "message": "Text too small for mobile (10px, recommended minimum 14px)",
+        "element": {
+          "tagName": "DIV",
+          "fontSize": 10,
+          "lineHeight": 15,
+          "fontSizeInRem": 0.625,
+          "text": "API: https://run-analysis.onrender.com",
+          "isReadable": false,
+          "hasGoodLineHeight": true,
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "id": "",
+          "className": "api-debug-info"
+        },
+        "severity": "serious"
+      },
+      {
+        "type": "text-too-small-mobile",
+        "message": "Text too small for mobile (10px, recommended minimum 14px)",
+        "element": {
+          "tagName": "DIV",
+          "fontSize": 10,
+          "lineHeight": 15,
+          "fontSizeInRem": 0.625,
+          "text": "API: https://run-analysis.onrender.com",
+          "isReadable": false,
+          "hasGoodLineHeight": true,
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "id": "",
+          "className": "api-debug-info"
+        },
+        "severity": "serious"
+      },
+      {
+        "type": "text-too-small-mobile",
+        "message": "Text too small for mobile (10px, recommended minimum 14px)",
+        "element": {
+          "tagName": "DIV",
+          "fontSize": 10,
+          "lineHeight": 15,
+          "fontSizeInRem": 0.625,
+          "text": "API: https://run-analysis.onrender.com",
+          "isReadable": false,
+          "hasGoodLineHeight": true,
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "id": "",
+          "className": "api-debug-info"
+        },
+        "severity": "serious"
+      },
+      {
+        "type": "text-too-small-mobile",
+        "message": "Text too small for mobile (10px, recommended minimum 14px)",
+        "element": {
+          "tagName": "DIV",
+          "fontSize": 10,
+          "lineHeight": 15,
+          "fontSizeInRem": 0.625,
+          "text": "API: https://run-analysis.onrender.com",
+          "isReadable": false,
+          "hasGoodLineHeight": true,
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "id": "",
+          "className": "api-debug-info"
+        },
+        "severity": "serious"
+      },
+      {
+        "type": "text-too-small-mobile",
+        "message": "Text too small for mobile (10px, recommended minimum 14px)",
+        "element": {
+          "tagName": "DIV",
+          "fontSize": 10,
+          "lineHeight": 15,
+          "fontSizeInRem": 0.625,
+          "text": "API: https://run-analysis.onrender.com",
+          "isReadable": false,
+          "hasGoodLineHeight": true,
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "id": "",
+          "className": "api-debug-info"
+        },
+        "severity": "serious"
+      },
+      {
+        "type": "text-too-small-mobile",
+        "message": "Text too small for mobile (10px, recommended minimum 14px)",
+        "element": {
+          "tagName": "DIV",
+          "fontSize": 10,
+          "lineHeight": 15,
+          "fontSizeInRem": 0.625,
+          "text": "API: https://run-analysis.onrender.com",
+          "isReadable": false,
+          "hasGoodLineHeight": true,
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "id": "",
+          "className": "api-debug-info"
+        },
+        "severity": "serious"
+      },
+      {
+        "type": "text-too-small-mobile",
+        "message": "Text too small for mobile (10px, recommended minimum 14px)",
+        "element": {
+          "tagName": "DIV",
+          "fontSize": 10,
+          "lineHeight": 15,
+          "fontSizeInRem": 0.625,
+          "text": "API: https://run-analysis.onrender.com",
+          "isReadable": false,
+          "hasGoodLineHeight": true,
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "id": "",
+          "className": "api-debug-info"
+        },
+        "severity": "serious"
+      },
+      {
+        "type": "text-too-small-mobile",
+        "message": "Text too small for mobile (10px, recommended minimum 14px)",
+        "element": {
+          "tagName": "DIV",
+          "fontSize": 10,
+          "lineHeight": 15,
+          "fontSizeInRem": 0.625,
+          "text": "API: https://run-analysis.onrender.com",
+          "isReadable": false,
+          "hasGoodLineHeight": true,
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "id": "",
+          "className": "api-debug-info"
+        },
+        "severity": "serious"
+      },
+      {
+        "type": "text-too-small-mobile",
+        "message": "Text too small for mobile (10px, recommended minimum 14px)",
+        "element": {
+          "tagName": "DIV",
+          "fontSize": 10,
+          "lineHeight": 15,
+          "fontSizeInRem": 0.625,
+          "text": "API: https://run-analysis.onrender.com",
+          "isReadable": false,
+          "hasGoodLineHeight": true,
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "id": "",
+          "className": "api-debug-info"
+        },
+        "severity": "serious"
+      },
+      {
+        "type": "text-too-small-mobile",
+        "message": "Text too small for mobile (10px, recommended minimum 14px)",
+        "element": {
+          "tagName": "DIV",
+          "fontSize": 10,
+          "lineHeight": 15,
+          "fontSizeInRem": 0.625,
+          "text": "API: https://run-analysis.onrender.com",
+          "isReadable": false,
+          "hasGoodLineHeight": true,
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "id": "",
+          "className": "api-debug-info"
+        },
+        "severity": "serious"
+      },
+      {
+        "type": "text-too-small-mobile",
+        "message": "Text too small for mobile (10px, recommended minimum 14px)",
+        "element": {
+          "tagName": "DIV",
+          "fontSize": 10,
+          "lineHeight": 15,
+          "fontSizeInRem": 0.625,
+          "text": "API: https://run-analysis.onrender.com",
+          "isReadable": false,
+          "hasGoodLineHeight": true,
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "id": "",
+          "className": "api-debug-info"
+        },
+        "severity": "serious"
+      },
+      {
+        "type": "text-too-small-mobile",
+        "message": "Text too small for mobile (10px, recommended minimum 14px)",
+        "element": {
+          "tagName": "DIV",
+          "fontSize": 10,
+          "lineHeight": 15,
+          "fontSizeInRem": 0.625,
+          "text": "API: https://run-analysis.onrender.com",
+          "isReadable": false,
+          "hasGoodLineHeight": true,
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "id": "",
+          "className": "api-debug-info"
+        },
+        "severity": "serious"
+      },
+      {
+        "type": "text-too-small-mobile",
+        "message": "Text too small for mobile (10px, recommended minimum 14px)",
+        "element": {
+          "tagName": "DIV",
+          "fontSize": 10,
+          "lineHeight": 15,
+          "fontSizeInRem": 0.625,
+          "text": "API: https://run-analysis.onrender.com",
+          "isReadable": false,
+          "hasGoodLineHeight": true,
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "id": "",
+          "className": "api-debug-info"
+        },
+        "severity": "serious"
+      },
+      {
+        "type": "text-too-small-mobile",
+        "message": "Text too small for mobile (10px, recommended minimum 14px)",
+        "element": {
+          "tagName": "DIV",
+          "fontSize": 10,
+          "lineHeight": 15,
+          "fontSizeInRem": 0.625,
+          "text": "API: https://run-analysis.onrender.com",
+          "isReadable": false,
+          "hasGoodLineHeight": true,
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "id": "",
+          "className": "api-debug-info"
+        },
+        "severity": "serious"
+      },
+      {
+        "type": "text-too-small-mobile",
+        "message": "Text too small for mobile (10px, recommended minimum 14px)",
+        "element": {
+          "tagName": "DIV",
+          "fontSize": 10,
+          "lineHeight": 15,
+          "fontSizeInRem": 0.625,
+          "text": "API: https://run-analysis.onrender.com",
+          "isReadable": false,
+          "hasGoodLineHeight": true,
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "id": "",
+          "className": "api-debug-info"
+        },
+        "severity": "serious"
+      },
+      {
+        "type": "text-too-small-mobile",
+        "message": "Text too small for mobile (10px, recommended minimum 14px)",
+        "element": {
+          "tagName": "DIV",
+          "fontSize": 10,
+          "lineHeight": 15,
+          "fontSizeInRem": 0.625,
+          "text": "API: https://run-analysis.onrender.com",
+          "isReadable": false,
+          "hasGoodLineHeight": true,
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "id": "",
+          "className": "api-debug-info"
+        },
+        "severity": "serious"
+      },
+      {
+        "type": "text-too-small-mobile",
+        "message": "Text too small for mobile (10px, recommended minimum 14px)",
+        "element": {
+          "tagName": "DIV",
+          "fontSize": 10,
+          "lineHeight": 15,
+          "fontSizeInRem": 0.625,
+          "text": "API: https://run-analysis.onrender.com",
+          "isReadable": false,
+          "hasGoodLineHeight": true,
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "id": "",
+          "className": "api-debug-info"
+        },
+        "severity": "serious"
+      },
+      {
+        "type": "text-too-small-mobile",
+        "message": "Text too small for mobile (10px, recommended minimum 14px)",
+        "element": {
+          "tagName": "DIV",
+          "fontSize": 10,
+          "lineHeight": 15,
+          "fontSizeInRem": 0.625,
+          "text": "API: https://run-analysis.onrender.com",
+          "isReadable": false,
+          "hasGoodLineHeight": true,
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "id": "",
+          "className": "api-debug-info"
+        },
+        "severity": "serious"
+      }
+    ],
+    "details": {
+      "message": "Mobile accessibility test completed",
+      "testMethod": "automated-mobile-tester",
+      "url": "https://run-analysis.onrender.com/login",
+      "summary": {
+        "totalBrowsers": 3,
+        "totalViewports": 6,
+        "totalTests": 18,
+        "totalViolations": 18,
+        "totalTouchTargets": 90,
+        "validTouchTargets": 90,
+        "invalidTouchTargets": 0,
+        "overallPassed": true
+      }
+    }
+  },
+  "fileName": "test-mobile-test-run-1751048013966-1751048013966-14rte88sul.json",
+  "summary": {
+    "tool": "mobile-accessibility",
+    "violations": 18,
+    "passes": 90,
+    "warnings": 0,
+    "status": "fail",
+    "critical": true
+  }
+}

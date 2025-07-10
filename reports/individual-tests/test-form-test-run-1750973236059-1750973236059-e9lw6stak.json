@@ -1,0 +1,98 @@
+{
+  "testType": "test:form",
+  "status": "completed",
+  "startTime": "2025-06-26T21:27:16.060Z",
+  "endTime": "2025-06-26T21:27:26.470Z",
+  "duration": 10410,
+  "url": "https://google.com",
+  "result": {
+    "tool": "form-accessibility",
+    "violations": 3,
+    "passes": 15,
+    "detailedViolations": [
+      {
+        "id": "form-form-missing-identification",
+        "impact": "moderate",
+        "description": "Form missing id or name attribute",
+        "help": "Ensure proper form accessibility.",
+        "helpUrl": "https://www.w3.org/WAI/WCAG21/",
+        "nodes": [
+          {
+            "target": [
+              "form"
+            ],
+            "html": "<form>...</form>",
+            "failureSummary": "Fix: Review form accessibility implementation."
+          }
+        ],
+        "wcagCriteria": [
+          "3.3.2"
+        ]
+      },
+      {
+        "id": "form-form-missing-identification",
+        "impact": "moderate",
+        "description": "Form missing id or name attribute",
+        "help": "Ensure proper form accessibility.",
+        "helpUrl": "https://www.w3.org/WAI/WCAG21/",
+        "nodes": [
+          {
+            "target": [
+              "form"
+            ],
+            "html": "<form>...</form>",
+            "failureSummary": "Fix: Review form accessibility implementation."
+          }
+        ],
+        "wcagCriteria": [
+          "3.3.2"
+        ]
+      },
+      {
+        "id": "form-form-missing-identification",
+        "impact": "moderate",
+        "description": "Form missing id or name attribute",
+        "help": "Ensure proper form accessibility.",
+        "helpUrl": "https://www.w3.org/WAI/WCAG21/",
+        "nodes": [
+          {
+            "target": [
+              "form"
+            ],
+            "html": "<form>...</form>",
+            "failureSummary": "Fix: Review form accessibility implementation."
+          }
+        ],
+        "wcagCriteria": [
+          "3.3.2"
+        ]
+      }
+    ],
+    "details": {
+      "message": "Form accessibility test completed",
+      "totalFormElements": 30,
+      "labeledElements": 15,
+      "unlabeledElements": 0,
+      "requiredFields": 0,
+      "summary": {
+        "totalBrowsers": 3,
+        "totalViolations": 3,
+        "totalFormElements": 30,
+        "totalLabeledElements": 15,
+        "totalUnlabeledElements": 0,
+        "totalRequiredFields": 0,
+        "totalFieldsWithErrorHandling": 0,
+        "overallPassed": true
+      }
+    }
+  },
+  "fileName": "test-form-test-run-1750973236059-1750973236059-e9lw6stak.json",
+  "summary": {
+    "tool": "form-accessibility",
+    "violations": 3,
+    "passes": 15,
+    "warnings": 0,
+    "status": "fail",
+    "critical": false
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "testType": "test:form",
+  "status": "completed",
+  "startTime": "2025-06-26T21:34:34.572Z",
+  "endTime": "2025-06-26T21:34:44.206Z",
+  "duration": 9634,
+  "url": "https://run-analysis.onrender.com/",
+  "result": {
+    "tool": "form-accessibility",
+    "violations": 0,
+    "passes": 0,
+    "detailedViolations": [],
+    "details": {
+      "message": "Form accessibility test completed",
+      "totalFormElements": 0,
+      "labeledElements": 0,
+      "unlabeledElements": 0,
+      "requiredFields": 0,
+      "summary": {
+        "totalBrowsers": 3,
+        "totalViolations": 0,
+        "totalFormElements": 0,
+        "totalLabeledElements": 0,
+        "totalUnlabeledElements": 0,
+        "totalRequiredFields": 0,
+        "totalFieldsWithErrorHandling": 0,
+        "overallPassed": true
+      }
+    }
+  },
+  "fileName": "test-form-test-run-1750973674572-1750973674572-ef7cefslm.json",
+  "summary": {
+    "tool": "form-accessibility",
+    "violations": 0,
+    "passes": 0,
+    "warnings": 0,
+    "status": "pass",
+    "critical": false
+  }
+}

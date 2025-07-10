@@ -1,0 +1,117 @@
+{
+  "reportId": "progress-1750701423319-lq1tnjpz8",
+  "timestamp": "2025-06-23T17:57:03.319Z",
+  "baseline": {
+    "id": "baseline-1750701416994-v3kzhq6mz",
+    "timestamp": "2025-06-23T17:56:56.994Z",
+    "description": "Initial VPAT Application Assessment"
+  },
+  "current": {
+    "totalViolations": 0,
+    "criticalIssues": 0,
+    "warningIssues": 0,
+    "contrastIssues": 0,
+    "wcagComplianceScore": 100,
+    "toolBreakdown": {},
+    "assessmentDate": "2025-06-23T17:57:03.319Z"
+  },
+  "progress": {
+    "violations": {
+      "baseline": 0,
+      "current": 0,
+      "reduction": 0,
+      "percentageReduction": 0
+    },
+    "critical": {
+      "baseline": 0,
+      "current": 0,
+      "reduction": 0,
+      "percentageReduction": 0
+    },
+    "compliance": {
+      "baseline": 0,
+      "current": 100,
+      "improvement": 100
+    },
+    "overallImprovement": 20,
+    "status": "Moderate Progress",
+    "milestones": [
+      {
+        "title": "🏆 90% WCAG Compliance",
+        "description": "Application meets high accessibility standards",
+        "achieved": true
+      }
+    ]
+  },
+  "recommendations": {
+    "immediate": [
+      "Focus on critical accessibility violations first",
+      "Implement automated testing in development workflow",
+      "Conduct manual testing with screen readers"
+    ],
+    "longTerm": [
+      "Establish accessibility design system",
+      "Train team on accessibility best practices",
+      "Set up continuous monitoring"
+    ]
+  },
+  "managementSummary": {
+    "executiveSummary": "Moderate progress observed. 0 violations resolved. Additional resources and focused effort required to accelerate improvement.",
+    "keyMetrics": [
+      "Total Violations Reduced: 0",
+      "Critical Issues Resolved: 0",
+      "Compliance Score: 100.0%",
+      "Overall Improvement: 20.0%"
+    ],
+    "businessImpact": "",
+    "nextSteps": "",
+    "resourceRequirements": "",
+    "timeline": ""
+  },
+  "developmentActions": {
+    "immediateActions": [
+      "Review and test all critical accessibility violations",
+      "Implement ARIA labels for unlabeled form controls",
+      "Fix color contrast issues below WCAG AA standards",
+      "Ensure all interactive elements are keyboard accessible"
+    ],
+    "upcomingTasks": [
+      "Conduct comprehensive screen reader testing",
+      "Implement automated accessibility testing in CI/CD",
+      "Create accessibility component library",
+      "Train development team on WCAG guidelines"
+    ],
+    "codeReviewFocus": [
+      "Semantic HTML structure",
+      "ARIA attributes and roles",
+      "Keyboard navigation patterns",
+      "Color contrast compliance",
+      "Alternative text for images"
+    ],
+    "toolingRecommendations": [
+      "axe-core browser extension for real-time testing",
+      "Pa11y for automated CI/CD integration",
+      "Lighthouse accessibility audits",
+      "Screen reader testing protocols"
+    ]
+  },
+  "timeline": [
+    {
+      "title": "Phase 1: Critical Issues Resolution",
+      "target": "2025-07-23",
+      "status": "Complete",
+      "description": "Address all critical accessibility violations"
+    },
+    {
+      "title": "Phase 2: WCAG AA Compliance",
+      "target": "2025-08-22",
+      "status": "Complete",
+      "description": "Achieve full WCAG 2.1 AA compliance"
+    }
+  ],
+  "compliance": {
+    "wcagLevel": "AA",
+    "section508": "Compliant",
+    "ada": "Low Risk"
+  }
+}

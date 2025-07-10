@@ -1,0 +1,799 @@
+{
+  "testType": "test:screen-reader",
+  "status": "completed",
+  "startTime": "2025-06-27T11:05:07.627Z",
+  "endTime": "2025-06-27T11:05:24.183Z",
+  "duration": 16556,
+  "url": "https://runkeeper.com",
+  "result": {
+    "tool": "screen-reader",
+    "violations": 45,
+    "passes": 96,
+    "detailedViolations": [
+      {
+        "type": "form-missing-label",
+        "message": "Form select missing accessible name",
+        "element": {
+          "tagName": "SELECT",
+          "type": "select-one",
+          "id": "",
+          "name": "",
+          "hasExplicitLabel": false,
+          "hasAriaLabel": false,
+          "hasAriaLabelledBy": false,
+          "hasAccessibleName": false,
+          "required": false,
+          "hasErrorDescription": false,
+          "hasPlaceholder": false,
+          "placeholder": ""
+        },
+        "severity": "critical"
+      },
+      {
+        "type": "form-missing-label",
+        "message": "Form input missing accessible name",
+        "element": {
+          "tagName": "INPUT",
+          "type": "text",
+          "id": "s",
+          "name": "s",
+          "hasExplicitLabel": false,
+          "hasAriaLabel": false,
+          "hasAriaLabelledBy": false,
+          "hasAccessibleName": false,
+          "required": false,
+          "hasErrorDescription": false,
+          "hasPlaceholder": true,
+          "placeholder": "search"
+        },
+        "severity": "critical"
+      },
+      {
+        "type": "placeholder-only-label",
+        "message": "Form field relies only on placeholder text for labeling",
+        "element": {
+          "tagName": "INPUT",
+          "type": "text",
+          "id": "s",
+          "name": "s",
+          "hasExplicitLabel": false,
+          "hasAriaLabel": false,
+          "hasAriaLabelledBy": false,
+          "hasAccessibleName": false,
+          "required": false,
+          "hasErrorDescription": false,
+          "hasPlaceholder": true,
+          "placeholder": "search"
+        },
+        "severity": "serious"
+      },
+      {
+        "type": "form-missing-label",
+        "message": "Form select missing accessible name",
+        "element": {
+          "tagName": "SELECT",
+          "type": "select-one",
+          "id": "",
+          "name": "",
+          "hasExplicitLabel": false,
+          "hasAriaLabel": false,
+          "hasAriaLabelledBy": false,
+          "hasAccessibleName": false,
+          "required": false,
+          "hasErrorDescription": false,
+          "hasPlaceholder": false,
+          "placeholder": ""
+        },
+        "severity": "critical"
+      },
+      {
+        "type": "form-missing-label",
+        "message": "Form input missing accessible name",
+        "element": {
+          "tagName": "INPUT",
+          "type": "text",
+          "id": "s",
+          "name": "s",
+          "hasExplicitLabel": false,
+          "hasAriaLabel": false,
+          "hasAriaLabelledBy": false,
+          "hasAccessibleName": false,
+          "required": false,
+          "hasErrorDescription": false,
+          "hasPlaceholder": true,
+          "placeholder": "search"
+        },
+        "severity": "critical"
+      },
+      {
+        "type": "placeholder-only-label",
+        "message": "Form field relies only on placeholder text for labeling",
+        "element": {
+          "tagName": "INPUT",
+          "type": "text",
+          "id": "s",
+          "name": "s",
+          "hasExplicitLabel": false,
+          "hasAriaLabel": false,
+          "hasAriaLabelledBy": false,
+          "hasAccessibleName": false,
+          "required": false,
+          "hasErrorDescription": false,
+          "hasPlaceholder": true,
+          "placeholder": "search"
+        },
+        "severity": "serious"
+      },
+      {
+        "type": "form-missing-label",
+        "message": "Form input missing accessible name",
+        "element": {
+          "tagName": "INPUT",
+          "type": "range",
+          "id": "",
+          "name": "",
+          "hasExplicitLabel": false,
+          "hasAriaLabel": false,
+          "hasAriaLabelledBy": false,
+          "hasAccessibleName": false,
+          "required": false,
+          "hasErrorDescription": false,
+          "hasPlaceholder": false,
+          "placeholder": ""
+        },
+        "severity": "critical"
+      },
+      {
+        "type": "form-missing-label",
+        "message": "Form input missing accessible name",
+        "element": {
+          "tagName": "INPUT",
+          "type": "range",
+          "id": "",
+          "name": "",
+          "hasExplicitLabel": false,
+          "hasAriaLabel": false,
+          "hasAriaLabelledBy": false,
+          "hasAccessibleName": false,
+          "required": false,
+          "hasErrorDescription": false,
+          "hasPlaceholder": false,
+          "placeholder": ""
+        },
+        "severity": "critical"
+      },
+      {
+        "type": "image-missing-alt",
+        "message": "Image missing alt attribute",
+        "element": {
+          "src": "https://runkeeper.com/cms/wp-content/uploads/sites/4/2023/01/homepage-journey-2.gif",
+          "alt": "",
+          "hasAlt": false,
+          "isEmpty": true,
+          "isDecorative": false,
+          "role": "",
+          "ariaLabel": "",
+          "ariaLabelledBy": "",
+          "ariaHidden": ""
+        },
+        "severity": "serious"
+      },
+      {
+        "type": "image-missing-alt",
+        "message": "Image missing alt attribute",
+        "element": {
+          "src": "https://runkeeper.com/cms/wp-content/uploads/sites/4/2023/01/homepage-raceplan-1.gif",
+          "alt": "",
+          "hasAlt": false,
+          "isEmpty": true,
+          "isDecorative": false,
+          "role": "",
+          "ariaLabel": "",
+          "ariaLabelledBy": "",
+          "ariaHidden": ""
+        },
+        "severity": "serious"
+      },
+      {
+        "type": "link-missing-accessible-name",
+        "message": "Link missing accessible name",
+        "element": {
+          "href": "https://runkeeper.com/cms/",
+          "text": "",
+          "ariaLabel": "",
+          "ariaLabelledBy": "",
+          "title": "",
+          "hasAccessibleName": false,
+          "isGeneric": false
+        },
+        "severity": "critical"
+      },
+      {
+        "type": "generic-link-text",
+        "message": "Link has generic text: \"Read More\"",
+        "element": {
+          "href": "https://runkeeper.com/cms/stories/embrace-lifes-detour-a-runners-diary/",
+          "text": "Read More",
+          "ariaLabel": "",
+          "ariaLabelledBy": "",
+          "title": "",
+          "hasAccessibleName": true,
+          "isGeneric": true
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "link-missing-accessible-name",
+        "message": "Link missing accessible name",
+        "element": {
+          "href": "https://runkeeper.com/cms",
+          "text": "",
+          "ariaLabel": "",
+          "ariaLabelledBy": "",
+          "title": "",
+          "hasAccessibleName": false,
+          "isGeneric": false
+        },
+        "severity": "critical"
+      },
+      {
+        "type": "link-missing-accessible-name",
+        "message": "Link missing accessible name",
+        "element": {
+          "href": "https://apps.apple.com/us/app/runkeeper-gps-running-tracker/id300235330",
+          "text": "",
+          "ariaLabel": "",
+          "ariaLabelledBy": "",
+          "title": "",
+          "hasAccessibleName": false,
+          "isGeneric": false
+        },
+        "severity": "critical"
+      },
+      {
+        "type": "link-missing-accessible-name",
+        "message": "Link missing accessible name",
+        "element": {
+          "href": "https://play.google.com/store/apps/details?id=com.fitnesskeeper.runkeeper.pro&hl=en_CA",
+          "text": "",
+          "ariaLabel": "",
+          "ariaLabelledBy": "",
+          "title": "",
+          "hasAccessibleName": false,
+          "isGeneric": false
+        },
+        "severity": "critical"
+      },
+      {
+        "type": "form-missing-label",
+        "message": "Form select missing accessible name",
+        "element": {
+          "tagName": "SELECT",
+          "type": "select-one",
+          "id": "",
+          "name": "",
+          "hasExplicitLabel": false,
+          "hasAriaLabel": false,
+          "hasAriaLabelledBy": false,
+          "hasAccessibleName": false,
+          "required": false,
+          "hasErrorDescription": false,
+          "hasPlaceholder": false,
+          "placeholder": ""
+        },
+        "severity": "critical"
+      },
+      {
+        "type": "form-missing-label",
+        "message": "Form input missing accessible name",
+        "element": {
+          "tagName": "INPUT",
+          "type": "text",
+          "id": "s",
+          "name": "s",
+          "hasExplicitLabel": false,
+          "hasAriaLabel": false,
+          "hasAriaLabelledBy": false,
+          "hasAccessibleName": false,
+          "required": false,
+          "hasErrorDescription": false,
+          "hasPlaceholder": true,
+          "placeholder": "search"
+        },
+        "severity": "critical"
+      },
+      {
+        "type": "placeholder-only-label",
+        "message": "Form field relies only on placeholder text for labeling",
+        "element": {
+          "tagName": "INPUT",
+          "type": "text",
+          "id": "s",
+          "name": "s",
+          "hasExplicitLabel": false,
+          "hasAriaLabel": false,
+          "hasAriaLabelledBy": false,
+          "hasAccessibleName": false,
+          "required": false,
+          "hasErrorDescription": false,
+          "hasPlaceholder": true,
+          "placeholder": "search"
+        },
+        "severity": "serious"
+      },
+      {
+        "type": "form-missing-label",
+        "message": "Form select missing accessible name",
+        "element": {
+          "tagName": "SELECT",
+          "type": "select-one",
+          "id": "",
+          "name": "",
+          "hasExplicitLabel": false,
+          "hasAriaLabel": false,
+          "hasAriaLabelledBy": false,
+          "hasAccessibleName": false,
+          "required": false,
+          "hasErrorDescription": false,
+          "hasPlaceholder": false,
+          "placeholder": ""
+        },
+        "severity": "critical"
+      },
+      {
+        "type": "form-missing-label",
+        "message": "Form input missing accessible name",
+        "element": {
+          "tagName": "INPUT",
+          "type": "text",
+          "id": "s",
+          "name": "s",
+          "hasExplicitLabel": false,
+          "hasAriaLabel": false,
+          "hasAriaLabelledBy": false,
+          "hasAccessibleName": false,
+          "required": false,
+          "hasErrorDescription": false,
+          "hasPlaceholder": true,
+          "placeholder": "search"
+        },
+        "severity": "critical"
+      },
+      {
+        "type": "placeholder-only-label",
+        "message": "Form field relies only on placeholder text for labeling",
+        "element": {
+          "tagName": "INPUT",
+          "type": "text",
+          "id": "s",
+          "name": "s",
+          "hasExplicitLabel": false,
+          "hasAriaLabel": false,
+          "hasAriaLabelledBy": false,
+          "hasAccessibleName": false,
+          "required": false,
+          "hasErrorDescription": false,
+          "hasPlaceholder": true,
+          "placeholder": "search"
+        },
+        "severity": "serious"
+      },
+      {
+        "type": "form-missing-label",
+        "message": "Form input missing accessible name",
+        "element": {
+          "tagName": "INPUT",
+          "type": "range",
+          "id": "",
+          "name": "",
+          "hasExplicitLabel": false,
+          "hasAriaLabel": false,
+          "hasAriaLabelledBy": false,
+          "hasAccessibleName": false,
+          "required": false,
+          "hasErrorDescription": false,
+          "hasPlaceholder": false,
+          "placeholder": ""
+        },
+        "severity": "critical"
+      },
+      {
+        "type": "form-missing-label",
+        "message": "Form input missing accessible name",
+        "element": {
+          "tagName": "INPUT",
+          "type": "range",
+          "id": "",
+          "name": "",
+          "hasExplicitLabel": false,
+          "hasAriaLabel": false,
+          "hasAriaLabelledBy": false,
+          "hasAccessibleName": false,
+          "required": false,
+          "hasErrorDescription": false,
+          "hasPlaceholder": false,
+          "placeholder": ""
+        },
+        "severity": "critical"
+      },
+      {
+        "type": "image-missing-alt",
+        "message": "Image missing alt attribute",
+        "element": {
+          "src": "https://runkeeper.com/cms/wp-content/uploads/sites/4/2023/01/homepage-journey-2.gif",
+          "alt": "",
+          "hasAlt": false,
+          "isEmpty": true,
+          "isDecorative": false,
+          "role": "",
+          "ariaLabel": "",
+          "ariaLabelledBy": "",
+          "ariaHidden": ""
+        },
+        "severity": "serious"
+      },
+      {
+        "type": "image-missing-alt",
+        "message": "Image missing alt attribute",
+        "element": {
+          "src": "https://runkeeper.com/cms/wp-content/uploads/sites/4/2023/01/homepage-raceplan-1.gif",
+          "alt": "",
+          "hasAlt": false,
+          "isEmpty": true,
+          "isDecorative": false,
+          "role": "",
+          "ariaLabel": "",
+          "ariaLabelledBy": "",
+          "ariaHidden": ""
+        },
+        "severity": "serious"
+      },
+      {
+        "type": "link-missing-accessible-name",
+        "message": "Link missing accessible name",
+        "element": {
+          "href": "https://runkeeper.com/cms/",
+          "text": "",
+          "ariaLabel": "",
+          "ariaLabelledBy": "",
+          "title": "",
+          "hasAccessibleName": false,
+          "isGeneric": false
+        },
+        "severity": "critical"
+      },
+      {
+        "type": "generic-link-text",
+        "message": "Link has generic text: \"Read More\"",
+        "element": {
+          "href": "https://runkeeper.com/cms/stories/embrace-lifes-detour-a-runners-diary/",
+          "text": "Read More",
+          "ariaLabel": "",
+          "ariaLabelledBy": "",
+          "title": "",
+          "hasAccessibleName": true,
+          "isGeneric": true
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "link-missing-accessible-name",
+        "message": "Link missing accessible name",
+        "element": {
+          "href": "https://runkeeper.com/cms",
+          "text": "",
+          "ariaLabel": "",
+          "ariaLabelledBy": "",
+          "title": "",
+          "hasAccessibleName": false,
+          "isGeneric": false
+        },
+        "severity": "critical"
+      },
+      {
+        "type": "link-missing-accessible-name",
+        "message": "Link missing accessible name",
+        "element": {
+          "href": "https://apps.apple.com/us/app/runkeeper-gps-running-tracker/id300235330",
+          "text": "",
+          "ariaLabel": "",
+          "ariaLabelledBy": "",
+          "title": "",
+          "hasAccessibleName": false,
+          "isGeneric": false
+        },
+        "severity": "critical"
+      },
+      {
+        "type": "link-missing-accessible-name",
+        "message": "Link missing accessible name",
+        "element": {
+          "href": "https://play.google.com/store/apps/details?id=com.fitnesskeeper.runkeeper.pro&hl=en_CA",
+          "text": "",
+          "ariaLabel": "",
+          "ariaLabelledBy": "",
+          "title": "",
+          "hasAccessibleName": false,
+          "isGeneric": false
+        },
+        "severity": "critical"
+      },
+      {
+        "type": "form-missing-label",
+        "message": "Form select missing accessible name",
+        "element": {
+          "tagName": "SELECT",
+          "type": "select-one",
+          "id": "",
+          "name": "",
+          "hasExplicitLabel": false,
+          "hasAriaLabel": false,
+          "hasAriaLabelledBy": false,
+          "hasAccessibleName": false,
+          "required": false,
+          "hasErrorDescription": false,
+          "hasPlaceholder": false,
+          "placeholder": ""
+        },
+        "severity": "critical"
+      },
+      {
+        "type": "form-missing-label",
+        "message": "Form input missing accessible name",
+        "element": {
+          "tagName": "INPUT",
+          "type": "text",
+          "id": "s",
+          "name": "s",
+          "hasExplicitLabel": false,
+          "hasAriaLabel": false,
+          "hasAriaLabelledBy": false,
+          "hasAccessibleName": false,
+          "required": false,
+          "hasErrorDescription": false,
+          "hasPlaceholder": true,
+          "placeholder": "search"
+        },
+        "severity": "critical"
+      },
+      {
+        "type": "placeholder-only-label",
+        "message": "Form field relies only on placeholder text for labeling",
+        "element": {
+          "tagName": "INPUT",
+          "type": "text",
+          "id": "s",
+          "name": "s",
+          "hasExplicitLabel": false,
+          "hasAriaLabel": false,
+          "hasAriaLabelledBy": false,
+          "hasAccessibleName": false,
+          "required": false,
+          "hasErrorDescription": false,
+          "hasPlaceholder": true,
+          "placeholder": "search"
+        },
+        "severity": "serious"
+      },
+      {
+        "type": "form-missing-label",
+        "message": "Form select missing accessible name",
+        "element": {
+          "tagName": "SELECT",
+          "type": "select-one",
+          "id": "",
+          "name": "",
+          "hasExplicitLabel": false,
+          "hasAriaLabel": false,
+          "hasAriaLabelledBy": false,
+          "hasAccessibleName": false,
+          "required": false,
+          "hasErrorDescription": false,
+          "hasPlaceholder": false,
+          "placeholder": ""
+        },
+        "severity": "critical"
+      },
+      {
+        "type": "form-missing-label",
+        "message": "Form input missing accessible name",
+        "element": {
+          "tagName": "INPUT",
+          "type": "text",
+          "id": "s",
+          "name": "s",
+          "hasExplicitLabel": false,
+          "hasAriaLabel": false,
+          "hasAriaLabelledBy": false,
+          "hasAccessibleName": false,
+          "required": false,
+          "hasErrorDescription": false,
+          "hasPlaceholder": true,
+          "placeholder": "search"
+        },
+        "severity": "critical"
+      },
+      {
+        "type": "placeholder-only-label",
+        "message": "Form field relies only on placeholder text for labeling",
+        "element": {
+          "tagName": "INPUT",
+          "type": "text",
+          "id": "s",
+          "name": "s",
+          "hasExplicitLabel": false,
+          "hasAriaLabel": false,
+          "hasAriaLabelledBy": false,
+          "hasAccessibleName": false,
+          "required": false,
+          "hasErrorDescription": false,
+          "hasPlaceholder": true,
+          "placeholder": "search"
+        },
+        "severity": "serious"
+      },
+      {
+        "type": "form-missing-label",
+        "message": "Form input missing accessible name",
+        "element": {
+          "tagName": "INPUT",
+          "type": "range",
+          "id": "",
+          "name": "",
+          "hasExplicitLabel": false,
+          "hasAriaLabel": false,
+          "hasAriaLabelledBy": false,
+          "hasAccessibleName": false,
+          "required": false,
+          "hasErrorDescription": false,
+          "hasPlaceholder": false,
+          "placeholder": ""
+        },
+        "severity": "critical"
+      },
+      {
+        "type": "form-missing-label",
+        "message": "Form input missing accessible name",
+        "element": {
+          "tagName": "INPUT",
+          "type": "range",
+          "id": "",
+          "name": "",
+          "hasExplicitLabel": false,
+          "hasAriaLabel": false,
+          "hasAriaLabelledBy": false,
+          "hasAccessibleName": false,
+          "required": false,
+          "hasErrorDescription": false,
+          "hasPlaceholder": false,
+          "placeholder": ""
+        },
+        "severity": "critical"
+      },
+      {
+        "type": "image-missing-alt",
+        "message": "Image missing alt attribute",
+        "element": {
+          "src": "https://runkeeper.com/cms/wp-content/uploads/sites/4/2023/01/homepage-journey-2.gif",
+          "alt": "",
+          "hasAlt": false,
+          "isEmpty": true,
+          "isDecorative": false,
+          "role": "",
+          "ariaLabel": "",
+          "ariaLabelledBy": "",
+          "ariaHidden": ""
+        },
+        "severity": "serious"
+      },
+      {
+        "type": "image-missing-alt",
+        "message": "Image missing alt attribute",
+        "element": {
+          "src": "https://runkeeper.com/cms/wp-content/uploads/sites/4/2023/01/homepage-raceplan-1.gif",
+          "alt": "",
+          "hasAlt": false,
+          "isEmpty": true,
+          "isDecorative": false,
+          "role": "",
+          "ariaLabel": "",
+          "ariaLabelledBy": "",
+          "ariaHidden": ""
+        },
+        "severity": "serious"
+      },
+      {
+        "type": "link-missing-accessible-name",
+        "message": "Link missing accessible name",
+        "element": {
+          "href": "https://runkeeper.com/cms/",
+          "text": "",
+          "ariaLabel": "",
+          "ariaLabelledBy": "",
+          "title": "",
+          "hasAccessibleName": false,
+          "isGeneric": false
+        },
+        "severity": "critical"
+      },
+      {
+        "type": "generic-link-text",
+        "message": "Link has generic text: \"Read More\"",
+        "element": {
+          "href": "https://runkeeper.com/cms/stories/embrace-lifes-detour-a-runners-diary/",
+          "text": "Read More",
+          "ariaLabel": "",
+          "ariaLabelledBy": "",
+          "title": "",
+          "hasAccessibleName": true,
+          "isGeneric": true
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "link-missing-accessible-name",
+        "message": "Link missing accessible name",
+        "element": {
+          "href": "https://runkeeper.com/cms",
+          "text": "",
+          "ariaLabel": "",
+          "ariaLabelledBy": "",
+          "title": "",
+          "hasAccessibleName": false,
+          "isGeneric": false
+        },
+        "severity": "critical"
+      },
+      {
+        "type": "link-missing-accessible-name",
+        "message": "Link missing accessible name",
+        "element": {
+          "href": "https://apps.apple.com/us/app/runkeeper-gps-running-tracker/id300235330",
+          "text": "",
+          "ariaLabel": "",
+          "ariaLabelledBy": "",
+          "title": "",
+          "hasAccessibleName": false,
+          "isGeneric": false
+        },
+        "severity": "critical"
+      },
+      {
+        "type": "link-missing-accessible-name",
+        "message": "Link missing accessible name",
+        "element": {
+          "href": "https://play.google.com/store/apps/details?id=com.fitnesskeeper.runkeeper.pro&hl=en_CA",
+          "text": "",
+          "ariaLabel": "",
+          "ariaLabelledBy": "",
+          "title": "",
+          "hasAccessibleName": false,
+          "isGeneric": false
+        },
+        "severity": "critical"
+      }
+    ],
+    "details": {
+      "message": "Screen reader accessibility test completed",
+      "testMethod": "automated-screen-reader",
+      "url": "https://runkeeper.com",
+      "summary": {
+        "totalBrowsers": 3,
+        "totalViolations": 45,
+        "totalElements": 141,
+        "totalLandmarks": 54,
+        "totalHeadings": 93,
+        "overallPassed": false
+      }
+    }
+  },
+  "fileName": "test-screen-reader-test-run-1751022307627-1751022307627-vnscrc8pm.json",
+  "summary": {
+    "tool": "screen-reader",
+    "violations": 45,
+    "passes": 96,
+    "warnings": 0,
+    "status": "fail",
+    "critical": true
+  }
+}

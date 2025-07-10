@@ -1,0 +1,44 @@
+{
+  "testType": "test:screen-reader",
+  "url": "https://runkeeper.com",
+  "pageTitle": "No title",
+  "timestamp": "2025-06-27T11:05:24.186Z",
+  "batchId": "site-test-1751022296375",
+  "jobId": "job-1751022302758-vnq48y7y5",
+  "executionInfo": {
+    "startTime": "2025-06-27T11:05:02.758Z",
+    "endTime": "2025-06-27T11:05:24.186Z",
+    "duration": 0,
+    "status": "completed"
+  },
+  "result": {
+    "tool": "screen-reader",
+    "violations": 45,
+    "passes": 96,
+    "details": {
+      "message": "Screen reader accessibility test completed",
+      "testMethod": "automated-screen-reader",
+      "url": "https://runkeeper.com",
+      "summary": {
+        "totalBrowsers": 3,
+        "totalViolations": 45,
+        "totalElements": 141,
+        "totalLandmarks": 54,
+        "totalHeadings": 93,
+        "overallPassed": false
+      }
+    }
+  },
+  "summary": {
+    "violations": 45,
+    "passed": 0,
+    "incomplete": 0,
+    "inapplicable": 0,
+    "successRate": 0
+  },
+  "metadata": {
+    "tool": "screen-reader",
+    "version": "1.0.0",
+    "generatedBy": "dashboard-backend-job-queue"
+  }
+}

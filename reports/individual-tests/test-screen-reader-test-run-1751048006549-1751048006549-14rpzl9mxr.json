@@ -1,0 +1,340 @@
+{
+  "testType": "test:screen-reader",
+  "status": "completed",
+  "startTime": "2025-06-27T18:13:26.549Z",
+  "endTime": "2025-06-27T18:13:36.717Z",
+  "duration": 10168,
+  "url": "https://run-analysis.onrender.com/login",
+  "result": {
+    "tool": "screen-reader",
+    "violations": 21,
+    "passes": -15,
+    "detailedViolations": [
+      {
+        "type": "heading-hierarchy-skip",
+        "message": "Heading level skips from 0 to 2",
+        "element": {
+          "element": "H2",
+          "level": 2,
+          "text": "Welcome Back",
+          "index": 0,
+          "isValid": false,
+          "skip": 1,
+          "id": "",
+          "className": ""
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "missing-h1",
+        "message": "Page has headings but no h1 element",
+        "severity": "moderate"
+      },
+      {
+        "type": "missing-main-landmark",
+        "message": "Page missing main landmark",
+        "severity": "serious"
+      },
+      {
+        "type": "form-missing-label",
+        "message": "Form input missing accessible name",
+        "element": {
+          "tagName": "INPUT",
+          "type": "text",
+          "id": "",
+          "name": "",
+          "hasExplicitLabel": false,
+          "hasAriaLabel": false,
+          "hasAriaLabelledBy": false,
+          "hasAccessibleName": false,
+          "required": true,
+          "hasErrorDescription": false,
+          "hasPlaceholder": false,
+          "placeholder": ""
+        },
+        "severity": "critical"
+      },
+      {
+        "type": "required-field-missing-description",
+        "message": "Required field missing aria-describedby for error handling",
+        "element": {
+          "tagName": "INPUT",
+          "type": "text",
+          "id": "",
+          "name": "",
+          "hasExplicitLabel": false,
+          "hasAriaLabel": false,
+          "hasAriaLabelledBy": false,
+          "hasAccessibleName": false,
+          "required": true,
+          "hasErrorDescription": false,
+          "hasPlaceholder": false,
+          "placeholder": ""
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "form-missing-label",
+        "message": "Form input missing accessible name",
+        "element": {
+          "tagName": "INPUT",
+          "type": "password",
+          "id": "",
+          "name": "",
+          "hasExplicitLabel": false,
+          "hasAriaLabel": false,
+          "hasAriaLabelledBy": false,
+          "hasAccessibleName": false,
+          "required": true,
+          "hasErrorDescription": false,
+          "hasPlaceholder": false,
+          "placeholder": ""
+        },
+        "severity": "critical"
+      },
+      {
+        "type": "required-field-missing-description",
+        "message": "Required field missing aria-describedby for error handling",
+        "element": {
+          "tagName": "INPUT",
+          "type": "password",
+          "id": "",
+          "name": "",
+          "hasExplicitLabel": false,
+          "hasAriaLabel": false,
+          "hasAriaLabelledBy": false,
+          "hasAccessibleName": false,
+          "required": true,
+          "hasErrorDescription": false,
+          "hasPlaceholder": false,
+          "placeholder": ""
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "heading-hierarchy-skip",
+        "message": "Heading level skips from 0 to 2",
+        "element": {
+          "element": "H2",
+          "level": 2,
+          "text": "Welcome Back",
+          "index": 0,
+          "isValid": false,
+          "skip": 1,
+          "id": "",
+          "className": ""
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "missing-h1",
+        "message": "Page has headings but no h1 element",
+        "severity": "moderate"
+      },
+      {
+        "type": "missing-main-landmark",
+        "message": "Page missing main landmark",
+        "severity": "serious"
+      },
+      {
+        "type": "form-missing-label",
+        "message": "Form input missing accessible name",
+        "element": {
+          "tagName": "INPUT",
+          "type": "text",
+          "id": "",
+          "name": "",
+          "hasExplicitLabel": false,
+          "hasAriaLabel": false,
+          "hasAriaLabelledBy": false,
+          "hasAccessibleName": false,
+          "required": true,
+          "hasErrorDescription": false,
+          "hasPlaceholder": false,
+          "placeholder": ""
+        },
+        "severity": "critical"
+      },
+      {
+        "type": "required-field-missing-description",
+        "message": "Required field missing aria-describedby for error handling",
+        "element": {
+          "tagName": "INPUT",
+          "type": "text",
+          "id": "",
+          "name": "",
+          "hasExplicitLabel": false,
+          "hasAriaLabel": false,
+          "hasAriaLabelledBy": false,
+          "hasAccessibleName": false,
+          "required": true,
+          "hasErrorDescription": false,
+          "hasPlaceholder": false,
+          "placeholder": ""
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "form-missing-label",
+        "message": "Form input missing accessible name",
+        "element": {
+          "tagName": "INPUT",
+          "type": "password",
+          "id": "",
+          "name": "",
+          "hasExplicitLabel": false,
+          "hasAriaLabel": false,
+          "hasAriaLabelledBy": false,
+          "hasAccessibleName": false,
+          "required": true,
+          "hasErrorDescription": false,
+          "hasPlaceholder": false,
+          "placeholder": ""
+        },
+        "severity": "critical"
+      },
+      {
+        "type": "required-field-missing-description",
+        "message": "Required field missing aria-describedby for error handling",
+        "element": {
+          "tagName": "INPUT",
+          "type": "password",
+          "id": "",
+          "name": "",
+          "hasExplicitLabel": false,
+          "hasAriaLabel": false,
+          "hasAriaLabelledBy": false,
+          "hasAccessibleName": false,
+          "required": true,
+          "hasErrorDescription": false,
+          "hasPlaceholder": false,
+          "placeholder": ""
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "heading-hierarchy-skip",
+        "message": "Heading level skips from 0 to 2",
+        "element": {
+          "element": "H2",
+          "level": 2,
+          "text": "Welcome Back",
+          "index": 0,
+          "isValid": false,
+          "skip": 1,
+          "id": "",
+          "className": ""
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "missing-h1",
+        "message": "Page has headings but no h1 element",
+        "severity": "moderate"
+      },
+      {
+        "type": "missing-main-landmark",
+        "message": "Page missing main landmark",
+        "severity": "serious"
+      },
+      {
+        "type": "form-missing-label",
+        "message": "Form input missing accessible name",
+        "element": {
+          "tagName": "INPUT",
+          "type": "text",
+          "id": "",
+          "name": "",
+          "hasExplicitLabel": false,
+          "hasAriaLabel": false,
+          "hasAriaLabelledBy": false,
+          "hasAccessibleName": false,
+          "required": true,
+          "hasErrorDescription": false,
+          "hasPlaceholder": false,
+          "placeholder": ""
+        },
+        "severity": "critical"
+      },
+      {
+        "type": "required-field-missing-description",
+        "message": "Required field missing aria-describedby for error handling",
+        "element": {
+          "tagName": "INPUT",
+          "type": "text",
+          "id": "",
+          "name": "",
+          "hasExplicitLabel": false,
+          "hasAriaLabel": false,
+          "hasAriaLabelledBy": false,
+          "hasAccessibleName": false,
+          "required": true,
+          "hasErrorDescription": false,
+          "hasPlaceholder": false,
+          "placeholder": ""
+        },
+        "severity": "moderate"
+      },
+      {
+        "type": "form-missing-label",
+        "message": "Form input missing accessible name",
+        "element": {
+          "tagName": "INPUT",
+          "type": "password",
+          "id": "",
+          "name": "",
+          "hasExplicitLabel": false,
+          "hasAriaLabel": false,
+          "hasAriaLabelledBy": false,
+          "hasAccessibleName": false,
+          "required": true,
+          "hasErrorDescription": false,
+          "hasPlaceholder": false,
+          "placeholder": ""
+        },
+        "severity": "critical"
+      },
+      {
+        "type": "required-field-missing-description",
+        "message": "Required field missing aria-describedby for error handling",
+        "element": {
+          "tagName": "INPUT",
+          "type": "password",
+          "id": "",
+          "name": "",
+          "hasExplicitLabel": false,
+          "hasAriaLabel": false,
+          "hasAriaLabelledBy": false,
+          "hasAccessibleName": false,
+          "required": true,
+          "hasErrorDescription": false,
+          "hasPlaceholder": false,
+          "placeholder": ""
+        },
+        "severity": "moderate"
+      }
+    ],
+    "details": {
+      "message": "Screen reader accessibility test completed",
+      "testMethod": "automated-screen-reader",
+      "url": "https://run-analysis.onrender.com/login",
+      "summary": {
+        "totalBrowsers": 3,
+        "totalViolations": 21,
+        "totalElements": 6,
+        "totalLandmarks": 0,
+        "totalHeadings": 3,
+        "overallPassed": false
+      }
+    }
+  },
+  "fileName": "test-screen-reader-test-run-1751048006549-1751048006549-14rpzl9mxr.json",
+  "summary": {
+    "tool": "screen-reader",
+    "violations": 21,
+    "passes": -15,
+    "warnings": 0,
+    "status": "fail",
+    "critical": true
+  }
+}

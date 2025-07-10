@@ -1,0 +1,205 @@
+{
+  "testRunId": "test-run-1750866865623-wav4hc8ah2",
+  "startTime": "2025-06-25T15:54:25.624Z",
+  "url": "https://example.com",
+  "testTypes": [
+    "a11y:axe",
+    "a11y:pa11y",
+    "test:keyboard",
+    "test:form"
+  ],
+  "tests": [
+    {
+      "testType": "a11y:axe",
+      "status": "completed",
+      "startTime": "2025-06-25T15:54:25.707Z",
+      "endTime": "2025-06-25T15:54:25.708Z",
+      "duration": 1,
+      "url": "https://example.com",
+      "result": {
+        "tool": "axe-core",
+        "violations": 1,
+        "passes": 24,
+        "details": {
+          "message": "Simulated axe test (no axe script found)"
+        }
+      },
+      "fileName": "a11y-axe-test-run-1750866865623-wav4hc8ah2.json",
+      "summary": {
+        "tool": "axe-core",
+        "violations": 1,
+        "passes": 24,
+        "warnings": 0,
+        "status": "fail",
+        "critical": false
+      }
+    },
+    {
+      "testType": "a11y:pa11y",
+      "status": "completed",
+      "startTime": "2025-06-25T15:54:25.713Z",
+      "endTime": "2025-06-25T15:54:25.740Z",
+      "duration": 27,
+      "url": "https://example.com",
+      "result": {
+        "tool": "pa11y",
+        "violations": 2,
+        "warnings": 0,
+        "details": {
+          "message": "Simulated pa11y test (pa11y not available)"
+        }
+      },
+      "fileName": "a11y-pa11y-test-run-1750866865623-wav4hc8ah2.json",
+      "summary": {
+        "tool": "pa11y",
+        "violations": 2,
+        "passes": 0,
+        "warnings": 0,
+        "status": "fail",
+        "critical": false
+      }
+    },
+    {
+      "testType": "test:keyboard",
+      "status": "completed",
+      "startTime": "2025-06-25T15:54:25.742Z",
+      "endTime": "2025-06-25T15:54:25.743Z",
+      "duration": 1,
+      "url": "https://example.com",
+      "result": {
+        "tool": "keyboard-navigation",
+        "violations": 0,
+        "details": {
+          "message": "Keyboard navigation test completed",
+          "focusableElements": 7
+        }
+      },
+      "fileName": "test-keyboard-test-run-1750866865623-wav4hc8ah2.json",
+      "summary": {
+        "tool": "keyboard-navigation",
+        "violations": 0,
+        "passes": 0,
+        "warnings": 0,
+        "status": "pass",
+        "critical": false
+      }
+    },
+    {
+      "testType": "test:form",
+      "status": "completed",
+      "startTime": "2025-06-25T15:54:25.744Z",
+      "endTime": "2025-06-25T15:54:25.744Z",
+      "duration": 0,
+      "url": "https://example.com",
+      "result": {
+        "tool": "form-accessibility",
+        "violations": 2,
+        "details": {
+          "message": "Form accessibility test completed",
+          "formsFound": 0
+        }
+      },
+      "fileName": "test-form-test-run-1750866865623-wav4hc8ah2.json",
+      "summary": {
+        "tool": "form-accessibility",
+        "violations": 2,
+        "passes": 0,
+        "warnings": 0,
+        "status": "fail",
+        "critical": false
+      }
+    }
+  ],
+  "summary": {
+    "totalTests": 4,
+    "completedTests": 4,
+    "failedTests": 0,
+    "totalViolations": 5,
+    "totalPasses": 24,
+    "criticalIssues": 0,
+    "wcagComplianceScore": 75,
+    "overallStatus": "fail",
+    "testCoverage": 100,
+    "duration": 122,
+    "completedAt": "2025-06-25T15:54:25.746Z"
+  },
+  "recommendations": [
+    {
+      "priority": "medium",
+      "category": "a11y:axe",
+      "title": "Fix Axe-core Violations",
+      "description": "Found 1 accessibility violations that need attention.",
+      "actions": [
+        "Review detailed axe-core violations in the test results",
+        "Prioritize high and critical impact issues",
+        "Use browser extensions for real-time axe testing"
+      ]
+    },
+    {
+      "priority": "medium",
+      "category": "a11y:pa11y",
+      "title": "Address Pa11y Issues",
+      "description": "Pa11y found 2 accessibility issues.",
+      "actions": [
+        "Review pa11y error details for specific fixes",
+        "Focus on WCAG 2.1 AA compliance issues",
+        "Test with different screen readers"
+      ]
+    },
+    {
+      "priority": "medium",
+      "category": "test:form",
+      "title": "Enhance Form Accessibility",
+      "description": "Form accessibility issues detected (2 violations).",
+      "actions": [
+        "Add proper labels to all form controls",
+        "Implement clear error messaging",
+        "Provide form instructions and help text"
+      ]
+    }
+  ],
+  "files": [
+    {
+      "type": "individual-test",
+      "fileName": "a11y-axe-test-run-1750866865623-wav4hc8ah2.json",
+      "filePath": "/Users/johnhoinville/Desktop/vpat-reporting/reports/individual-tests/a11y-axe-test-run-1750866865623-wav4hc8ah2.json",
+      "testType": "a11y:axe",
+      "size": 562
+    },
+    {
+      "type": "individual-test",
+      "fileName": "a11y-pa11y-test-run-1750866865623-wav4hc8ah2.json",
+      "filePath": "/Users/johnhoinville/Desktop/vpat-reporting/reports/individual-tests/a11y-pa11y-test-run-1750866865623-wav4hc8ah2.json",
+      "testType": "a11y:pa11y",
+      "size": 563
+    },
+    {
+      "type": "individual-test",
+      "fileName": "test-keyboard-test-run-1750866865623-wav4hc8ah2.json",
+      "filePath": "/Users/johnhoinville/Desktop/vpat-reporting/reports/individual-tests/test-keyboard-test-run-1750866865623-wav4hc8ah2.json",
+      "testType": "test:keyboard",
+      "size": 599
+    },
+    {
+      "type": "individual-test",
+      "fileName": "test-form-test-run-1750866865623-wav4hc8ah2.json",
+      "filePath": "/Users/johnhoinville/Desktop/vpat-reporting/reports/individual-tests/test-form-test-run-1750866865623-wav4hc8ah2.json",
+      "testType": "test:form",
+      "size": 581
+    },
+    {
+      "type": "consolidated-report",
+      "fileName": "consolidated-report-test-run-1750866865623-wav4hc8ah2.json",
+      "filePath": "/Users/johnhoinville/Desktop/vpat-reporting/reports/consolidated-reports/consolidated-report-test-run-1750866865623-wav4hc8ah2.json",
+      "format": "json",
+      "size": 5764
+    },
+    {
+      "type": "consolidated-report",
+      "fileName": "consolidated-report-test-run-1750866865623-wav4hc8ah2.html",
+      "filePath": "/Users/johnhoinville/Desktop/vpat-reporting/reports/consolidated-reports/consolidated-report-test-run-1750866865623-wav4hc8ah2.html",
+      "format": "html",
+      "size": 8166
+    }
+  ]
+}

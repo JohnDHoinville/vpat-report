@@ -1,0 +1,47 @@
+{
+  "testType": "test:form",
+  "url": "run-analysis.onrender.com",
+  "pageTitle": "Single Page Test",
+  "timestamp": "2025-06-28T11:11:14.038Z",
+  "batchId": "site-test-1751109059925",
+  "jobId": "job-1751109065348-1qev7iqdzz",
+  "executionInfo": {
+    "startTime": "2025-06-28T11:11:05.348Z",
+    "endTime": "2025-06-28T11:11:14.038Z",
+    "duration": 0,
+    "status": "completed"
+  },
+  "result": {
+    "tool": "form-accessibility",
+    "violations": 3,
+    "details": {
+      "message": "Form accessibility test completed",
+      "totalFormElements": 0,
+      "labeledElements": 0,
+      "unlabeledElements": 0,
+      "requiredFields": 0,
+      "summary": {
+        "totalBrowsers": 3,
+        "totalViolations": 3,
+        "totalFormElements": 0,
+        "totalLabeledElements": 0,
+        "totalUnlabeledElements": 0,
+        "totalRequiredFields": 0,
+        "totalFieldsWithErrorHandling": 0,
+        "overallPassed": false
+      }
+    }
+  },
+  "summary": {
+    "violations": 3,
+    "passed": 0,
+    "incomplete": 0,
+    "inapplicable": 0,
+    "successRate": 0
+  },
+  "metadata": {
+    "tool": "form-accessibility",
+    "version": "1.0.0",
+    "generatedBy": "dashboard-backend-job-queue"
+  }
+}

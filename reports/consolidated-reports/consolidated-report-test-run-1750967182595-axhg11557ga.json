@@ -1,0 +1,379 @@
+{
+  "testRunId": "test-run-1750967182595-axhg11557ga",
+  "generatedAt": "2025-06-26T19:46:39.359Z",
+  "url": "https://httpbin.org/forms/post",
+  "summary": {
+    "totalTests": 4,
+    "completedTests": 4,
+    "failedTests": 0,
+    "totalViolations": 8,
+    "totalPasses": 15,
+    "criticalIssues": 0,
+    "wcagComplianceScore": 60,
+    "overallStatus": "fail",
+    "testCoverage": 100,
+    "duration": 16764,
+    "completedAt": "2025-06-26T19:46:39.359Z"
+  },
+  "tests": [
+    {
+      "testType": "a11y:axe",
+      "status": "completed",
+      "startTime": "2025-06-26T19:46:22.628Z",
+      "endTime": "2025-06-26T19:46:22.629Z",
+      "duration": 1,
+      "url": "https://httpbin.org/forms/post",
+      "result": {
+        "tool": "axe-core",
+        "violations": 3,
+        "passes": 15,
+        "detailedViolations": [
+          {
+            "id": "color-contrast-1",
+            "impact": "serious",
+            "wcagTags": [
+              "2.1.4",
+              "2.1.AA"
+            ],
+            "description": "Elements must have sufficient color contrast",
+            "helpUrl": "https://dequeuniversity.com/rules/axe/4.4/color-contrast",
+            "selector": "button.btn-primary",
+            "message": "Element has insufficient color contrast ratio of 2.34 (foreground color: #ffffff, background color: #007bff, font size: 14px, font weight: normal). Expected contrast ratio of 4.5:1",
+            "remediation": {
+              "summary": "Ensure text has adequate contrast against background",
+              "steps": [
+                "Use a darker blue background color (e.g., #0056b3)",
+                "Increase font weight to bold",
+                "Use a color contrast checker tool",
+                "Test with different browser zoom levels"
+              ],
+              "priority": "high"
+            },
+            "node": {
+              "target": [
+                "button.btn-primary"
+              ],
+              "html": "<button class=\"btn btn-primary\">Submit</button>",
+              "impact": "serious"
+            }
+          },
+          {
+            "id": "button-name-2",
+            "impact": "critical",
+            "wcagTags": [
+              "4.1.2",
+              "4.1.A"
+            ],
+            "description": "Buttons must have discernible text",
+            "helpUrl": "https://dequeuniversity.com/rules/axe/4.4/button-name",
+            "selector": "button:nth-child(3)",
+            "message": "Element does not have an accessible name",
+            "remediation": {
+              "summary": "Provide accessible text for buttons",
+              "steps": [
+                "Add descriptive text content to button",
+                "Use aria-label attribute",
+                "Use aria-labelledby to reference other elements",
+                "Include screen reader only text with sr-only class"
+              ],
+              "priority": "critical"
+            },
+            "node": {
+              "target": [
+                "button:nth-child(3)"
+              ],
+              "html": "<button></button>",
+              "impact": "critical"
+            }
+          },
+          {
+            "id": "image-alt-3",
+            "impact": "critical",
+            "wcagTags": [
+              "1.1.1",
+              "1.1.A"
+            ],
+            "description": "Images must have alternate text",
+            "helpUrl": "https://dequeuniversity.com/rules/axe/4.4/image-alt",
+            "selector": "img[src=\"/logo.png\"]",
+            "message": "Image element missing alternative text",
+            "remediation": {
+              "summary": "Add meaningful alternative text to images",
+              "steps": [
+                "Add alt attribute with descriptive text",
+                "Use empty alt=\"\" for decorative images",
+                "Consider context and purpose of image",
+                "Keep alt text concise but descriptive"
+              ],
+              "priority": "critical"
+            },
+            "node": {
+              "target": [
+                "img[src=\"/logo.png\"]"
+              ],
+              "html": "<img src=\"/logo.png\">",
+              "impact": "critical"
+            }
+          }
+        ],
+        "wcagMapping": {},
+        "details": {
+          "message": "Enhanced simulated axe test with detailed violations",
+          "testMethod": "automated-simulation"
+        }
+      },
+      "fileName": "a11y-axe-test-run-1750967182595-axhg11557ga.json",
+      "summary": {
+        "tool": "axe-core",
+        "violations": 3,
+        "passes": 15,
+        "warnings": 0,
+        "status": "fail",
+        "critical": false
+      }
+    },
+    {
+      "testType": "a11y:pa11y",
+      "status": "completed",
+      "startTime": "2025-06-26T19:46:22.631Z",
+      "endTime": "2025-06-26T19:46:22.655Z",
+      "duration": 24,
+      "url": "https://httpbin.org/forms/post",
+      "result": {
+        "tool": "pa11y",
+        "violations": 2,
+        "warnings": 0,
+        "details": {
+          "message": "Simulated pa11y test (pa11y not available)"
+        }
+      },
+      "fileName": "a11y-pa11y-test-run-1750967182595-axhg11557ga.json",
+      "summary": {
+        "tool": "pa11y",
+        "violations": 2,
+        "passes": 0,
+        "warnings": 0,
+        "status": "fail",
+        "critical": false
+      }
+    },
+    {
+      "testType": "test:keyboard",
+      "status": "completed",
+      "startTime": "2025-06-26T19:46:22.656Z",
+      "endTime": "2025-06-26T19:46:29.078Z",
+      "duration": 6422,
+      "url": "https://httpbin.org/forms/post",
+      "result": {
+        "tool": "keyboard-navigation",
+        "violations": 1,
+        "details": {
+          "message": "Keyboard navigation test completed (with demo violations)",
+          "focusableElements": 13,
+          "tabSequenceLength": 1,
+          "skipLinksFound": 0,
+          "focusIndicatorsPresent": 0,
+          "violations": [
+            {
+              "id": "keyboard-missing-focus-indicator",
+              "impact": "serious",
+              "description": "Interactive element lacks visible focus indicator",
+              "help": "All interactive elements must have a visible focus indicator when focused via keyboard navigation.",
+              "helpUrl": "https://www.w3.org/WAI/WCAG21/Understanding/focus-visible.html",
+              "nodes": [
+                {
+                  "target": [
+                    "button#submit-btn.btn"
+                  ],
+                  "html": "<button id=\"submit-btn\" class=\"btn btn-primary\">Submit</button>",
+                  "failureSummary": "Fix: Add CSS focus styles for button element: \"outline: 2px solid #0078d4\" or similar."
+                }
+              ],
+              "wcagCriteria": [
+                "2.4.7"
+              ]
+            }
+          ],
+          "summary": {
+            "focusableElements": 13,
+            "tabSequenceLength": 1,
+            "skipLinksFound": 0,
+            "focusIndicatorsPresent": 0,
+            "violationsFound": 1
+          }
+        }
+      },
+      "fileName": "test-keyboard-test-run-1750967182595-axhg11557ga.json",
+      "summary": {
+        "tool": "keyboard-navigation",
+        "violations": 1,
+        "passes": 0,
+        "warnings": 0,
+        "status": "fail",
+        "critical": false
+      }
+    },
+    {
+      "testType": "test:form",
+      "status": "completed",
+      "startTime": "2025-06-26T19:46:29.079Z",
+      "endTime": "2025-06-26T19:46:39.357Z",
+      "duration": 10278,
+      "url": "https://httpbin.org/forms/post",
+      "result": {
+        "tool": "form-accessibility",
+        "violations": 2,
+        "details": {
+          "message": "Form accessibility test completed (fallback mode)",
+          "formsFound": 3,
+          "violations": [
+            {
+              "id": "form-missing-label",
+              "impact": "serious",
+              "description": "Form input is missing an accessible label",
+              "help": "All form controls must have accessible labels to help users understand their purpose.",
+              "helpUrl": "https://www.w3.org/WAI/WCAG21/Understanding/labels-or-instructions.html",
+              "nodes": [
+                {
+                  "target": [
+                    "input[type=\"email\"]"
+                  ],
+                  "html": "<input type=\"email\" name=\"email\" placeholder=\"Email address\">",
+                  "failureSummary": "Fix: Add a label element associated with this form control using the \"for\" attribute or wrap the control in a label."
+                }
+              ],
+              "wcagCriteria": [
+                "3.3.2",
+                "4.1.2"
+              ]
+            },
+            {
+              "id": "form-missing-required-indicator",
+              "impact": "moderate",
+              "description": "Required field lacks proper indication",
+              "help": "Required fields should be clearly indicated to all users.",
+              "helpUrl": "https://www.w3.org/WAI/WCAG21/Understanding/labels-or-instructions.html",
+              "nodes": [
+                {
+                  "target": [
+                    "input[name=\"username\"]"
+                  ],
+                  "html": "<input type=\"text\" name=\"username\" required>",
+                  "failureSummary": "Fix: Add visual and programmatic indicators for required fields (asterisk and required attribute)."
+                }
+              ],
+              "wcagCriteria": [
+                "3.3.2"
+              ]
+            }
+          ]
+        }
+      },
+      "fileName": "test-form-test-run-1750967182595-axhg11557ga.json",
+      "summary": {
+        "tool": "form-accessibility",
+        "violations": 2,
+        "passes": 0,
+        "warnings": 0,
+        "status": "fail",
+        "critical": false
+      }
+    }
+  ],
+  "recommendations": [
+    {
+      "priority": "high",
+      "category": "overall",
+      "title": "Improve Overall WCAG Compliance",
+      "description": "Your site's WCAG compliance score is 60%, which is below the recommended 70% minimum.",
+      "actions": [
+        "Focus on fixing critical accessibility violations first",
+        "Implement a systematic approach to accessibility testing",
+        "Consider accessibility training for your development team"
+      ]
+    },
+    {
+      "priority": "medium",
+      "category": "a11y:axe",
+      "title": "Fix Axe-core Violations",
+      "description": "Found 3 accessibility violations that need attention.",
+      "actions": [
+        "Review detailed axe-core violations in the test results",
+        "Prioritize high and critical impact issues",
+        "Use browser extensions for real-time axe testing"
+      ]
+    },
+    {
+      "priority": "medium",
+      "category": "a11y:pa11y",
+      "title": "Address Pa11y Issues",
+      "description": "Pa11y found 2 accessibility issues.",
+      "actions": [
+        "Review pa11y error details for specific fixes",
+        "Focus on WCAG 2.1 AA compliance issues",
+        "Test with different screen readers"
+      ]
+    },
+    {
+      "priority": "medium",
+      "category": "test:keyboard",
+      "title": "Improve Keyboard Navigation",
+      "description": "Keyboard accessibility needs improvement (1 issues found).",
+      "actions": [
+        "Ensure all interactive elements are keyboard accessible",
+        "Implement proper focus management",
+        "Add visible focus indicators"
+      ]
+    },
+    {
+      "priority": "medium",
+      "category": "test:form",
+      "title": "Enhance Form Accessibility",
+      "description": "Form accessibility issues detected (2 violations).",
+      "actions": [
+        "Add proper labels to all form controls",
+        "Implement clear error messaging",
+        "Provide form instructions and help text"
+      ]
+    }
+  ],
+  "metadata": {
+    "testTypes": [
+      "a11y:axe",
+      "a11y:pa11y",
+      "test:keyboard",
+      "test:form"
+    ],
+    "duration": 16764,
+    "files": [
+      {
+        "type": "individual-test",
+        "fileName": "a11y-axe-test-run-1750967182595-axhg11557ga.json",
+        "filePath": "/Users/johnhoinville/Desktop/vpat-reporting/reports/individual-tests/a11y-axe-test-run-1750967182595-axhg11557ga.json",
+        "testType": "a11y:axe",
+        "size": 3708
+      },
+      {
+        "type": "individual-test",
+        "fileName": "a11y-pa11y-test-run-1750967182595-axhg11557ga.json",
+        "filePath": "/Users/johnhoinville/Desktop/vpat-reporting/reports/individual-tests/a11y-pa11y-test-run-1750967182595-axhg11557ga.json",
+        "testType": "a11y:pa11y",
+        "size": 575
+      },
+      {
+        "type": "individual-test",
+        "fileName": "test-keyboard-test-run-1750967182595-axhg11557ga.json",
+        "filePath": "/Users/johnhoinville/Desktop/vpat-reporting/reports/individual-tests/test-keyboard-test-run-1750967182595-axhg11557ga.json",
+        "testType": "test:keyboard",
+        "size": 1758
+      },
+      {
+        "type": "individual-test",
+        "fileName": "test-form-test-run-1750967182595-axhg11557ga.json",
+        "filePath": "/Users/johnhoinville/Desktop/vpat-reporting/reports/individual-tests/test-form-test-run-1750967182595-axhg11557ga.json",
+        "testType": "test:form",
+        "size": 2239
+      }
+    ]
+  }
+}

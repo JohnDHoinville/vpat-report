@@ -1,0 +1,28 @@
+{
+  "baselineId": "baseline-1750701416994-v3kzhq6mz",
+  "testUrl": "http://localhost:3000",
+  "description": "Initial VPAT Application Assessment",
+  "timestamp": "2025-06-23T17:56:56.994Z",
+  "version": "1.0.0",
+  "assessment": {
+    "totalViolations": 0,
+    "criticalIssues": 0,
+    "warningIssues": 0,
+    "contrastIssues": 0,
+    "wcagComplianceScore": 0,
+    "toolBreakdown": {},
+    "categoryBreakdown": {},
+    "pagesCovered": 1
+  },
+  "details": {
+    "violations": [],
+    "passes": [],
+    "incomplete": []
+  },
+  "metadata": {
+    "reportingPeriod": "baseline",
+    "nextAssessment": "2025-07-23T17:56:56.994Z",
+    "teamAssigned": "Development Team",
+    "priorityLevel": "High"
+  }
+}

@@ -1,0 +1,67 @@
+{
+  "testType": "a11y:lighthouse",
+  "status": "completed",
+  "startTime": "2025-06-26T19:57:43.710Z",
+  "endTime": "2025-06-26T19:57:58.570Z",
+  "duration": 14860,
+  "url": "https://httpbin.org/html",
+  "result": {
+    "tool": "lighthouse",
+    "accessibilityScore": 87,
+    "violations": 2,
+    "passes": 8,
+    "detailedViolations": [
+      {
+        "id": "lighthouse-color-contrast",
+        "impact": "serious",
+        "description": "Background and foreground colors do not have a sufficient contrast ratio",
+        "help": "Ensure text has adequate contrast against background",
+        "helpUrl": "https://web.dev/color-contrast/",
+        "wcagCriteria": [
+          "1.4.3"
+        ],
+        "nodes": [
+          {
+            "target": [
+              "body"
+            ],
+            "html": "<element>...</element>",
+            "failureSummary": "Fix: Ensure text has adequate contrast against background"
+          }
+        ]
+      },
+      {
+        "id": "lighthouse-image-alt",
+        "impact": "critical",
+        "description": "Image elements do not have [alt] attributes",
+        "help": "Add meaningful alternative text to images",
+        "helpUrl": "https://web.dev/image-alt/",
+        "wcagCriteria": [
+          "1.1.1"
+        ],
+        "nodes": [
+          {
+            "target": [
+              "body"
+            ],
+            "html": "<element>...</element>",
+            "failureSummary": "Fix: Add meaningful alternative text to images"
+          }
+        ]
+      }
+    ],
+    "details": {
+      "message": "Lighthouse test completed (fallback mode: Cannot read properties of undefined (reading 'categories'))",
+      "testMethod": "automated-fallback"
+    }
+  },
+  "fileName": "a11y-lighthouse-test-run-1750967863710-t9g5hcbqji.json",
+  "summary": {
+    "tool": "lighthouse",
+    "violations": 2,
+    "passes": 8,
+    "warnings": 0,
+    "status": "fail",
+    "critical": false
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "testType": "test:form",
+  "status": "completed",
+  "startTime": "2025-06-26T18:01:36.090Z",
+  "endTime": "2025-06-26T18:01:36.090Z",
+  "duration": 0,
+  "url": "https://httpbin.org/html",
+  "result": {
+    "tool": "form-accessibility",
+    "violations": 2,
+    "details": {
+      "message": "Form accessibility test completed",
+      "formsFound": 2
+    }
+  },
+  "fileName": "test-form-test-run-1750960894378-f23mdz17y2l.json",
+  "summary": {
+    "tool": "form-accessibility",
+    "violations": 2,
+    "passes": 0,
+    "warnings": 0,
+    "status": "fail",
+    "critical": false
+  }
+}

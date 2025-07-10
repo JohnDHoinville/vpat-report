@@ -1,0 +1,36 @@
+{
+  "testType": "a11y:contrast-basic",
+  "status": "completed",
+  "startTime": "2025-06-27T15:55:33.713Z",
+  "endTime": "2025-06-27T15:55:35.547Z",
+  "duration": 1834,
+  "url": "https://fm-dev.ti.internet2.edu/",
+  "result": {
+    "tool": "contrast-checker",
+    "violations": 0,
+    "passes": 21,
+    "detailedViolations": [],
+    "details": {
+      "message": "Contrast analysis completed",
+      "testMethod": "automated-contrast-analyzer",
+      "url": "https://fm-dev.ti.internet2.edu/",
+      "summary": {
+        "totalElements": 31,
+        "passedElements": 21,
+        "failedElements": 0,
+        "warningElements": 4,
+        "aaViolations": 0,
+        "aaaViolations": 0
+      }
+    }
+  },
+  "fileName": "a11y-contrast-basic-test-run-1751039733713-1751039733713-11u5j9t4t6.json",
+  "summary": {
+    "tool": "contrast-checker",
+    "violations": 0,
+    "passes": 21,
+    "warnings": 0,
+    "status": "pass",
+    "critical": false
+  }
+}

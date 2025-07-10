@@ -1,0 +1,216 @@
+{
+  "testRunId": "test-run-1750959295286-d8qva1m0c4l",
+  "generatedAt": "2025-06-26T17:34:55.371Z",
+  "url": "https://httpbin.org/html",
+  "summary": {
+    "totalTests": 4,
+    "completedTests": 4,
+    "failedTests": 0,
+    "totalViolations": 2,
+    "totalPasses": 10,
+    "criticalIssues": 0,
+    "wcagComplianceScore": 90,
+    "overallStatus": "fail",
+    "testCoverage": 100,
+    "duration": 84,
+    "completedAt": "2025-06-26T17:34:55.370Z"
+  },
+  "tests": [
+    {
+      "testType": "a11y:axe",
+      "status": "completed",
+      "startTime": "2025-06-26T17:34:55.345Z",
+      "endTime": "2025-06-26T17:34:55.347Z",
+      "duration": 2,
+      "url": "https://httpbin.org/html",
+      "result": {
+        "tool": "axe-core",
+        "violations": 1,
+        "passes": 10,
+        "detailedViolations": [
+          {
+            "id": "color-contrast-1",
+            "impact": "serious",
+            "wcagTags": [
+              "2.1.4",
+              "2.1.AA"
+            ],
+            "description": "Elements must have sufficient color contrast",
+            "helpUrl": "https://dequeuniversity.com/rules/axe/4.4/color-contrast",
+            "selector": "button.btn-primary",
+            "message": "Element has insufficient color contrast ratio of 2.34 (foreground color: #ffffff, background color: #007bff, font size: 14px, font weight: normal). Expected contrast ratio of 4.5:1",
+            "remediation": {
+              "summary": "Ensure text has adequate contrast against background",
+              "steps": [
+                "Use a darker blue background color (e.g., #0056b3)",
+                "Increase font weight to bold",
+                "Use a color contrast checker tool",
+                "Test with different browser zoom levels"
+              ],
+              "priority": "high"
+            },
+            "node": {
+              "target": [
+                "button.btn-primary"
+              ],
+              "html": "<button class=\"btn btn-primary\">Submit</button>",
+              "impact": "serious"
+            }
+          }
+        ],
+        "wcagMapping": {},
+        "details": {
+          "message": "Enhanced simulated axe test with detailed violations",
+          "testMethod": "automated-simulation"
+        }
+      },
+      "fileName": "a11y-axe-test-run-1750959295286-d8qva1m0c4l.json",
+      "summary": {
+        "tool": "axe-core",
+        "violations": 1,
+        "passes": 10,
+        "warnings": 0,
+        "status": "fail",
+        "critical": false
+      }
+    },
+    {
+      "testType": "a11y:pa11y",
+      "status": "completed",
+      "startTime": "2025-06-26T17:34:55.350Z",
+      "endTime": "2025-06-26T17:34:55.366Z",
+      "duration": 16,
+      "url": "https://httpbin.org/html",
+      "result": {
+        "tool": "pa11y",
+        "violations": 0,
+        "warnings": 1,
+        "details": {
+          "message": "Simulated pa11y test (pa11y not available)"
+        }
+      },
+      "fileName": "a11y-pa11y-test-run-1750959295286-d8qva1m0c4l.json",
+      "summary": {
+        "tool": "pa11y",
+        "violations": 0,
+        "passes": 0,
+        "warnings": 1,
+        "status": "pass",
+        "critical": false
+      }
+    },
+    {
+      "testType": "test:keyboard",
+      "status": "completed",
+      "startTime": "2025-06-26T17:34:55.367Z",
+      "endTime": "2025-06-26T17:34:55.368Z",
+      "duration": 1,
+      "url": "https://httpbin.org/html",
+      "result": {
+        "tool": "keyboard-navigation",
+        "violations": 1,
+        "details": {
+          "message": "Keyboard navigation test completed",
+          "focusableElements": 12
+        }
+      },
+      "fileName": "test-keyboard-test-run-1750959295286-d8qva1m0c4l.json",
+      "summary": {
+        "tool": "keyboard-navigation",
+        "violations": 1,
+        "passes": 0,
+        "warnings": 0,
+        "status": "fail",
+        "critical": false
+      }
+    },
+    {
+      "testType": "test:form",
+      "status": "completed",
+      "startTime": "2025-06-26T17:34:55.369Z",
+      "endTime": "2025-06-26T17:34:55.369Z",
+      "duration": 0,
+      "url": "https://httpbin.org/html",
+      "result": {
+        "tool": "form-accessibility",
+        "violations": 0,
+        "details": {
+          "message": "Form accessibility test completed",
+          "formsFound": 4
+        }
+      },
+      "fileName": "test-form-test-run-1750959295286-d8qva1m0c4l.json",
+      "summary": {
+        "tool": "form-accessibility",
+        "violations": 0,
+        "passes": 0,
+        "warnings": 0,
+        "status": "pass",
+        "critical": false
+      }
+    }
+  ],
+  "recommendations": [
+    {
+      "priority": "medium",
+      "category": "a11y:axe",
+      "title": "Fix Axe-core Violations",
+      "description": "Found 1 accessibility violations that need attention.",
+      "actions": [
+        "Review detailed axe-core violations in the test results",
+        "Prioritize high and critical impact issues",
+        "Use browser extensions for real-time axe testing"
+      ]
+    },
+    {
+      "priority": "medium",
+      "category": "test:keyboard",
+      "title": "Improve Keyboard Navigation",
+      "description": "Keyboard accessibility needs improvement (1 issues found).",
+      "actions": [
+        "Ensure all interactive elements are keyboard accessible",
+        "Implement proper focus management",
+        "Add visible focus indicators"
+      ]
+    }
+  ],
+  "metadata": {
+    "testTypes": [
+      "a11y:axe",
+      "a11y:pa11y",
+      "test:keyboard",
+      "test:form"
+    ],
+    "duration": 84,
+    "files": [
+      {
+        "type": "individual-test",
+        "fileName": "a11y-axe-test-run-1750959295286-d8qva1m0c4l.json",
+        "filePath": "/Users/johnhoinville/Desktop/vpat-reporting/reports/individual-tests/a11y-axe-test-run-1750959295286-d8qva1m0c4l.json",
+        "testType": "a11y:axe",
+        "size": 1813
+      },
+      {
+        "type": "individual-test",
+        "fileName": "a11y-pa11y-test-run-1750959295286-d8qva1m0c4l.json",
+        "filePath": "/Users/johnhoinville/Desktop/vpat-reporting/reports/individual-tests/a11y-pa11y-test-run-1750959295286-d8qva1m0c4l.json",
+        "testType": "a11y:pa11y",
+        "size": 569
+      },
+      {
+        "type": "individual-test",
+        "fileName": "test-keyboard-test-run-1750959295286-d8qva1m0c4l.json",
+        "filePath": "/Users/johnhoinville/Desktop/vpat-reporting/reports/individual-tests/test-keyboard-test-run-1750959295286-d8qva1m0c4l.json",
+        "testType": "test:keyboard",
+        "size": 606
+      },
+      {
+        "type": "individual-test",
+        "fileName": "test-form-test-run-1750959295286-d8qva1m0c4l.json",
+        "filePath": "/Users/johnhoinville/Desktop/vpat-reporting/reports/individual-tests/test-form-test-run-1750959295286-d8qva1m0c4l.json",
+        "testType": "test:form",
+        "size": 587
+      }
+    ]
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "testType": "a11y:axe",
+  "status": "completed",
+  "startTime": "2025-06-26T17:34:55.345Z",
+  "endTime": "2025-06-26T17:34:55.347Z",
+  "duration": 2,
+  "url": "https://httpbin.org/html",
+  "result": {
+    "tool": "axe-core",
+    "violations": 1,
+    "passes": 10,
+    "detailedViolations": [
+      {
+        "id": "color-contrast-1",
+        "impact": "serious",
+        "wcagTags": [
+          "2.1.4",
+          "2.1.AA"
+        ],
+        "description": "Elements must have sufficient color contrast",
+        "helpUrl": "https://dequeuniversity.com/rules/axe/4.4/color-contrast",
+        "selector": "button.btn-primary",
+        "message": "Element has insufficient color contrast ratio of 2.34 (foreground color: #ffffff, background color: #007bff, font size: 14px, font weight: normal). Expected contrast ratio of 4.5:1",
+        "remediation": {
+          "summary": "Ensure text has adequate contrast against background",
+          "steps": [
+            "Use a darker blue background color (e.g., #0056b3)",
+            "Increase font weight to bold",
+            "Use a color contrast checker tool",
+            "Test with different browser zoom levels"
+          ],
+          "priority": "high"
+        },
+        "node": {
+          "target": [
+            "button.btn-primary"
+          ],
+          "html": "<button class=\"btn btn-primary\">Submit</button>",
+          "impact": "serious"
+        }
+      }
+    ],
+    "wcagMapping": {},
+    "details": {
+      "message": "Enhanced simulated axe test with detailed violations",
+      "testMethod": "automated-simulation"
+    }
+  },
+  "fileName": "a11y-axe-test-run-1750959295286-d8qva1m0c4l.json",
+  "summary": {
+    "tool": "axe-core",
+    "violations": 1,
+    "passes": 10,
+    "warnings": 0,
+    "status": "fail",
+    "critical": false
+  }
+}

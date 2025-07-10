@@ -1,0 +1,34 @@
+{
+  "testType": "a11y:axe",
+  "url": "https://run-analysis.onrender.com/",
+  "pageTitle": "Test Page",
+  "timestamp": "2025-06-26T22:14:05.657Z",
+  "batchId": "complete-test-8-tests",
+  "jobId": "job-1750976036797-f9cg93aeh",
+  "executionInfo": {
+    "startTime": "2025-06-26T22:13:56.797Z",
+    "endTime": "2025-06-26T22:14:05.657Z",
+    "duration": 0,
+    "status": "completed"
+  },
+  "result": {
+    "tool": "axe-core",
+    "violations": 0,
+    "passes": 0,
+    "incomplete": 0,
+    "inapplicable": 0,
+    "details": []
+  },
+  "summary": {
+    "violations": 0,
+    "passed": 0,
+    "incomplete": 0,
+    "inapplicable": 0,
+    "successRate": 100
+  },
+  "metadata": {
+    "tool": "axe-core",
+    "version": "1.0.0",
+    "generatedBy": "dashboard-backend-job-queue"
+  }
+}

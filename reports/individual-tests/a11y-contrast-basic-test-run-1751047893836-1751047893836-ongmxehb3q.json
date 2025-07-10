@@ -1,0 +1,44 @@
+{
+  "testType": "a11y:contrast-basic",
+  "url": "https://run-analysis.onrender.com/",
+  "pageTitle": "From Sitemap",
+  "timestamp": "2025-06-27T18:11:33.836Z",
+  "batchId": "site-test-1751047884267",
+  "jobId": "job-1751047889455-14q877lnse",
+  "executionInfo": {
+    "startTime": "2025-06-27T18:11:29.455Z",
+    "endTime": "2025-06-27T18:11:33.836Z",
+    "duration": 0,
+    "status": "completed"
+  },
+  "result": {
+    "tool": "contrast-checker",
+    "violations": 62,
+    "passes": 213,
+    "details": {
+      "message": "Contrast analysis completed",
+      "testMethod": "automated-contrast-analyzer",
+      "url": "https://run-analysis.onrender.com/",
+      "summary": {
+        "totalElements": 319,
+        "passedElements": 213,
+        "failedElements": 62,
+        "warningElements": 33,
+        "aaViolations": 62,
+        "aaaViolations": 0
+      }
+    }
+  },
+  "summary": {
+    "violations": 62,
+    "passed": 0,
+    "incomplete": 0,
+    "inapplicable": 0,
+    "successRate": 0
+  },
+  "metadata": {
+    "tool": "contrast-checker",
+    "version": "1.0.0",
+    "generatedBy": "dashboard-backend-job-queue"
+  }
+}

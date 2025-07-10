@@ -1,0 +1,44 @@
+{
+  "testType": "a11y:contrast-basic",
+  "url": "https://fm-dev.ti.internet2.edu/",
+  "pageTitle": "Single Page Test",
+  "timestamp": "2025-06-30T14:49:14.774Z",
+  "batchId": "site-test-1751294945532",
+  "jobId": "job-1751294952650-3kax9cax53",
+  "executionInfo": {
+    "startTime": "2025-06-30T14:49:12.650Z",
+    "endTime": "2025-06-30T14:49:14.774Z",
+    "duration": 0,
+    "status": "completed"
+  },
+  "result": {
+    "tool": "contrast-checker",
+    "violations": 0,
+    "passes": 21,
+    "details": {
+      "message": "Contrast analysis completed",
+      "testMethod": "automated-contrast-analyzer",
+      "url": "https://fm-dev.ti.internet2.edu/",
+      "summary": {
+        "totalElements": 31,
+        "passedElements": 21,
+        "failedElements": 0,
+        "warningElements": 4,
+        "aaViolations": 0,
+        "aaaViolations": 0
+      }
+    }
+  },
+  "summary": {
+    "violations": 0,
+    "passed": 0,
+    "incomplete": 0,
+    "inapplicable": 0,
+    "successRate": 100
+  },
+  "metadata": {
+    "tool": "contrast-checker",
+    "version": "1.0.0",
+    "generatedBy": "dashboard-backend-job-queue"
+  }
+}
