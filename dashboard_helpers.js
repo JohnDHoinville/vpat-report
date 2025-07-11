@@ -128,6 +128,15 @@ function dashboard() {
             has_more: false
         },
         loadingViolations: false,
+
+        // Automated Test Details Modal State
+        showAutomatedTestModal: false,
+        currentAutomatedTest: null,
+        automatedTestDetails: null,
+        automatedTestHistory: [],
+        automatedTestNotes: '',
+        automatedTestStatus: '',
+        isSavingAutomatedTest: false,
         
         // Authentication Management Data
         authConfigs: [],
@@ -1766,8 +1775,8 @@ function dashboard() {
 
         filterAuthConfigsForProject() {
             if (!this.selectedProject || !this.selectedProject.primary_url) {
-                console.log('🔐 No project or project URL, clearing auth configs');
-                this.projectAuthConfigs = [];
+                console.log('🔐 No project or project URL, showing all auth configs');
+                this.projectAuthConfigs = this.authConfigs;
                 return;
             }
 
@@ -1779,7 +1788,7 @@ function dashboard() {
                 console.log(`🔐 Available auth configs:`, this.authConfigs.map(c => ({ id: c.id, domain: c.domain, url: c.url })));
                 
                 // Filter auth configs that match the project domain
-                this.projectAuthConfigs = this.authConfigs.filter(config => {
+                const matchingConfigs = this.authConfigs.filter(config => {
                     const domainMatch = config.domain === projectDomain;
                     
                     let urlMatch = false;
@@ -1799,11 +1808,18 @@ function dashboard() {
                     return shouldInclude;
                 });
                 
-                console.log(`🔐 Filtered ${this.projectAuthConfigs.length} auth configs for project domain: ${projectDomain}`, this.projectAuthConfigs);
+                // If no project-specific configs found, show all configs for easier management
+                if (matchingConfigs.length === 0) {
+                    console.log(`🔐 No matching configs for ${projectDomain}, showing all ${this.authConfigs.length} configs for easier management`);
+                    this.projectAuthConfigs = this.authConfigs;
+                } else {
+                    console.log(`🔐 Found ${matchingConfigs.length} matching configs for project domain: ${projectDomain}`, matchingConfigs);
+                    this.projectAuthConfigs = matchingConfigs;
+                }
                 
             } catch (error) {
                 console.error('Error filtering auth configs for project:', error);
-                this.projectAuthConfigs = [];
+                this.projectAuthConfigs = this.authConfigs; // Fallback to showing all configs
             }
         },
 
@@ -2424,6 +2440,115 @@ function dashboard() {
 
         closeViolationDetails() {
             this.selectedViolation = null;
+        },
+
+        // Automated Test Details Modal Functions
+        async openAutomatedTestDetails(violation) {
+            try {
+                console.log('🔍 Opening automated test details for violation:', violation.id);
+                
+                this.currentAutomatedTest = {
+                    violation,
+                    sessionId: this.violationInspectorSession.id
+                };
+                
+                // Reset state
+                this.automatedTestNotes = violation.notes || '';
+                this.automatedTestStatus = violation.status || 'open';
+                this.isSavingAutomatedTest = false;
+                
+                // Load detailed test information
+                await this.loadAutomatedTestDetails(violation.id);
+                
+                // Load test history for this violation/requirement
+                await this.loadAutomatedTestHistory(violation.wcag_criterion, violation.url);
+                
+                this.showAutomatedTestModal = true;
+                
+            } catch (error) {
+                console.error('❌ Error opening automated test details:', error);
+                this.showNotification('Failed to load test details', 'error');
+            }
+        },
+
+        async loadAutomatedTestDetails(violationId) {
+            try {
+                const response = await this.apiCall(`/violations/${violationId}/details`);
+                this.automatedTestDetails = response.details;
+                
+                // Load requirement information if available
+                if (response.details.wcag_criterion) {
+                    const reqResponse = await this.apiCall(`/wcag-requirements/${response.details.wcag_criterion}`);
+                    this.automatedTestDetails.requirement = reqResponse.requirement;
+                }
+                
+            } catch (error) {
+                console.error('Error loading automated test details:', error);
+                this.automatedTestDetails = null;
+            }
+        },
+
+        async loadAutomatedTestHistory(wcagCriterion, pageUrl) {
+            try {
+                const response = await this.apiCall(`/violations/history`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        wcag_criterion: wcagCriterion,
+                        page_url: pageUrl,
+                        session_id: this.violationInspectorSession.id
+                    })
+                });
+                this.automatedTestHistory = response.history || [];
+                
+            } catch (error) {
+                console.error('Error loading test history:', error);
+                this.automatedTestHistory = [];
+            }
+        },
+
+        async saveAutomatedTestUpdate() {
+            try {
+                this.isSavingAutomatedTest = true;
+                
+                const response = await this.apiCall(`/violations/${this.currentAutomatedTest.violation.id}/update`, {
+                    method: 'PUT',
+                    body: JSON.stringify({
+                        notes: this.automatedTestNotes,
+                        status: this.automatedTestStatus,
+                        updated_by: this.user?.name || 'Anonymous'
+                    })
+                });
+                
+                if (response.success) {
+                    // Update the violation in the list
+                    const violationIndex = this.violations.findIndex(v => v.id === this.currentAutomatedTest.violation.id);
+                    if (violationIndex !== -1) {
+                        this.violations[violationIndex].notes = this.automatedTestNotes;
+                        this.violations[violationIndex].status = this.automatedTestStatus;
+                    }
+                    
+                    this.showNotification('Test details updated successfully', 'success');
+                    this.closeAutomatedTestModal();
+                } else {
+                    throw new Error(response.message || 'Failed to update test details');
+                }
+                
+            } catch (error) {
+                console.error('Error saving automated test update:', error);
+                this.showNotification('Failed to save test details', 'error');
+            } finally {
+                this.isSavingAutomatedTest = false;
+            }
+        },
+
+        closeAutomatedTestModal() {
+            this.showAutomatedTestModal = false;
+            this.currentAutomatedTest = null;
+            this.automatedTestDetails = null;
+            this.automatedTestHistory = [];
+            this.automatedTestNotes = '';
+            this.automatedTestStatus = '';
+            this.isSavingAutomatedTest = false;
         },
 
         async updateViolationStatus(violationId, status, notes = '') {

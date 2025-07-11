@@ -582,4 +582,122 @@ function convertToCSV(data) {
     return csvRows.join('\n');
 }
 
+/**
+ * GET /api/violations/wcag-requirements/:criterion
+ * Get WCAG requirement information for a specific criterion
+ */
+router.get('/wcag-requirements/:criterion', async (req, res) => {
+    try {
+        const { criterion } = req.params;
+
+        const query = `
+            SELECT 
+                criterion_number,
+                title,
+                description,
+                level,
+                understanding_url,
+                guideline_title
+            FROM wcag_requirements
+            WHERE criterion_number = $1
+        `;
+
+        const result = await pool.query(query, [criterion]);
+        
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'WCAG requirement not found' });
+        }
+
+        res.json({ 
+            success: true,
+            requirement: result.rows[0]
+        });
+
+    } catch (error) {
+        console.error('Error getting WCAG requirement:', error);
+        res.status(500).json({ error: 'Failed to retrieve WCAG requirement' });
+    }
+});
+
+/**
+ * POST /api/violations/history
+ * Get violation history for a specific WCAG criterion and page
+ */
+router.post('/history', async (req, res) => {
+    try {
+        const { wcag_criterion, page_url, session_id } = req.body;
+
+        const query = `
+            SELECT 
+                v.id,
+                v.severity,
+                v.description,
+                v.notes,
+                v.status,
+                v.detected_at,
+                atr.tool_name,
+                atr.tool_version,
+                ts.session_name,
+                ts.created_at as session_created
+            FROM violations v
+            LEFT JOIN automated_test_results atr ON v.automated_result_id = atr.id
+            LEFT JOIN discovered_pages dp ON atr.page_id = dp.id
+            LEFT JOIN test_sessions ts ON atr.test_session_id = ts.id
+            WHERE v.wcag_criterion = $1 
+            AND dp.url = $2
+            AND ts.id != $3
+            ORDER BY v.detected_at DESC
+            LIMIT 10
+        `;
+
+        const result = await pool.query(query, [wcag_criterion, page_url, session_id]);
+
+        res.json({ 
+            success: true,
+            history: result.rows
+        });
+
+    } catch (error) {
+        console.error('Error getting violation history:', error);
+        res.status(500).json({ error: 'Failed to retrieve violation history' });
+    }
+});
+
+/**
+ * PUT /api/violations/:id/update
+ * Update violation notes and status
+ */
+router.put('/:id/update', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { notes, status, updated_by } = req.body;
+
+        const query = `
+            UPDATE violations 
+            SET 
+                notes = $1,
+                status = $2,
+                updated_by = $3,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = $4
+            RETURNING *
+        `;
+
+        const result = await pool.query(query, [notes, status, updated_by, id]);
+        
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Violation not found' });
+        }
+
+        res.json({ 
+            success: true,
+            violation: result.rows[0]
+        });
+
+    } catch (error) {
+        console.error('Error updating violation:', error);
+        res.status(500).json({ error: 'Failed to update violation' });
+    }
+});
+
 module.exports = router; 
