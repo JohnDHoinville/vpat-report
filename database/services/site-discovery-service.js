@@ -310,6 +310,20 @@ class SiteDiscoveryService {
             // Start crawling
             const results = await crawler.crawl(primaryUrl, `Discovery-${discoveryId}`);
             
+            // Emit final progress update showing 100% completion
+            if (this.wsService) {
+                const projectId = await this.getProjectIdFromDiscovery(discoveryId);
+                this.wsService.emitDiscoveryProgress(projectId, discoveryId, {
+                    stage: 'completed',
+                    percentage: 100,
+                    pagesFound: results.pages.length,
+                    currentUrl: 'Completed',
+                    depth: results.summary?.maxDepthReached || 0,
+                    maxDepth: crawlerSettings.maxDepth || 3,
+                    message: `Discovery completed! Found ${results.pages.length} pages`
+                });
+            }
+            
             // Save discovered pages to database
             await this.saveDiscoveredPages(discoveryId, results.pages);
             
@@ -358,6 +372,14 @@ class SiteDiscoveryService {
             for (const page of pages) {
                 const pageType = this.classifyPageType(page);
                 
+                // Ensure HTTP status is a valid integer
+                let httpStatus = 200; // Default
+                if (typeof page.statusCode === 'number' && page.statusCode > 0) {
+                    httpStatus = page.statusCode;
+                } else if (typeof page.statusCode === 'string' && !isNaN(parseInt(page.statusCode))) {
+                    httpStatus = parseInt(page.statusCode);
+                }
+
                 await client.query(
                     `INSERT INTO discovered_pages 
                      (discovery_id, url, title, page_type, http_status, content_length, page_metadata, discovered_at)
@@ -373,14 +395,15 @@ class SiteDiscoveryService {
                         page.url,
                         page.title || 'Untitled Page',
                         pageType,
-                        page.statusCode || 200,
+                        httpStatus,
                         page.wordCount || 0,
                         {
                             depth: page.depth,
                             parentUrl: page.parentUrl,
                             lastModified: page.lastModified,
                             contentType: page.contentType,
-                            wordCount: page.wordCount
+                            wordCount: page.wordCount,
+                            originalStatusCode: page.statusCode // Keep original for debugging
                         },
                         page.discoveredAt || new Date().toISOString()
                     ]
@@ -547,6 +570,74 @@ class SiteDiscoveryService {
             return true;
         }
         return false;
+    }
+
+    /**
+     * Recover stuck discovery - mark as completed if it has pages but is still in 'running' status
+     * @param {string} discoveryId - Discovery session UUID  
+     */
+    async recoverStuckDiscovery(discoveryId) {
+        const client = await this.pool.connect();
+        
+        try {
+            // Check if discovery exists and is stuck
+            const discoveryResult = await client.query(
+                'SELECT * FROM site_discovery WHERE id = $1 AND status = $2',
+                [discoveryId, 'running']
+            );
+
+            if (discoveryResult.rows.length === 0) {
+                return { recovered: false, reason: 'Discovery not found or not in running status' };
+            }
+
+            // Check if it has discovered pages
+            const pagesResult = await client.query(
+                'SELECT COUNT(*) as page_count FROM discovered_pages WHERE discovery_id = $1',
+                [discoveryId]
+            );
+
+            const pageCount = parseInt(pagesResult.rows[0].page_count);
+
+            if (pageCount > 0) {
+                // Has pages, mark as completed
+                await this.updateDiscoveryStatus(discoveryId, 'completed', {
+                    totalPages: pageCount,
+                    recovered: true,
+                    recoveredAt: new Date().toISOString()
+                });
+
+                // Clean up from active crawlers
+                this.activeCrawlers.delete(discoveryId);
+
+                // Emit completion event
+                if (this.wsService) {
+                    const projectId = await this.getProjectIdFromDiscovery(discoveryId);
+                    this.wsService.emitDiscoveryProgress(projectId, discoveryId, {
+                        stage: 'completed',
+                        percentage: 100,
+                        pagesFound: pageCount,
+                        currentUrl: 'Recovered',
+                        message: `Discovery recovered! Found ${pageCount} pages`
+                    });
+                }
+
+                return { recovered: true, pageCount, status: 'completed' };
+            } else {
+                // No pages found, mark as failed
+                await this.updateDiscoveryStatus(discoveryId, 'failed', {
+                    error: 'Discovery stuck with no pages found',
+                    recovered: true,
+                    recoveredAt: new Date().toISOString()
+                });
+
+                this.activeCrawlers.delete(discoveryId);
+
+                return { recovered: true, pageCount: 0, status: 'failed' };
+            }
+
+        } finally {
+            client.release();
+        }
     }
 
     /**

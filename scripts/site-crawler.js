@@ -258,6 +258,79 @@ class SiteCrawler {
     }
 
     /**
+     * Check if a URL requires authentication based on protected paths
+     */
+    requiresAuthentication(url, authConfig) {
+        if (!authConfig || authConfig.type !== 'smart') {
+            return true; // Default to requiring auth for legacy configs
+        }
+
+        try {
+            const urlObj = new URL(url);
+            const pathname = urlObj.pathname;
+
+            // Check if URL matches protected paths
+            if (authConfig.protectedPaths) {
+                return authConfig.protectedPaths.some(protectedPath => 
+                    pathname.startsWith(protectedPath)
+                );
+            }
+
+            // Check if URL matches public paths
+            if (authConfig.publicPaths) {
+                const isPublic = authConfig.publicPaths.some(publicPath => 
+                    pathname.startsWith(publicPath)
+                );
+                return !isPublic; // Require auth if not explicitly public
+            }
+
+            return true; // Default to requiring auth
+        } catch (error) {
+            console.warn(`⚠️ Error checking authentication requirement for ${url}:`, error.message);
+            return true; // Default to requiring auth on error
+        }
+    }
+
+    /**
+     * Load smart authentication configuration for domain
+     */
+    loadSmartAuthConfig(domain, authStatesDir) {
+        if (!fs.existsSync(authStatesDir)) {
+            return null;
+        }
+
+        const files = fs.readdirSync(authStatesDir);
+        
+        // Look for smart auth config (highest priority)
+        const smartConfigFile = files.find(f => f.startsWith(`smart-auth-${domain}.json`));
+        if (smartConfigFile) {
+            try {
+                const configPath = path.join(authStatesDir, smartConfigFile);
+                const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+                this.updateProgress(`🧠 Found smart authentication config: ${smartConfigFile}`);
+                return config;
+            } catch (error) {
+                console.warn(`⚠️ Error loading smart auth config: ${error.message}`);
+            }
+        }
+
+        // Look for regular auth config
+        const authConfigFile = files.find(f => f.startsWith(`auth-config-${domain}.json`));
+        if (authConfigFile) {
+            try {
+                const configPath = path.join(authStatesDir, authConfigFile);
+                const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+                this.updateProgress(`📄 Found authentication config: ${authConfigFile}`);
+                return config;
+            } catch (error) {
+                console.warn(`⚠️ Error loading auth config: ${error.message}`);
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Setup authentication for the crawling session
      */
     async setupAuthentication(rootUrl) {
@@ -270,6 +343,21 @@ class SiteCrawler {
             
             const domain = new URL(rootUrl).hostname;
             const authStatesDir = path.join(__dirname, '../reports/auth-states');
+            
+            // Load smart authentication configuration
+            const smartAuthConfig = this.loadSmartAuthConfig(domain, authStatesDir);
+            
+            // For smart authentication, check if root URL needs auth
+            if (smartAuthConfig && smartAuthConfig.type === 'smart') {
+                if (!this.requiresAuthentication(rootUrl, smartAuthConfig)) {
+                    this.updateProgress(`ℹ️ Root URL ${rootUrl} is public - skipping initial authentication`);
+                    this.smartAuthConfig = smartAuthConfig;
+                    this.authenticationSetup = true;
+                    return;
+                }
+                this.updateProgress(`🔐 Root URL ${rootUrl} requires authentication - proceeding with setup`);
+                this.smartAuthConfig = smartAuthConfig;
+            }
             
             // Look for existing live session first
             let liveSessionPath = null;
@@ -534,16 +622,52 @@ class SiteCrawler {
     }
 
     /**
-     * Fetch a page using authenticated browser context
+     * Fetch a page using authenticated browser context or smart authentication
      */
     async fetchPageWithAuth(url) {
         try {
+            // Check if this URL requires authentication (smart auth logic)
+            if (this.smartAuthConfig && this.smartAuthConfig.type === 'smart') {
+                const needsAuth = this.requiresAuthentication(url, this.smartAuthConfig);
+                
+                if (!needsAuth) {
+                    // URL is public, use regular fetch
+                    this.updateProgress(`🌐 Fetching public URL: ${url}`);
+                    return await this.fetchPage(url);
+                }
+                
+                // URL needs authentication - ensure we have an authenticated context
+                if (!this.authContext) {
+                    this.updateProgress(`🔐 Setting up authentication for protected URL: ${url}`);
+                    await this.setupAuthenticationForProtectedArea();
+                }
+            }
+
+            if (!this.authContext) {
+                throw new Error('Authentication context not available');
+            }
+            
             const page = await this.authContext.newPage();
             
             const response = await page.goto(url, { 
                 waitUntil: 'networkidle',
                 timeout: this.options.timeout 
             });
+            
+            // Check if we got redirected to login page (authentication failed)
+            const currentUrl = page.url();
+            if (currentUrl.includes('/login') || currentUrl.includes('/signin') || currentUrl.includes('/auth')) {
+                await page.close();
+                this.updateProgress(`⚠️ Redirected to login page for ${url} - authentication may have expired`);
+                
+                // For smart auth, fall back to public access if possible
+                if (this.smartAuthConfig && this.smartAuthConfig.type === 'smart') {
+                    this.updateProgress(`🔄 Retrying ${url} as public URL`);
+                    return await this.fetchPage(url);
+                }
+                
+                throw new Error('Authentication expired or failed - redirected to login page');
+            }
             
             // Wait for page to be fully loaded
             await page.waitForTimeout(1000);
@@ -569,7 +693,81 @@ class SiteCrawler {
             };
             
         } catch (error) {
+            // For smart auth, try falling back to public access
+            if (this.smartAuthConfig && this.smartAuthConfig.type === 'smart') {
+                this.updateProgress(`⚠️ Auth failed for ${url}, trying public access: ${error.message}`);
+                try {
+                    return await this.fetchPage(url);
+                } catch (publicError) {
+                    throw new Error(`Both authenticated and public access failed: ${error.message} | ${publicError.message}`);
+                }
+            }
+            
             throw new Error(`Failed to fetch authenticated page: ${error.message}`);
+        }
+    }
+
+    /**
+     * Setup authentication for protected areas on-demand
+     */
+    async setupAuthenticationForProtectedArea() {
+        if (!this.smartAuthConfig) {
+            throw new Error('No smart authentication configuration available');
+        }
+
+        try {
+            this.updateProgress('🔐 Setting up on-demand authentication for protected area...');
+            
+            // Launch browser if not already done
+            if (!this.browser) {
+                this.browser = await chromium.launch({ headless: this.options.headless });
+            }
+
+            // Create new context for authentication
+            this.authContext = await this.browser.newContext();
+            const page = await this.authContext.newPage();
+
+            // Navigate to login page
+            const loginPage = this.smartAuthConfig.loginPage;
+            this.updateProgress(`🔐 Navigating to login page: ${loginPage}`);
+            await page.goto(loginPage, { waitUntil: 'networkidle', timeout: 30000 });
+
+            // Get credentials
+            const credentials = this.smartAuthConfig.credentials;
+            if (!credentials) {
+                throw new Error('No credentials found in smart authentication configuration');
+            }
+
+            // Find and fill login form
+            const selectors = credentials.selectors || {};
+            
+            // Username field
+            const usernameSelector = selectors.username || 'input[type="email"], input[name="email"], input[name="username"]';
+            await page.fill(usernameSelector, credentials.username);
+            
+            // Password field  
+            const passwordSelector = selectors.password || 'input[type="password"], input[name="password"]';
+            await page.fill(passwordSelector, credentials.password);
+            
+            // Submit form
+            const submitSelector = selectors.submit || 'button[type="submit"], input[type="submit"], .login-btn';
+            await Promise.all([
+                page.waitForNavigation({ waitUntil: 'networkidle', timeout: 30000 }),
+                page.click(submitSelector)
+            ]);
+
+            // Verify successful login
+            const currentUrl = page.url();
+            if (currentUrl.includes('/login') || currentUrl.includes('/signin')) {
+                throw new Error('Login failed - still on login page');
+            }
+
+            await page.close();
+            this.updateProgress('✅ On-demand authentication successful');
+            
+        } catch (error) {
+            this.updateProgress(`❌ On-demand authentication failed: ${error.message}`);
+            throw error;
         }
     }
 

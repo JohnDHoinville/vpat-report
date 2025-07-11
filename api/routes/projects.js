@@ -669,6 +669,56 @@ router.delete('/:id/discoveries/:discoveryId', authenticateToken, async (req, re
 });
 
 /**
+ * POST /api/projects/:id/discoveries/:discoveryId/recover
+ * Recover a stuck discovery session (requires authentication)
+ */
+router.post('/:id/discoveries/:discoveryId/recover', optionalAuth, async (req, res) => {
+    try {
+        const { id: projectId, discoveryId } = req.params;
+
+        // Check if project exists and discovery belongs to it
+        const checkQuery = `
+            SELECT sd.domain, sd.primary_url, sd.status
+            FROM site_discovery sd 
+            WHERE sd.id = $1 AND sd.project_id = $2
+        `;
+        const checkResult = await db.query(checkQuery, [discoveryId, projectId]);
+
+        if (checkResult.rows.length === 0) {
+            return res.status(404).json({
+                error: 'Discovery not found or does not belong to this project',
+                discoveryId,
+                projectId
+            });
+        }
+
+        // Get WebSocket service from app
+        const wsService = req.app.get('wsService');
+        
+        // Initialize discovery service
+        const discoveryService = new SiteDiscoveryService(wsService);
+
+        // Attempt recovery
+        const result = await discoveryService.recoverStuckDiscovery(discoveryId);
+
+        res.json({
+            success: true,
+            result,
+            message: result.recovered ? 
+                `Discovery recovered with ${result.pageCount} pages (${result.status})` : 
+                result.reason
+        });
+
+    } catch (error) {
+        console.error('Error recovering discovery:', error);
+        res.status(500).json({
+            error: 'Failed to recover discovery',
+            message: error.message
+        });
+    }
+});
+
+/**
  * GET /api/projects/:id/discoveries/:discoveryId/pages
  * Get all discovered pages for a specific discovery session
  */

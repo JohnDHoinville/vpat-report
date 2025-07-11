@@ -71,7 +71,6 @@ router.get('/session/:sessionId', async (req, res) => {
         }
 
         if (source && source !== 'both') {
-            paramCount++;
             if (source === 'automated') {
                 query += ` AND v.automated_result_id IS NOT NULL`;
             } else if (source === 'manual') {
@@ -153,7 +152,60 @@ router.get('/session/:sessionId', async (req, res) => {
         `;
 
         // Apply same filters to count query (exclude pagination params)
-        const countParams = queryParams.slice(0, -2);
+        const countParams = [sessionId];
+        let countParamCount = 1;
+
+        // Rebuild the same filters for count query
+        if (severity) {
+            countParamCount++;
+            countQuery += ` AND v.severity = $${countParamCount}`;
+            countParams.push(severity);
+        }
+
+        if (source && source !== 'both') {
+            if (source === 'automated') {
+                countQuery += ` AND v.automated_result_id IS NOT NULL`;
+            } else if (source === 'manual') {
+                countQuery += ` AND v.manual_result_id IS NOT NULL`;
+            }
+        }
+
+        if (tool) {
+            countParamCount++;
+            countQuery += ` AND atr.tool_name = $${countParamCount}`;
+            countParams.push(tool);
+        }
+
+        if (wcag_level) {
+            countParamCount++;
+            countQuery += ` AND wr.level = $${countParamCount}`;
+            countParams.push(wcag_level);
+        }
+
+        if (wcag_criteria) {
+            countParamCount++;
+            countQuery += ` AND v.wcag_criterion = $${countParamCount}`;
+            countParams.push(wcag_criteria);
+        }
+
+        if (page_url) {
+            countParamCount++;
+            countQuery += ` AND dp.url ILIKE $${countParamCount}`;
+            countParams.push(`%${page_url}%`);
+        }
+
+        if (violation_type) {
+            countParamCount++;
+            countQuery += ` AND v.violation_type ILIKE $${countParamCount}`;
+            countParams.push(`%${violation_type}%`);
+        }
+
+        if (status) {
+            countParamCount++;
+            countQuery += ` AND v.status = $${countParamCount}`;
+            countParams.push(status);
+        }
+
         const countResult = await pool.query(countQuery, countParams);
 
         res.json({
@@ -262,12 +314,25 @@ router.get('/session/:sessionId/summary', async (req, res) => {
             LIMIT 10
         `;
 
-        const [severityResult, sourceResult, wcagLevelResult, pageResult, violationTypesResult] = await Promise.all([
+        // Get violation counts by tool (for automated violations)
+        const toolQuery = `
+            SELECT 
+                atr.tool_name,
+                COUNT(*) as count
+            FROM violations v
+            LEFT JOIN automated_test_results atr ON v.automated_result_id = atr.id
+            WHERE atr.test_session_id = $1 AND atr.tool_name IS NOT NULL
+            GROUP BY atr.tool_name
+            ORDER BY count DESC
+        `;
+
+        const [severityResult, sourceResult, wcagLevelResult, pageResult, violationTypesResult, toolResult] = await Promise.all([
             pool.query(severityQuery, [sessionId]),
             pool.query(sourceQuery, [sessionId]),
             pool.query(wcagLevelQuery, [sessionId]),
             pool.query(pageQuery, [sessionId]),
-            pool.query(violationTypesQuery, [sessionId])
+            pool.query(violationTypesQuery, [sessionId]),
+            pool.query(toolQuery, [sessionId])
         ]);
 
         res.json({
@@ -275,6 +340,7 @@ router.get('/session/:sessionId/summary', async (req, res) => {
             by_source: sourceResult.rows,
             by_wcag_level: wcagLevelResult.rows,
             by_page: pageResult.rows,
+            by_tool: toolResult.rows,
             common_violations: violationTypesResult.rows
         });
 
@@ -313,7 +379,6 @@ router.get('/:violationId', async (req, res) => {
                 wr.title as wcag_title,
                 wr.description as wcag_description,
                 wr.level as wcag_level,
-                wr.guideline as wcag_guideline,
                 sr.section_number as section_508_number,
                 sr.title as section_508_title,
                 sr.description as section_508_description,
