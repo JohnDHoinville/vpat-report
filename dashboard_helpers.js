@@ -58,11 +58,17 @@ function dashboard() {
         pagesLoading: false,
         excludedPages: [], // Array of page IDs to exclude from testing
         
+        // Discovery selection for testing
+        selectedDiscoveries: [], // Array of discovery IDs selected for testing
+        
         // Delete Project Modal Data
         projectToDelete: null,
         
         // Delete Discovery Modal Data
         discoveryToDelete: null,
+        
+        // Delete Session Modal Data
+        sessionToDelete: null,
         
         // Authentication Management Data
         authConfigs: [],
@@ -88,6 +94,7 @@ function dashboard() {
         showViewPages: false,
         showDeleteProject: false,
         showDeleteDiscovery: false,
+        showDeleteSession: false,
         showLogin: false,
         showProfile: false,
         showChangePassword: false,
@@ -734,6 +741,7 @@ function dashboard() {
             
             this.loadProjectDiscoveries();
             this.loadProjectTestSessions();
+            this.loadSelectedDiscoveries();
             // Switch to discovery tab after selection
             this.activeTab = 'discovery';
         },
@@ -746,6 +754,14 @@ function dashboard() {
                 const data = await this.apiCall(`/projects/${this.selectedProject.id}/discoveries`);
                 this.discoveries = data.data || [];
                 console.log(`🔍 Loaded ${this.discoveries.length} discoveries for project`);
+                
+                // Auto-select completed discoveries if none are selected and there's only one completed
+                const completedDiscoveries = this.discoveries.filter(d => d.status === 'completed');
+                if (completedDiscoveries.length === 1 && this.selectedDiscoveries.length === 0) {
+                    this.selectedDiscoveries = [completedDiscoveries[0].id];
+                    this.saveSelectedDiscoveries();
+                    console.log(`🎯 Auto-selected single completed discovery: ${completedDiscoveries[0].domain}`);
+                }
             } catch (error) {
                 console.error('Failed to load discoveries:', error);
             }
@@ -902,6 +918,7 @@ function dashboard() {
                 'active': 'bg-green-100 text-green-800',
                 'planning': 'bg-blue-100 text-blue-800',
                 'in_progress': 'bg-yellow-100 text-yellow-800',
+                'paused': 'bg-orange-100 text-orange-800',
                 'completed': 'bg-green-100 text-green-800',
                 'cancelled': 'bg-gray-100 text-gray-800',
                 'failed': 'bg-red-100 text-red-800',
@@ -1142,12 +1159,291 @@ function dashboard() {
             this.showNotification('Page selections cleared', 'info');
         },
 
+        // Discovery Selection Management
+        toggleDiscoverySelection(discoveryId) {
+            const index = this.selectedDiscoveries.indexOf(discoveryId);
+            if (index > -1) {
+                this.selectedDiscoveries.splice(index, 1);
+            } else {
+                this.selectedDiscoveries.push(discoveryId);
+            }
+            this.saveSelectedDiscoveries();
+        },
+
+        isDiscoverySelected(discoveryId) {
+            return this.selectedDiscoveries.includes(discoveryId);
+        },
+
+        selectAllDiscoveries() {
+            this.selectedDiscoveries = this.discoveries
+                .filter(d => d.status === 'completed')
+                .map(d => d.id);
+            this.saveSelectedDiscoveries();
+            this.showNotification('All completed discoveries selected', 'success');
+        },
+
+        deselectAllDiscoveries() {
+            this.selectedDiscoveries = [];
+            this.saveSelectedDiscoveries();
+            this.showNotification('All discoveries deselected', 'info');
+        },
+
+        saveSelectedDiscoveries() {
+            if (!this.selectedProject) return;
+            const key = `selectedDiscoveries_${this.selectedProject.id}`;
+            localStorage.setItem(key, JSON.stringify(this.selectedDiscoveries));
+        },
+
+        loadSelectedDiscoveries() {
+            if (!this.selectedProject) return;
+            const key = `selectedDiscoveries_${this.selectedProject.id}`;
+            const saved = localStorage.getItem(key);
+            this.selectedDiscoveries = saved ? JSON.parse(saved) : [];
+        },
+
+        // Helper functions for page counts
+        getDiscoveryPageCounts(discovery) {
+            // Get excluded pages for this specific discovery without affecting current state
+            const key = `excludedPages_${discovery.id}`;
+            const saved = localStorage.getItem(key);
+            const excludedPages = saved ? JSON.parse(saved) : [];
+            
+            const totalPages = discovery.total_pages_found || 0;
+            const excludedCount = excludedPages.length;
+            const includedCount = totalPages - excludedCount;
+            return {
+                total: totalPages,
+                included: includedCount,
+                excluded: excludedCount
+            };
+        },
+
+        getSelectedDiscoveriesPageCounts() {
+            let totalPages = 0;
+            let totalIncluded = 0;
+            let totalExcluded = 0;
+
+            this.selectedDiscoveries.forEach(discoveryId => {
+                const discovery = this.discoveries.find(d => d.id === discoveryId);
+                if (discovery && discovery.status === 'completed') {
+                    const counts = this.getDiscoveryPageCounts(discovery);
+                    totalPages += counts.total;
+                    totalIncluded += counts.included;
+                    totalExcluded += counts.excluded;
+                }
+            });
+
+            return {
+                total: totalPages,
+                included: totalIncluded,
+                excluded: totalExcluded,
+                selectedDiscoveries: this.selectedDiscoveries.length
+            };
+        },
+
+        getAllDiscoveriesPageCounts() {
+            let totalPages = 0;
+            let totalIncluded = 0;
+            let totalExcluded = 0;
+
+            this.discoveries
+                .filter(d => d.status === 'completed')
+                .forEach(discovery => {
+                    const counts = this.getDiscoveryPageCounts(discovery);
+                    totalPages += counts.total;
+                    totalIncluded += counts.included;
+                    totalExcluded += counts.excluded;
+                });
+
+            return {
+                total: totalPages,
+                included: totalIncluded,
+                excluded: totalExcluded
+            };
+        },
+
         viewSessionResults(session) {
             this.showNotification('Results viewer coming soon!', 'info');
         },
 
         manualTesting(session) {
             this.showNotification('Manual testing interface coming soon!', 'info');
+        },
+
+        // Test Session Management
+        deleteSession(session) {
+            this.sessionToDelete = session;
+            this.showDeleteSession = true;
+        },
+
+        async confirmDeleteSession() {
+            if (!this.sessionToDelete) return;
+            
+            try {
+                this.loading = true;
+                await this.apiCall(`/sessions/${this.sessionToDelete.id}`, {
+                    method: 'DELETE'
+                });
+                
+                // Remove from test sessions list
+                this.testSessions = this.testSessions.filter(s => s.id !== this.sessionToDelete.id);
+                
+                this.showDeleteSession = false;
+                this.sessionToDelete = null;
+                this.showNotification('Test session deleted successfully!', 'success');
+                
+            } catch (error) {
+                console.error('Failed to delete test session:', error);
+                this.showNotification('Failed to delete test session. Please try again.', 'error');
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        cancelDeleteSession() {
+            this.showDeleteSession = false;
+            this.sessionToDelete = null;
+        },
+
+        // Enhanced Session Control with Pause/Resume
+        async pauseSession(session) {
+            try {
+                this.loading = true;
+                await this.apiCall(`/sessions/${session.id}/pause`, {
+                    method: 'POST'
+                });
+                
+                // Update session status
+                session.status = 'paused';
+                this.showNotification('Test session paused', 'info');
+                
+            } catch (error) {
+                console.error('Failed to pause session:', error);
+                this.showNotification('Failed to pause session', 'error');
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        async resumeSession(session) {
+            try {
+                this.loading = true;
+                await this.apiCall(`/sessions/${session.id}/resume`, {
+                    method: 'POST'
+                });
+                
+                // Update session status
+                session.status = 'in_progress';
+                this.showNotification('Test session resumed', 'success');
+                
+            } catch (error) {
+                console.error('Failed to resume session:', error);
+                this.showNotification('Failed to resume session', 'error');
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        getSessionButtonText(session) {
+            if (!this.selectedProject || this.discoveries.filter(d => d.status === 'completed').length === 0) {
+                return 'Need Discovery';
+            }
+            
+            const selectedCounts = this.getSelectedDiscoveriesPageCounts();
+            if (selectedCounts.selectedDiscoveries === 0) {
+                return 'Select Discoveries';
+            }
+            
+            if (selectedCounts.included === 0) {
+                return 'No Pages Available';
+            }
+            
+            switch (session.status) {
+                case 'in_progress':
+                    return 'Pause Testing';
+                case 'paused':
+                    return 'Resume Testing';
+                case 'completed':
+                    return 'Start New Run';
+                case 'failed':
+                    return 'Retry Testing';
+                default:
+                    return 'Start Testing';
+            }
+        },
+
+        getSessionButtonIcon(session) {
+            switch (session.status) {
+                case 'in_progress':
+                    return 'fas fa-pause';
+                case 'paused':
+                    return 'fas fa-play';
+                case 'completed':
+                    return 'fas fa-redo';
+                case 'failed':
+                    return 'fas fa-redo';
+                default:
+                    return 'fas fa-play';
+            }
+        },
+
+        getSessionButtonClass(session) {
+            const baseClass = "text-white px-3 py-2 rounded text-sm transition-colors disabled:bg-gray-400";
+            
+            if (!this.selectedProject || this.discoveries.filter(d => d.status === 'completed').length === 0) {
+                return `bg-gray-400 ${baseClass}`;
+            }
+            
+            const selectedCounts = this.getSelectedDiscoveriesPageCounts();
+            if (selectedCounts.selectedDiscoveries === 0 || selectedCounts.included === 0) {
+                return `bg-gray-400 ${baseClass}`;
+            }
+            
+            switch (session.status) {
+                case 'in_progress':
+                    return `bg-orange-600 hover:bg-orange-700 ${baseClass}`;
+                case 'paused':
+                    return `bg-green-600 hover:bg-green-700 ${baseClass}`;
+                case 'completed':
+                    return `bg-blue-600 hover:bg-blue-700 ${baseClass}`;
+                case 'failed':
+                    return `bg-red-600 hover:bg-red-700 ${baseClass}`;
+                default:
+                    return `bg-blue-600 hover:bg-blue-700 ${baseClass}`;
+            }
+        },
+
+        async handleSessionAction(session) {
+            if (!this.selectedProject || this.discoveries.filter(d => d.status === 'completed').length === 0) {
+                this.showNotification('Please complete site discovery first', 'warning');
+                return;
+            }
+
+            const selectedCounts = this.getSelectedDiscoveriesPageCounts();
+            if (selectedCounts.selectedDiscoveries === 0) {
+                this.showNotification('Please select completed discoveries for testing', 'warning');
+                return;
+            }
+            
+            if (selectedCounts.included === 0) {
+                this.showNotification('No pages available for testing. Please include some pages from your selected discoveries.', 'warning');
+                return;
+            }
+
+            switch (session.status) {
+                case 'in_progress':
+                    await this.pauseSession(session);
+                    break;
+                case 'paused':
+                    await this.resumeSession(session);
+                    break;
+                case 'completed':
+                case 'failed':
+                case 'not_started':
+                default:
+                    await this.startAutomatedTesting(session);
+                    break;
+            }
         },
 
         // Authentication Management Functions

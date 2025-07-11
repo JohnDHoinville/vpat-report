@@ -432,6 +432,127 @@ router.put('/:id', async (req, res) => {
 });
 
 /**
+ * POST /api/sessions/:id/pause
+ * Pause a running test session
+ */
+router.post('/:id/pause', async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        // Check if session exists and is in progress
+        const checkQuery = `
+            SELECT id, name, status
+            FROM test_sessions 
+            WHERE id = $1
+        `;
+        const checkResult = await db.query(checkQuery, [id]);
+
+        if (checkResult.rows.length === 0) {
+            return res.status(404).json({
+                error: 'Session not found',
+                id
+            });
+        }
+
+        const session = checkResult.rows[0];
+
+        if (session.status !== 'in_progress') {
+            return res.status(400).json({
+                error: 'Can only pause sessions that are in progress',
+                current_status: session.status
+            });
+        }
+
+        // Update session status to paused and store pause timestamp
+        const pauseQuery = `
+            UPDATE test_sessions 
+            SET status = 'paused', 
+                updated_at = CURRENT_TIMESTAMP,
+                paused_at = CURRENT_TIMESTAMP
+            WHERE id = $1
+            RETURNING *
+        `;
+        const result = await db.query(pauseQuery, [id]);
+
+        // TODO: Signal any running test processes to pause
+        // This would integrate with the testing service to gracefully pause ongoing tests
+
+        res.json({
+            message: 'Session paused successfully',
+            session: result.rows[0]
+        });
+
+    } catch (error) {
+        console.error('Error pausing session:', error);
+        res.status(500).json({
+            error: 'Failed to pause session',
+            message: error.message
+        });
+    }
+});
+
+/**
+ * POST /api/sessions/:id/resume
+ * Resume a paused test session
+ */
+router.post('/:id/resume', async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        // Check if session exists and is paused
+        const checkQuery = `
+            SELECT id, name, status, paused_at
+            FROM test_sessions 
+            WHERE id = $1
+        `;
+        const checkResult = await db.query(checkQuery, [id]);
+
+        if (checkResult.rows.length === 0) {
+            return res.status(404).json({
+                error: 'Session not found',
+                id
+            });
+        }
+
+        const session = checkResult.rows[0];
+
+        if (session.status !== 'paused') {
+            return res.status(400).json({
+                error: 'Can only resume sessions that are paused',
+                current_status: session.status
+            });
+        }
+
+        // Update session status to in_progress and clear pause timestamp
+        const resumeQuery = `
+            UPDATE test_sessions 
+            SET status = 'in_progress', 
+                updated_at = CURRENT_TIMESTAMP,
+                paused_at = NULL,
+                resumed_at = CURRENT_TIMESTAMP
+            WHERE id = $1
+            RETURNING *
+        `;
+        const result = await db.query(resumeQuery, [id]);
+
+        // TODO: Signal testing service to resume from where it left off
+        // This would integrate with the testing service to continue testing
+
+        res.json({
+            message: 'Session resumed successfully',
+            session: result.rows[0]
+        });
+
+    } catch (error) {
+        console.error('Error resuming session:', error);
+        res.status(500).json({
+            error: 'Failed to resume session',
+            message: error.message
+        });
+    }
+});
+
+/**
  * DELETE /api/sessions/:id
  * Delete a test session and all related data
  */
