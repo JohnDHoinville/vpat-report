@@ -1224,6 +1224,14 @@ function dashboard() {
             };
         },
 
+        openStartDiscoveryModal() {
+            this.showStartDiscovery = true;
+            // Auto-populate the primary URL from the selected project
+            if (this.selectedProject && this.selectedProject.primary_url) {
+                this.newDiscovery.primary_url = this.selectedProject.primary_url;
+            }
+        },
+
         resetNewSession() {
             this.newSession = {
                 name: '',
