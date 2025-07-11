@@ -108,6 +108,7 @@ function dashboard() {
         violationSummary: {},
         selectedViolation: null,
         violationFilters: {
+            result_type: 'fail', // 'fail', 'pass', 'all'
             severity: '',
             source: 'both',
             tool: '',
@@ -2323,15 +2324,25 @@ function dashboard() {
         async loadViolationSummary(sessionId) {
             try {
                 const apiBaseUrl = this.API_BASE_URL || 'http://localhost:3001/api';
-                const response = await fetch(`${apiBaseUrl}/violations/session/${sessionId}/summary`, {
+                
+                // Use different endpoint based on result_type filter
+                let endpoint;
+                if (this.violationFilters.result_type === 'all' || this.violationFilters.result_type === 'pass') {
+                    endpoint = `${apiBaseUrl}/violations/session/${sessionId}/all-results/summary`;
+                } else {
+                    endpoint = `${apiBaseUrl}/violations/session/${sessionId}/summary`;
+                }
+                
+                const response = await fetch(endpoint, {
                     headers: { Authorization: `Bearer ${this.token}` }
                 });
                 
-                if (!response.ok) throw new Error('Failed to load violation summary');
+                if (!response.ok) throw new Error('Failed to load results summary');
                 
-                this.violationSummary = await response.json();
+                const summaryData = await response.json();
+                this.violationSummary = summaryData.summary || summaryData;
             } catch (error) {
-                console.error('Error loading violation summary:', error);
+                console.error('Error loading results summary:', error);
                 throw error;
             }
         },
@@ -2357,24 +2368,33 @@ function dashboard() {
                 });
 
                 const apiBaseUrl = this.API_BASE_URL || 'http://localhost:3001/api';
-                const response = await fetch(`${apiBaseUrl}/violations/session/${sessionId}?${params}`, {
+                
+                // Use different endpoint based on result_type filter
+                let endpoint;
+                if (this.violationFilters.result_type === 'all' || this.violationFilters.result_type === 'pass') {
+                    endpoint = `${apiBaseUrl}/violations/session/${sessionId}/all-results?${params}`;
+                } else {
+                    endpoint = `${apiBaseUrl}/violations/session/${sessionId}?${params}`;
+                }
+                
+                const response = await fetch(endpoint, {
                     headers: { Authorization: `Bearer ${this.token}` }
                 });
                 
-                if (!response.ok) throw new Error('Failed to load violations');
+                if (!response.ok) throw new Error('Failed to load test results');
                 
                 const data = await response.json();
                 
                 if (this.violationPagination.offset === 0) {
-                    this.violations = data.violations;
+                    this.violations = data.data || data.violations || data.results || [];
                 } else {
-                    this.violations.push(...data.violations);
+                    this.violations.push(...(data.data || data.violations || data.results || []));
                 }
                 
                 this.violationPagination = data.pagination;
             } catch (error) {
-                console.error('Error loading violations:', error);
-                this.addNotification('Error', 'Failed to load violations', 'error');
+                console.error('Error loading test results:', error);
+                this.addNotification('Error', 'Failed to load test results', 'error');
             } finally {
                 this.loadingViolations = false;
             }
@@ -2395,6 +2415,7 @@ function dashboard() {
 
         resetViolationFilters() {
             this.violationFilters = {
+                result_type: 'fail',
                 severity: '',
                 source: 'both',
                 tool: '',
@@ -2711,6 +2732,66 @@ function dashboard() {
         truncateText(text, maxLength = 100) {
             if (!text) return '';
             return text.length <= maxLength ? text : text.substring(0, maxLength) + '...';
+        },
+
+        // Result Type Helper Methods
+        getResultTypeDisplayText(resultType) {
+            switch (resultType) {
+                case 'all': return 'All Tests';
+                case 'pass': return 'Passed Tests';
+                case 'fail': return 'Failed Tests';
+                default: return 'Failed Tests';
+            }
+        },
+
+        getResultBadgeClass(result) {
+            switch (result) {
+                case 'pass': return 'bg-green-100 text-green-800 border-green-300';
+                case 'fail': return 'bg-red-100 text-red-800 border-red-300';
+                case 'in_progress': return 'bg-yellow-100 text-yellow-800 border-yellow-300';
+                case 'assigned': return 'bg-blue-100 text-blue-800 border-blue-300';
+                default: return 'bg-gray-100 text-gray-800 border-gray-300';
+            }
+        },
+
+        getResultDisplayText(result) {
+            switch (result) {
+                case 'pass': return 'Pass';
+                case 'fail': return 'Fail';
+                case 'in_progress': return 'In Progress';
+                case 'assigned': return 'Assigned';
+                default: return result || 'Unknown';
+            }
+        },
+
+        getResultsDisplayName() {
+            const filterType = this.violationFilters.result_type;
+            switch (filterType) {
+                case 'all': return 'test results';
+                case 'pass': return 'passed tests';
+                case 'fail': return 'violations';
+                default: return 'violations';
+            }
+        },
+
+        getResultsLoadingMessage() {
+            const filterType = this.violationFilters.result_type;
+            switch (filterType) {
+                case 'all': return 'Loading all test results...';
+                case 'pass': return 'Loading passed tests...';
+                case 'fail': return 'Loading violations...';
+                default: return 'Loading violations...';
+            }
+        },
+
+        getResultsEmptyMessage() {
+            const filterType = this.violationFilters.result_type;
+            switch (filterType) {
+                case 'all': return 'No test results found for this session.';
+                case 'pass': return 'No passed tests found for this session.';
+                case 'fail': return 'No violations found for this session.';
+                default: return 'No violations found for this session.';
+            }
         },
 
         // Analytics

@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { Pool } = require('pg');
+const { authenticateToken } = require('../middleware/auth');
 
 // Database connection
 const pool = new Pool({
@@ -744,6 +745,536 @@ router.put('/:id/update', async (req, res) => {
     } catch (error) {
         console.error('Error updating violation:', error);
         res.status(500).json({ error: 'Failed to update violation' });
+    }
+});
+
+/**
+ * GET /api/violations/session/:sessionId/all-results
+ * Get ALL test results (both passed and failed) for a session
+ */
+router.get('/session/:sessionId/all-results', async (req, res) => {
+    try {
+        const { sessionId } = req.params;
+        const { page = 1, limit = 50, severity, wcag_criterion, tool_name, result_type = 'all' } = req.query;
+        
+        const offset = (page - 1) * limit;
+        
+        // Build WHERE clauses for filtering
+        let whereConditions = [];
+        let params = [sessionId];
+        let paramCount = 1;
+
+        if (severity) {
+            paramCount++;
+            whereConditions.push(`v.severity = $${paramCount}`);
+            params.push(severity);
+        }
+
+        if (wcag_criterion) {
+            paramCount++;
+            whereConditions.push(`v.wcag_criterion = $${paramCount}`);
+            params.push(wcag_criterion);
+        }
+
+        if (tool_name) {
+            paramCount++;
+            whereConditions.push(`v.tool_name = $${paramCount}`);
+            params.push(tool_name);
+        }
+
+        const whereClause = whereConditions.length > 0 ? 'AND ' + whereConditions.join(' AND ') : '';
+
+        // Build query based on result_type filter
+        let query;
+        let countQuery;
+
+        if (result_type === 'fail') {
+            // Only failures (existing violations)
+            query = `
+                SELECT 
+                    v.id,
+                    v.violation_type as test_name,
+                    'fail' as result,
+                    v.severity,
+                    v.wcag_criterion,
+                    v.section_508_criterion,
+                    v.element_selector,
+                    v.element_html,
+                    v.description,
+                    v.remediation_guidance,
+                    v.help_url,
+                    v.created_at,
+                    dp.url as page_url,
+                    dp.title as page_title,
+                    atr.tool_name,
+                    mtr.tester_name,
+                    mtr.confidence_level,
+                    mtr.notes as manual_notes,
+                    'violation' as result_type
+                FROM violations v
+                LEFT JOIN automated_test_results atr ON v.automated_result_id = atr.id
+                LEFT JOIN manual_test_results mtr ON v.manual_result_id = mtr.id
+                LEFT JOIN discovered_pages dp ON (atr.page_id = dp.id OR mtr.page_id = dp.id)
+                WHERE (atr.test_session_id = $1 OR mtr.test_session_id = $1)
+                ${whereClause}
+                ORDER BY v.created_at DESC, dp.url
+                LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}
+            `;
+            
+            countQuery = `
+                SELECT COUNT(*) as total
+                FROM violations v
+                LEFT JOIN automated_test_results atr ON v.automated_result_id = atr.id
+                LEFT JOIN manual_test_results mtr ON v.manual_result_id = mtr.id
+                WHERE (atr.test_session_id = $1 OR mtr.test_session_id = $1)
+                ${whereClause}
+            `;
+        } else if (result_type === 'pass') {
+            // Only passes (manual passes + automated passes extracted from raw_results)
+            query = `
+                SELECT * FROM (
+                    -- Manual test passes
+                    SELECT 
+                        mtr.id,
+                        CASE 
+                            WHEN wr.title IS NOT NULL THEN wr.title
+                            WHEN sr.title IS NOT NULL THEN sr.title
+                            ELSE 'Manual Test'
+                        END as test_name,
+                        'pass' as result,
+                        'n/a' as severity,
+                        wr.criterion_number as wcag_criterion,
+                        sr.section_number as section_508_criterion,
+                        NULL as element_selector,
+                        NULL as element_html,
+                        mtr.notes as description,
+                        NULL as remediation_guidance,
+                        NULL as help_url,
+                        mtr.tested_at as created_at,
+                        dp.url as page_url,
+                        dp.title as page_title,
+                        'manual' as tool_name,
+                        mtr.tester_name,
+                        mtr.confidence_level,
+                        mtr.notes as manual_notes,
+                        'manual_pass' as result_type
+                    FROM manual_test_results mtr
+                    JOIN discovered_pages dp ON mtr.page_id = dp.id
+                    LEFT JOIN wcag_requirements wr ON mtr.requirement_id = wr.id AND mtr.requirement_type = 'wcag'
+                    LEFT JOIN section_508_requirements sr ON mtr.requirement_id = sr.id AND mtr.requirement_type = 'section_508'
+                    WHERE mtr.test_session_id = $1 AND mtr.result = 'pass'
+
+                    UNION ALL
+
+                    -- Automated test passes (extracted from raw_results)
+                    SELECT 
+                        atr.id,
+                        passed_test.rule_id as test_name,
+                        'pass' as result,
+                        'n/a' as severity,
+                        passed_test.wcag_criterion,
+                        NULL as section_508_criterion,
+                        passed_test.element_selector,
+                        passed_test.element_html,
+                        passed_test.description,
+                        passed_test.help_text as remediation_guidance,
+                        passed_test.help_url,
+                        atr.executed_at as created_at,
+                        dp.url as page_url,
+                        dp.title as page_title,
+                        atr.tool_name,
+                        NULL as tester_name,
+                        'high' as confidence_level,
+                        NULL as manual_notes,
+                        'automated_pass' as result_type
+                    FROM automated_test_results atr
+                    JOIN discovered_pages dp ON atr.page_id = dp.id
+                    CROSS JOIN LATERAL (
+                        SELECT 
+                            pass_item->>'id' as rule_id,
+                            pass_item->>'description' as description,
+                            pass_item->>'help' as help_text,
+                            pass_item->>'helpUrl' as help_url,
+                            CASE 
+                                WHEN pass_item->'tags' ? '1.1.1' THEN '1.1.1'
+                                WHEN pass_item->'tags' ? '1.3.1' THEN '1.3.1'
+                                WHEN pass_item->'tags' ? '1.4.3' THEN '1.4.3'
+                                WHEN pass_item->'tags' ? '2.1.1' THEN '2.1.1'
+                                WHEN pass_item->'tags' ? '2.4.1' THEN '2.4.1'
+                                WHEN pass_item->'tags' ? '3.1.1' THEN '3.1.1'
+                                WHEN pass_item->'tags' ? '4.1.1' THEN '4.1.1'
+                                WHEN pass_item->'tags' ? '4.1.2' THEN '4.1.2'
+                                ELSE NULL
+                            END as wcag_criterion,
+                            COALESCE(
+                                pass_item->'nodes'->0->>'target',
+                                'body'
+                            ) as element_selector,
+                            COALESCE(
+                                pass_item->'nodes'->0->>'html',
+                                ''
+                            ) as element_html
+                        FROM jsonb_array_elements(
+                            COALESCE(atr.raw_results->'result'->'passes', atr.raw_results->'passes', '[]'::jsonb)
+                        ) as pass_item
+                    ) as passed_test
+                    WHERE atr.test_session_id = $1 AND atr.passes_count > 0
+                ) all_passes
+                ${whereClause.replace(/v\./g, 'all_passes.')}
+                ORDER BY created_at DESC, page_url
+                LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}
+            `;
+
+            countQuery = `
+                SELECT COUNT(*) as total FROM (
+                    SELECT mtr.id FROM manual_test_results mtr
+                    WHERE mtr.test_session_id = $1 AND mtr.result = 'pass'
+                    
+                    UNION ALL
+                    
+                    SELECT atr.id FROM automated_test_results atr
+                    CROSS JOIN LATERAL (
+                        SELECT 1 FROM jsonb_array_elements(
+                            COALESCE(atr.raw_results->'result'->'passes', atr.raw_results->'passes', '[]'::jsonb)
+                        )
+                    ) as passed_test
+                    WHERE atr.test_session_id = $1 AND atr.passes_count > 0
+                ) all_passes
+            `;
+        } else {
+            // All results (both passes and failures)
+            query = `
+                SELECT * FROM (
+                    -- Failed tests (violations)
+                    SELECT 
+                        v.id,
+                        v.violation_type as test_name,
+                        'fail' as result,
+                        v.severity,
+                        v.wcag_criterion,
+                        v.section_508_criterion,
+                        v.element_selector,
+                        v.element_html,
+                        v.description,
+                        v.remediation_guidance,
+                        v.help_url,
+                        v.created_at,
+                        dp.url as page_url,
+                        dp.title as page_title,
+                        COALESCE(atr.tool_name, 'manual') as tool_name,
+                        mtr.tester_name,
+                        mtr.confidence_level,
+                        mtr.notes as manual_notes,
+                        CASE WHEN atr.id IS NOT NULL THEN 'automated_fail' ELSE 'manual_fail' END as result_type
+                    FROM violations v
+                    LEFT JOIN automated_test_results atr ON v.automated_result_id = atr.id
+                    LEFT JOIN manual_test_results mtr ON v.manual_result_id = mtr.id
+                    LEFT JOIN discovered_pages dp ON (atr.page_id = dp.id OR mtr.page_id = dp.id)
+                    WHERE (atr.test_session_id = $1 OR mtr.test_session_id = $1)
+
+                    UNION ALL
+
+                    -- Manual test passes
+                    SELECT 
+                        mtr.id,
+                        CASE 
+                            WHEN wr.title IS NOT NULL THEN wr.title
+                            WHEN sr.title IS NOT NULL THEN sr.title
+                            ELSE 'Manual Test'
+                        END as test_name,
+                        'pass' as result,
+                        'n/a' as severity,
+                        wr.criterion_number as wcag_criterion,
+                        sr.section_number as section_508_criterion,
+                        NULL as element_selector,
+                        NULL as element_html,
+                        mtr.notes as description,
+                        NULL as remediation_guidance,
+                        NULL as help_url,
+                        mtr.tested_at as created_at,
+                        dp.url as page_url,
+                        dp.title as page_title,
+                        'manual' as tool_name,
+                        mtr.tester_name,
+                        mtr.confidence_level,
+                        mtr.notes as manual_notes,
+                        'manual_pass' as result_type
+                    FROM manual_test_results mtr
+                    JOIN discovered_pages dp ON mtr.page_id = dp.id
+                    LEFT JOIN wcag_requirements wr ON mtr.requirement_id = wr.id AND mtr.requirement_type = 'wcag'
+                    LEFT JOIN section_508_requirements sr ON mtr.requirement_id = sr.id AND mtr.requirement_type = 'section_508'
+                    WHERE mtr.test_session_id = $1 AND mtr.result = 'pass'
+
+                    UNION ALL
+
+                    -- Automated test passes (extracted from raw_results)
+                    SELECT 
+                        atr.id,
+                        passed_test.rule_id as test_name,
+                        'pass' as result,
+                        'n/a' as severity,
+                        passed_test.wcag_criterion,
+                        NULL as section_508_criterion,
+                        passed_test.element_selector,
+                        passed_test.element_html,
+                        passed_test.description,
+                        passed_test.help_text as remediation_guidance,
+                        passed_test.help_url,
+                        atr.executed_at as created_at,
+                        dp.url as page_url,
+                        dp.title as page_title,
+                        atr.tool_name,
+                        NULL as tester_name,
+                        'high' as confidence_level,
+                        NULL as manual_notes,
+                        'automated_pass' as result_type
+                    FROM automated_test_results atr
+                    JOIN discovered_pages dp ON atr.page_id = dp.id
+                    CROSS JOIN LATERAL (
+                        SELECT 
+                            pass_item->>'id' as rule_id,
+                            pass_item->>'description' as description,
+                            pass_item->>'help' as help_text,
+                            pass_item->>'helpUrl' as help_url,
+                            CASE 
+                                WHEN pass_item->'tags' ? '1.1.1' THEN '1.1.1'
+                                WHEN pass_item->'tags' ? '1.3.1' THEN '1.3.1'
+                                WHEN pass_item->'tags' ? '1.4.3' THEN '1.4.3'
+                                WHEN pass_item->'tags' ? '2.1.1' THEN '2.1.1'
+                                WHEN pass_item->'tags' ? '2.4.1' THEN '2.4.1'
+                                WHEN pass_item->'tags' ? '3.1.1' THEN '3.1.1'
+                                WHEN pass_item->'tags' ? '4.1.1' THEN '4.1.1'
+                                WHEN pass_item->'tags' ? '4.1.2' THEN '4.1.2'
+                                ELSE NULL
+                            END as wcag_criterion,
+                            COALESCE(
+                                pass_item->'nodes'->0->>'target',
+                                'body'
+                            ) as element_selector,
+                            COALESCE(
+                                pass_item->'nodes'->0->>'html',
+                                ''
+                            ) as element_html
+                        FROM jsonb_array_elements(
+                            COALESCE(atr.raw_results->'result'->'passes', atr.raw_results->'passes', '[]'::jsonb)
+                        ) as pass_item
+                    ) as passed_test
+                    WHERE atr.test_session_id = $1 AND atr.passes_count > 0
+                ) all_results
+                ${whereClause.replace(/v\./g, 'all_results.')}
+                ORDER BY created_at DESC, page_url
+                LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}
+            `;
+
+            countQuery = `
+                SELECT COUNT(*) as total FROM (
+                    SELECT v.id FROM violations v
+                    LEFT JOIN automated_test_results atr ON v.automated_result_id = atr.id
+                    LEFT JOIN manual_test_results mtr ON v.manual_result_id = mtr.id
+                    WHERE (atr.test_session_id = $1 OR mtr.test_session_id = $1)
+                    
+                    UNION ALL
+                    
+                    SELECT mtr.id FROM manual_test_results mtr
+                    WHERE mtr.test_session_id = $1 AND mtr.result = 'pass'
+                    
+                    UNION ALL
+                    
+                    SELECT atr.id FROM automated_test_results atr
+                    CROSS JOIN LATERAL (
+                        SELECT 1 FROM jsonb_array_elements(
+                            COALESCE(atr.raw_results->'result'->'passes', atr.raw_results->'passes', '[]'::jsonb)
+                        )
+                    ) as passed_test
+                    WHERE atr.test_session_id = $1 AND atr.passes_count > 0
+                ) all_results
+            `;
+        }
+
+        // Add pagination parameters
+        params.push(limit, offset);
+
+        // Execute queries
+        const [results, countResult] = await Promise.all([
+            pool.query(query, params),
+            pool.query(countQuery, params.slice(0, -2)) // Remove limit/offset for count
+        ]);
+
+        const totalResults = parseInt(countResult.rows[0].total);
+        const totalPages = Math.ceil(totalResults / limit);
+
+        res.json({
+            success: true,
+            data: results.rows,
+            pagination: {
+                page: parseInt(page),
+                limit: parseInt(limit),
+                total: totalResults,
+                pages: totalPages,
+                hasNext: page < totalPages,
+                hasPrev: page > 1
+            },
+            filters: {
+                result_type,
+                severity,
+                wcag_criterion,
+                tool_name
+            }
+        });
+
+    } catch (error) {
+        console.error('❌ Error fetching all test results:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch test results'
+        });
+    }
+});
+
+/**
+ * GET /api/violations/session/:sessionId/all-results/summary
+ * Get summary statistics for all test results (passed and failed)
+ */
+router.get('/session/:sessionId/all-results/summary', async (req, res) => {
+    try {
+        const { sessionId } = req.params;
+        const { result_type = 'all' } = req.query;
+
+        let query;
+        
+        if (result_type === 'fail') {
+            // Only failures summary
+            query = `
+                SELECT 
+                    COUNT(*) as total_results,
+                    COUNT(*) as total_violations,
+                    0 as total_passes,
+                    COUNT(DISTINCT CASE WHEN atr.tool_name IS NOT NULL THEN atr.tool_name ELSE 'manual' END) as tools_used,
+                    COUNT(DISTINCT dp.url) as pages_affected,
+                    COUNT(CASE WHEN v.severity = 'critical' THEN 1 END) as critical_count,
+                    COUNT(CASE WHEN v.severity = 'serious' THEN 1 END) as serious_count,
+                    COUNT(CASE WHEN v.severity = 'moderate' THEN 1 END) as moderate_count,
+                    COUNT(CASE WHEN v.severity = 'minor' THEN 1 END) as minor_count
+                FROM violations v
+                LEFT JOIN automated_test_results atr ON v.automated_result_id = atr.id
+                LEFT JOIN manual_test_results mtr ON v.manual_result_id = mtr.id
+                LEFT JOIN discovered_pages dp ON (atr.page_id = dp.id OR mtr.page_id = dp.id)
+                WHERE (atr.test_session_id = $1 OR mtr.test_session_id = $1)
+            `;
+        } else if (result_type === 'pass') {
+            // Only passes summary
+            query = `
+                SELECT 
+                    COUNT(*) as total_results,
+                    0 as total_violations,
+                    COUNT(*) as total_passes,
+                    COUNT(DISTINCT tool_name) as tools_used,
+                    COUNT(DISTINCT page_url) as pages_affected,
+                    0 as critical_count,
+                    0 as serious_count,
+                    0 as moderate_count,
+                    0 as minor_count
+                FROM (
+                    SELECT 'manual' as tool_name, dp.url as page_url
+                    FROM manual_test_results mtr
+                    JOIN discovered_pages dp ON mtr.page_id = dp.id
+                    WHERE mtr.test_session_id = $1 AND mtr.result = 'pass'
+                    
+                    UNION ALL
+                    
+                    SELECT atr.tool_name, dp.url as page_url
+                    FROM automated_test_results atr
+                    JOIN discovered_pages dp ON atr.page_id = dp.id
+                    CROSS JOIN LATERAL (
+                        SELECT 1 FROM jsonb_array_elements(
+                            COALESCE(atr.raw_results->'result'->'passes', atr.raw_results->'passes', '[]'::jsonb)
+                        )
+                    ) as passed_test
+                    WHERE atr.test_session_id = $1 AND atr.passes_count > 0
+                ) all_passes
+            `;
+        } else {
+            // All results summary
+            query = `
+                WITH violation_summary AS (
+                    SELECT 
+                        COUNT(*) as violation_count,
+                        COUNT(DISTINCT CASE WHEN atr.tool_name IS NOT NULL THEN atr.tool_name ELSE 'manual' END) as violation_tools,
+                        COUNT(DISTINCT dp.url) as violation_pages,
+                        COUNT(CASE WHEN v.severity = 'critical' THEN 1 END) as critical_count,
+                        COUNT(CASE WHEN v.severity = 'serious' THEN 1 END) as serious_count,
+                        COUNT(CASE WHEN v.severity = 'moderate' THEN 1 END) as moderate_count,
+                        COUNT(CASE WHEN v.severity = 'minor' THEN 1 END) as minor_count
+                    FROM violations v
+                    LEFT JOIN automated_test_results atr ON v.automated_result_id = atr.id
+                    LEFT JOIN manual_test_results mtr ON v.manual_result_id = mtr.id
+                    LEFT JOIN discovered_pages dp ON (atr.page_id = dp.id OR mtr.page_id = dp.id)
+                    WHERE (atr.test_session_id = $1 OR mtr.test_session_id = $1)
+                ),
+                pass_summary AS (
+                    SELECT 
+                        COUNT(*) as pass_count,
+                        COUNT(DISTINCT tool_name) as pass_tools,
+                        COUNT(DISTINCT page_url) as pass_pages
+                    FROM (
+                        SELECT 'manual' as tool_name, dp.url as page_url
+                        FROM manual_test_results mtr
+                        JOIN discovered_pages dp ON mtr.page_id = dp.id
+                        WHERE mtr.test_session_id = $1 AND mtr.result = 'pass'
+                        
+                        UNION ALL
+                        
+                        SELECT atr.tool_name, dp.url as page_url
+                        FROM automated_test_results atr
+                        JOIN discovered_pages dp ON atr.page_id = dp.id
+                        CROSS JOIN LATERAL (
+                            SELECT 1 FROM jsonb_array_elements(
+                                COALESCE(atr.raw_results->'result'->'passes', atr.raw_results->'passes', '[]'::jsonb)
+                            )
+                        ) as passed_test
+                        WHERE atr.test_session_id = $1 AND atr.passes_count > 0
+                    ) all_passes
+                )
+                SELECT 
+                    (vs.violation_count + ps.pass_count) as total_results,
+                    vs.violation_count as total_violations,
+                    ps.pass_count as total_passes,
+                    GREATEST(vs.violation_tools, ps.pass_tools) as tools_used,
+                    GREATEST(vs.violation_pages, ps.pass_pages) as pages_affected,
+                    vs.critical_count,
+                    vs.serious_count,
+                    vs.moderate_count,
+                    vs.minor_count
+                FROM violation_summary vs, pass_summary ps
+            `;
+        }
+
+        const result = await pool.query(query, [sessionId]);
+        const summary = result.rows[0];
+
+        res.json({
+            success: true,
+            summary: {
+                totalResults: parseInt(summary.total_results) || 0,
+                totalViolations: parseInt(summary.total_violations) || 0,
+                totalPasses: parseInt(summary.total_passes) || 0,
+                toolsUsed: parseInt(summary.tools_used) || 0,
+                pagesAffected: parseInt(summary.pages_affected) || 0,
+                severityBreakdown: {
+                    critical: parseInt(summary.critical_count) || 0,
+                    serious: parseInt(summary.serious_count) || 0,
+                    moderate: parseInt(summary.moderate_count) || 0,
+                    minor: parseInt(summary.minor_count) || 0
+                }
+            }
+        });
+
+    } catch (error) {
+        console.error('❌ Error fetching all test results summary:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch test results summary'
+        });
     }
 });
 
