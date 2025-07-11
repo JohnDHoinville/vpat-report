@@ -608,6 +608,67 @@ router.get('/:id/discoveries', async (req, res) => {
 });
 
 /**
+ * DELETE /api/projects/:id/discoveries/:discoveryId
+ * Delete a site discovery session and all its discovered pages (requires authentication)
+ */
+router.delete('/:id/discoveries/:discoveryId', authenticateToken, async (req, res) => {
+    try {
+        const { id: projectId, discoveryId } = req.params;
+
+        // Check if project exists and discovery belongs to it
+        const checkQuery = `
+            SELECT sd.domain, sd.primary_url, sd.total_pages_found
+            FROM site_discovery sd 
+            WHERE sd.id = $1 AND sd.project_id = $2
+        `;
+        const checkResult = await db.query(checkQuery, [discoveryId, projectId]);
+
+        if (checkResult.rows.length === 0) {
+            return res.status(404).json({
+                error: 'Discovery not found or does not belong to this project',
+                discoveryId,
+                projectId
+            });
+        }
+
+        const discovery = checkResult.rows[0];
+
+        // Get WebSocket service from app
+        const wsService = req.app.get('wsService');
+        
+        // Initialize discovery service
+        const discoveryService = new SiteDiscoveryService(wsService);
+
+        // Delete discovery and all its pages
+        const deleted = await discoveryService.deleteDiscovery(discoveryId);
+
+        if (!deleted) {
+            return res.status(404).json({
+                error: 'Discovery not found',
+                discoveryId
+            });
+        }
+
+        res.json({
+            message: 'Discovery deleted successfully',
+            deleted: {
+                id: discoveryId,
+                domain: discovery.domain,
+                primary_url: discovery.primary_url,
+                pages_deleted: discovery.total_pages_found
+            }
+        });
+
+    } catch (error) {
+        console.error('Error deleting discovery:', error);
+        res.status(500).json({
+            error: 'Failed to delete discovery',
+            message: error.message
+        });
+    }
+});
+
+/**
  * GET /api/projects/:id/discoveries/:discoveryId/pages
  * Get all discovered pages for a specific discovery session
  */

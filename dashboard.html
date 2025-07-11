@@ -225,6 +225,9 @@
                                 <button @click="editProject(project)" class="bg-gray-200 text-gray-700 px-3 py-2 rounded text-sm hover:bg-gray-300 transition-colors">
                                     <i class="fas fa-edit"></i>
                                 </button>
+                                <button @click="deleteProject(project)" class="bg-red-600 text-white px-3 py-2 rounded text-sm hover:bg-red-700 transition-colors">
+                                    <i class="fas fa-trash"></i>
+                                </button>
                             </div>
                         </div>
                     </template>
@@ -534,9 +537,12 @@
                                             <span class="font-medium ml-2" x-text="formatDate(discovery.started_at)"></span>
                                         </div>
                                     </div>
-                                    <div x-show="discovery.status === 'completed'" class="mt-3">
+                                    <div x-show="discovery.status === 'completed'" class="mt-3 flex space-x-2">
                                         <button @click="viewDiscoveryPages(discovery)" class="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700 transition-colors">
                                             <i class="fas fa-list mr-1"></i>View Pages
+                                        </button>
+                                        <button @click="deleteDiscovery(discovery)" class="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700 transition-colors">
+                                            <i class="fas fa-trash mr-1"></i>Delete
                                         </button>
                                     </div>
                                 </div>
@@ -941,13 +947,27 @@
                 <div x-show="!pagesLoading && discoveredPages.length > 0" class="flex-1 overflow-hidden flex flex-col">
                     <!-- Filter/Search Bar -->
                     <div class="px-6 py-3 border-b border-gray-200 bg-gray-50">
-                        <div class="flex items-center space-x-4">
-                            <div class="flex-1">
+                        <div class="flex items-center justify-between space-x-4">
+                            <div class="flex items-center space-x-4 flex-1">
                                 <input type="text" placeholder="Search pages..." 
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                       class="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <div class="flex items-center space-x-2">
+                                    <button @click="selectAllPages()" class="text-sm text-blue-600 hover:text-blue-800 hover:underline">
+                                        Include All
+                                    </button>
+                                    <span class="text-gray-400">|</span>
+                                    <button @click="excludeAllPages()" class="text-sm text-red-600 hover:text-red-800 hover:underline">
+                                        Exclude All
+                                    </button>
+                                    <span class="text-gray-400">|</span>
+                                    <button @click="clearExcludedPages()" class="text-sm text-gray-600 hover:text-gray-800 hover:underline">
+                                        Clear
+                                    </button>
+                                </div>
                             </div>
-                            <div class="text-sm text-gray-600">
-                                <span x-text="discoveredPages.length"></span> pages
+                            <div class="text-sm text-gray-600 text-right">
+                                <div><span x-text="getIncludedPagesCount()" class="font-medium text-green-600"></span> included</div>
+                                <div><span x-text="getExcludedPagesCount()" class="font-medium text-red-600"></span> excluded</div>
                             </div>
                         </div>
                     </div>
@@ -957,6 +977,7 @@
                         <table class="min-w-full divide-y divide-gray-200">
                             <thead class="bg-gray-50 sticky top-0">
                                 <tr>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-16">Include</th>
                                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">URL</th>
                                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
                                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
@@ -968,7 +989,15 @@
                             </thead>
                             <tbody class="bg-white divide-y divide-gray-200">
                                 <template x-for="page in discoveredPages" :key="page.id">
-                                    <tr class="hover:bg-gray-50">
+                                    <tr class="hover:bg-gray-50" :class="{ 'bg-red-50': isPageExcluded(page.id) }">
+                                        <td class="px-4 py-3 w-16">
+                                            <div class="flex items-center justify-center">
+                                                <input type="checkbox" 
+                                                       :checked="!isPageExcluded(page.id)"
+                                                       @change="togglePageExclusion(page.id)"
+                                                       class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                                            </div>
+                                        </td>
                                         <td class="px-4 py-3">
                                             <div class="flex items-center">
                                                 <div class="flex-shrink-0 w-8 h-8">
@@ -1062,21 +1091,178 @@
                     </div>
                 </div>
 
-                <!-- Footer -->
-                <div class="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-between items-center">
-                    <div class="text-sm text-gray-600">
-                        <span x-show="selectedDiscovery">
-                            Discovery completed: <span x-text="formatDate(selectedDiscovery?.completed_at)"></span>
-                        </span>
-                    </div>
-                    <div class="flex space-x-3">
-                        <button @click="showViewPages = false" 
-                                class="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 transition-colors">
-                            Close
+                <!-- All Pages Excluded State -->
+                <div x-show="!pagesLoading && discoveredPages.length > 0 && getIncludedPagesCount() === 0" class="flex-1 flex items-center justify-center p-8">
+                    <div class="text-center">
+                        <i class="fas fa-ban text-red-400 text-4xl mb-4"></i>
+                        <h3 class="text-lg font-medium text-gray-900 mb-2">All Pages Excluded</h3>
+                        <p class="text-gray-600 mb-4">You've excluded all pages from testing. No pages will be tested in this discovery session.</p>
+                        <button @click="selectAllPages()" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors">
+                            <i class="fas fa-check mr-2"></i>Include All Pages
                         </button>
-                        <button class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-                                @click="showNotification('Export pages feature coming soon!', 'info')">
-                            <i class="fas fa-download mr-2"></i>Export Pages
+                    </div>
+                </div>
+
+                <!-- Footer -->
+                <div class="px-6 py-4 border-t border-gray-200 bg-gray-50">
+                    <div class="flex justify-between items-start mb-3">
+                        <div class="text-sm text-gray-600">
+                            <div x-show="selectedDiscovery" class="mb-2">
+                                Discovery completed: <span x-text="formatDate(selectedDiscovery?.completed_at)"></span>
+                            </div>
+                            <div class="flex items-center space-x-4">
+                                <div class="flex items-center space-x-2">
+                                    <div class="w-3 h-3 bg-white border border-gray-300 rounded"></div>
+                                    <span class="text-xs">Included in testing</span>
+                                </div>
+                                <div class="flex items-center space-x-2">
+                                    <div class="w-3 h-3 bg-red-50 border border-red-200 rounded"></div>
+                                    <span class="text-xs">Excluded from testing</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-sm font-medium mb-1">
+                                <span x-text="getIncludedPagesCount()" class="text-green-600"></span> pages will be tested
+                            </div>
+                            <div class="text-xs text-gray-500" x-show="getExcludedPagesCount() > 0">
+                                <span x-text="getExcludedPagesCount()"></span> pages excluded
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <div class="text-xs text-gray-500">
+                            💡 Tip: Uncheck pages you don't want to include in accessibility testing
+                        </div>
+                        <div class="flex space-x-3">
+                            <button @click="showViewPages = false" 
+                                    class="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 transition-colors">
+                                Close
+                            </button>
+                            <button class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                                    @click="showNotification('Export pages feature coming soon!', 'info')">
+                                <i class="fas fa-download mr-2"></i>Export Pages
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Delete Discovery Confirmation Modal -->
+        <div x-show="showDeleteDiscovery" 
+             x-transition:enter="transition ease-out duration-300"
+             x-transition:enter-start="opacity-0"
+             x-transition:enter-end="opacity-100"
+             x-transition:leave="transition ease-in duration-200"
+             x-transition:leave-start="opacity-100"
+             x-transition:leave-end="opacity-0"
+             class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
+             @click.self="cancelDeleteDiscovery()">
+            <div class="bg-white rounded-lg shadow-xl max-w-md w-full">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <div class="flex items-center">
+                        <div class="p-2 bg-red-100 rounded-full mr-3">
+                            <i class="fas fa-exclamation-triangle text-red-600"></i>
+                        </div>
+                        <h3 class="text-lg font-semibold text-gray-900">Delete Site Discovery</h3>
+                    </div>
+                </div>
+                <div class="p-6">
+                    <p class="text-gray-600 mb-4">
+                        Are you sure you want to delete the site discovery for 
+                        <strong x-text="discoveryToDelete?.domain" class="text-gray-900"></strong>?
+                    </p>
+                    <div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+                        <div class="flex">
+                            <i class="fas fa-exclamation-triangle text-red-400 mr-3 mt-1 text-sm"></i>
+                            <div class="text-sm">
+                                <p class="text-red-800 font-medium">This action cannot be undone.</p>
+                                <p class="text-red-700 mt-1">
+                                    This will permanently delete:
+                                </p>
+                                <ul class="text-red-700 mt-2 space-y-1">
+                                    <li>• All discovered pages (<span x-text="discoveryToDelete?.total_pages_found || 0"></span> pages)</li>
+                                    <li>• Discovery session data and metadata</li>
+                                    <li>• Associated test results (if any)</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex justify-end space-x-3">
+                        <button @click="cancelDeleteDiscovery()" 
+                                class="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 transition-colors">
+                            Cancel
+                        </button>
+                        <button @click="confirmDeleteDiscovery()" 
+                                :disabled="loading"
+                                class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors disabled:bg-red-400 disabled:cursor-not-allowed">
+                            <span x-show="!loading" class="flex items-center">
+                                <i class="fas fa-trash mr-2"></i>Delete Discovery
+                            </span>
+                            <span x-show="loading" class="flex items-center">
+                                <i class="fas fa-spinner fa-spin mr-2"></i>Deleting...
+                            </span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Delete Project Confirmation Modal -->
+        <div x-show="showDeleteProject" 
+             x-transition:enter="transition ease-out duration-300"
+             x-transition:enter-start="opacity-0"
+             x-transition:enter-end="opacity-100"
+             x-transition:leave="transition ease-in duration-200"
+             x-transition:leave-start="opacity-100"
+             x-transition:leave-end="opacity-0"
+             class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
+             @click.self="cancelDeleteProject()">
+            <div class="bg-white rounded-lg shadow-xl max-w-md w-full">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <div class="flex items-center">
+                        <div class="p-2 bg-red-100 rounded-full mr-3">
+                            <i class="fas fa-exclamation-triangle text-red-600"></i>
+                        </div>
+                        <h3 class="text-lg font-semibold text-gray-900">Delete Project</h3>
+                    </div>
+                </div>
+                <div class="p-6">
+                    <p class="text-gray-600 mb-4">
+                        Are you sure you want to delete the project 
+                        <strong x-text="projectToDelete?.name" class="text-gray-900"></strong>?
+                    </p>
+                    <div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+                        <div class="flex">
+                            <i class="fas fa-exclamation-triangle text-red-400 mr-3 mt-1 text-sm"></i>
+                            <div class="text-sm">
+                                <p class="text-red-800 font-medium">This action cannot be undone.</p>
+                                <p class="text-red-700 mt-1">
+                                    This will permanently delete:
+                                </p>
+                                <ul class="text-red-700 mt-2 space-y-1">
+                                    <li>• All site discovery sessions and discovered pages</li>
+                                    <li>• All test sessions and results</li>
+                                    <li>• All project data and configuration</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex justify-end space-x-3">
+                        <button @click="cancelDeleteProject()" 
+                                class="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 transition-colors">
+                            Cancel
+                        </button>
+                        <button @click="confirmDeleteProject()" 
+                                :disabled="loading"
+                                class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors disabled:bg-red-400 disabled:cursor-not-allowed">
+                            <span x-show="!loading" class="flex items-center">
+                                <i class="fas fa-trash mr-2"></i>Delete Project
+                            </span>
+                            <span x-show="loading" class="flex items-center">
+                                <i class="fas fa-spinner fa-spin mr-2"></i>Deleting...
+                            </span>
                         </button>
                     </div>
                 </div>

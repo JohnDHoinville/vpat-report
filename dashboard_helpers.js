@@ -56,6 +56,13 @@ function dashboard() {
         selectedDiscovery: null,
         discoveredPages: [],
         pagesLoading: false,
+        excludedPages: [], // Array of page IDs to exclude from testing
+        
+        // Delete Project Modal Data
+        projectToDelete: null,
+        
+        // Delete Discovery Modal Data
+        discoveryToDelete: null,
         
         // Authentication Management Data
         authConfigs: [],
@@ -79,6 +86,8 @@ function dashboard() {
         showStartDiscovery: false,
         showCreateSession: false,
         showViewPages: false,
+        showDeleteProject: false,
+        showDeleteDiscovery: false,
         showLogin: false,
         showProfile: false,
         showChangePassword: false,
@@ -981,6 +990,81 @@ function dashboard() {
             this.showNotification('Edit project feature coming soon!', 'info');
         },
 
+        deleteProject(project) {
+            this.projectToDelete = project;
+            this.showDeleteProject = true;
+        },
+
+        async confirmDeleteProject() {
+            if (!this.projectToDelete) return;
+            
+            try {
+                this.loading = true;
+                await this.apiCall(`/projects/${this.projectToDelete.id}`, {
+                    method: 'DELETE'
+                });
+                
+                // Remove from projects list
+                this.projects = this.projects.filter(p => p.id !== this.projectToDelete.id);
+                
+                // Clear selection if the deleted project was selected
+                if (this.selectedProject && this.selectedProject.id === this.projectToDelete.id) {
+                    this.selectedProject = null;
+                    this.discoveries = [];
+                    this.testSessions = [];
+                }
+                
+                this.showDeleteProject = false;
+                this.projectToDelete = null;
+                this.showNotification('Project deleted successfully!', 'success');
+                
+            } catch (error) {
+                console.error('Failed to delete project:', error);
+                this.showNotification('Failed to delete project. Please try again.', 'error');
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        cancelDeleteProject() {
+            this.showDeleteProject = false;
+            this.projectToDelete = null;
+        },
+
+        deleteDiscovery(discovery) {
+            this.discoveryToDelete = discovery;
+            this.showDeleteDiscovery = true;
+        },
+
+        async confirmDeleteDiscovery() {
+            if (!this.discoveryToDelete || !this.selectedProject) return;
+            
+            try {
+                this.loading = true;
+                await this.apiCall(`/projects/${this.selectedProject.id}/discoveries/${this.discoveryToDelete.id}`, {
+                    method: 'DELETE'
+                });
+                
+                // Remove from discoveries list
+                this.discoveries = this.discoveries.filter(d => d.id !== this.discoveryToDelete.id);
+                
+                this.showDeleteDiscovery = false;
+                this.discoveryToDelete = null;
+                this.showNotification('Site discovery deleted successfully!', 'success');
+                
+            } catch (error) {
+                console.error('Failed to delete discovery:', error);
+                this.showNotification('Failed to delete discovery. Please try again.', 'error');
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        cancelDeleteDiscovery() {
+            this.showDeleteDiscovery = false;
+            this.discoveryToDelete = null;
+        },
+
         async viewDiscoveryPages(discovery) {
             if (!this.selectedProject || !discovery) return;
             
@@ -988,6 +1072,9 @@ function dashboard() {
             this.showViewPages = true;
             this.pagesLoading = true;
             this.discoveredPages = [];
+            
+            // Load excluded pages from localStorage
+            this.loadExcludedPages(discovery.id);
             
             try {
                 const data = await this.apiCall(`/projects/${this.selectedProject.id}/discoveries/${discovery.id}/pages`);
@@ -999,6 +1086,60 @@ function dashboard() {
             } finally {
                 this.pagesLoading = false;
             }
+        },
+
+        // Page exclusion management
+        togglePageExclusion(pageId) {
+            const index = this.excludedPages.indexOf(pageId);
+            if (index > -1) {
+                this.excludedPages.splice(index, 1);
+            } else {
+                this.excludedPages.push(pageId);
+            }
+            this.saveExcludedPages();
+        },
+
+        isPageExcluded(pageId) {
+            return this.excludedPages.includes(pageId);
+        },
+
+        selectAllPages() {
+            this.excludedPages = [];
+            this.saveExcludedPages();
+            this.showNotification('All pages included for testing', 'success');
+        },
+
+        excludeAllPages() {
+            this.excludedPages = this.discoveredPages.map(page => page.id);
+            this.saveExcludedPages();
+            this.showNotification('All pages excluded from testing', 'info');
+        },
+
+        getIncludedPagesCount() {
+            return this.discoveredPages.length - this.excludedPages.length;
+        },
+
+        getExcludedPagesCount() {
+            return this.excludedPages.length;
+        },
+
+        // Local storage management for excluded pages
+        saveExcludedPages() {
+            if (!this.selectedDiscovery) return;
+            const key = `excludedPages_${this.selectedDiscovery.id}`;
+            localStorage.setItem(key, JSON.stringify(this.excludedPages));
+        },
+
+        loadExcludedPages(discoveryId) {
+            const key = `excludedPages_${discoveryId}`;
+            const saved = localStorage.getItem(key);
+            this.excludedPages = saved ? JSON.parse(saved) : [];
+        },
+
+        clearExcludedPages() {
+            this.excludedPages = [];
+            this.saveExcludedPages();
+            this.showNotification('Page selections cleared', 'info');
         },
 
         viewSessionResults(session) {
