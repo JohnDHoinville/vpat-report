@@ -100,6 +100,34 @@ function dashboard() {
         // Delete Session Modal Data
         sessionToDelete: null,
         
+        // Violation Inspector Data
+        showViolationInspector: false,
+        violationInspectorSession: null,
+        violations: [],
+        violationSummary: {},
+        selectedViolation: null,
+        violationFilters: {
+            severity: '',
+            source: 'both',
+            tool: '',
+            wcag_level: '',
+            wcag_criteria: '',
+            page_url: '',
+            violation_type: '',
+            status: ''
+        },
+        violationSort: {
+            by: 'severity',
+            order: 'desc'
+        },
+        violationPagination: {
+            limit: 50,
+            offset: 0,
+            total: 0,
+            has_more: false
+        },
+        loadingViolations: false,
+        
         // Authentication Management Data
         authConfigs: [],
         showSetupAuth: false,
@@ -1461,7 +1489,7 @@ function dashboard() {
         },
 
         viewSessionResults(session) {
-            this.showNotification('Results viewer coming soon!', 'info');
+            this.openViolationInspector(session);
         },
 
         manualTesting(session) {
@@ -2025,6 +2053,283 @@ function dashboard() {
                 'expired': 'bg-gray-100 text-gray-800'
             };
             return classes[status] || 'bg-gray-100 text-gray-800';
+        },
+
+        // ===========================
+        // VIOLATION INSPECTOR FUNCTIONS
+        // ===========================
+
+        async openViolationInspector(session) {
+            this.violationInspectorSession = session;
+            this.showViolationInspector = true;
+            
+            // Reset pagination and filters
+            this.violationPagination.offset = 0;
+            this.violations = [];
+            
+            try {
+                await Promise.all([
+                    this.loadViolationSummary(session.id),
+                    this.loadViolations(session.id)
+                ]);
+            } catch (error) {
+                console.error('Error opening violation inspector:', error);
+                this.addNotification('Error', 'Failed to load violation data', 'error');
+            }
+        },
+
+        closeViolationInspector() {
+            this.showViolationInspector = false;
+            this.violationInspectorSession = null;
+            this.violations = [];
+            this.violationSummary = {};
+            this.selectedViolation = null;
+            this.resetViolationFilters();
+        },
+
+        async loadViolationSummary(sessionId) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/violations/session/${sessionId}/summary`, {
+                    headers: { Authorization: `Bearer ${this.token}` }
+                });
+                
+                if (!response.ok) throw new Error('Failed to load violation summary');
+                
+                this.violationSummary = await response.json();
+            } catch (error) {
+                console.error('Error loading violation summary:', error);
+                throw error;
+            }
+        },
+
+        async loadViolations(sessionId) {
+            if (this.loadingViolations) return;
+            
+            this.loadingViolations = true;
+            
+            try {
+                const params = new URLSearchParams({
+                    limit: this.violationPagination.limit,
+                    offset: this.violationPagination.offset,
+                    sort_by: this.violationSort.by,
+                    sort_order: this.violationSort.order
+                });
+
+                // Add filters
+                Object.entries(this.violationFilters).forEach(([key, value]) => {
+                    if (value && value !== '' && value !== 'both') {
+                        params.append(key, value);
+                    }
+                });
+
+                const response = await fetch(`${API_BASE_URL}/violations/session/${sessionId}?${params}`, {
+                    headers: { Authorization: `Bearer ${this.token}` }
+                });
+                
+                if (!response.ok) throw new Error('Failed to load violations');
+                
+                const data = await response.json();
+                
+                if (this.violationPagination.offset === 0) {
+                    this.violations = data.violations;
+                } else {
+                    this.violations.push(...data.violations);
+                }
+                
+                this.violationPagination = data.pagination;
+            } catch (error) {
+                console.error('Error loading violations:', error);
+                this.addNotification('Error', 'Failed to load violations', 'error');
+            } finally {
+                this.loadingViolations = false;
+            }
+        },
+
+        async loadMoreViolations() {
+            if (!this.violationPagination.has_more || this.loadingViolations) return;
+            
+            this.violationPagination.offset += this.violationPagination.limit;
+            await this.loadViolations(this.violationInspectorSession.id);
+        },
+
+        async applyViolationFilters() {
+            this.violationPagination.offset = 0;
+            this.violations = [];
+            await this.loadViolations(this.violationInspectorSession.id);
+        },
+
+        resetViolationFilters() {
+            this.violationFilters = {
+                severity: '',
+                source: 'both',
+                tool: '',
+                wcag_level: '',
+                wcag_criteria: '',
+                page_url: '',
+                violation_type: '',
+                status: ''
+            };
+            this.violationSort = {
+                by: 'severity',
+                order: 'desc'
+            };
+        },
+
+        async sortViolations(field) {
+            if (this.violationSort.by === field) {
+                this.violationSort.order = this.violationSort.order === 'asc' ? 'desc' : 'asc';
+            } else {
+                this.violationSort.by = field;
+                this.violationSort.order = 'asc';
+            }
+            
+            this.violationPagination.offset = 0;
+            this.violations = [];
+            await this.loadViolations(this.violationInspectorSession.id);
+        },
+
+        async viewViolationDetails(violation) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/violations/${violation.id}`, {
+                    headers: { Authorization: `Bearer ${this.token}` }
+                });
+                
+                if (!response.ok) throw new Error('Failed to load violation details');
+                
+                const data = await response.json();
+                this.selectedViolation = data;
+            } catch (error) {
+                console.error('Error loading violation details:', error);
+                this.addNotification('Error', 'Failed to load violation details', 'error');
+            }
+        },
+
+        closeViolationDetails() {
+            this.selectedViolation = null;
+        },
+
+        async updateViolationStatus(violationId, status, notes = '') {
+            try {
+                const response = await fetch(`${API_BASE_URL}/violations/${violationId}/status`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${this.token}`
+                    },
+                    body: JSON.stringify({
+                        status: status,
+                        resolution_notes: notes
+                    })
+                });
+                
+                if (!response.ok) throw new Error('Failed to update violation status');
+                
+                // Update the violation in our local data
+                const updatedViolation = await response.json();
+                const index = this.violations.findIndex(v => v.id === violationId);
+                if (index !== -1) {
+                    this.violations[index] = { ...this.violations[index], ...updatedViolation };
+                }
+                
+                if (this.selectedViolation && this.selectedViolation.violation.id === violationId) {
+                    this.selectedViolation.violation = { ...this.selectedViolation.violation, ...updatedViolation };
+                }
+                
+                this.addNotification('Success', 'Violation status updated', 'success');
+            } catch (error) {
+                console.error('Error updating violation status:', error);
+                this.addNotification('Error', 'Failed to update violation status', 'error');
+            }
+        },
+
+        async exportViolations(format = 'json') {
+            try {
+                const response = await fetch(`${API_BASE_URL}/violations/session/${this.violationInspectorSession.id}/export?format=${format}`, {
+                    headers: { Authorization: `Bearer ${this.token}` }
+                });
+                
+                if (!response.ok) throw new Error('Failed to export violations');
+                
+                const filename = `violations-${this.violationInspectorSession.name.replace(/[^a-z0-9]/gi, '-')}-${new Date().toISOString().split('T')[0]}.${format}`;
+                
+                if (format === 'csv') {
+                    const csvData = await response.text();
+                    this.downloadFile(csvData, filename, 'text/csv');
+                } else {
+                    const jsonData = await response.json();
+                    this.downloadFile(JSON.stringify(jsonData, null, 2), filename, 'application/json');
+                }
+                
+                this.addNotification('Success', `Violations exported as ${format.toUpperCase()}`, 'success');
+            } catch (error) {
+                console.error('Error exporting violations:', error);
+                this.addNotification('Error', 'Failed to export violations', 'error');
+            }
+        },
+
+        downloadFile(content, filename, mimeType) {
+            const blob = new Blob([content], { type: mimeType });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        },
+
+        getSeverityBadgeClass(severity) {
+            const classes = {
+                critical: 'bg-red-100 text-red-800 border-red-200',
+                serious: 'bg-orange-100 text-orange-800 border-orange-200',
+                moderate: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+                minor: 'bg-blue-100 text-blue-800 border-blue-200'
+            };
+            return classes[severity] || 'bg-gray-100 text-gray-800 border-gray-200';
+        },
+
+        getSeverityIcon(severity) {
+            const icons = {
+                critical: 'fas fa-exclamation-circle text-red-600',
+                serious: 'fas fa-exclamation-triangle text-orange-600',
+                moderate: 'fas fa-info-circle text-yellow-600',
+                minor: 'fas fa-minus-circle text-blue-600'
+            };
+            return icons[severity] || 'fas fa-question-circle text-gray-600';
+        },
+
+        getSourceTypeIcon(sourceType) {
+            return sourceType === 'automated' 
+                ? 'fas fa-robot text-blue-600' 
+                : 'fas fa-user text-green-600';
+        },
+
+        getViolationStatusBadgeClass(status) {
+            const classes = {
+                open: 'bg-red-100 text-red-800',
+                in_progress: 'bg-yellow-100 text-yellow-800',
+                resolved: 'bg-green-100 text-green-800',
+                wont_fix: 'bg-gray-100 text-gray-800',
+                duplicate: 'bg-purple-100 text-purple-800'
+            };
+            return classes[status] || 'bg-gray-100 text-gray-800';
+        },
+
+        formatViolationDate(dateString) {
+            if (!dateString) return 'N/A';
+            return new Date(dateString).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        },
+
+        truncateText(text, maxLength = 100) {
+            if (!text) return '';
+            return text.length <= maxLength ? text : text.substring(0, maxLength) + '...';
         },
 
         // Analytics

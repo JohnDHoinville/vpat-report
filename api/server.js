@@ -20,6 +20,7 @@ const projectRoutes = require('./routes/projects');
 const sessionRoutes = require('./routes/sessions');
 const pageRoutes = require('./routes/pages');
 const resultRoutes = require('./routes/results');
+const violationRoutes = require('./routes/violations');
 
 // Import services
 const WebSocketService = require('./services/websocket-service');
@@ -169,6 +170,7 @@ app.use('/api/projects', projectRoutes);
 app.use('/api/sessions', sessionRoutes);
 app.use('/api/pages', pageRoutes);
 app.use('/api/results', resultRoutes);
+app.use('/api/violations', violationRoutes);
 
 // API info endpoint
 app.get('/api', (req, res) => {
