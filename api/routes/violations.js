@@ -426,9 +426,57 @@ router.get('/:violationId', async (req, res) => {
 
         const similarResult = await pool.query(similarQuery, [violation.violation_type, violationId]);
 
+        // Get WCAG requirement details if available
+        let wcagRequirement = null;
+        if (violation.wcag_criterion) {
+            const wcagQuery = `
+                SELECT 
+                    criterion_number,
+                    title,
+                    description,
+                    level,
+                    understanding_url,
+                    manual_test_procedures
+                FROM wcag_requirements 
+                WHERE criterion_number = $1
+            `;
+            const wcagResult = await pool.query(wcagQuery, [violation.wcag_criterion]);
+            wcagRequirement = wcagResult.rows[0] || null;
+        }
+
+        // Get violation history for same page and criterion
+        let violationHistory = [];
+        if (violation.wcag_criterion) {
+            const historyQuery = `
+                SELECT 
+                    v.id,
+                    v.severity,
+                    v.status,
+                    v.created_at,
+                    atr.tool_name,
+                    CASE 
+                        WHEN v.automated_result_id IS NOT NULL THEN 'automated'
+                        WHEN v.manual_result_id IS NOT NULL THEN 'manual'
+                    END as source_type
+                FROM violations v
+                LEFT JOIN automated_test_results atr ON v.automated_result_id = atr.id
+                LEFT JOIN manual_test_results mtr ON v.manual_result_id = mtr.id
+                LEFT JOIN discovered_pages dp ON (atr.page_id = dp.id OR mtr.page_id = dp.id)
+                WHERE v.wcag_criterion = $1 
+                AND dp.url = $2 
+                AND v.id != $3
+                ORDER BY v.created_at DESC
+                LIMIT 10
+            `;
+            const historyResult = await pool.query(historyQuery, [violation.wcag_criterion, violation.url, violationId]);
+            violationHistory = historyResult.rows;
+        }
+
         res.json({
             violation,
-            similar_violations: similarResult.rows
+            similar_violations: similarResult.rows,
+            wcag_requirement: wcagRequirement,
+            violation_history: violationHistory
         });
 
     } catch (error) {
@@ -634,7 +682,7 @@ router.post('/history', async (req, res) => {
                 v.description,
                 v.notes,
                 v.status,
-                v.detected_at,
+                v.created_at,
                 atr.tool_name,
                 atr.tool_version,
                 ts.session_name,
@@ -670,20 +718,19 @@ router.post('/history', async (req, res) => {
 router.put('/:id/update', async (req, res) => {
     try {
         const { id } = req.params;
-        const { notes, status, updated_by } = req.body;
+        const { notes, status } = req.body;
 
         const query = `
             UPDATE violations 
             SET 
                 notes = $1,
                 status = $2,
-                updated_by = $3,
                 updated_at = CURRENT_TIMESTAMP
-            WHERE id = $4
+            WHERE id = $3
             RETURNING *
         `;
 
-        const result = await pool.query(query, [notes, status, updated_by, id]);
+        const result = await pool.query(query, [notes, status, id]);
         
         if (result.rows.length === 0) {
             return res.status(404).json({ error: 'Violation not found' });

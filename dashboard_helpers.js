@@ -1552,7 +1552,9 @@ function dashboard() {
         },
 
         viewSessionResults(session) {
-            this.openViolationInspector(session);
+            // Switch to Results tab and load session results there
+            this.activeTab = 'results';
+            this.loadSessionResultsTab(session);
         },
 
         manualTesting(session) {
@@ -2473,14 +2475,20 @@ function dashboard() {
 
         async loadAutomatedTestDetails(violationId) {
             try {
-                const response = await this.apiCall(`/violations/${violationId}/details`);
-                this.automatedTestDetails = response.details;
+                console.log('📊 Loading automated test details for violation:', violationId);
                 
-                // Load requirement information if available
-                if (response.details.wcag_criterion) {
-                    const reqResponse = await this.apiCall(`/wcag-requirements/${response.details.wcag_criterion}`);
-                    this.automatedTestDetails.requirement = reqResponse.requirement;
-                }
+                // Load violation details (now includes WCAG requirement and history)
+                const response = await this.apiCall(`/violations/${violationId}`);
+                
+                console.log('✅ Violation details loaded:', response);
+                
+                // Update test details with all the information from the enhanced endpoint
+                this.automatedTestDetails = {
+                    violation: response.violation,
+                    wcagRequirement: response.wcag_requirement,
+                    violationHistory: response.violation_history || [],
+                    similarViolations: response.similar_violations || []
+                };
                 
             } catch (error) {
                 console.error('Error loading automated test details:', error);
@@ -2489,16 +2497,14 @@ function dashboard() {
         },
 
         async loadAutomatedTestHistory(wcagCriterion, pageUrl) {
+            // This function is no longer needed since history is loaded with details
+            // But keeping it for backward compatibility
             try {
-                const response = await this.apiCall(`/violations/history`, {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        wcag_criterion: wcagCriterion,
-                        page_url: pageUrl,
-                        session_id: this.violationInspectorSession.id
-                    })
-                });
-                this.automatedTestHistory = response.history || [];
+                if (this.automatedTestDetails && this.automatedTestDetails.violationHistory) {
+                    this.automatedTestHistory = this.automatedTestDetails.violationHistory;
+                } else {
+                    this.automatedTestHistory = [];
+                }
                 
             } catch (error) {
                 console.error('Error loading test history:', error);
@@ -2514,8 +2520,7 @@ function dashboard() {
                     method: 'PUT',
                     body: JSON.stringify({
                         notes: this.automatedTestNotes,
-                        status: this.automatedTestStatus,
-                        updated_by: this.user?.name || 'Anonymous'
+                        status: this.automatedTestStatus
                     })
                 });
                 
