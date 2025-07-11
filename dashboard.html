@@ -846,7 +846,8 @@
                                 </div>
                                 <div class="bg-red-50 p-3 rounded-lg">
                                     <div class="text-sm text-red-600 font-medium">Violations</div>
-                                    <div class="text-xl font-bold text-red-900" x-text="session.progress_summary?.violationsFound || 0"></div>
+                                    <div class="text-lg font-bold text-red-900" x-text="(session.progress_summary?.automatedViolations || 0) + ' automated'"></div>
+                                    <div class="text-sm font-semibold text-red-700 mt-1" x-text="(session.progress_summary?.manualViolations || 0) + ' manual'"></div>
                                 </div>
                                 <div class="bg-gray-50 p-3 rounded-lg">
                                     <div class="text-sm text-gray-600 font-medium">Progress</div>

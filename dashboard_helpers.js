@@ -398,7 +398,7 @@ function dashboard() {
             
             // Auto-remove after duration (except for progress notifications)
             if (type !== 'progress' && duration > 0) {
-                setTimeout(() => {
+                    setTimeout(() => {
                     this.removeNotification(notification.id);
                 }, duration);
             }

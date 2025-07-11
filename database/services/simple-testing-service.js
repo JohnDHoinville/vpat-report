@@ -62,7 +62,9 @@ class SimpleTestingService {
                         pagesDiscovered: 0,
                         automatedTestsCompleted: 0,
                         manualTestsCompleted: 0,
-                        violationsFound: 0
+                        violationsFound: 0,
+                        automatedViolations: 0,
+                        manualViolations: 0
                     }
                 ]
             );
@@ -270,6 +272,8 @@ class SimpleTestingService {
                 automatedTestsCompleted: completedTests,
                 totalAutomatedTests: totalTests,
                 violationsFound: violationSummary.totalViolations,
+                automatedViolations: violationSummary.automatedViolations,
+                manualViolations: violationSummary.manualViolations,
                 passesFound: violationSummary.totalPasses,
                 warningsFound: violationSummary.totalWarnings
             });
@@ -871,26 +875,41 @@ class SimpleTestingService {
                 [sessionId]
             );
             
-            // Get count of detailed violations
-            const violationCount = await client.query(
-                `SELECT COUNT(*) as detailed_violations
+            // Get count of automated violations from violations table
+            const automatedViolationCount = await client.query(
+                `SELECT COUNT(*) as automated_violations
                  FROM violations v
                  JOIN automated_test_results atr ON v.automated_result_id = atr.id
                  WHERE atr.test_session_id = $1`,
                 [sessionId]
             );
             
-            const summary = automatedSummary.rows[0];
-            const detailedCount = violationCount.rows[0];
+            // Get count of manual violations from violations table
+            const manualViolationCount = await client.query(
+                `SELECT COUNT(*) as manual_violations
+                 FROM violations v
+                 JOIN manual_test_results mtr ON v.manual_result_id = mtr.id
+                 WHERE mtr.test_session_id = $1`,
+                [sessionId]
+            );
             
-            console.log(`📊 Session ${sessionId} summary: ${summary.total_violations} violations, ${summary.total_passes} passes, ${detailedCount.detailed_violations} detailed violations`);
+            const summary = automatedSummary.rows[0];
+            const automatedViolations = automatedViolationCount.rows[0];
+            const manualViolations = manualViolationCount.rows[0];
+            
+            const automatedCount = parseInt(automatedViolations.automated_violations) || 0;
+            const manualCount = parseInt(manualViolations.manual_violations) || 0;
+            const totalViolations = automatedCount + manualCount;
+            
+            console.log(`📊 Session ${sessionId} summary: ${automatedCount} automated violations, ${manualCount} manual violations, ${summary.total_passes} passes`);
             
             return {
-                totalViolations: parseInt(summary.total_violations) || 0,
+                totalViolations: totalViolations,
+                automatedViolations: automatedCount,
+                manualViolations: manualCount,
                 totalWarnings: parseInt(summary.total_warnings) || 0,
                 totalPasses: parseInt(summary.total_passes) || 0,
-                totalTests: parseInt(summary.total_tests) || 0,
-                detailedViolations: parseInt(detailedCount.detailed_violations) || 0
+                totalTests: parseInt(summary.total_tests) || 0
             };
             
         } finally {
