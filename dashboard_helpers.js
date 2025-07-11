@@ -1105,6 +1105,16 @@ function dashboard() {
             }
         },
 
+        closeViewPagesModal() {
+            this.showViewPages = false;
+            this.selectedDiscovery = null;
+            this.discoveredPages = [];
+            this.excludedPages = [];
+            
+            // Refresh Testing tab data when closing the modal
+            this.refreshTestingTabData();
+        },
+
         // Page exclusion management
         togglePageExclusion(pageId) {
             const index = this.excludedPages.indexOf(pageId);
@@ -1114,6 +1124,9 @@ function dashboard() {
                 this.excludedPages.push(pageId);
             }
             this.saveExcludedPages();
+            
+            // Trigger real-time updates for Testing tab
+            this.refreshTestingTabData();
         },
 
         isPageExcluded(pageId) {
@@ -1123,12 +1136,14 @@ function dashboard() {
         selectAllPages() {
             this.excludedPages = [];
             this.saveExcludedPages();
+            this.refreshTestingTabData();
             this.showNotification('All pages included for testing', 'success');
         },
 
         excludeAllPages() {
             this.excludedPages = this.discoveredPages.map(page => page.id);
             this.saveExcludedPages();
+            this.refreshTestingTabData();
             this.showNotification('All pages excluded from testing', 'info');
         },
 
@@ -1168,6 +1183,9 @@ function dashboard() {
                 this.selectedDiscoveries.push(discoveryId);
             }
             this.saveSelectedDiscoveries();
+            
+            // Trigger real-time updates for Testing tab
+            this.refreshTestingTabData();
         },
 
         isDiscoverySelected(discoveryId) {
@@ -1179,12 +1197,14 @@ function dashboard() {
                 .filter(d => d.status === 'completed')
                 .map(d => d.id);
             this.saveSelectedDiscoveries();
+            this.refreshTestingTabData();
             this.showNotification('All completed discoveries selected', 'success');
         },
 
         deselectAllDiscoveries() {
             this.selectedDiscoveries = [];
             this.saveSelectedDiscoveries();
+            this.refreshTestingTabData();
             this.showNotification('All discoveries deselected', 'info');
         },
 
@@ -1260,6 +1280,21 @@ function dashboard() {
                 included: totalIncluded,
                 excluded: totalExcluded
             };
+        },
+
+        // Refresh Testing tab data when selections change
+        refreshTestingTabData() {
+            // Force reactivity update by creating new objects
+            this.selectedDiscoveries = [...this.selectedDiscoveries];
+            
+            // Reload selected discoveries from localStorage to ensure consistency
+            this.loadSelectedDiscoveries();
+            
+            // Force recalculation of page counts by calling the function
+            // This ensures the Testing tab shows up-to-date counts
+            const currentCounts = this.getSelectedDiscoveriesPageCounts();
+            
+            console.log(`🔄 Testing tab data refreshed: ${currentCounts.selectedDiscoveries} discoveries, ${currentCounts.included} pages for testing`);
         },
 
         viewSessionResults(session) {

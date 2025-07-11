@@ -167,7 +167,7 @@
                             class="py-4 px-1 border-b-2 font-medium text-sm transition-colors">
                         <i class="fas fa-search mr-2"></i>Site Discovery
                     </button>
-                    <button @click="activeTab = 'testing'" 
+                    <button @click="activeTab = 'testing'; refreshTestingTabData()" 
                             :class="activeTab === 'testing' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
                             class="py-4 px-1 border-b-2 font-medium text-sm transition-colors">
                         <i class="fas fa-flask mr-2"></i>Testing
@@ -811,7 +811,7 @@
                             <div class="mb-4 p-3 bg-gray-50 border border-gray-200 rounded-lg">
                                 <div class="flex items-center justify-between mb-2">
                                     <h4 class="text-sm font-medium text-gray-700">Testing Scope</h4>
-                                    <button @click="activeTab = 'discovery'" class="text-blue-600 hover:text-blue-800 text-xs underline">
+                                    <button @click="activeTab = 'discovery'; refreshTestingTabData()" class="text-blue-600 hover:text-blue-800 text-xs underline">
                                         Manage Selection
                                     </button>
                                 </div>
@@ -1085,7 +1085,7 @@
              x-transition:leave-start="opacity-100"
              x-transition:leave-end="opacity-0"
              class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
-             @click.self="showViewPages = false">
+             @click.self="closeViewPagesModal()">
             <div class="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] flex flex-col">
                 <!-- Header -->
                 <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-start">
@@ -1096,7 +1096,7 @@
                             <span x-text="selectedDiscovery?.total_pages_found || discoveredPages.length"></span> pages found
                         </p>
                     </div>
-                    <button @click="showViewPages = false" class="text-gray-400 hover:text-gray-600">
+                    <button @click="closeViewPagesModal()" class="text-gray-400 hover:text-gray-600">
                         <i class="fas fa-times text-xl"></i>
                     </button>
                 </div>
