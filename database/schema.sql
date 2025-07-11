@@ -197,6 +197,36 @@ CREATE TABLE users (
     last_login TIMESTAMP WITH TIME ZONE
 );
 
+-- Manual test evidence table for storing uploaded images and files
+CREATE TABLE IF NOT EXISTS manual_test_evidence (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    test_session_id UUID NOT NULL REFERENCES test_sessions(id) ON DELETE CASCADE,
+    page_id UUID NOT NULL REFERENCES discovered_pages(id) ON DELETE CASCADE,
+    requirement_id UUID NOT NULL,
+    manual_result_id UUID REFERENCES manual_test_results(id) ON DELETE CASCADE,
+    file_name VARCHAR(255) NOT NULL,
+    file_path TEXT NOT NULL,
+    file_size INTEGER NOT NULL,
+    mime_type VARCHAR(100) NOT NULL,
+    description TEXT,
+    uploaded_by UUID NOT NULL REFERENCES users(id),
+    uploaded_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Add indexes for manual_test_evidence
+CREATE INDEX IF NOT EXISTS idx_manual_test_evidence_session_id ON manual_test_evidence(test_session_id);
+CREATE INDEX IF NOT EXISTS idx_manual_test_evidence_page_id ON manual_test_evidence(page_id);
+CREATE INDEX IF NOT EXISTS idx_manual_test_evidence_requirement_id ON manual_test_evidence(requirement_id);
+CREATE INDEX IF NOT EXISTS idx_manual_test_evidence_manual_result_id ON manual_test_evidence(manual_result_id);
+CREATE INDEX IF NOT EXISTS idx_manual_test_evidence_uploaded_by ON manual_test_evidence(uploaded_by);
+
+-- Add missing columns to manual_test_results if they don't exist
+ALTER TABLE manual_test_results 
+ADD COLUMN IF NOT EXISTS tested_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+ADD COLUMN IF NOT EXISTS retested_at TIMESTAMP WITH TIME ZONE;
+
 -- ===========================
 -- INDEXES FOR PERFORMANCE
 -- ===========================

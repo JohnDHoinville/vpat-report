@@ -4,6 +4,7 @@ const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 const helmet = require('helmet');
 const compression = require('compression');
+const path = require('path'); // Added for serving static files
 
 // Import error handling middleware
 const {
@@ -21,6 +22,7 @@ const sessionRoutes = require('./routes/sessions');
 const pageRoutes = require('./routes/pages');
 const resultRoutes = require('./routes/results');
 const violationRoutes = require('./routes/violations');
+const manualTestingRoutes = require('./routes/manual-testing');
 
 // Import services
 const WebSocketService = require('./services/websocket-service');
@@ -70,6 +72,9 @@ app.use('/api', limiter);
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Serve uploaded files statically
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Initialize WebSocket service
 const wsService = new WebSocketService(server);
@@ -171,6 +176,7 @@ app.use('/api/sessions', sessionRoutes);
 app.use('/api/pages', pageRoutes);
 app.use('/api/results', resultRoutes);
 app.use('/api/violations', violationRoutes);
+app.use('/api/manual-testing', manualTestingRoutes);
 
 // API info endpoint
 app.get('/api', (req, res) => {
