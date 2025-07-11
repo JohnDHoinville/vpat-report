@@ -675,10 +675,16 @@ router.get('/configs', authenticateToken, async (req, res) => {
                         
                         if (file.startsWith('live-session-')) {
                             domain = file.replace('live-session-', '').replace(/\.json$/, '').split('-')[0];
-                            type = 'sso';
+                            type = 'sso'; // Live sessions are always SSO
                         } else if (file.startsWith('auth-config-')) {
                             domain = file.replace('auth-config-', '').replace(/\.json$/, '');
-                            type = 'basic';
+                            // Use the actual type from the config file, not filename-based assumption
+                            type = configData.type || 'basic';
+                        }
+                        
+                        // Override domain from config data if available
+                        if (configData.domain) {
+                            domain = configData.domain;
                         }
                         
                         configs.push({
