@@ -1,11 +1,12 @@
 // Modern Dashboard Helper Functions - Database API Integration
 // Accessibility Testing Platform
 
-const API_BASE_URL = 'http://localhost:3001/api';
-
 // Alpine.js Dashboard Data Store
 function dashboard() {
     return {
+        // API Configuration
+        API_BASE_URL: 'http://localhost:3001/api',
+        
         // State
         activeTab: 'projects',
         apiConnected: false,
@@ -643,7 +644,7 @@ function dashboard() {
                     headers['Authorization'] = `Bearer ${this.token}`;
                 }
                 
-                const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+                const response = await fetch(`${this.API_BASE_URL}${endpoint}`, {
                     headers,
                     ...options
                 });
@@ -675,7 +676,7 @@ function dashboard() {
             if (token) {
                 this.token = token;
                 try {
-                    const response = await fetch(`${API_BASE_URL}/auth/profile`, {
+                    const response = await fetch(`${this.API_BASE_URL}/auth/profile`, {
                         headers: {
                             'Authorization': `Bearer ${token}`,
                             'Content-Type': 'application/json'
@@ -704,7 +705,7 @@ function dashboard() {
             this.loading = true;
             
             try {
-                const response = await fetch(`${API_BASE_URL}/auth/login`, {
+                const response = await fetch(`${this.API_BASE_URL}/auth/login`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -752,7 +753,7 @@ function dashboard() {
         async logout() {
             try {
                 if (this.token) {
-                    await fetch(`${API_BASE_URL}/auth/logout`, {
+                    await fetch(`${this.API_BASE_URL}/auth/logout`, {
                         method: 'POST',
                         headers: {
                             'Authorization': `Bearer ${this.token}`,
@@ -1790,7 +1791,7 @@ function dashboard() {
             }
 
             // Call the auth wizard API endpoint
-            const response = await fetch(`${API_BASE_URL}/auth/setup-sso`, {
+            const response = await fetch(`${this.API_BASE_URL}/auth/setup-sso`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1826,7 +1827,7 @@ function dashboard() {
                 throw new Error('Authentication token not available. Please login first.');
             }
 
-            const response = await fetch(`${API_BASE_URL}/auth/setup-basic`, {
+            const response = await fetch(`${this.API_BASE_URL}/auth/setup-basic`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1853,7 +1854,7 @@ function dashboard() {
                 throw new Error('Authentication token not available. Please login first.');
             }
 
-            const response = await fetch(`${API_BASE_URL}/auth/setup-advanced`, {
+            const response = await fetch(`${this.API_BASE_URL}/auth/setup-advanced`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1898,7 +1899,7 @@ function dashboard() {
                     throw new Error('Authentication token not available. Please login first.');
                 }
 
-                const response = await fetch(`${API_BASE_URL}/auth/test`, {
+                const response = await fetch(`${this.API_BASE_URL}/auth/test`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -1993,7 +1994,7 @@ function dashboard() {
                     throw new Error('Authentication token not available. Please login first.');
                 }
 
-                const response = await fetch(`${API_BASE_URL}/auth/import`, {
+                const response = await fetch(`${this.API_BASE_URL}/auth/import`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -2089,7 +2090,7 @@ function dashboard() {
 
         async loadViolationSummary(sessionId) {
             try {
-                const response = await fetch(`${API_BASE_URL}/violations/session/${sessionId}/summary`, {
+                const response = await fetch(`${this.API_BASE_URL}/violations/session/${sessionId}/summary`, {
                     headers: { Authorization: `Bearer ${this.token}` }
                 });
                 
@@ -2122,7 +2123,7 @@ function dashboard() {
                     }
                 });
 
-                const response = await fetch(`${API_BASE_URL}/violations/session/${sessionId}?${params}`, {
+                const response = await fetch(`${this.API_BASE_URL}/violations/session/${sessionId}?${params}`, {
                     headers: { Authorization: `Bearer ${this.token}` }
                 });
                 
@@ -2190,7 +2191,7 @@ function dashboard() {
 
         async viewViolationDetails(violation) {
             try {
-                const response = await fetch(`${API_BASE_URL}/violations/${violation.id}`, {
+                const response = await fetch(`${this.API_BASE_URL}/violations/${violation.id}`, {
                     headers: { Authorization: `Bearer ${this.token}` }
                 });
                 
@@ -2210,7 +2211,7 @@ function dashboard() {
 
         async updateViolationStatus(violationId, status, notes = '') {
             try {
-                const response = await fetch(`${API_BASE_URL}/violations/${violationId}/status`, {
+                const response = await fetch(`${this.API_BASE_URL}/violations/${violationId}/status`, {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json',
@@ -2244,7 +2245,7 @@ function dashboard() {
 
         async exportViolations(format = 'json') {
             try {
-                const response = await fetch(`${API_BASE_URL}/violations/session/${this.violationInspectorSession.id}/export?format=${format}`, {
+                const response = await fetch(`${this.API_BASE_URL}/violations/session/${this.violationInspectorSession.id}/export?format=${format}`, {
                     headers: { Authorization: `Bearer ${this.token}` }
                 });
                 
@@ -2265,6 +2266,37 @@ function dashboard() {
                 console.error('Error exporting violations:', error);
                 this.addNotification('Error', 'Failed to export violations', 'error');
             }
+        },
+
+        // Load session results in the Results tab (similar to openViolationInspector but for tab display)
+        async loadSessionResultsTab(session) {
+            this.violationInspectorSession = session;
+            
+            // Reset pagination and filters
+            this.violationPagination.offset = 0;
+            this.violations = [];
+            this.resetViolationFilters();
+            
+            try {
+                await Promise.all([
+                    this.loadViolationSummary(session.id),
+                    this.loadViolations(session.id)
+                ]);
+                
+                this.addNotification('Success', `Loaded results for ${session.name}`, 'success');
+            } catch (error) {
+                console.error('Error loading session results:', error);
+                this.addNotification('Error', 'Failed to load session results', 'error');
+            }
+        },
+
+        // Close violation inspector from Results tab and return to session selection
+        closeViolationInspectorTab() {
+            this.violationInspectorSession = null;
+            this.violations = [];
+            this.violationSummary = {};
+            this.selectedViolation = null;
+            this.resetViolationFilters();
         },
 
         downloadFile(content, filename, mimeType) {

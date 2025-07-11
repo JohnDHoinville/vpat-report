@@ -893,9 +893,332 @@
             <div x-show="activeTab === 'results'" class="space-y-6">
                 <h2 class="text-2xl font-bold text-gray-900">Test Results</h2>
                 
-                <!-- Results content will be populated based on selected sessions -->
-                <div class="bg-white rounded-lg shadow-md border border-gray-200 p-6">
-                    <p class="text-gray-600">Select a test session to view detailed results.</p>
+                <!-- Project Selection -->
+                <div x-show="!selectedProject" class="bg-blue-50 border border-blue-200 rounded-lg p-6">
+                    <div class="text-center">
+                        <i class="fas fa-folder text-blue-600 text-4xl mb-4"></i>
+                        <h3 class="text-lg font-medium text-blue-900 mb-2">Select a Project</h3>
+                        <p class="text-blue-700 mb-4">Choose a project to view test results and violation data.</p>
+                        <button @click="activeTab = 'projects'" 
+                                class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+                            Go to Projects
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Test Session Selection -->
+                <div x-show="selectedProject && testSessions.length === 0" class="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
+                    <div class="text-center">
+                        <i class="fas fa-flask text-yellow-600 text-4xl mb-4"></i>
+                        <h3 class="text-lg font-medium text-yellow-900 mb-2">No Test Sessions Found</h3>
+                        <p class="text-yellow-700 mb-4">Create and run a test session to generate results.</p>
+                        <button @click="activeTab = 'testing'" 
+                                class="bg-yellow-600 text-white px-4 py-2 rounded-lg hover:bg-yellow-700">
+                            Go to Testing
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Session Selector -->
+                <div x-show="selectedProject && testSessions.length > 0 && !violationInspectorSession" class="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">
+                        Select Test Session - <span x-text="selectedProject?.name" class="text-blue-600"></span>
+                    </h3>
+                    
+                    <div class="space-y-4">
+                        <template x-for="session in testSessions.filter(s => s.status === 'completed')" :key="session.id">
+                            <div class="border border-gray-200 rounded-lg p-4 hover:border-blue-300 transition-colors cursor-pointer"
+                                 @click="loadSessionResultsTab(session)">
+                                <div class="flex justify-between items-start mb-3">
+                                    <div>
+                                        <h4 class="font-medium text-gray-900" x-text="session.name"></h4>
+                                        <p class="text-sm text-gray-600" x-text="session.description"></p>
+                                    </div>
+                                    <span :class="getStatusBadgeClass(session.status)" 
+                                          class="px-2 py-1 text-xs font-medium rounded-full" 
+                                          x-text="session.status"></span>
+                                </div>
+                                
+                                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                                    <div class="text-center">
+                                        <div class="font-bold text-blue-600" x-text="session.progress_summary?.automatedTestsCompleted || 0"></div>
+                                        <div class="text-blue-700">Tests</div>
+                                    </div>
+                                    <div class="text-center">
+                                        <div class="font-bold text-red-600" x-text="(session.progress_summary?.automatedViolations || 0)"></div>
+                                        <div class="text-red-700">Violations</div>
+                                    </div>
+                                    <div class="text-center">
+                                        <div class="font-bold text-green-600" x-text="session.progress_summary?.passesFound || 0"></div>
+                                        <div class="text-green-700">Passes</div>
+                                    </div>
+                                    <div class="text-center">
+                                        <div class="font-bold text-gray-600" x-text="formatDate(session.completed_at)"></div>
+                                        <div class="text-gray-700">Completed</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+                        
+                        <!-- No completed sessions -->
+                        <div x-show="testSessions.filter(s => s.status === 'completed').length === 0" class="text-center py-8">
+                            <i class="fas fa-clock text-gray-400 text-4xl mb-4"></i>
+                            <h3 class="text-lg font-medium text-gray-900 mb-2">No Completed Sessions</h3>
+                            <p class="text-gray-600">Complete a test session to view results here.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Violation Inspector in Results Tab -->
+                <div x-show="selectedProject && violationInspectorSession" class="space-y-6">
+                    <!-- Session Header -->
+                    <div class="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <h3 class="text-xl font-semibold text-gray-900">Test Results</h3>
+                                <p class="text-gray-600 mt-1">
+                                    Session: <span x-text="violationInspectorSession?.name" class="font-medium"></span>
+                                </p>
+                            </div>
+                            <div class="flex space-x-2">
+                                <button @click="exportViolations('csv')" 
+                                        class="px-3 py-2 bg-green-600 text-white rounded text-sm hover:bg-green-700">
+                                    <i class="fas fa-file-csv mr-1"></i>Export CSV
+                                </button>
+                                <button @click="exportViolations('json')" 
+                                        class="px-3 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700">
+                                    <i class="fas fa-file-export mr-1"></i>Export JSON
+                                </button>
+                                <button @click="closeViolationInspectorTab()" 
+                                        class="px-3 py-2 bg-gray-600 text-white rounded text-sm hover:bg-gray-700">
+                                    <i class="fas fa-arrow-left mr-1"></i>Back to Sessions
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Violation Summary Dashboard -->
+                    <div x-show="violationSummary && Object.keys(violationSummary).length > 0" class="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+                        <h4 class="text-lg font-medium text-gray-900 mb-4">Summary</h4>
+                        
+                        <!-- Severity Distribution -->
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                            <template x-for="severityItem in violationSummary.by_severity || []" :key="severityItem.severity">
+                                <div class="text-center">
+                                    <i :class="getSeverityIcon(severityItem.severity) + ' text-3xl mb-2'"></i>
+                                    <div class="text-2xl font-bold text-gray-900" x-text="severityItem.count"></div>
+                                    <div class="text-sm font-medium text-gray-600 capitalize" x-text="severityItem.severity"></div>
+                                </div>
+                            </template>
+                        </div>
+
+                        <!-- Source Type & WCAG Level Distribution -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <!-- By Source -->
+                            <div class="bg-gray-50 rounded-lg p-4">
+                                <h5 class="font-medium text-gray-900 mb-3">By Source</h5>
+                                <div class="space-y-2">
+                                    <template x-for="sourceItem in violationSummary.by_source || []" :key="sourceItem.source_type">
+                                        <div class="flex justify-between items-center">
+                                            <div class="flex items-center">
+                                                <i :class="getSourceTypeIcon(sourceItem.source_type) + ' mr-2'"></i>
+                                                <span class="capitalize" x-text="sourceItem.source_type"></span>
+                                            </div>
+                                            <span class="font-medium" x-text="sourceItem.count"></span>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+
+                            <!-- By WCAG Level -->
+                            <div class="bg-gray-50 rounded-lg p-4">
+                                <h5 class="font-medium text-gray-900 mb-3">By WCAG Level</h5>
+                                <div class="space-y-2">
+                                    <template x-for="levelItem in violationSummary.by_wcag_level || []" :key="levelItem.wcag_level">
+                                        <div class="flex justify-between items-center">
+                                            <span class="font-mono text-sm" x-text="'WCAG ' + levelItem.wcag_level"></span>
+                                            <span class="font-medium" x-text="levelItem.count"></span>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Filters and Controls -->
+                    <div class="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+                        <div class="flex flex-wrap justify-between items-center mb-4">
+                            <h4 class="text-lg font-medium text-gray-900">Filters & Search</h4>
+                            <button @click="resetViolationFilters(); applyViolationFilters()" 
+                                    class="px-3 py-2 bg-gray-600 text-white rounded text-sm hover:bg-gray-700">
+                                <i class="fas fa-undo mr-1"></i>Reset Filters
+                            </button>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                            <!-- Severity Filter -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Severity</label>
+                                <select x-model="violationFilters.severity" @change="applyViolationFilters()"
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
+                                    <option value="">All Severities</option>
+                                    <option value="critical">Critical</option>
+                                    <option value="serious">Serious</option>
+                                    <option value="moderate">Moderate</option>
+                                    <option value="minor">Minor</option>
+                                </select>
+                            </div>
+
+                            <!-- Source Filter -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Source</label>
+                                <select x-model="violationFilters.source" @change="applyViolationFilters()"
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
+                                    <option value="both">Both</option>
+                                    <option value="automated">Automated</option>
+                                    <option value="manual">Manual</option>
+                                </select>
+                            </div>
+
+                            <!-- Tool Filter -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Tool</label>
+                                <select x-model="violationFilters.tool" @change="applyViolationFilters()"
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
+                                    <option value="">All Tools</option>
+                                    <option value="axe">Axe</option>
+                                    <option value="pa11y">Pa11y</option>
+                                    <option value="lighthouse">Lighthouse</option>
+                                </select>
+                            </div>
+
+                            <!-- Page URL Filter -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Page URL</label>
+                                <input type="text" x-model="violationFilters.page_url" @input.debounce.500ms="applyViolationFilters()"
+                                       placeholder="Filter by page URL..."
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Violations List -->
+                    <div class="bg-white rounded-lg shadow-md border border-gray-200">
+                        <div class="px-6 py-4 border-b border-gray-200">
+                            <div class="flex justify-between items-center">
+                                <h4 class="text-lg font-medium text-gray-900">
+                                    Violations (<span x-text="violationPagination.total"></span>)
+                                </h4>
+                                <div class="flex items-center space-x-3 text-sm">
+                                    <span class="text-gray-600">Sort by:</span>
+                                    <button @click="sortViolations('severity')" 
+                                            :class="violationSort.by === 'severity' ? 'text-blue-600 font-medium' : 'text-gray-600'"
+                                            class="hover:text-blue-600">
+                                        Severity
+                                        <i x-show="violationSort.by === 'severity'" 
+                                           :class="violationSort.order === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"></i>
+                                    </button>
+                                    <button @click="sortViolations('created_at')" 
+                                            :class="violationSort.by === 'created_at' ? 'text-blue-600 font-medium' : 'text-gray-600'"
+                                            class="hover:text-blue-600">
+                                        Date
+                                        <i x-show="violationSort.by === 'created_at'" 
+                                           :class="violationSort.order === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Violations Table -->
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Severity</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Description</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Page</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Source</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">WCAG</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    <template x-for="violation in violations" :key="violation.id">
+                                        <tr class="hover:bg-gray-50">
+                                            <td class="px-6 py-4">
+                                                <span :class="getSeverityBadgeClass(violation.severity)" 
+                                                      class="px-3 py-1 text-xs font-medium rounded-full border inline-flex items-center">
+                                                    <i :class="getSeverityIcon(violation.severity) + ' mr-1 text-xs'"></i>
+                                                    <span x-text="violation.severity"></span>
+                                                </span>
+                                            </td>
+                                            <td class="px-6 py-4 text-sm text-gray-900 max-w-xs">
+                                                <div x-text="violation.violation_type"></div>
+                                            </td>
+                                            <td class="px-6 py-4 text-sm text-gray-900 max-w-md">
+                                                <div x-text="truncateText(violation.description, 120)"></div>
+                                            </td>
+                                            <td class="px-6 py-4 text-sm max-w-xs">
+                                                <div class="text-gray-900 font-medium" x-text="truncateText(violation.page_title, 30)"></div>
+                                                <div class="text-gray-500 text-xs" x-text="truncateText(violation.url, 50)"></div>
+                                            </td>
+                                            <td class="px-6 py-4 text-sm">
+                                                <div class="flex items-center">
+                                                    <i :class="getSourceTypeIcon(violation.source_type) + ' mr-2'"></i>
+                                                    <span x-text="violation.source_type"></span>
+                                                    <div x-show="violation.tool_name" class="text-xs text-gray-500 ml-1">
+                                                        (<span x-text="violation.tool_name"></span>)
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td class="px-6 py-4 text-sm">
+                                                <span x-show="violation.wcag_criterion" 
+                                                      class="font-mono text-xs bg-gray-100 px-2 py-1 rounded" 
+                                                      x-text="violation.wcag_criterion"></span>
+                                            </td>
+                                            <td class="px-6 py-4 text-sm">
+                                                <div class="flex space-x-2">
+                                                    <button @click="viewViolationDetails(violation)" 
+                                                            class="text-blue-600 hover:text-blue-900">
+                                                        <i class="fas fa-eye mr-1"></i>Details
+                                                    </button>
+                                                    <select @change="updateViolationStatus(violation.id, $event.target.value)"
+                                                            class="text-xs border border-gray-300 rounded px-2 py-1">
+                                                        <option value="open" :selected="violation.status === 'open'">Open</option>
+                                                        <option value="in_progress" :selected="violation.status === 'in_progress'">In Progress</option>
+                                                        <option value="resolved" :selected="violation.status === 'resolved'">Resolved</option>
+                                                        <option value="wont_fix" :selected="violation.status === 'wont_fix'">Won't Fix</option>
+                                                        <option value="duplicate" :selected="violation.status === 'duplicate'">Duplicate</option>
+                                                    </select>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+
+                            <!-- Loading State -->
+                            <div x-show="loadingViolations" class="p-8 text-center">
+                                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                                <p class="text-gray-600">Loading violations...</p>
+                            </div>
+
+                            <!-- Empty State -->
+                            <div x-show="!loadingViolations && violations.length === 0" class="p-8 text-center">
+                                <i class="fas fa-search text-gray-400 text-4xl mb-4"></i>
+                                <p class="text-gray-600">No violations found matching your filters.</p>
+                            </div>
+                        </div>
+
+                        <!-- Load More Button -->
+                        <div x-show="violationPagination.has_more && !loadingViolations" class="px-6 py-4 border-t border-gray-200 text-center">
+                            <button @click="loadMoreViolations()" 
+                                    class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+                                Load More Violations
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -967,48 +1290,48 @@
              class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
              @click.self="closeViolationInspector">
             <div class="bg-white rounded-lg shadow-xl max-w-7xl w-full max-h-[95vh] flex flex-col">
-                <!-- Header -->
-                <div class="px-6 py-4 border-b border-gray-200">
+                <!-- Header - Reduced padding -->
+                <div class="px-6 py-2 border-b border-gray-200">
                     <div class="flex justify-between items-center">
                         <div>
-                            <h3 class="text-xl font-semibold text-gray-900">Violation Inspector</h3>
-                            <p class="text-gray-600 text-sm mt-1" x-show="violationInspectorSession">
+                            <h3 class="text-lg font-semibold text-gray-900">Violation Inspector</h3>
+                            <p class="text-gray-600 text-xs" x-show="violationInspectorSession">
                                 Session: <span x-text="violationInspectorSession?.name" class="font-medium"></span>
                             </p>
                         </div>
                         <button @click="closeViolationInspector" class="text-gray-400 hover:text-gray-600">
-                            <i class="fas fa-times text-xl"></i>
+                            <i class="fas fa-times text-lg"></i>
                         </button>
                     </div>
                 </div>
 
                 <!-- Content -->
-                <div class="flex-1 overflow-hidden flex flex-col p-6 space-y-6">
-                    <!-- Violation Summary Dashboard -->
+                <div class="flex-1 overflow-hidden flex flex-col p-4 space-y-4">
+                    <!-- Violation Summary Dashboard - More compact -->
                     <div x-show="violationSummary && Object.keys(violationSummary).length > 0">
-                        <h4 class="text-lg font-medium text-gray-900 mb-3">Summary</h4>
+                        <h4 class="text-sm font-medium text-gray-900 mb-2">Summary</h4>
                         
-                        <!-- Severity Distribution -->
-                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                        <!-- Severity Distribution - Reduced spacing -->
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-3 mb-3">
                             <template x-for="severityItem in violationSummary.by_severity || []" :key="severityItem.severity">
-                                <div class="bg-white border border-gray-200 rounded-lg p-4 text-center">
-                                    <i :class="getSeverityIcon(severityItem.severity) + ' text-2xl mb-2'"></i>
-                                    <div class="text-2xl font-bold text-gray-900" x-text="severityItem.count"></div>
-                                    <div class="text-sm font-medium text-gray-600 capitalize" x-text="severityItem.severity"></div>
+                                <div class="bg-white border border-gray-200 rounded-lg p-3 text-center">
+                                    <i :class="getSeverityIcon(severityItem.severity) + ' text-lg mb-1'"></i>
+                                    <div class="text-lg font-bold text-gray-900" x-text="severityItem.count"></div>
+                                    <div class="text-xs font-medium text-gray-600 capitalize" x-text="severityItem.severity"></div>
                                 </div>
                             </template>
                         </div>
 
-                        <!-- Source Type & WCAG Level Distribution -->
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+                        <!-- Source Type & WCAG Level Distribution - More compact -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
                             <!-- By Source -->
-                            <div class="bg-gray-50 rounded-lg p-4">
-                                <h5 class="font-medium text-gray-900 mb-3">By Source</h5>
-                                <div class="space-y-2">
+                            <div class="bg-gray-50 rounded-lg p-3">
+                                <h5 class="font-medium text-gray-900 mb-2 text-sm">By Source</h5>
+                                <div class="space-y-1">
                                     <template x-for="sourceItem in violationSummary.by_source || []" :key="sourceItem.source_type">
-                                        <div class="flex justify-between items-center">
+                                        <div class="flex justify-between items-center text-sm">
                                             <div class="flex items-center">
-                                                <i :class="getSourceTypeIcon(sourceItem.source_type) + ' mr-2'"></i>
+                                                <i :class="getSourceTypeIcon(sourceItem.source_type) + ' mr-2 text-xs'"></i>
                                                 <span class="capitalize" x-text="sourceItem.source_type"></span>
                                             </div>
                                             <span class="font-medium" x-text="sourceItem.count"></span>
@@ -1018,12 +1341,12 @@
                             </div>
 
                             <!-- By WCAG Level -->
-                            <div class="bg-gray-50 rounded-lg p-4">
-                                <h5 class="font-medium text-gray-900 mb-3">By WCAG Level</h5>
-                                <div class="space-y-2">
+                            <div class="bg-gray-50 rounded-lg p-3">
+                                <h5 class="font-medium text-gray-900 mb-2 text-sm">By WCAG Level</h5>
+                                <div class="space-y-1">
                                     <template x-for="levelItem in violationSummary.by_wcag_level || []" :key="levelItem.wcag_level">
-                                        <div class="flex justify-between items-center">
-                                            <span class="font-mono text-sm" x-text="'WCAG ' + levelItem.wcag_level"></span>
+                                        <div class="flex justify-between items-center text-sm">
+                                            <span class="font-mono text-xs" x-text="'WCAG ' + levelItem.wcag_level"></span>
                                             <span class="font-medium" x-text="levelItem.count"></span>
                                         </div>
                                     </template>
@@ -1032,32 +1355,32 @@
                         </div>
                     </div>
 
-                    <!-- Filters and Controls -->
-                    <div class="bg-gray-50 rounded-lg p-4">
-                        <div class="flex flex-wrap justify-between items-center mb-4">
-                            <h4 class="text-lg font-medium text-gray-900">Filters & Search</h4>
+                    <!-- Filters - More compact -->
+                    <div class="bg-gray-50 rounded-lg p-3">
+                        <div class="flex flex-wrap justify-between items-center mb-3">
+                            <h4 class="text-sm font-medium text-gray-900">Filters & Search</h4>
                             <div class="flex space-x-2">
                                 <button @click="resetViolationFilters(); applyViolationFilters()" 
-                                        class="px-3 py-1 bg-gray-600 text-white rounded text-sm hover:bg-gray-700">
+                                        class="px-2 py-1 bg-gray-600 text-white rounded text-xs hover:bg-gray-700">
                                     <i class="fas fa-undo mr-1"></i>Reset
                                 </button>
                                 <button @click="exportViolations('csv')" 
-                                        class="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700">
+                                        class="px-2 py-1 bg-green-600 text-white rounded text-xs hover:bg-green-700">
                                     <i class="fas fa-file-csv mr-1"></i>CSV
                                 </button>
                                 <button @click="exportViolations('json')" 
-                                        class="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700">
+                                        class="px-2 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700">
                                     <i class="fas fa-file-export mr-1"></i>JSON
                                 </button>
                             </div>
                         </div>
 
-                        <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                        <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-3">
                             <!-- Severity Filter -->
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Severity</label>
+                                <label class="block text-xs font-medium text-gray-700 mb-1">Severity</label>
                                 <select x-model="violationFilters.severity" @change="applyViolationFilters()"
-                                        class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
+                                        class="w-full px-2 py-1 border border-gray-300 rounded-md text-xs">
                                     <option value="">All Severities</option>
                                     <option value="critical">Critical</option>
                                     <option value="serious">Serious</option>
@@ -1068,9 +1391,9 @@
 
                             <!-- Source Filter -->
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Source</label>
+                                <label class="block text-xs font-medium text-gray-700 mb-1">Source</label>
                                 <select x-model="violationFilters.source" @change="applyViolationFilters()"
-                                        class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
+                                        class="w-full px-2 py-1 border border-gray-300 rounded-md text-xs">
                                     <option value="both">Both</option>
                                     <option value="automated">Automated</option>
                                     <option value="manual">Manual</option>
@@ -1079,9 +1402,9 @@
 
                             <!-- Tool Filter -->
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Tool</label>
+                                <label class="block text-xs font-medium text-gray-700 mb-1">Tool</label>
                                 <select x-model="violationFilters.tool" @change="applyViolationFilters()"
-                                        class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
+                                        class="w-full px-2 py-1 border border-gray-300 rounded-md text-xs">
                                     <option value="">All Tools</option>
                                     <option value="axe">Axe</option>
                                     <option value="pa11y">Pa11y</option>
@@ -1091,22 +1414,22 @@
 
                             <!-- Page URL Filter -->
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Page URL</label>
+                                <label class="block text-xs font-medium text-gray-700 mb-1">Page URL</label>
                                 <input type="text" x-model="violationFilters.page_url" @input.debounce.500ms="applyViolationFilters()"
                                        placeholder="Filter by page URL..."
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
+                                       class="w-full px-2 py-1 border border-gray-300 rounded-md text-xs">
                             </div>
                         </div>
                     </div>
 
-                    <!-- Violations List -->
+                    <!-- Violations List - Maximum space for table -->
                     <div class="flex-1 bg-white border border-gray-200 rounded-lg overflow-hidden flex flex-col">
-                        <div class="px-4 py-3 bg-gray-50 border-b border-gray-200">
+                        <div class="px-4 py-2 bg-gray-50 border-b border-gray-200">
                             <div class="flex justify-between items-center">
                                 <span class="text-sm font-medium text-gray-900">
                                     Violations (<span x-text="violationPagination.total"></span>)
                                 </span>
-                                <div class="flex items-center space-x-2 text-sm">
+                                <div class="flex items-center space-x-2 text-xs">
                                     <span class="text-gray-600">Sort by:</span>
                                     <button @click="sortViolations('severity')" 
                                             :class="violationSort.by === 'severity' ? 'text-blue-600 font-medium' : 'text-gray-600'"
@@ -1126,39 +1449,39 @@
                             </div>
                         </div>
 
-                        <!-- Violations Table -->
+                        <!-- Violations Table with maximum height -->
                         <div class="flex-1 overflow-auto">
                             <table class="min-w-full divide-y divide-gray-200">
                                 <thead class="bg-gray-50 sticky top-0">
                                     <tr>
-                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Severity</th>
-                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
-                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Description</th>
-                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Page</th>
-                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Source</th>
-                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">WCAG</th>
-                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Severity</th>
+                                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+                                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Description</th>
+                                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Page</th>
+                                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Source</th>
+                                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">WCAG</th>
+                                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody class="bg-white divide-y divide-gray-200">
                                     <template x-for="violation in violations" :key="violation.id">
                                         <tr class="hover:bg-gray-50">
-                                            <td class="px-4 py-3">
+                                            <td class="px-3 py-2">
                                                 <span :class="getSeverityBadgeClass(violation.severity)" 
                                                       class="px-2 py-1 text-xs font-medium rounded-full border inline-flex items-center">
                                                     <i :class="getSeverityIcon(violation.severity) + ' mr-1 text-xs'"></i>
                                                     <span x-text="violation.severity"></span>
                                                 </span>
                                             </td>
-                                            <td class="px-4 py-3 text-sm text-gray-900" x-text="violation.violation_type"></td>
-                                            <td class="px-4 py-3 text-sm text-gray-900">
+                                            <td class="px-3 py-2 text-xs text-gray-900" x-text="violation.violation_type"></td>
+                                            <td class="px-3 py-2 text-xs text-gray-900">
                                                 <div x-text="truncateText(violation.description, 80)"></div>
                                             </td>
-                                            <td class="px-4 py-3 text-sm">
-                                                <div class="text-gray-900 font-medium" x-text="truncateText(violation.page_title, 30)"></div>
-                                                <div class="text-gray-500 text-xs" x-text="truncateText(violation.url, 40)"></div>
+                                            <td class="px-3 py-2 text-xs">
+                                                <div class="text-gray-900 font-medium" x-text="truncateText(violation.page_title, 25)"></div>
+                                                <div class="text-gray-500 text-xs" x-text="truncateText(violation.url, 35)"></div>
                                             </td>
-                                            <td class="px-4 py-3 text-sm">
+                                            <td class="px-3 py-2 text-xs">
                                                 <div class="flex items-center">
                                                     <i :class="getSourceTypeIcon(violation.source_type) + ' mr-1'"></i>
                                                     <span x-text="violation.source_type"></span>
@@ -1167,12 +1490,12 @@
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td class="px-4 py-3 text-sm">
+                                            <td class="px-3 py-2 text-xs">
                                                 <span x-show="violation.wcag_criterion" 
-                                                      class="font-mono text-xs bg-gray-100 px-2 py-1 rounded" 
+                                                      class="font-mono text-xs bg-gray-100 px-1 py-1 rounded" 
                                                       x-text="violation.wcag_criterion"></span>
                                             </td>
-                                            <td class="px-4 py-3 text-sm">
+                                            <td class="px-3 py-2 text-xs">
                                                 <button @click="viewViolationDetails(violation)" 
                                                         class="text-blue-600 hover:text-blue-900 mr-2">
                                                     <i class="fas fa-eye"></i>
@@ -1192,22 +1515,22 @@
                             </table>
 
                             <!-- Loading State -->
-                            <div x-show="loadingViolations" class="p-8 text-center">
-                                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-                                <p class="text-gray-600">Loading violations...</p>
+                            <div x-show="loadingViolations" class="p-6 text-center">
+                                <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                                <p class="text-gray-600 text-sm">Loading violations...</p>
                             </div>
 
                             <!-- Empty State -->
-                            <div x-show="!loadingViolations && violations.length === 0" class="p-8 text-center">
-                                <i class="fas fa-search text-4xl text-gray-400 mb-4"></i>
-                                <p class="text-gray-600">No violations found matching your filters.</p>
+                            <div x-show="!loadingViolations && violations.length === 0" class="p-6 text-center">
+                                <i class="fas fa-search text-3xl text-gray-400 mb-3"></i>
+                                <p class="text-gray-600 text-sm">No violations found matching your filters.</p>
                             </div>
                         </div>
 
                         <!-- Load More Button -->
-                        <div x-show="violationPagination.has_more && !loadingViolations" class="p-4 border-t border-gray-200 text-center">
+                        <div x-show="violationPagination.has_more && !loadingViolations" class="p-2 border-t border-gray-200 text-center">
                             <button @click="loadMoreViolations()" 
-                                    class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+                                    class="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm">
                                 Load More Violations
                             </button>
                         </div>
