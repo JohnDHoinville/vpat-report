@@ -269,9 +269,30 @@ class SiteDiscoveryService {
                 if (this.wsService) {
                     const projectId = await this.getProjectIdFromDiscovery(discoveryId);
                     
+                    // Debug: Log the actual progress object to understand what properties are available
+                    console.log(`🔍 SiteDiscoveryService: Progress object for ${discoveryId}:`, {
+                        keys: Object.keys(progress),
+                        currentUrl: progress.currentUrl,
+                        url: progress.url,
+                        message: progress.message
+                    });
+                    
                     // Fix undefined values by using correct property names from crawler
                     const pagesFound = progress.discoveredPages || progress.pagesFound || 0;
-                    const currentUrl = progress.currentUrl || progress.url || 'Unknown';
+                    // Better currentUrl detection - use the message or primary URL as fallback instead of 'Unknown'
+                    let currentUrl = progress.currentUrl || progress.url;
+                    
+                    // If still no currentUrl, try to extract from message or use a more meaningful default
+                    if (!currentUrl || currentUrl === 'Unknown') {
+                        if (progress.message && progress.message.includes('http')) {
+                            // Try to extract URL from message
+                            const urlMatch = progress.message.match(/https?:\/\/[^\s]+/);
+                            currentUrl = urlMatch ? urlMatch[0] : primaryUrl;
+                        } else {
+                            currentUrl = primaryUrl; // Use primary URL instead of 'Unknown'
+                        }
+                    }
+                    
                     const maxPages = crawlerSettings.maxPages || 500;
                     
                     this.wsService.emitDiscoveryProgress(projectId, discoveryId, {
@@ -423,7 +444,8 @@ class SiteDiscoveryService {
     async updateDiscoveryProgress(discoveryId, progress) {
         // For now, just log progress. Could be extended to update a progress field
         const pagesFound = progress.discoveredPages || progress.pagesFound || 0;
-        console.log(`Discovery ${discoveryId}: ${progress.message} (${pagesFound} pages found)`);
+        const currentUrl = progress.currentUrl || progress.url || 'processing...';
+        console.log(`🕷️ Discovery ${discoveryId}: ${progress.message} (${pagesFound} pages found, current: ${currentUrl})`);
     }
 
     /**

@@ -92,7 +92,17 @@ class SiteCrawler {
 
             // Setup authentication if needed
             if (this.options.useAuth) {
-                await this.setupAuthentication(rootUrl);
+                try {
+                    await this.setupAuthentication(rootUrl);
+                } catch (error) {
+                    console.warn(`❌ Authentication setup failed, continuing without authentication:`, error.message);
+                    this.updateProgress(`❌ Authentication setup failed: ${error.message}`, {
+                        currentUrl: rootUrl,
+                        authError: true
+                    });
+                    // Continue crawling without authentication
+                    this.options.useAuth = false;
+                }
             }
 
             // Check robots.txt first
