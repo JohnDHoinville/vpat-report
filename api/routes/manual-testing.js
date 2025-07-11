@@ -1303,7 +1303,7 @@ router.post('/assign-tester', authenticateToken, async (req, res) => {
                     UPDATE manual_test_results 
                     SET assigned_tester = $1, 
                         result = 'assigned',
-                        updated_at = CURRENT_TIMESTAMP
+                        retested_at = CURRENT_TIMESTAMP
                     WHERE id = $2
                 `, [tester.full_name || tester.username, existingResult.rows[0].id]);
                 
@@ -1371,7 +1371,7 @@ router.post('/unassign-tester', authenticateToken, async (req, res) => {
                 UPDATE manual_test_results 
                 SET assigned_tester = NULL,
                     result = 'not_tested',
-                    updated_at = CURRENT_TIMESTAMP
+                    retested_at = CURRENT_TIMESTAMP
                 WHERE test_session_id = $1 AND page_id = $2 AND requirement_id = $3
             `, [session_id, page_id, requirement_id]);
         }
