@@ -262,10 +262,16 @@ class SimpleTestingService {
                 }
             }
             
-            // Mark session as completed
+            // Calculate final violation summary
+            const violationSummary = await this.calculateSessionViolationSummary(sessionId);
+            
+            // Mark session as completed with final violation counts
             await this.updateSessionStatus(sessionId, 'completed', {
                 automatedTestsCompleted: completedTests,
-                totalAutomatedTests: totalTests
+                totalAutomatedTests: totalTests,
+                violationsFound: violationSummary.totalViolations,
+                passesFound: violationSummary.totalPasses,
+                warningsFound: violationSummary.totalWarnings
             });
             
             // Emit completion event via WebSocket
@@ -303,6 +309,15 @@ class SimpleTestingService {
         try {
             await client.query('BEGIN');
             
+            // Extract counts from nested result structure
+            const testData = result.result || result;  // Handle both nested and flat structures
+            const violationsCount = testData.violations || 0;
+            const warningsCount = testData.warnings || 0;
+            const passesCount = testData.passes || 0;
+            const duration = result.duration || testData.duration || 0;
+
+            console.log(`📊 Storing test result - Tool: ${toolName}, Violations: ${violationsCount}, Warnings: ${warningsCount}, Passes: ${passesCount}`);
+
             // Store main test result
             const testResult = await client.query(
                 `INSERT INTO automated_test_results 
@@ -320,20 +335,24 @@ class SimpleTestingService {
                     sessionId,
                     pageId,
                     toolName,
-                    result.tool_version || '1.0',
+                    result.tool_version || testData.tool_version || '1.0',
                     result,
-                    result.violations || 0,
-                    result.warnings || 0,
-                    result.passes || 0,
-                    result.duration || 0
+                    violationsCount,
+                    warningsCount,
+                    passesCount,
+                    duration
                 ]
             );
             
             const testResultId = testResult.rows[0].id;
             
-            // Store violations if any
-            if (result.detailedViolations && result.detailedViolations.length > 0) {
-                for (const violation of result.detailedViolations) {
+            // Store violations if any - check both nested and flat structures
+            const detailedViolations = testData.detailedViolations || result.detailedViolations || [];
+            
+            if (detailedViolations && detailedViolations.length > 0) {
+                console.log(`💾 Storing ${detailedViolations.length} detailed violations for ${toolName}`);
+                
+                for (const violation of detailedViolations) {
                     await client.query(
                         `INSERT INTO violations 
                          (automated_result_id, violation_type, severity, wcag_criterion, 
@@ -352,6 +371,8 @@ class SimpleTestingService {
                         ]
                     );
                 }
+            } else {
+                console.log(`ℹ️  No detailed violations found for ${toolName} (violations count: ${violationsCount})`);
             }
             
             await client.query('COMMIT');
@@ -824,6 +845,54 @@ class SimpleTestingService {
                 [sessionId]
             );
             return result.rows[0]?.project_id;
+        } finally {
+            client.release();
+        }
+    }
+
+    /**
+     * Calculate violation summary for a session
+     * @param {string} sessionId - Test session UUID
+     * @returns {Object} Violation summary
+     */
+    async calculateSessionViolationSummary(sessionId) {
+        const client = await this.pool.connect();
+        
+        try {
+            // Get summary from automated test results
+            const automatedSummary = await client.query(
+                `SELECT 
+                    SUM(violations_count) as total_violations,
+                    SUM(warnings_count) as total_warnings, 
+                    SUM(passes_count) as total_passes,
+                    COUNT(*) as total_tests
+                 FROM automated_test_results 
+                 WHERE test_session_id = $1`,
+                [sessionId]
+            );
+            
+            // Get count of detailed violations
+            const violationCount = await client.query(
+                `SELECT COUNT(*) as detailed_violations
+                 FROM violations v
+                 JOIN automated_test_results atr ON v.automated_result_id = atr.id
+                 WHERE atr.test_session_id = $1`,
+                [sessionId]
+            );
+            
+            const summary = automatedSummary.rows[0];
+            const detailedCount = violationCount.rows[0];
+            
+            console.log(`📊 Session ${sessionId} summary: ${summary.total_violations} violations, ${summary.total_passes} passes, ${detailedCount.detailed_violations} detailed violations`);
+            
+            return {
+                totalViolations: parseInt(summary.total_violations) || 0,
+                totalWarnings: parseInt(summary.total_warnings) || 0,
+                totalPasses: parseInt(summary.total_passes) || 0,
+                totalTests: parseInt(summary.total_tests) || 0,
+                detailedViolations: parseInt(detailedCount.detailed_violations) || 0
+            };
+            
         } finally {
             client.release();
         }
