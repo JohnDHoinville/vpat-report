@@ -80,6 +80,7 @@ function dashboard() {
         projects: [],
         discoveries: [],
         testSessions: [],
+        testingSessions: [], // New testing sessions data
         analytics: {},
         sessions: [],
         
@@ -177,6 +178,7 @@ function dashboard() {
         showCreateProject: false,
         showStartDiscovery: false,
         showCreateSession: false,
+        showCreateTestingSession: false, // New modal state for testing sessions
         showViewPages: false,
         showDeleteProject: false,
         showDeleteDiscovery: false,
@@ -210,6 +212,13 @@ function dashboard() {
                 includeManualTesting: true,
                 wcagLevel: 'AA'
             }
+        },
+        
+        newTestingSession: {
+            name: '',
+            description: '',
+            conformance_level: '',
+            custom_requirements: ''
         },
         
         // Authentication Forms
@@ -3724,6 +3733,162 @@ function dashboard() {
             this.showTesterAssignmentModal = false;
             this.selectedAssignmentForTester = null;
             this.selectedTesterId = '';
+        },
+
+        // Testing Sessions Management Functions
+        async refreshTestingSessionsTabData() {
+            if (!this.selectedProject) return;
+            await this.loadTestingSessions();
+        },
+
+        async loadTestingSessions() {
+            if (!this.selectedProject) return;
+            
+            try {
+                this.loading = true;
+                const response = await this.apiCall(`/sessions?project_id=${this.selectedProject.id}`);
+                
+                if (response.success) {
+                    this.testingSessions = response.data || [];
+                    console.log('📋 Testing sessions loaded:', this.testingSessions.length);
+                } else {
+                    console.error('Failed to load testing sessions:', response.error);
+                    this.showNotification('Failed to load testing sessions', 'error');
+                }
+            } catch (error) {
+                console.error('Error loading testing sessions:', error);
+                this.showNotification('Error loading testing sessions', 'error');
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        async createTestingSession() {
+            if (!this.selectedProject || !this.newTestingSession.name.trim() || !this.newTestingSession.conformance_level) {
+                this.showNotification('Please fill in all required fields', 'error');
+                return;
+            }
+
+            try {
+                this.loading = true;
+                
+                const sessionData = {
+                    name: this.newTestingSession.name.trim(),
+                    description: this.newTestingSession.description.trim(),
+                    project_id: this.selectedProject.id,
+                    conformance_level: this.newTestingSession.conformance_level,
+                    custom_requirements: this.newTestingSession.custom_requirements || null
+                };
+
+                const response = await this.apiCall('/sessions', {
+                    method: 'POST',
+                    body: JSON.stringify(sessionData)
+                });
+
+                if (response.success) {
+                    this.addNotification('Testing Session Created', 
+                        `Session "${sessionData.name}" created with ${response.data.total_tests_count} test instances`, 
+                        'success'
+                    );
+                    
+                    this.showCreateTestingSession = false;
+                    this.resetNewTestingSession();
+                    await this.loadTestingSessions();
+                } else {
+                    this.showNotification(response.error || 'Failed to create testing session', 'error');
+                }
+            } catch (error) {
+                console.error('Error creating testing session:', error);
+                this.showNotification('Error creating testing session', 'error');
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        viewTestingSessionDetails(session) {
+            // Navigate to session details view
+            console.log('Viewing session details:', session);
+            this.addNotification('Feature Coming Soon', 'Session details view will be available soon', 'info');
+        },
+
+        editTestingSession(session) {
+            // Edit session functionality
+            console.log('Editing session:', session);
+            this.addNotification('Feature Coming Soon', 'Session editing will be available soon', 'info');
+        },
+
+        async duplicateTestingSession(session) {
+            if (!session) return;
+
+            try {
+                this.loading = true;
+                const response = await this.apiCall(`/sessions/${session.id}/duplicate`, {
+                    method: 'POST'
+                });
+
+                if (response.success) {
+                    this.addNotification('Session Duplicated', 
+                        `Created duplicate session with ${response.data.total_tests_count} test instances`, 
+                        'success'
+                    );
+                    await this.loadTestingSessions();
+                } else {
+                    this.showNotification(response.error || 'Failed to duplicate session', 'error');
+                }
+            } catch (error) {
+                console.error('Error duplicating session:', error);
+                this.showNotification('Error duplicating session', 'error');
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        async deleteTestingSession(session) {
+            if (!session || !confirm(`Are you sure you want to delete the testing session "${session.name}"? This action cannot be undone.`)) {
+                return;
+            }
+
+            try {
+                this.loading = true;
+                const response = await this.apiCall(`/sessions/${session.id}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.success) {
+                    this.addNotification('Session Deleted', 
+                        `Testing session "${session.name}" has been deleted`, 
+                        'success'
+                    );
+                    await this.loadTestingSessions();
+                } else {
+                    this.showNotification(response.error || 'Failed to delete session', 'error');
+                }
+            } catch (error) {
+                console.error('Error deleting session:', error);
+                this.showNotification('Error deleting session', 'error');
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        resetNewTestingSession() {
+            this.newTestingSession = {
+                name: '',
+                description: '',
+                conformance_level: '',
+                custom_requirements: ''
+            };
+        },
+
+        getSessionStatusBadgeClass(status) {
+            const classes = {
+                'pending': 'bg-yellow-100 text-yellow-800',
+                'in_progress': 'bg-blue-100 text-blue-800',
+                'completed': 'bg-green-100 text-green-800',
+                'failed': 'bg-red-100 text-red-800',
+                'cancelled': 'bg-gray-100 text-gray-800'
+            };
+            return classes[status] || 'bg-gray-100 text-gray-800';
         }
     };
 }
