@@ -1,0 +1,47 @@
+[
+  {
+    "id": "a220a45e-cba6-4c20-b92c-e0738c1f96ea",
+    "test_session_id": "ca48a7c9-9a4e-43d2-bfd9-782b2c507ded",
+    "page_id": "fd049360-5b17-4885-9e1d-c4111a6f0264",
+    "requirement_id": "031b8af0-6097-4e68-bd20-fbaa4884c8ef",
+    "requirement_type": "wcag",
+    "result": "in_progress",
+    "confidence_level": "medium",
+    "notes": "Assigned to tester for manual evaluation<div>Reviewing site...</div>",
+    "evidence": {},
+    "tester_name": "John Hoinville (SA)",
+    "tested_at": "2025-07-11T20:43:28.626Z",
+    "retested_at": "2025-07-11T16:43:28.841Z",
+    "assigned_tester": "John Hoinville (SA)"
+  },
+  {
+    "id": "20bd7deb-c75b-4be6-9a03-529420722a95",
+    "test_session_id": "8bef608b-957f-4b2d-a73e-4aabaeddae28",
+    "page_id": "746d8dd9-dd7a-4ef5-a1df-b9f5b6fee3c2",
+    "requirement_id": "031b8af0-6097-4e68-bd20-fbaa4884c8ef",
+    "requirement_type": "wcag",
+    "result": "pass",
+    "confidence_level": "high",
+    "notes": "Assigned to tester for manual evaluation",
+    "evidence": {},
+    "tester_name": "John Hoinville (SA)",
+    "tested_at": "2025-07-11T21:15:06.326Z",
+    "retested_at": "2025-07-11T17:15:06.371Z",
+    "assigned_tester": "John Hoinville (SA)"
+  },
+  {
+    "id": "379e3219-40ac-40be-ba4f-2af1d9e57097",
+    "test_session_id": "8bef608b-957f-4b2d-a73e-4aabaeddae28",
+    "page_id": "8e394396-95c2-4aa2-9837-526b0d0a42e2",
+    "requirement_id": "031b8af0-6097-4e68-bd20-fbaa4884c8ef",
+    "requirement_type": "wcag",
+    "result": "fail",
+    "confidence_level": "medium",
+    "notes": "Assigned to tester for manual evaluation",
+    "evidence": {},
+    "tester_name": "John Hoinville (SA)",
+    "tested_at": "2025-07-11T21:22:26.001Z",
+    "retested_at": "2025-07-11T17:22:26.008Z",
+    "assigned_tester": "John Hoinville (SA)"
+  }
+]

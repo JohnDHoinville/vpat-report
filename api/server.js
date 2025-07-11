@@ -19,6 +19,7 @@ const {
 const authRoutes = require('./routes/auth');
 const projectRoutes = require('./routes/projects');
 const sessionRoutes = require('./routes/sessions');
+const requirementsRoutes = require('./routes/requirements');
 const pageRoutes = require('./routes/pages');
 const resultRoutes = require('./routes/results');
 const violationRoutes = require('./routes/violations');
@@ -173,6 +174,7 @@ app.get('/health', asyncHandler(async (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/sessions', sessionRoutes);
+app.use('/api/requirements', requirementsRoutes);
 app.use('/api/pages', pageRoutes);
 app.use('/api/results', resultRoutes);
 app.use('/api/violations', violationRoutes);
@@ -212,6 +214,14 @@ app.get('/api', (req, res) => {
                 update: 'PUT /api/sessions/:id',
                 delete: 'DELETE /api/sessions/:id',
                 byProject: 'GET /api/projects/:id/sessions'
+            },
+            requirements: {
+                list: 'GET /api/requirements',
+                get: 'GET /api/requirements/:id',
+                byConformance: 'GET /api/requirements/conformance/:level',
+                stats: 'GET /api/requirements/stats/summary',
+                update: 'PUT /api/requirements/:id',
+                validate: 'POST /api/requirements/validate'
             },
             pages: {
                 list: 'GET /api/pages',

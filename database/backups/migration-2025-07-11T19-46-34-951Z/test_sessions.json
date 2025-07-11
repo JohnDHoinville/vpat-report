@@ -1,0 +1,97 @@
+[
+  {
+    "id": "8bef608b-957f-4b2d-a73e-4aabaeddae28",
+    "project_id": "82ca3e78-808a-4963-8cc3-64e925c94699",
+    "name": "Initial Assessment - 7/11",
+    "description": "Accessibility testing session",
+    "scope": {
+      "testTypes": [
+        "axe",
+        "pa11y",
+        "lighthouse"
+      ],
+      "wcagLevel": "AA",
+      "includeManualTesting": true
+    },
+    "status": "completed",
+    "test_type": "full",
+    "started_at": "2025-07-11T16:13:00.721Z",
+    "completed_at": "2025-07-11T16:20:16.590Z",
+    "progress_summary": {
+      "total_tests": 264,
+      "failed_tests": 1,
+      "last_updated": "2025-07-11T13:22:26.045249-04:00",
+      "passed_tests": 1,
+      "completed_tests": 2,
+      "completion_percentage": 0.8
+    },
+    "created_at": "2025-07-11T16:13:00.638Z",
+    "created_by": null,
+    "paused_at": null,
+    "resumed_at": null
+  },
+  {
+    "id": "fc8f868c-5d54-482a-a384-0f2820845c09",
+    "project_id": "e6b23523-a3ec-478d-a964-b1ad3a38f9c8",
+    "name": "TEst 1 ",
+    "description": "Accessibility testing session",
+    "scope": {
+      "testTypes": [
+        "axe",
+        "pa11y",
+        "lighthouse"
+      ],
+      "wcagLevel": "AA",
+      "includeManualTesting": true
+    },
+    "status": "completed",
+    "test_type": "full",
+    "started_at": "2025-07-11T09:53:32.925Z",
+    "completed_at": "2025-07-11T09:59:58.239Z",
+    "progress_summary": {
+      "progress": 99,
+      "passesFound": 1515,
+      "warningsFound": 0,
+      "violationsFound": 59,
+      "manualViolations": 0,
+      "automatedViolations": 59,
+      "totalAutomatedTests": 100,
+      "automatedTestsCompleted": 100
+    },
+    "created_at": "2025-07-11T09:53:32.891Z",
+    "created_by": null,
+    "paused_at": null,
+    "resumed_at": null
+  },
+  {
+    "id": "ca48a7c9-9a4e-43d2-bfd9-782b2c507ded",
+    "project_id": "e6b23523-a3ec-478d-a964-b1ad3a38f9c8",
+    "name": "WCAG AAA",
+    "description": "Accessibility testing session",
+    "scope": {
+      "testTypes": [
+        "axe",
+        "pa11y",
+        "lighthouse"
+      ],
+      "wcagLevel": "AA",
+      "includeManualTesting": true
+    },
+    "status": "completed",
+    "test_type": "full",
+    "started_at": "2025-07-11T11:05:21.726Z",
+    "completed_at": "2025-07-11T11:13:10.529Z",
+    "progress_summary": {
+      "total_tests": 400,
+      "failed_tests": 0,
+      "last_updated": "2025-07-11T12:43:28.880339-04:00",
+      "passed_tests": 0,
+      "completed_tests": 1,
+      "completion_percentage": 0.3
+    },
+    "created_at": "2025-07-11T11:05:21.708Z",
+    "created_by": null,
+    "paused_at": null,
+    "resumed_at": null
+  }
+]
