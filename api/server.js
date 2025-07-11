@@ -1,115 +1,182 @@
 const express = require('express');
+const http = require('http');
 const cors = require('cors');
-const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
-const { createServer } = require('http');
-const { db } = require('../database/config');
-const WebSocketService = require('./services/websocket-service');
+const helmet = require('helmet');
+const compression = require('compression');
 
-// Import route modules
+// Import error handling middleware
+const {
+    errorHandler,
+    notFoundHandler,
+    accessLogger,
+    asyncHandler,
+    getErrorStats
+} = require('./middleware/error-handler');
+
+// Import routes
 const authRoutes = require('./routes/auth');
 const projectRoutes = require('./routes/projects');
 const sessionRoutes = require('./routes/sessions');
 const pageRoutes = require('./routes/pages');
 const resultRoutes = require('./routes/results');
 
-// Import authentication middleware
-const { optionalAuth } = require('./middleware/auth');
-
-/**
- * Accessibility Testing API Server
- * Provides REST endpoints for managing accessibility test data
- */
+// Import services
+const WebSocketService = require('./services/websocket-service');
+const SimpleTestingService = require('../database/services/simple-testing-service');
+const SiteDiscoveryService = require('../database/services/site-discovery-service');
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const server = http.createServer(app);
 
-// Create HTTP server for both Express and WebSocket
-const httpServer = createServer(app);
-
-// Initialize WebSocket service
-let wsService;
-
-// Security middleware
+// Security and performance middleware
 app.use(helmet({
-    contentSecurityPolicy: {
-        directives: {
-            defaultSrc: ["'self'"],
-            styleSrc: ["'self'", "'unsafe-inline'"],
-            scriptSrc: ["'self'"],
-            imgSrc: ["'self'", "data:", "https:"],
-        },
-    },
+    contentSecurityPolicy: false, // Disable for development
     crossOriginEmbedderPolicy: false
 }));
+app.use(compression());
 
-// Rate limiting
-const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 1000, // limit each IP to 1000 requests per windowMs
-    message: {
-        error: 'Too many requests from this IP, please try again later.',
-        retryAfter: '15 minutes'
-    },
-    standardHeaders: true,
-    legacyHeaders: false,
-});
-app.use(limiter);
+// Access logging (before other middleware)
+app.use(accessLogger);
 
 // CORS configuration
 app.use(cors({
-    origin: process.env.ALLOWED_ORIGINS?.split(',') || [
-        'http://localhost:3000', 
+    origin: process.env.CORS_ORIGINS?.split(',') || [
+        'http://localhost:3000',
         'http://localhost:8080',
         'http://127.0.0.1:3000',
         'http://127.0.0.1:8080'
     ],
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
+
+// Rate limiting
+const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: process.env.RATE_LIMIT_MAX || 1000, // limit each IP to 1000 requests per windowMs
+    message: {
+        error: 'Too many requests from this IP',
+        code: 'RATE_LIMIT_EXCEEDED',
+        retry_after: '15 minutes'
+    },
+    standardHeaders: true,
+    legacyHeaders: false
+});
+app.use('/api', limiter);
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Request logging middleware
-app.use((req, res, next) => {
-    const timestamp = new Date().toISOString();
-    console.log(`[${timestamp}] ${req.method} ${req.path} - ${req.ip}`);
-    next();
-});
+// Initialize WebSocket service
+const wsService = new WebSocketService(server);
 
-// Health check endpoint
-app.get('/health', async (req, res) => {
+// Initialize testing services
+const testingService = new SimpleTestingService(wsService);
+const discoveryService = new SiteDiscoveryService(wsService);
+
+// Make services available to routes
+app.set('wsService', wsService);
+app.set('testingService', testingService);
+app.set('discoveryService', discoveryService);
+
+// Health check endpoint with comprehensive system status
+app.get('/health', asyncHandler(async (req, res) => {
+    const startTime = Date.now();
+    
     try {
-        // Test database connection
-        const dbConnected = await db.testConnection();
+        // Test database connectivity
+        const { Pool } = require('pg');
+        const pool = new Pool({
+            host: process.env.DB_HOST || 'localhost',
+            port: process.env.DB_PORT || 5432,
+            database: process.env.DB_NAME || 'accessibility_testing',
+            user: process.env.DB_USER || 'postgres',
+            password: process.env.DB_PASSWORD || '',
+            max: 1,
+            connectionTimeoutMillis: 3000
+        });
         
-        const health = {
+        await pool.query('SELECT 1');
+        await pool.end();
+        
+        // Get error statistics
+        const errorStats = await getErrorStats();
+        
+        // WebSocket connection stats
+        const wsStats = wsService.getStats();
+        
+        const healthData = {
             status: 'healthy',
             timestamp: new Date().toISOString(),
             uptime: process.uptime(),
-            database: dbConnected ? 'connected' : 'disconnected',
-            version: process.env.npm_package_version || '1.0.0'
+            response_time: `${Date.now() - startTime}ms`,
+            version: process.env.npm_package_version || '1.0.0',
+            environment: process.env.NODE_ENV || 'development',
+            database: {
+                status: 'connected',
+                host: process.env.DB_HOST || 'localhost',
+                database: process.env.DB_NAME || 'accessibility_testing'
+            },
+            websocket: {
+                status: 'active',
+                connected_clients: wsStats.connectedClients,
+                active_projects: wsStats.activeProjects,
+                active_sessions: wsStats.activeSessions
+            },
+            system: {
+                memory: {
+                    used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
+                    total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024),
+                    external: Math.round(process.memoryUsage().external / 1024 / 1024)
+                },
+                cpu: {
+                    usage: process.cpuUsage()
+                },
+                node_version: process.version
+            },
+            error_stats: errorStats,
+            features: {
+                authentication: 'enabled',
+                rate_limiting: 'enabled',
+                websocket: 'enabled',
+                logging: 'enabled',
+                compression: 'enabled',
+                security_headers: 'enabled'
+            }
         };
-
-        res.status(dbConnected ? 200 : 503).json(health);
+        
+        res.json(healthData);
+        
     } catch (error) {
+        const errorStats = await getErrorStats().catch(() => ({}));
+        
         res.status(503).json({
             status: 'unhealthy',
             timestamp: new Date().toISOString(),
-            error: error.message
+            error: 'Database connection failed',
+            response_time: `${Date.now() - startTime}ms`,
+            error_stats: errorStats
         });
     }
-});
+}));
 
-// API documentation endpoint
+// API routes
+app.use('/api/auth', authRoutes);
+app.use('/api/projects', projectRoutes);
+app.use('/api/sessions', sessionRoutes);
+app.use('/api/pages', pageRoutes);
+app.use('/api/results', resultRoutes);
+
+// API info endpoint
 app.get('/api', (req, res) => {
     res.json({
         name: 'Accessibility Testing API',
-        version: '1.0.0',
+        version: process.env.npm_package_version || '1.0.0',
         description: 'REST API for managing accessibility test data',
+        timestamp: new Date().toISOString(),
         endpoints: {
             health: 'GET /health',
             auth: {
@@ -120,7 +187,8 @@ app.get('/api', (req, res) => {
                 updateProfile: 'PUT /api/auth/profile',
                 changePassword: 'POST /api/auth/change-password',
                 sessions: 'GET /api/auth/sessions',
-                revokeSession: 'DELETE /api/auth/sessions/:id'
+                revokeSession: 'DELETE /api/auth/sessions/:id',
+                health: 'GET /api/auth/health'
             },
             projects: {
                 list: 'GET /api/projects',
@@ -153,137 +221,54 @@ app.get('/api', (req, res) => {
     });
 });
 
-// Apply optional authentication to all API routes
-app.use('/api', optionalAuth);
+// 404 handler (must be before error handler)
+app.use(notFoundHandler);
 
-// Mount API routes
-app.use('/api/auth', authRoutes);
-app.use('/api/projects', projectRoutes);
-app.use('/api/sessions', sessionRoutes);
-app.use('/api/pages', pageRoutes);
-app.use('/api/results', resultRoutes);
+// Global error handler (must be last)
+app.use(errorHandler);
 
-// 404 handler
-app.use('*', (req, res) => {
-    res.status(404).json({
-        error: 'Endpoint not found',
-        path: req.originalUrl,
-        method: req.method,
-        available_endpoints: '/api'
+// Graceful shutdown handling
+process.on('SIGTERM', () => {
+    console.log('🛑 SIGTERM received, shutting down gracefully...');
+    server.close(() => {
+        console.log('✅ Server closed');
+        wsService.close();
+        process.exit(0);
     });
 });
 
-// Global error handler
-app.use((error, req, res, next) => {
-    console.error(`[ERROR] ${req.method} ${req.path}:`, error);
-    
-    // Database connection errors
-    if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
-        return res.status(503).json({
-            error: 'Database connection failed',
-            message: 'Please check database configuration'
-        });
-    }
-    
-    // Validation errors
-    if (error.name === 'ValidationError') {
-        return res.status(400).json({
-            error: 'Validation failed',
-            details: error.message
-        });
-    }
-    
-    // PostgreSQL errors
-    if (error.code && error.code.startsWith('23')) {
-        return res.status(409).json({
-            error: 'Database constraint violation',
-            message: 'The operation conflicts with existing data'
-        });
-    }
-    
-    // Default error response
-    res.status(error.status || 500).json({
-        error: error.message || 'Internal server error',
-        ...(process.env.NODE_ENV === 'development' && { stack: error.stack })
+process.on('SIGINT', () => {
+    console.log('🛑 SIGINT received, shutting down gracefully...');
+    server.close(() => {
+        console.log('✅ Server closed');
+        wsService.close();
+        process.exit(0);
     });
 });
 
-/**
- * Start the server
- */
-async function startServer() {
-    try {
-        // Test database connection before starting
-        console.log('🔍 Testing database connection...');
-        const dbConnected = await db.testConnection();
-        
-        if (!dbConnected) {
-            console.error('❌ Failed to connect to database');
-            process.exit(1);
-        }
-        
-        console.log('✅ Database connection successful');
-        
-        // Initialize WebSocket service
-        wsService = new WebSocketService(httpServer);
-        
-        // Make WebSocket service available globally for other modules
-        app.set('wsService', wsService);
-        
-        // Start the server
-        const server = httpServer.listen(PORT, () => {
-            console.log(`\n🚀 Accessibility Testing API Server`);
-            console.log(`📡 Listening on port ${PORT}`);
-            console.log(`🔗 Health check: http://localhost:${PORT}/health`);
-            console.log(`📚 API docs: http://localhost:${PORT}/api`);
-            console.log(`🔄 WebSocket: Real-time updates enabled`);
-            console.log(`🗄️ Database: ${process.env.DB_HOST || 'localhost'}:${process.env.DB_PORT || 5432}/${process.env.DB_NAME || 'accessibility_testing'}`);
-            console.log(`⏰ Started at: ${new Date().toISOString()}\n`);
-        });
+// Handle uncaught exceptions
+process.on('uncaughtException', (error) => {
+    console.error('🚨 Uncaught Exception:', error);
+    console.error('Stack:', error.stack);
+    process.exit(1);
+});
 
-        // Graceful shutdown handling
-        const gracefulShutdown = async (signal) => {
-            console.log(`\n🛑 Received ${signal}, starting graceful shutdown...`);
-            
-            server.close(async () => {
-                console.log('🔌 HTTP server closed');
-                
-                // Close WebSocket service
-                if (wsService) {
-                    wsService.close();
-                    console.log('🔌 WebSocket service closed');
-                }
-                
-                try {
-                    await db.end();
-                    console.log('🗄️ Database connections closed');
-                } catch (error) {
-                    console.error('❌ Error closing database:', error.message);
-                }
-                
-                console.log('✅ Graceful shutdown completed');
-                process.exit(0);
-            });
-            
-            // Force shutdown after 10 seconds
-            setTimeout(() => {
-                console.error('⚠️ Forced shutdown after timeout');
-                process.exit(1);
-            }, 10000);
-        };
-        
-        process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-        process.on('SIGINT', () => gracefulShutdown('SIGINT'));
-        
-    } catch (error) {
-        console.error('💥 Failed to start server:', error.message);
-        process.exit(1);
-    }
-}
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('🚨 Unhandled Rejection at:', promise, 'reason:', reason);
+    process.exit(1);
+});
 
-// Start server if this file is run directly
-if (require.main === module) {
-    startServer();
-}
+const PORT = process.env.PORT || 3001;
+const HOST = process.env.HOST || 'localhost';
 
-module.exports = { app, startServer }; 
+server.listen(PORT, HOST, () => {
+    console.log(`🚀 Accessibility Testing API Server running on http://${HOST}:${PORT}`);
+    console.log(`📊 Health check: http://${HOST}:${PORT}/health`);
+    console.log(`📚 API docs: http://${HOST}:${PORT}/api`);
+    console.log(`🔄 WebSocket service initialized`);
+    console.log(`🛡️  Security features: Helmet, CORS, Rate Limiting`);
+    console.log(`📝 Logging: Access and Error logs enabled`);
+});
+
+module.exports = { app, server, wsService }; 

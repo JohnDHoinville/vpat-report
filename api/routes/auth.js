@@ -701,4 +701,67 @@ router.post('/import', authenticateToken, async (req, res) => {
     }
 });
 
+/**
+ * GET /api/auth/health
+ * Get authentication system health and statistics (admin only)
+ */
+router.get('/health', authenticateToken, requireRole('admin'), async (req, res) => {
+    try {
+        const { getSessionStats, cleanupExpiredSessions } = require('../middleware/auth');
+        
+        // Get session statistics
+        const sessionStats = await getSessionStats();
+        
+        // Cleanup expired sessions and get count
+        const cleanedUpCount = await cleanupExpiredSessions();
+        
+        // Get user statistics
+        const userStats = await pool.query(`
+            SELECT 
+                COUNT(*) as total_users,
+                COUNT(CASE WHEN is_active = true THEN 1 END) as active_users,
+                COUNT(CASE WHEN last_login > NOW() - INTERVAL '24 hours' THEN 1 END) as recent_logins,
+                COUNT(CASE WHEN role = 'admin' THEN 1 END) as admin_users
+            FROM users
+        `);
+        
+        // Get recent authentication attempts
+        const recentAttempts = await pool.query(`
+            SELECT created_at 
+            FROM user_sessions 
+            WHERE created_at > NOW() - INTERVAL '1 hour' 
+            ORDER BY created_at DESC 
+            LIMIT 10
+        `);
+        
+        res.json({
+            status: 'healthy',
+            timestamp: new Date().toISOString(),
+            session_stats: sessionStats,
+            user_stats: userStats.rows[0],
+            cleanup_stats: {
+                expired_sessions_cleaned: cleanedUpCount,
+                last_cleanup: new Date().toISOString()
+            },
+            recent_activity: {
+                sessions_created_last_hour: recentAttempts.rows.length,
+                recent_timestamps: recentAttempts.rows.map(r => r.created_at)
+            },
+            system_info: {
+                jwt_expires_in: process.env.JWT_EXPIRES_IN || '7d',
+                session_cleanup_interval: '1 hour',
+                rate_limiting: 'enabled'
+            }
+        });
+        
+    } catch (error) {
+        console.error('Auth health check error:', error);
+        res.status(500).json({
+            status: 'unhealthy',
+            error: 'Failed to retrieve authentication system health',
+            code: 'HEALTH_CHECK_ERROR'
+        });
+    }
+});
+
 module.exports = router; 

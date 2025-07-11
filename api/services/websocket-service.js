@@ -177,12 +177,30 @@ class WebSocketService {
             type: 'discovery_progress',
             projectId,
             discoveryId,
-            progress: progressData,
+            progress: {
+                percentage: progressData.percentage || 0,
+                pagesFound: progressData.pagesFound || 0,
+                currentUrl: progressData.currentUrl || '',
+                depth: progressData.depth || 0,
+                maxDepth: progressData.maxDepth || 3,
+                message: progressData.message || 'Discovery in progress...',
+                stage: progressData.stage || 'crawling',
+                estimatedTimeRemaining: progressData.estimatedTimeRemaining,
+                startTime: progressData.startTime,
+                errors: progressData.errors || [],
+                statistics: {
+                    urlsQueued: progressData.urlsQueued || 0,
+                    urlsProcessed: progressData.urlsProcessed || 0,
+                    urlsSkipped: progressData.urlsSkipped || 0,
+                    totalSize: progressData.totalSize || 0,
+                    averageLoadTime: progressData.averageLoadTime || 0
+                }
+            },
             timestamp: new Date().toISOString()
         };
 
         this.io.to(`project_${projectId}`).emit('discovery_progress', message);
-        console.log(`📡 Discovery progress broadcast: ${projectId} - ${progressData.percentage}%`);
+        console.log(`📡 Discovery progress broadcast: ${projectId} - ${progressData.percentage}% (${progressData.stage})`);
     }
 
     /**
@@ -209,13 +227,36 @@ class WebSocketService {
             type: 'session_progress',
             sessionId,
             projectId,
-            progress: progressData,
+            progress: {
+                percentage: progressData.percentage || 0,
+                completedTests: progressData.completedTests || 0,
+                totalTests: progressData.totalTests || 0,
+                currentPage: progressData.currentPage || '',
+                currentTool: progressData.currentTool || '',
+                message: progressData.message || 'Testing in progress...',
+                stage: progressData.stage || 'testing',
+                estimatedTimeRemaining: progressData.estimatedTimeRemaining,
+                startTime: progressData.startTime,
+                errors: progressData.errors || [],
+                violationsFound: progressData.violationsFound || 0,
+                passesFound: progressData.passesFound || 0,
+                warningsFound: progressData.warningsFound || 0,
+                statistics: {
+                    axeTests: progressData.axeTests || 0,
+                    pa11yTests: progressData.pa11yTests || 0,
+                    lighthouseTests: progressData.lighthouseTests || 0,
+                    averageTestTime: progressData.averageTestTime || 0,
+                    criticalViolations: progressData.criticalViolations || 0,
+                    moderateViolations: progressData.moderateViolations || 0,
+                    minorViolations: progressData.minorViolations || 0
+                }
+            },
             timestamp: new Date().toISOString()
         };
 
         this.io.to(`session_${sessionId}`).emit('session_progress', message);
         this.io.to(`project_${projectId}`).emit('session_progress', message);
-        console.log(`📡 Session progress broadcast: ${sessionId} - ${progressData.stage}`);
+        console.log(`📡 Session progress broadcast: ${sessionId} - ${progressData.percentage}% (${progressData.stage})`);
     }
 
     /**
@@ -253,14 +294,41 @@ class WebSocketService {
     }
 
     /**
-     * Emit testing milestone notifications
+     * Enhanced testing milestone with detailed context
      */
     emitTestingMilestone(sessionId, projectId, milestone) {
         const message = {
             type: 'testing_milestone',
             sessionId,
             projectId,
-            milestone,
+            milestone: {
+                type: milestone.type,
+                message: milestone.message,
+                timestamp: new Date().toISOString(),
+                // Context-specific data based on milestone type
+                ...(milestone.type === 'tool_complete' && {
+                    tool: milestone.tool,
+                    violationsFound: milestone.violationsFound,
+                    passesFound: milestone.passesFound,
+                    timeElapsed: milestone.timeElapsed
+                }),
+                ...(milestone.type === 'high_violations' && {
+                    count: milestone.count,
+                    threshold: milestone.threshold,
+                    averagePerPage: milestone.averagePerPage
+                }),
+                ...(milestone.type === 'critical_violation' && {
+                    description: milestone.description,
+                    wcagCriteria: milestone.wcagCriteria,
+                    url: milestone.url,
+                    severity: milestone.severity
+                }),
+                ...(milestone.type.startsWith('progress_') && {
+                    percentage: milestone.percentage,
+                    violationsFound: milestone.violationsFound,
+                    estimatedCompletion: milestone.estimatedCompletion
+                })
+            },
             timestamp: new Date().toISOString()
         };
 
@@ -270,14 +338,37 @@ class WebSocketService {
     }
 
     /**
-     * Emit discovery milestone notifications
+     * Enhanced discovery milestone with detailed context
      */
     emitDiscoveryMilestone(projectId, discoveryId, milestone) {
         const message = {
             type: 'discovery_milestone',
             projectId,
             discoveryId,
-            milestone,
+            milestone: {
+                type: milestone.type,
+                message: milestone.message,
+                timestamp: new Date().toISOString(),
+                // Context-specific data based on milestone type
+                ...(milestone.type === 'depth_complete' && {
+                    depth: milestone.depth,
+                    pagesFound: milestone.pagesFound,
+                    timeElapsed: milestone.timeElapsed
+                }),
+                ...(milestone.type === 'large_site_detected' && {
+                    totalPages: milestone.totalPages,
+                    recommendedMaxPages: milestone.recommendedMaxPages
+                }),
+                ...(milestone.type === 'robots_blocking' && {
+                    blockedCount: milestone.blockedCount,
+                    blockedUrls: milestone.blockedUrls
+                }),
+                ...(milestone.type === 'error_threshold' && {
+                    errorRate: milestone.errorRate,
+                    errorCount: milestone.errorCount,
+                    totalAttempts: milestone.totalAttempts
+                })
+            },
             timestamp: new Date().toISOString()
         };
 

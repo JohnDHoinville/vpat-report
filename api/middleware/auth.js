@@ -131,6 +131,43 @@ async function invalidateSession(token) {
 }
 
 /**
+ * Clean up expired sessions
+ */
+async function cleanupExpiredSessions() {
+    try {
+        const result = await pool.query(
+            'UPDATE user_sessions SET is_active = false WHERE expires_at < NOW() AND is_active = true'
+        );
+        console.log(`Cleaned up ${result.rowCount} expired sessions`);
+        return result.rowCount;
+    } catch (error) {
+        console.error('Session cleanup error:', error);
+        return 0;
+    }
+}
+
+/**
+ * Get session statistics for monitoring
+ */
+async function getSessionStats() {
+    try {
+        const stats = await pool.query(`
+            SELECT 
+                COUNT(CASE WHEN is_active = true THEN 1 END) as active_sessions,
+                COUNT(CASE WHEN expires_at < NOW() THEN 1 END) as expired_sessions,
+                COUNT(CASE WHEN created_at > NOW() - INTERVAL '24 hours' THEN 1 END) as recent_sessions,
+                COUNT(*) as total_sessions
+            FROM user_sessions
+        `);
+        
+        return stats.rows[0];
+    } catch (error) {
+        console.error('Session stats error:', error);
+        return null;
+    }
+}
+
+/**
  * Authentication middleware - verify JWT token
  */
 async function authenticateToken(req, res, next) {
@@ -147,6 +184,90 @@ async function authenticateToken(req, res, next) {
     try {
         // Verify JWT token
         const decoded = jwt.verify(token, JWT_SECRET);
+        
+        // Validate session in database
+        const session = await validateSession(token);
+        
+        if (!session) {
+            return res.status(401).json({ 
+                error: 'Invalid or expired session',
+                code: 'INVALID_SESSION'
+            });
+        }
+        
+        // Add user info to request
+        req.user = {
+            id: decoded.userId,
+            username: decoded.username,
+            email: decoded.email,
+            role: decoded.role,
+            sessionId: session.id
+        };
+        
+        next();
+    } catch (error) {
+        console.error('Authentication error:', error.message);
+        
+        if (error.name === 'TokenExpiredError') {
+            return res.status(401).json({ 
+                error: 'Token expired',
+                code: 'TOKEN_EXPIRED'
+            });
+        }
+        
+        return res.status(403).json({ 
+            error: 'Invalid token',
+            code: 'INVALID_TOKEN'
+        });
+    }
+}
+
+/**
+ * Enhanced authentication middleware with rate limiting per user
+ */
+const userRateLimitMap = new Map();
+
+async function authenticateWithRateLimit(req, res, next) {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+    
+    if (!token) {
+        return res.status(401).json({ 
+            error: 'Access token required',
+            code: 'NO_TOKEN'
+        });
+    }
+    
+    try {
+        // Verify JWT token first (fast check)
+        const decoded = jwt.verify(token, JWT_SECRET);
+        
+        // Rate limiting per user
+        const userId = decoded.userId;
+        const now = Date.now();
+        const windowMs = 60 * 1000; // 1 minute
+        const maxRequests = 100; // 100 requests per minute per user
+        
+        if (!userRateLimitMap.has(userId)) {
+            userRateLimitMap.set(userId, []);
+        }
+        
+        const userRequests = userRateLimitMap.get(userId);
+        
+        // Clean old requests
+        while (userRequests.length > 0 && userRequests[0] < now - windowMs) {
+            userRequests.shift();
+        }
+        
+        if (userRequests.length >= maxRequests) {
+            return res.status(429).json({
+                error: 'Too many requests',
+                code: 'USER_RATE_LIMIT',
+                retry_after: Math.ceil((userRequests[0] + windowMs - now) / 1000)
+            });
+        }
+        
+        userRequests.push(now);
         
         // Validate session in database
         const session = await validateSession(token);
@@ -297,6 +418,9 @@ async function optionalAuth(req, res, next) {
     next();
 }
 
+// Cleanup expired sessions every hour
+setInterval(cleanupExpiredSessions, 60 * 60 * 1000);
+
 module.exports = {
     generateToken,
     generateRefreshToken,
@@ -305,7 +429,10 @@ module.exports = {
     storeSession,
     validateSession,
     invalidateSession,
+    cleanupExpiredSessions,
+    getSessionStats,
     authenticateToken,
+    authenticateWithRateLimit,
     requireRole,
     requirePermission,
     optionalAuth,

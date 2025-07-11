@@ -24,21 +24,51 @@ function dashboard() {
         // Real-time Progress Tracking
         discoveryProgress: {
             active: false,
+            discoveryId: null,
             percentage: 0,
             pagesFound: 0,
             currentUrl: '',
             depth: 0,
-            message: 'Initializing discovery...'
+            maxDepth: 3,
+            message: 'Initializing discovery...',
+            stage: 'starting', // starting, crawling, analyzing, complete
+            estimatedTimeRemaining: null,
+            startTime: null,
+            errors: [],
+            statistics: {
+                urlsQueued: 0,
+                urlsProcessed: 0,
+                urlsSkipped: 0,
+                totalSize: 0,
+                averageLoadTime: 0
+            }
         },
         
         testingProgress: {
             active: false,
+            sessionId: null,
             percentage: 0,
             completedTests: 0,
             totalTests: 0,
             currentPage: '',
             currentTool: '',
-            message: 'Starting automated testing...'
+            message: 'Starting automated testing...',
+            stage: 'preparing', // preparing, testing, analyzing, complete
+            estimatedTimeRemaining: null,
+            startTime: null,
+            errors: [],
+            violationsFound: 0,
+            passesFound: 0,
+            warningsFound: 0,
+            statistics: {
+                axeTests: 0,
+                pa11yTests: 0,
+                lighthouseTests: 0,
+                averageTestTime: 0,
+                criticalViolations: 0,
+                moderateViolations: 0,
+                minorViolations: 0
+            }
         },
         
         // Notifications
@@ -271,11 +301,17 @@ function dashboard() {
         handleDiscoveryProgress(data) {
             this.discoveryProgress = {
                 active: true,
+                discoveryId: data.discoveryId,
                 percentage: data.progress.percentage,
                 pagesFound: data.progress.pagesFound,
                 currentUrl: data.progress.currentUrl,
                 depth: data.progress.depth,
-                message: data.progress.message
+                message: data.progress.message,
+                stage: data.progress.stage,
+                estimatedTimeRemaining: data.progress.estimatedTimeRemaining,
+                startTime: data.progress.startTime,
+                errors: data.progress.errors,
+                statistics: data.progress.statistics
             };
             
             // Update progress notification
@@ -295,12 +331,21 @@ function dashboard() {
         handleSessionProgress(data) {
             this.testingProgress = {
                 active: true,
+                sessionId: data.sessionId,
                 percentage: data.progress.percentage,
                 completedTests: data.progress.completedTests,
                 totalTests: data.progress.totalTests,
                 currentPage: data.progress.currentPage,
                 currentTool: data.progress.currentTool,
-                message: data.progress.message
+                message: data.progress.message,
+                stage: data.progress.stage,
+                estimatedTimeRemaining: data.progress.estimatedTimeRemaining,
+                startTime: data.progress.startTime,
+                errors: data.progress.errors,
+                violationsFound: data.progress.violationsFound,
+                passesFound: data.progress.passesFound,
+                warningsFound: data.progress.warningsFound,
+                statistics: data.progress.statistics
             };
             
             // Update progress notification
@@ -317,69 +362,186 @@ function dashboard() {
             }
         },
 
-        handleDiscoveryMilestone(data) {
-            const milestone = data.milestone;
-            const milestoneTypes = {
-                'discovery_started': { icon: '🚀', type: 'info' },
-                'pages_milestone_50': { icon: '📄', type: 'info' },
-                'pages_milestone_100': { icon: '📄', type: 'info' },
-                'depth_reached': { icon: '🔍', type: 'info' }
+        // Enhanced Progress Tracking Methods
+        formatProgressTime(seconds) {
+            if (!seconds || seconds < 0) return 'calculating...';
+            
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            const secs = Math.floor(seconds % 60);
+            
+            if (hours > 0) {
+                return `${hours}h ${minutes}m ${secs}s`;
+            } else if (minutes > 0) {
+                return `${minutes}m ${secs}s`;
+            } else {
+                return `${secs}s`;
+            }
+        },
+
+        getProgressETA(progress, startTime) {
+            if (!progress || !startTime || progress.percentage <= 0) return null;
+            
+            const now = new Date();
+            const elapsed = (now - new Date(startTime)) / 1000; // seconds
+            const rate = progress.percentage / elapsed;
+            const remaining = (100 - progress.percentage) / rate;
+            
+            return remaining > 0 ? remaining : null;
+        },
+
+        getProgressStats(progress) {
+            if (!progress.active) return null;
+            
+            const stats = {
+                duration: progress.startTime ? Math.floor((new Date() - new Date(progress.startTime)) / 1000) : 0,
+                eta: this.getProgressETA(progress, progress.startTime),
+                stage: progress.stage,
+                items: progress.completedTests || progress.pagesFound || 0,
+                total: progress.totalTests || progress.statistics?.urlsQueued || 0
             };
             
-            const config = milestoneTypes[milestone.type] || { icon: '🎯', type: 'info' };
-            this.addNotification(
-                `${config.icon} Discovery Milestone`,
-                milestone.message,
-                config.type,
-                3000
-            );
+            return stats;
+        },
+
+        // Real-time Milestone Handlers
+        handleDiscoveryMilestone(data) {
+            const milestone = data.milestone;
+            let message = '';
+            let type = 'info';
+            
+            switch (milestone.type) {
+                case 'depth_complete':
+                    message = `Completed crawling depth ${milestone.depth} - found ${milestone.pagesFound} pages`;
+                    type = 'success';
+                    break;
+                case 'large_site_detected':
+                    message = `Large site detected (${milestone.totalPages}+ pages). Consider adjusting maxPages setting.`;
+                    type = 'warning';
+                    break;
+                case 'robots_blocking':
+                    message = `Some pages blocked by robots.txt. ${milestone.blockedCount} URLs skipped.`;
+                    type = 'warning';
+                    break;
+                case 'error_threshold':
+                    message = `High error rate detected (${milestone.errorRate}%). Checking connectivity...`;
+                    type = 'error';
+                    break;
+                default:
+                    message = milestone.message || 'Discovery milestone reached';
+            }
+            
+            this.addNotification('Discovery Update', message, type, 8000);
         },
 
         handleTestingMilestone(data) {
             const milestone = data.milestone;
-            const milestoneTypes = {
-                'testing_started': { icon: '🚀', type: 'info', sound: true },
-                'testing_quarter_complete': { icon: '🎯', type: 'info' },
-                'testing_half_complete': { icon: '🎊', type: 'success', sound: true },
-                'testing_three_quarter_complete': { icon: '🎯', type: 'info' },
-                'critical_violations_found': { icon: '⚠️', type: 'warning', sound: true }
-            };
+            let message = '';
+            let type = 'info';
             
-            const config = milestoneTypes[milestone.type] || { icon: '🎯', type: 'info' };
-            this.addNotification(
-                `${config.icon} Testing Milestone`,
-                milestone.message,
-                config.type,
-                config.type === 'success' ? 8000 : 4000
-            );
-            
-            // Play notification sound for important milestones
-            if (config.sound && 'Notification' in window) {
-                this.playNotificationSound();
+            switch (milestone.type) {
+                case 'tool_complete':
+                    message = `${milestone.tool} testing completed - ${milestone.violationsFound} violations found`;
+                    type = 'success';
+                    break;
+                case 'high_violations':
+                    message = `High number of violations detected (${milestone.count}). Consider reviewing accessibility practices.`;
+                    type = 'warning';
+                    break;
+                case 'critical_violation':
+                    message = `Critical accessibility violation found: ${milestone.description}`;
+                    type = 'error';
+                    break;
+                case 'progress_25':
+                case 'progress_50':
+                case 'progress_75':
+                    const percent = milestone.type.split('_')[1];
+                    message = `Testing ${percent}% complete - ${milestone.violationsFound} violations found so far`;
+                    type = 'info';
+                    break;
+                default:
+                    message = milestone.message || 'Testing milestone reached';
             }
+            
+            this.addNotification('Testing Update', message, type, 8000);
         },
 
-        playNotificationSound() {
-            // Create a simple notification sound using Web Audio API
-            try {
-                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                const oscillator = audioContext.createOscillator();
-                const gainNode = audioContext.createGain();
-                
-                oscillator.connect(gainNode);
-                gainNode.connect(audioContext.destination);
-                
-                oscillator.frequency.value = 800;
-                oscillator.type = 'sine';
-                
-                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
-                
-                oscillator.start(audioContext.currentTime);
-                oscillator.stop(audioContext.currentTime + 0.5);
-            } catch (error) {
-                console.log('Notification sound not available:', error);
+        // Enhanced Error Handling
+        handleProgressError(type, error) {
+            console.error(`${type} progress error:`, error);
+            
+            if (type === 'discovery') {
+                this.discoveryProgress.errors.push({
+                    timestamp: new Date().toISOString(),
+                    message: error.message || 'Unknown error',
+                    url: error.url,
+                    type: error.type || 'general'
+                });
+            } else if (type === 'testing') {
+                this.testingProgress.errors.push({
+                    timestamp: new Date().toISOString(),
+                    message: error.message || 'Unknown error',
+                    page: error.page,
+                    tool: error.tool,
+                    type: error.type || 'general'
+                });
             }
+            
+            this.addNotification(`${type} Error`, error.message || 'An error occurred', 'error', 10000);
+        },
+
+        // Progress State Management
+        resetDiscoveryProgress() {
+            this.discoveryProgress = {
+                active: false,
+                discoveryId: null,
+                percentage: 0,
+                pagesFound: 0,
+                currentUrl: '',
+                depth: 0,
+                maxDepth: 3,
+                message: 'Initializing discovery...',
+                stage: 'starting',
+                estimatedTimeRemaining: null,
+                startTime: null,
+                errors: [],
+                statistics: {
+                    urlsQueued: 0,
+                    urlsProcessed: 0,
+                    urlsSkipped: 0,
+                    totalSize: 0,
+                    averageLoadTime: 0
+                }
+            };
+        },
+
+        resetTestingProgress() {
+            this.testingProgress = {
+                active: false,
+                sessionId: null,
+                percentage: 0,
+                completedTests: 0,
+                totalTests: 0,
+                currentPage: '',
+                currentTool: '',
+                message: 'Starting automated testing...',
+                stage: 'preparing',
+                estimatedTimeRemaining: null,
+                startTime: null,
+                errors: [],
+                violationsFound: 0,
+                passesFound: 0,
+                warningsFound: 0,
+                statistics: {
+                    axeTests: 0,
+                    pa11yTests: 0,
+                    lighthouseTests: 0,
+                    averageTestTime: 0,
+                    criticalViolations: 0,
+                    moderateViolations: 0,
+                    minorViolations: 0
+                }
+            };
         },
 
         // Notification Management
@@ -418,6 +580,7 @@ function dashboard() {
             if (existing) {
                 existing.progress = percentage;
                 existing.message = message;
+                existing.timestamp = new Date().toISOString();
             } else {
                 this.addNotification(
                     type === 'discovery' ? 'Site Discovery' : 'Automated Testing',

@@ -2183,6 +2183,147 @@
                 </div>
             </template>
         </div>
+
+        <!-- Real-time Progress Indicators -->
+        <div x-show="discoveryProgress.active || testingProgress.active" 
+             class="fixed bottom-4 right-4 bg-white rounded-lg shadow-lg border border-gray-200 p-4 max-w-sm z-40"
+             x-transition:enter="transition ease-out duration-300"
+             x-transition:enter-start="opacity-0 transform translate-y-2"
+             x-transition:enter-end="opacity-100 transform translate-y-0">
+            
+            <!-- Discovery Progress -->
+            <div x-show="discoveryProgress.active" class="space-y-3">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-2">
+                        <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                        <span class="font-medium text-gray-900">Site Discovery</span>
+                    </div>
+                    <span class="text-sm font-semibold text-blue-600" x-text="`${discoveryProgress.percentage}%`"></span>
+                </div>
+                
+                <div class="w-full bg-gray-200 rounded-full h-2">
+                    <div class="bg-blue-600 h-2 rounded-full transition-all duration-500"
+                         :style="`width: ${discoveryProgress.percentage}%`"></div>
+                </div>
+                
+                <div class="space-y-1">
+                    <div class="text-sm text-gray-600" x-text="discoveryProgress.message"></div>
+                    <div class="text-xs text-gray-500 grid grid-cols-2 gap-2">
+                        <span>Pages: <span class="font-medium" x-text="discoveryProgress.pagesFound"></span></span>
+                        <span>Depth: <span class="font-medium" x-text="`${discoveryProgress.depth}/${discoveryProgress.maxDepth}`"></span></span>
+                    </div>
+                    <div x-show="discoveryProgress.estimatedTimeRemaining" class="text-xs text-gray-500">
+                        ETA: <span class="font-medium" x-text="formatProgressTime(discoveryProgress.estimatedTimeRemaining)"></span>
+                    </div>
+                </div>
+                
+                <!-- Discovery Statistics -->
+                <div x-show="discoveryProgress.statistics && discoveryProgress.statistics.urlsQueued > 0" 
+                     class="bg-gray-50 rounded p-2 space-y-1">
+                    <div class="text-xs font-medium text-gray-700">Statistics</div>
+                    <div class="text-xs text-gray-600 grid grid-cols-2 gap-1">
+                        <span>Queued: <span class="font-medium" x-text="discoveryProgress.statistics.urlsQueued"></span></span>
+                        <span>Processed: <span class="font-medium" x-text="discoveryProgress.statistics.urlsProcessed"></span></span>
+                        <span>Skipped: <span class="font-medium" x-text="discoveryProgress.statistics.urlsSkipped"></span></span>
+                        <span>Avg Load: <span class="font-medium" x-text="`${discoveryProgress.statistics.averageLoadTime}ms`"></span></span>
+                    </div>
+                </div>
+                
+                <!-- Discovery Errors -->
+                <div x-show="discoveryProgress.errors && discoveryProgress.errors.length > 0" 
+                     class="bg-red-50 border border-red-200 rounded p-2">
+                    <div class="text-xs font-medium text-red-700 mb-1">
+                        <i class="fas fa-exclamation-triangle mr-1"></i>
+                        <span x-text="`${discoveryProgress.errors.length} Error(s)`"></span>
+                    </div>
+                    <div class="text-xs text-red-600 max-h-16 overflow-y-auto">
+                        <template x-for="error in discoveryProgress.errors.slice(-3)" :key="error.timestamp">
+                            <div x-text="error.message" class="truncate"></div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Testing Progress -->
+            <div x-show="testingProgress.active" class="space-y-3">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-2">
+                        <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600"></div>
+                        <span class="font-medium text-gray-900">Automated Testing</span>
+                    </div>
+                    <span class="text-sm font-semibold text-green-600" x-text="`${testingProgress.percentage}%`"></span>
+                </div>
+                
+                <div class="w-full bg-gray-200 rounded-full h-2">
+                    <div class="bg-green-600 h-2 rounded-full transition-all duration-500"
+                         :style="`width: ${testingProgress.percentage}%`"></div>
+                </div>
+                
+                <div class="space-y-1">
+                    <div class="text-sm text-gray-600" x-text="testingProgress.message"></div>
+                    <div class="text-xs text-gray-500 grid grid-cols-2 gap-2">
+                        <span>Tests: <span class="font-medium" x-text="`${testingProgress.completedTests}/${testingProgress.totalTests}`"></span></span>
+                        <span>Tool: <span class="font-medium" x-text="testingProgress.currentTool"></span></span>
+                    </div>
+                    <div x-show="testingProgress.estimatedTimeRemaining" class="text-xs text-gray-500">
+                        ETA: <span class="font-medium" x-text="formatProgressTime(testingProgress.estimatedTimeRemaining)"></span>
+                    </div>
+                </div>
+                
+                <!-- Testing Results Summary -->
+                <div x-show="testingProgress.violationsFound > 0 || testingProgress.passesFound > 0" 
+                     class="bg-gray-50 rounded p-2 space-y-1">
+                    <div class="text-xs font-medium text-gray-700">Results So Far</div>
+                    <div class="text-xs grid grid-cols-3 gap-1">
+                        <span class="text-red-600">
+                            <i class="fas fa-exclamation-triangle mr-1"></i>
+                            <span x-text="testingProgress.violationsFound"></span>
+                        </span>
+                        <span class="text-green-600">
+                            <i class="fas fa-check mr-1"></i>
+                            <span x-text="testingProgress.passesFound"></span>
+                        </span>
+                        <span class="text-yellow-600">
+                            <i class="fas fa-info-circle mr-1"></i>
+                            <span x-text="testingProgress.warningsFound"></span>
+                        </span>
+                    </div>
+                </div>
+                
+                <!-- Testing Statistics -->
+                <div x-show="testingProgress.statistics && testingProgress.statistics.averageTestTime > 0" 
+                     class="bg-gray-50 rounded p-2 space-y-1">
+                    <div class="text-xs font-medium text-gray-700">Performance</div>
+                    <div class="text-xs text-gray-600 grid grid-cols-2 gap-1">
+                        <span>Avg Time: <span class="font-medium" x-text="`${Math.round(testingProgress.statistics.averageTestTime)}ms`"></span></span>
+                        <span>Current: <span class="font-medium" x-text="testingProgress.currentPage.split('/').pop() || 'Loading...'"></span></span>
+                    </div>
+                </div>
+                
+                <!-- Testing Errors -->
+                <div x-show="testingProgress.errors && testingProgress.errors.length > 0" 
+                     class="bg-red-50 border border-red-200 rounded p-2">
+                    <div class="text-xs font-medium text-red-700 mb-1">
+                        <i class="fas fa-exclamation-triangle mr-1"></i>
+                        <span x-text="`${testingProgress.errors.length} Error(s)`"></span>
+                    </div>
+                    <div class="text-xs text-red-600 max-h-16 overflow-y-auto">
+                        <template x-for="error in testingProgress.errors.slice(-3)" :key="error.timestamp">
+                            <div>
+                                <span class="font-medium" x-text="error.tool"></span>: 
+                                <span x-text="error.message" class="truncate"></span>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Close Button -->
+            <button @click="discoveryProgress.active = false; testingProgress.active = false" 
+                    class="absolute top-2 right-2 text-gray-400 hover:text-gray-600 text-sm">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
     </div>
 
     <!-- Load dashboard helpers synchronously with cache busting -->
