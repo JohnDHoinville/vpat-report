@@ -116,7 +116,12 @@ class SiteCrawler {
 
                 // Check robots.txt permission
                 if (this.options.respectRobots && !this.isAllowedByRobots(url)) {
-                    this.updateProgress(`Skipped by robots.txt: ${url}`);
+                    this.updateProgress(`Skipped by robots.txt: ${url}`, {
+                        currentUrl: url,
+                        currentDepth: depth,
+                        maxDepth: this.options.maxDepth,
+                        skipped: true
+                    });
                     continue;
                 }
 
@@ -165,7 +170,10 @@ class SiteCrawler {
                         this.updateProgress(`Found ${newLinks.length} new links on ${url}`, { 
                             depth, 
                             newLinks: newLinks.length,
-                            queueSize: queue.length 
+                            queueSize: queue.length,
+                            currentUrl: url,
+                            currentDepth: depth,
+                            maxDepth: this.options.maxDepth
                         });
                     }
 
@@ -175,7 +183,12 @@ class SiteCrawler {
                         error: error.message,
                         timestamp: new Date().toISOString()
                     });
-                    this.updateProgress(`Error fetching ${url}: ${error.message}`);
+                    this.updateProgress(`Error fetching ${url}: ${error.message}`, {
+                        currentUrl: url,
+                        currentDepth: depth,
+                        maxDepth: this.options.maxDepth,
+                        error: error.message
+                    });
                 }
             }
 
@@ -215,7 +228,10 @@ class SiteCrawler {
         } catch (error) {
             this.isRunning = false;
             await this.cleanupAuthentication();
-            this.updateProgress(`Crawl failed: ${error.message}`);
+            this.updateProgress(`Crawl failed: ${error.message}`, {
+                currentUrl: 'Failed',
+                error: error.message
+            });
             throw error;
         }
     }
@@ -225,7 +241,10 @@ class SiteCrawler {
      */
     stop() {
         this.isRunning = false;
-        this.updateProgress('Crawl stopped by user');
+        this.updateProgress('Crawl stopped by user', {
+            currentUrl: 'Stopped',
+            stopped: true
+        });
     }
 
     /**

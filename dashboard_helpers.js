@@ -1729,12 +1729,18 @@ function dashboard() {
         // Authentication Management Functions
         async loadAuthConfigs() {
             try {
+                console.log('🔐 Loading authentication configurations...');
                 const response = await this.apiCall('/auth/configs');
                 this.authConfigs = response.configs || [];
-                console.log('🔐 Auth configs loaded:', this.authConfigs.length);
+                console.log('🔐 Auth configs loaded:', this.authConfigs.length, this.authConfigs);
+                
                 // Filter for current project if one is selected
                 if (this.selectedProject) {
+                    console.log('🔐 Filtering auth configs for project:', this.selectedProject.name, this.selectedProject.primary_url);
                     this.filterAuthConfigsForProject();
+                } else {
+                    console.log('🔐 No project selected, showing all configs');
+                    this.projectAuthConfigs = this.authConfigs;
                 }
             } catch (error) {
                 console.error('Failed to load auth configs:', error);
@@ -1760,6 +1766,7 @@ function dashboard() {
 
         filterAuthConfigsForProject() {
             if (!this.selectedProject || !this.selectedProject.primary_url) {
+                console.log('🔐 No project or project URL, clearing auth configs');
                 this.projectAuthConfigs = [];
                 return;
             }
@@ -1768,28 +1775,31 @@ function dashboard() {
                 // Extract domain from project's primary URL
                 const projectUrl = new URL(this.selectedProject.primary_url);
                 const projectDomain = projectUrl.hostname;
+                console.log(`🔐 Filtering auth configs for project domain: ${projectDomain} from URL: ${this.selectedProject.primary_url}`);
+                console.log(`🔐 Available auth configs:`, this.authConfigs.map(c => ({ id: c.id, domain: c.domain, url: c.url })));
                 
                 // Filter auth configs that match the project domain
                 this.projectAuthConfigs = this.authConfigs.filter(config => {
-                    if (config.domain === projectDomain) {
-                        return true;
-                    }
+                    const domainMatch = config.domain === projectDomain;
                     
-                    // Also check if the config URL matches the project domain
+                    let urlMatch = false;
                     if (config.url) {
                         try {
                             const configUrl = new URL(config.url);
-                            return configUrl.hostname === projectDomain;
+                            urlMatch = configUrl.hostname === projectDomain;
                         } catch (error) {
                             // If URL parsing fails, fall back to string comparison
-                            return config.url.includes(projectDomain);
+                            urlMatch = config.url.includes(projectDomain);
                         }
                     }
                     
-                    return false;
+                    const shouldInclude = domainMatch || urlMatch;
+                    console.log(`🔐 Config ${config.id}: domain=${config.domain}, url=${config.url}, domainMatch=${domainMatch}, urlMatch=${urlMatch}, include=${shouldInclude}`);
+                    
+                    return shouldInclude;
                 });
                 
-                console.log(`🔐 Filtered ${this.projectAuthConfigs.length} auth configs for project domain: ${projectDomain}`);
+                console.log(`🔐 Filtered ${this.projectAuthConfigs.length} auth configs for project domain: ${projectDomain}`, this.projectAuthConfigs);
                 
             } catch (error) {
                 console.error('Error filtering auth configs for project:', error);
