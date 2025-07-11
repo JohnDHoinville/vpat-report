@@ -1,0 +1,31 @@
+{
+  "testName": "Discovery-8a39b40f-ae18-4500-9ce6-f91b3be76ac3",
+  "rootUrl": "https://https:/run-analysis.onrender.com",
+  "startTime": "2025-07-11T13:08:14.420Z",
+  "options": {
+    "maxDepth": "1",
+    "maxPages": "25",
+    "rateLimitMs": 2000,
+    "userAgent": "AccessibilityTestingBot/1.0",
+    "respectRobots": true,
+    "timeout": 10000,
+    "useAuth": false,
+    "authConfig": null,
+    "headless": true
+  },
+  "summary": {
+    "totalRequests": 1,
+    "successfulRequests": 0,
+    "discoveredPages": 0,
+    "errors": 1,
+    "maxDepthReached": 0
+  },
+  "pages": [],
+  "errors": [
+    {
+      "url": "https://https:/run-analysis.onrender.com",
+      "error": "getaddrinfo ENOTFOUND https",
+      "timestamp": "2025-07-11T13:08:14.420Z"
+    }
+  ]
+}

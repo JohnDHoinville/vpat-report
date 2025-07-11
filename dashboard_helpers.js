@@ -132,6 +132,8 @@ function dashboard() {
         // Authentication Management Data
         authConfigs: [],
         showSetupAuth: false,
+        showEditAuth: false,
+        editingConfig: null,
         authSetup: {
             step: null, // 'type', 'sso-details', 'basic-details', 'advanced-details'
             type: null, // 'sso', 'basic', 'advanced'
@@ -144,6 +146,17 @@ function dashboard() {
             basic: {},
             advanced: {},
             lastSetupSuccess: null // Track last successful setup
+        },
+        editAuthForm: {
+            name: '',
+            url: '',
+            type: '',
+            username: '',
+            password: '',
+            loginPage: '',
+            successUrl: '',
+            apiKey: '',
+            token: ''
         },
         
         // Modal states
@@ -1977,6 +1990,69 @@ function dashboard() {
             window.URL.revokeObjectURL(url);
             
             this.showNotification(`Authentication config exported for ${config.domain}`, 'success');
+        },
+
+        editAuthConfig(config) {
+            this.editingConfig = config;
+            this.editAuthForm = {
+                name: config.name || config.domain,
+                url: config.url,
+                type: config.type,
+                username: config.username || '',
+                password: '', // Don't pre-fill password for security
+                loginPage: config.loginPage || '',
+                successUrl: config.successUrl || '',
+                apiKey: '', // Don't pre-fill API key for security
+                token: '' // Don't pre-fill token for security
+            };
+            this.showEditAuth = true;
+        },
+
+        async updateAuthConfig() {
+            try {
+                if (!this.editingConfig) return;
+
+                this.loading = true;
+                const response = await this.apiCall(`/auth/configs/${this.editingConfig.id}`, {
+                    method: 'PUT',
+                    body: JSON.stringify(this.editAuthForm)
+                });
+
+                // Update the config in the local array
+                const index = this.authConfigs.findIndex(c => c.id === this.editingConfig.id);
+                if (index !== -1) {
+                    this.authConfigs[index] = { ...this.authConfigs[index], ...response.config };
+                }
+
+                this.showEditAuth = false;
+                this.editingConfig = null;
+                this.showNotification('Authentication configuration updated successfully!', 'success');
+                
+                // Reload configs to get the latest data
+                await this.loadAuthConfigs();
+
+            } catch (error) {
+                console.error('Failed to update auth config:', error);
+                this.showNotification(`Failed to update configuration: ${error.message}`, 'error');
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        cancelEditAuth() {
+            this.showEditAuth = false;
+            this.editingConfig = null;
+            this.editAuthForm = {
+                name: '',
+                url: '',
+                type: '',
+                username: '',
+                password: '',
+                loginPage: '',
+                successUrl: '',
+                apiKey: '',
+                token: ''
+            };
         },
 
         async deleteAuthConfig(config) {

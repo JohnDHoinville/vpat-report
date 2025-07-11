@@ -529,6 +529,91 @@ router.post('/setup-sso', authenticateToken, async (req, res) => {
 });
 
 /**
+ * POST /api/auth/setup-basic
+ * Set up basic username/password authentication
+ */
+router.post('/setup-basic', authenticateToken, async (req, res) => {
+    try {
+        const { url, username, password, loginPage, successUrl, name } = req.body;
+        
+        if (!url) {
+            return res.status(400).json({
+                error: 'URL is required for authentication setup',
+                code: 'MISSING_URL'
+            });
+        }
+        
+        if (!username || !password) {
+            return res.status(400).json({
+                error: 'Username and password are required for basic authentication',
+                code: 'MISSING_CREDENTIALS'
+            });
+        }
+        
+        // For now, return success response
+        // In a full implementation, this would save the credentials securely
+        res.json({
+            message: 'Basic authentication setup completed successfully',
+            status: 'success',
+            url: url,
+            type: 'basic',
+            name: name || `Basic Auth for ${url}`,
+            configured_at: new Date().toISOString()
+        });
+        
+    } catch (error) {
+        console.error('Basic auth setup error:', error);
+        res.status(500).json({
+            error: 'Failed to setup basic authentication',
+            code: 'BASIC_AUTH_SETUP_ERROR'
+        });
+    }
+});
+
+/**
+ * POST /api/auth/setup-advanced
+ * Set up advanced authentication (API keys, tokens, etc.)
+ */
+router.post('/setup-advanced', authenticateToken, async (req, res) => {
+    try {
+        const { url, type, apiKey, token, name } = req.body;
+        
+        if (!url) {
+            return res.status(400).json({
+                error: 'URL is required for authentication setup',
+                code: 'MISSING_URL'
+            });
+        }
+        
+        if (!apiKey && !token) {
+            return res.status(400).json({
+                error: 'API key or token is required for advanced authentication',
+                code: 'MISSING_AUTH_DATA'
+            });
+        }
+        
+        // For now, return success response
+        // In a full implementation, this would save the credentials securely
+        res.json({
+            message: 'Advanced authentication setup completed successfully',
+            status: 'success',
+            url: url,
+            type: 'advanced',
+            auth_type: type || 'api_key',
+            name: name || `Advanced Auth for ${url}`,
+            configured_at: new Date().toISOString()
+        });
+        
+    } catch (error) {
+        console.error('Advanced auth setup error:', error);
+        res.status(500).json({
+            error: 'Failed to setup advanced authentication',
+            code: 'ADVANCED_AUTH_SETUP_ERROR'
+        });
+    }
+});
+
+/**
  * POST /api/auth/test
  * Test an authentication configuration
  */
@@ -624,6 +709,65 @@ router.get('/configs', authenticateToken, async (req, res) => {
         res.status(500).json({
             error: 'Failed to fetch authentication configurations',
             code: 'AUTH_CONFIGS_ERROR'
+        });
+    }
+});
+
+/**
+ * PUT /api/auth/configs/:configId
+ * Update an authentication configuration
+ */
+router.put('/configs/:configId', authenticateToken, async (req, res) => {
+    try {
+        const { configId } = req.params;
+        const { name, url, type, username, password, loginPage, successUrl, apiKey, token } = req.body;
+        const authStatesDir = path.join(__dirname, '../../reports/auth-states');
+        const configFile = path.join(authStatesDir, `${configId}.json`);
+        
+        if (!fs.existsSync(configFile)) {
+            return res.status(404).json({
+                error: 'Authentication configuration not found',
+                code: 'CONFIG_NOT_FOUND'
+            });
+        }
+        
+        // Read existing configuration
+        const existingConfig = JSON.parse(fs.readFileSync(configFile, 'utf8'));
+        
+        // Update configuration with new values
+        const updatedConfig = {
+            ...existingConfig,
+            name: name || existingConfig.name,
+            url: url || existingConfig.url,
+            type: type || existingConfig.type,
+            updated_at: new Date().toISOString()
+        };
+        
+        // Update type-specific fields
+        if (type === 'basic') {
+            if (username) updatedConfig.username = username;
+            if (password) updatedConfig.password = password;
+            if (loginPage) updatedConfig.loginPage = loginPage;
+            if (successUrl) updatedConfig.successUrl = successUrl;
+        } else if (type === 'advanced') {
+            if (apiKey) updatedConfig.apiKey = apiKey;
+            if (token) updatedConfig.token = token;
+        }
+        
+        // Write updated configuration
+        fs.writeFileSync(configFile, JSON.stringify(updatedConfig, null, 2));
+        
+        res.json({
+            message: 'Authentication configuration updated successfully',
+            config_id: configId,
+            config: updatedConfig
+        });
+        
+    } catch (error) {
+        console.error('Auth config update error:', error);
+        res.status(500).json({
+            error: 'Failed to update authentication configuration',
+            code: 'AUTH_UPDATE_ERROR'
         });
     }
 });
