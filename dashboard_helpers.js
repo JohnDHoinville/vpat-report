@@ -65,7 +65,8 @@ function dashboard() {
             browserStatus: '',
             sso: {},
             basic: {},
-            advanced: {}
+            advanced: {},
+            lastSetupSuccess: null // Track last successful setup
         },
         
         // Modal states
@@ -989,7 +990,7 @@ function dashboard() {
         // Authentication Management Functions
         async loadAuthConfigs() {
             try {
-                const response = await this.apiCall('/api/auth/configs');
+                const response = await this.apiCall('/auth/configs');
                 this.authConfigs = response.configs || [];
                 console.log('🔐 Auth configs loaded:', this.authConfigs.length);
             } catch (error) {
@@ -1062,10 +1063,18 @@ function dashboard() {
                     await this.setupAdvancedAuth(config);
                 }
 
+                // Store success information
+                this.authSetup.lastSetupSuccess = {
+                    type: config.type,
+                    url: config.url,
+                    name: config.name,
+                    timestamp: new Date().toISOString()
+                };
+                
                 this.showNotification('Authentication setup completed successfully!', 'success');
                 this.showSetupAuth = false;
                 this.resetAuthSetup();
-                this.loadAuthConfigs();
+                await this.loadAuthConfigs();
 
             } catch (error) {
                 console.error('Authentication setup failed:', error);
@@ -1096,7 +1105,7 @@ function dashboard() {
             }
 
             // Call the auth wizard API endpoint
-            const response = await fetch(`${this.baseUrl}/api/auth/setup-sso`, {
+            const response = await fetch(`${API_BASE_URL}/auth/setup-sso`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1132,7 +1141,7 @@ function dashboard() {
                 throw new Error('Authentication token not available. Please login first.');
             }
 
-            const response = await fetch(`${this.baseUrl}/api/auth/setup-basic`, {
+            const response = await fetch(`${API_BASE_URL}/auth/setup-basic`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1159,7 +1168,7 @@ function dashboard() {
                 throw new Error('Authentication token not available. Please login first.');
             }
 
-            const response = await fetch(`${this.baseUrl}/api/auth/setup-advanced`, {
+            const response = await fetch(`${API_BASE_URL}/auth/setup-advanced`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1204,7 +1213,7 @@ function dashboard() {
                     throw new Error('Authentication token not available. Please login first.');
                 }
 
-                const response = await fetch(`${this.baseUrl}/api/auth/test`, {
+                const response = await fetch(`${API_BASE_URL}/auth/test`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -1260,7 +1269,7 @@ function dashboard() {
             }
 
             try {
-                const response = await this.apiCall(`/api/auth/configs/${config.id}`, {
+                const response = await this.apiCall(`/auth/configs/${config.id}`, {
                     method: 'DELETE'
                 });
 
@@ -1299,7 +1308,7 @@ function dashboard() {
                     throw new Error('Authentication token not available. Please login first.');
                 }
 
-                const response = await fetch(`${this.baseUrl}/api/auth/import`, {
+                const response = await fetch(`${API_BASE_URL}/auth/import`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -1322,6 +1331,7 @@ function dashboard() {
         },
 
         resetAuthSetup() {
+            const lastSetupSuccess = this.authSetup.lastSetupSuccess; // Preserve success state
             this.authSetup = {
                 step: null,
                 type: null,
@@ -1332,7 +1342,8 @@ function dashboard() {
                 browserStatus: '',
                 sso: {},
                 basic: {},
-                advanced: {}
+                advanced: {},
+                lastSetupSuccess: lastSetupSuccess // Keep the success state
             };
         },
 
