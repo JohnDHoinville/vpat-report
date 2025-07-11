@@ -1,7 +1,7 @@
 const express = require('express');
 const { db } = require('../../database/config');
 const { v4: uuidv4 } = require('uuid');
-const { authenticateToken, requireRole } = require('../middleware/auth');
+const { authenticateToken, requireRole, optionalAuth } = require('../middleware/auth');
 const SiteDiscoveryService = require('../../database/services/site-discovery-service');
 const SimpleTestingService = require('../../database/services/simple-testing-service');
 
@@ -16,7 +16,7 @@ const router = express.Router();
  * GET /api/projects
  * List all projects with optional filtering and pagination
  */
-router.get('/', async (req, res) => {
+router.get('/', optionalAuth, async (req, res) => {
     try {
         const {
             page = 1,
@@ -521,9 +521,9 @@ router.get('/:id/sessions', async (req, res) => {
 
 /**
  * POST /api/projects/:id/discoveries
- * Start site discovery for a project (requires authentication)
+ * Start site discovery for a project (optionally authenticated)
  */
-router.post('/:id/discoveries', authenticateToken, async (req, res) => {
+router.post('/:id/discoveries', optionalAuth, async (req, res) => {
     try {
         const { id: projectId } = req.params;
         const {

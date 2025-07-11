@@ -1,0 +1,301 @@
+{
+  "testName": "Discovery-37ad092d-c73f-4fa9-bc5d-6128b8262f13",
+  "rootUrl": "https://example.com",
+  "startTime": "2025-07-11T13:27:14.394Z",
+  "options": {
+    "maxDepth": 3,
+    "maxPages": 50,
+    "rateLimitMs": 2000,
+    "userAgent": "AccessibilityTestingBot/1.0",
+    "respectRobots": true,
+    "timeout": 10000,
+    "useAuth": false,
+    "authConfig": null,
+    "headless": true
+  },
+  "summary": {
+    "totalRequests": 25,
+    "successfulRequests": 25,
+    "discoveredPages": 25,
+    "errors": 0,
+    "maxDepthReached": 1
+  },
+  "pages": [
+    {
+      "url": "https://example.com",
+      "title": "Example Domain",
+      "depth": 0,
+      "parentUrl": null,
+      "statusCode": 200,
+      "contentType": "text/html",
+      "wordCount": 30,
+      "lastModified": "Mon, 13 Jan 2025 20:11:20 GMT",
+      "discoveredAt": "2025-07-11T13:26:17.365Z"
+    },
+    {
+      "url": "https://example.com/app",
+      "title": "Example Domain",
+      "depth": 1,
+      "parentUrl": "https://example.com",
+      "statusCode": 404,
+      "contentType": "text/html",
+      "wordCount": 30,
+      "lastModified": "Mon, 13 Jan 2025 20:11:20 GMT",
+      "discoveredAt": "2025-07-11T13:26:19.785Z"
+    },
+    {
+      "url": "https://example.com/login",
+      "title": "Example Domain",
+      "depth": 1,
+      "parentUrl": "https://example.com",
+      "statusCode": 404,
+      "contentType": "text/html",
+      "wordCount": 30,
+      "lastModified": "Mon, 13 Jan 2025 20:11:20 GMT",
+      "discoveredAt": "2025-07-11T13:26:22.246Z"
+    },
+    {
+      "url": "https://example.com/signup",
+      "title": "Example Domain",
+      "depth": 1,
+      "parentUrl": "https://example.com",
+      "statusCode": 404,
+      "contentType": "text/html",
+      "wordCount": 30,
+      "lastModified": "Mon, 13 Jan 2025 20:11:20 GMT",
+      "discoveredAt": "2025-07-11T13:26:24.561Z"
+    },
+    {
+      "url": "https://example.com/register",
+      "title": "Example Domain",
+      "depth": 1,
+      "parentUrl": "https://example.com",
+      "statusCode": 404,
+      "contentType": "text/html",
+      "wordCount": 30,
+      "lastModified": "Mon, 13 Jan 2025 20:11:20 GMT",
+      "discoveredAt": "2025-07-11T13:26:26.880Z"
+    },
+    {
+      "url": "https://example.com/dashboard",
+      "title": "Example Domain",
+      "depth": 1,
+      "parentUrl": "https://example.com",
+      "statusCode": 404,
+      "contentType": "text/html",
+      "wordCount": 30,
+      "lastModified": "Mon, 13 Jan 2025 20:11:20 GMT",
+      "discoveredAt": "2025-07-11T13:26:29.360Z"
+    },
+    {
+      "url": "https://example.com/profile",
+      "title": "Example Domain",
+      "depth": 1,
+      "parentUrl": "https://example.com",
+      "statusCode": 404,
+      "contentType": "text/html",
+      "wordCount": 30,
+      "lastModified": "Mon, 13 Jan 2025 20:11:20 GMT",
+      "discoveredAt": "2025-07-11T13:26:31.727Z"
+    },
+    {
+      "url": "https://example.com/settings",
+      "title": "Example Domain",
+      "depth": 1,
+      "parentUrl": "https://example.com",
+      "statusCode": 404,
+      "contentType": "text/html",
+      "wordCount": 30,
+      "lastModified": "Mon, 13 Jan 2025 20:11:20 GMT",
+      "discoveredAt": "2025-07-11T13:26:34.013Z"
+    },
+    {
+      "url": "https://example.com/account",
+      "title": "Example Domain",
+      "depth": 1,
+      "parentUrl": "https://example.com",
+      "statusCode": 404,
+      "contentType": "text/html",
+      "wordCount": 30,
+      "lastModified": "Mon, 13 Jan 2025 20:11:20 GMT",
+      "discoveredAt": "2025-07-11T13:26:36.316Z"
+    },
+    {
+      "url": "https://example.com/home",
+      "title": "Example Domain",
+      "depth": 1,
+      "parentUrl": "https://example.com",
+      "statusCode": 404,
+      "contentType": "text/html",
+      "wordCount": 30,
+      "lastModified": "Mon, 13 Jan 2025 20:11:20 GMT",
+      "discoveredAt": "2025-07-11T13:26:38.473Z"
+    },
+    {
+      "url": "https://example.com/about",
+      "title": "Example Domain",
+      "depth": 1,
+      "parentUrl": "https://example.com",
+      "statusCode": 404,
+      "contentType": "text/html",
+      "wordCount": 30,
+      "lastModified": "Mon, 13 Jan 2025 20:11:20 GMT",
+      "discoveredAt": "2025-07-11T13:26:40.975Z"
+    },
+    {
+      "url": "https://example.com/contact",
+      "title": "Example Domain",
+      "depth": 1,
+      "parentUrl": "https://example.com",
+      "statusCode": 404,
+      "contentType": "text/html",
+      "wordCount": 30,
+      "lastModified": "Mon, 13 Jan 2025 20:11:20 GMT",
+      "discoveredAt": "2025-07-11T13:26:43.105Z"
+    },
+    {
+      "url": "https://example.com/help",
+      "title": "Example Domain",
+      "depth": 1,
+      "parentUrl": "https://example.com",
+      "statusCode": 404,
+      "contentType": "text/html",
+      "wordCount": 30,
+      "lastModified": "Mon, 13 Jan 2025 20:11:20 GMT",
+      "discoveredAt": "2025-07-11T13:26:45.391Z"
+    },
+    {
+      "url": "https://example.com/support",
+      "title": "Example Domain",
+      "depth": 1,
+      "parentUrl": "https://example.com",
+      "statusCode": 404,
+      "contentType": "text/html",
+      "wordCount": 30,
+      "lastModified": "Mon, 13 Jan 2025 20:11:20 GMT",
+      "discoveredAt": "2025-07-11T13:26:47.797Z"
+    },
+    {
+      "url": "https://example.com/pricing",
+      "title": "Example Domain",
+      "depth": 1,
+      "parentUrl": "https://example.com",
+      "statusCode": 404,
+      "contentType": "text/html",
+      "wordCount": 30,
+      "lastModified": "Mon, 13 Jan 2025 20:11:20 GMT",
+      "discoveredAt": "2025-07-11T13:26:50.318Z"
+    },
+    {
+      "url": "https://example.com/features",
+      "title": "Example Domain",
+      "depth": 1,
+      "parentUrl": "https://example.com",
+      "statusCode": 404,
+      "contentType": "text/html",
+      "wordCount": 30,
+      "lastModified": "Mon, 13 Jan 2025 20:11:20 GMT",
+      "discoveredAt": "2025-07-11T13:26:52.606Z"
+    },
+    {
+      "url": "https://example.com/blog",
+      "title": "Example Domain",
+      "depth": 1,
+      "parentUrl": "https://example.com",
+      "statusCode": 404,
+      "contentType": "text/html",
+      "wordCount": 30,
+      "lastModified": "Mon, 13 Jan 2025 20:11:20 GMT",
+      "discoveredAt": "2025-07-11T13:26:54.937Z"
+    },
+    {
+      "url": "https://example.com/blogs",
+      "title": "Example Domain",
+      "depth": 1,
+      "parentUrl": "https://example.com",
+      "statusCode": 404,
+      "contentType": "text/html",
+      "wordCount": 30,
+      "lastModified": "Mon, 13 Jan 2025 20:11:20 GMT",
+      "discoveredAt": "2025-07-11T13:26:57.265Z"
+    },
+    {
+      "url": "https://example.com/news",
+      "title": "Example Domain",
+      "depth": 1,
+      "parentUrl": "https://example.com",
+      "statusCode": 404,
+      "contentType": "text/html",
+      "wordCount": 30,
+      "lastModified": "Mon, 13 Jan 2025 20:11:20 GMT",
+      "discoveredAt": "2025-07-11T13:27:00.001Z"
+    },
+    {
+      "url": "https://example.com/docs",
+      "title": "Example Domain",
+      "depth": 1,
+      "parentUrl": "https://example.com",
+      "statusCode": 404,
+      "contentType": "text/html",
+      "wordCount": 30,
+      "lastModified": "Mon, 13 Jan 2025 20:11:20 GMT",
+      "discoveredAt": "2025-07-11T13:27:02.272Z"
+    },
+    {
+      "url": "https://example.com/documentation",
+      "title": "Example Domain",
+      "depth": 1,
+      "parentUrl": "https://example.com",
+      "statusCode": 404,
+      "contentType": "text/html",
+      "wordCount": 30,
+      "lastModified": "Mon, 13 Jan 2025 20:11:20 GMT",
+      "discoveredAt": "2025-07-11T13:27:04.806Z"
+    },
+    {
+      "url": "https://example.com/api",
+      "title": "Example Domain",
+      "depth": 1,
+      "parentUrl": "https://example.com",
+      "statusCode": 404,
+      "contentType": "text/html",
+      "wordCount": 30,
+      "lastModified": "Mon, 13 Jan 2025 20:11:20 GMT",
+      "discoveredAt": "2025-07-11T13:27:07.260Z"
+    },
+    {
+      "url": "https://example.com/terms",
+      "title": "Example Domain",
+      "depth": 1,
+      "parentUrl": "https://example.com",
+      "statusCode": 404,
+      "contentType": "text/html",
+      "wordCount": 30,
+      "lastModified": "Mon, 13 Jan 2025 20:11:20 GMT",
+      "discoveredAt": "2025-07-11T13:27:09.542Z"
+    },
+    {
+      "url": "https://example.com/privacy",
+      "title": "Example Domain",
+      "depth": 1,
+      "parentUrl": "https://example.com",
+      "statusCode": 404,
+      "contentType": "text/html",
+      "wordCount": 30,
+      "lastModified": "Mon, 13 Jan 2025 20:11:20 GMT",
+      "discoveredAt": "2025-07-11T13:27:12.048Z"
+    },
+    {
+      "url": "https://example.com/legal",
+      "title": "Example Domain",
+      "depth": 1,
+      "parentUrl": "https://example.com",
+      "statusCode": 404,
+      "contentType": "text/html",
+      "wordCount": 30,
+      "lastModified": "Mon, 13 Jan 2025 20:11:20 GMT",
+      "discoveredAt": "2025-07-11T13:27:14.390Z"
+    }
+  ],
+  "errors": []
+}
