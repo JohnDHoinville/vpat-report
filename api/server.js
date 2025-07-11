@@ -20,6 +20,7 @@ const authRoutes = require('./routes/auth');
 const projectRoutes = require('./routes/projects');
 const sessionRoutes = require('./routes/sessions');
 const requirementsRoutes = require('./routes/requirements');
+const testInstancesRoutes = require('./routes/test-instances');
 const pageRoutes = require('./routes/pages');
 const resultRoutes = require('./routes/results');
 const violationRoutes = require('./routes/violations');
@@ -175,6 +176,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/sessions', sessionRoutes);
 app.use('/api/requirements', requirementsRoutes);
+app.use('/api/test-instances', testInstancesRoutes);
 app.use('/api/pages', pageRoutes);
 app.use('/api/results', resultRoutes);
 app.use('/api/violations', violationRoutes);
@@ -222,6 +224,17 @@ app.get('/api', (req, res) => {
                 stats: 'GET /api/requirements/stats/summary',
                 update: 'PUT /api/requirements/:id',
                 validate: 'POST /api/requirements/validate'
+            },
+            testInstances: {
+                list: 'GET /api/test-instances',
+                get: 'GET /api/test-instances/:id',
+                create: 'POST /api/test-instances',
+                update: 'PUT /api/test-instances/:id',
+                assign: 'POST /api/test-instances/:id/assign',
+                addEvidence: 'POST /api/test-instances/:id/evidence',
+                auditTrail: 'GET /api/test-instances/:id/audit-trail',
+                statistics: 'GET /api/test-instances/:id/statistics',
+                delete: 'DELETE /api/test-instances/:id'
             },
             pages: {
                 list: 'GET /api/pages',

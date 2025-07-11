@@ -413,10 +413,10 @@ class AuditLogger {
                     tal.timestamp,
                     tal.ip_address,
                     tal.details,
-                    au.username as user_name,
-                    au.email as user_email
+                    u.username as user_name,
+                    u.email as user_email
                 FROM test_audit_log tal
-                LEFT JOIN auth_users au ON tal.user_id = au.id
+                LEFT JOIN users u ON tal.user_id = u.id
                 WHERE ${whereConditions.join(' AND ')}
                 ORDER BY tal.timestamp DESC
                 LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
