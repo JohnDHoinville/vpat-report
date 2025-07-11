@@ -2090,7 +2090,8 @@ function dashboard() {
 
         async loadViolationSummary(sessionId) {
             try {
-                const response = await fetch(`${this.API_BASE_URL}/violations/session/${sessionId}/summary`, {
+                const apiBaseUrl = this.API_BASE_URL || 'http://localhost:3001/api';
+                const response = await fetch(`${apiBaseUrl}/violations/session/${sessionId}/summary`, {
                     headers: { Authorization: `Bearer ${this.token}` }
                 });
                 
@@ -2123,7 +2124,8 @@ function dashboard() {
                     }
                 });
 
-                const response = await fetch(`${this.API_BASE_URL}/violations/session/${sessionId}?${params}`, {
+                const apiBaseUrl = this.API_BASE_URL || 'http://localhost:3001/api';
+                const response = await fetch(`${apiBaseUrl}/violations/session/${sessionId}?${params}`, {
                     headers: { Authorization: `Bearer ${this.token}` }
                 });
                 
@@ -2191,7 +2193,8 @@ function dashboard() {
 
         async viewViolationDetails(violation) {
             try {
-                const response = await fetch(`${this.API_BASE_URL}/violations/${violation.id}`, {
+                const apiBaseUrl = this.API_BASE_URL || 'http://localhost:3001/api';
+                const response = await fetch(`${apiBaseUrl}/violations/${violation.id}`, {
                     headers: { Authorization: `Bearer ${this.token}` }
                 });
                 
@@ -2211,7 +2214,8 @@ function dashboard() {
 
         async updateViolationStatus(violationId, status, notes = '') {
             try {
-                const response = await fetch(`${this.API_BASE_URL}/violations/${violationId}/status`, {
+                const apiBaseUrl = this.API_BASE_URL || 'http://localhost:3001/api';
+                const response = await fetch(`${apiBaseUrl}/violations/${violationId}/status`, {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json',
@@ -2245,7 +2249,8 @@ function dashboard() {
 
         async exportViolations(format = 'json') {
             try {
-                const response = await fetch(`${this.API_BASE_URL}/violations/session/${this.violationInspectorSession.id}/export?format=${format}`, {
+                const apiBaseUrl = this.API_BASE_URL || 'http://localhost:3001/api';
+                const response = await fetch(`${apiBaseUrl}/violations/session/${this.violationInspectorSession.id}/export?format=${format}`, {
                     headers: { Authorization: `Bearer ${this.token}` }
                 });
                 
@@ -2373,11 +2378,21 @@ function dashboard() {
         manualTestingFilters: {
             status: '',
             wcag_level: '',
-            page_id: ''
+            page_id: '',
+            coverage_type: 'smart'  // 'smart' or 'legacy'
         },
+        manualTestingCoverageAnalysis: null,
+        showCoverageAnalysis: false,
         showManualTestingModal: false,
         currentManualTest: null,
         manualTestingProcedure: null,
+        manualTestingContext: null,
+
+        // Tester Assignment Properties
+        availableTesters: [],
+        showTesterAssignmentModal: false,
+        selectedAssignmentForTester: null,
+        selectedTesterId: '',
 
         // Current Test State for Modal
         currentTestResult: '',
@@ -2390,6 +2405,136 @@ function dashboard() {
         // MANUAL TESTING FUNCTIONS
         // ==============================================
 
+        async loadManualTestingAssignments() {
+            if (!this.manualTestingSession) return;
+            
+            try {
+                console.log('📋 Loading manual testing assignments...');
+                
+                // Build query parameters with smart filtering
+                const params = new URLSearchParams({
+                    coverage_type: this.manualTestingFilters.coverage_type
+                });
+                
+                if (this.manualTestingFilters.status) {
+                    params.append('status', this.manualTestingFilters.status);
+                }
+                if (this.manualTestingFilters.wcag_level) {
+                    params.append('wcag_level', this.manualTestingFilters.wcag_level);
+                }
+                if (this.manualTestingFilters.page_id) {
+                    params.append('page_id', this.manualTestingFilters.page_id);
+                }
+                
+                const apiBaseUrl = this.API_BASE_URL || 'http://localhost:3001/api';
+            const response = await fetch(`${apiBaseUrl}/manual-testing/session/${this.manualTestingSession.id}/assignments?${params}`, {
+                    headers: {
+                        'Authorization': `Bearer ${this.token}`
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    this.manualTestingAssignments = data.assignments || [];
+                    this.applyManualTestingFilters();
+                    
+                    console.log(`✅ Loaded ${data.total_assignments} manual testing assignments`);
+                    console.log('📊 Coverage type:', data.coverage_type);
+                    console.log('📊 Assignment summary:', data.summary);
+                    console.log('📊 Category breakdown:', data.category_breakdown);
+                    
+                    // Show coverage insights if using smart filtering
+                    if (data.coverage_type === 'smart' && data.category_breakdown) {
+                        this.showCoverageInsights(data.summary, data.category_breakdown);
+                    }
+                } else {
+                    throw new Error(data.error || 'Failed to load manual testing assignments');
+                }
+                
+            } catch (error) {
+                console.error('❌ Error loading manual testing assignments:', error);
+                this.showNotification('Failed to load manual testing assignments', 'error');
+            }
+        },
+
+        showCoverageInsights(summary, categoryBreakdown) {
+            // Calculate insights from the smart filtering results
+            const totalAssignments = summary.pending + summary.completed;
+            const manualPriority = categoryBreakdown.manual_priority || 0;
+            const needsVerification = categoryBreakdown.failed_verification || 0;
+            const manualRecommended = categoryBreakdown.manual_recommended || 0;
+            
+            let insightMessage = `📊 Smart Filtering Active: `;
+            
+            if (manualPriority > 0) {
+                insightMessage += `${manualPriority} manual-only criteria prioritized. `;
+            }
+            
+            if (needsVerification > 0) {
+                insightMessage += `${needsVerification} failed automated tests need verification. `;
+            } else {
+                insightMessage += `No failed automated tests found. `;
+            }
+            
+            if (manualRecommended > 0) {
+                insightMessage += `${manualRecommended} criteria with low automation coverage included.`;
+            }
+            
+            console.log(insightMessage);
+            
+            // Show as notification if there are important insights
+            if (needsVerification > 0 || manualPriority > 5) {
+                this.showNotification(insightMessage, 'info');
+            }
+        },
+
+        async loadManualTestingCoverageAnalysis() {
+            if (!this.manualTestingSession) return;
+            
+            try {
+                console.log('📊 Loading coverage analysis...');
+                
+                const apiBaseUrl = this.API_BASE_URL || 'http://localhost:3001/api';
+            const response = await fetch(`${apiBaseUrl}/manual-testing/session/${this.manualTestingSession.id}/coverage-analysis`, {
+                    headers: {
+                        'Authorization': `Bearer ${this.token}`
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    this.manualTestingCoverageAnalysis = data;
+                    console.log('✅ Coverage analysis loaded');
+                    console.log('📊 Efficiency metrics:', data.efficiency_metrics);
+                    console.log('💡 Recommendations:', data.recommendations);
+                } else {
+                    throw new Error(data.error || 'Failed to load coverage analysis');
+                }
+                
+            } catch (error) {
+                console.error('❌ Error loading coverage analysis:', error);
+                this.showNotification('Failed to load coverage analysis', 'error');
+            }
+        },
+
+        toggleCoverageAnalysis() {
+            this.showCoverageAnalysis = !this.showCoverageAnalysis;
+            
+            if (this.showCoverageAnalysis && !this.manualTestingCoverageAnalysis) {
+                this.loadManualTestingCoverageAnalysis();
+            }
+        },
+
         async refreshManualTestingTabData() {
             if (!this.selectedProject) return;
             
@@ -2398,6 +2543,16 @@ function dashboard() {
             try {
                 // Load test sessions (fixed function name)
                 await this.loadProjectTestSessions();
+                
+                // If we have a selected session, load assignments and optionally coverage analysis
+                if (this.manualTestingSession) {
+                    await this.loadManualTestingAssignments();
+                    
+                    // Auto-load coverage analysis if it was previously open
+                    if (this.showCoverageAnalysis) {
+                        await this.loadManualTestingCoverageAnalysis();
+                    }
+                }
                 
                 console.log('✅ Manual testing tab data refreshed');
             } catch (error) {
@@ -2426,33 +2581,12 @@ function dashboard() {
             }
         },
 
-        async loadManualTestingAssignments(sessionId) {
-            try {
-                console.log('📋 Loading manual testing assignments...');
-                
-                const response = await fetch(`${this.API_BASE_URL}/manual-testing/session/${sessionId}/assignments`, {
-                    headers: { Authorization: `Bearer ${this.token}` }
-                });
-                
-                if (!response.ok) throw new Error('Failed to load assignments');
-                
-                const data = await response.json();
-                this.manualTestingAssignments = data.assignments || [];
-                this.filteredManualTestingAssignments = [...this.manualTestingAssignments];
-                
-                console.log('✅ Manual testing assignments loaded:', this.manualTestingAssignments.length, 'page groups');
-                
-            } catch (error) {
-                console.error('❌ Error loading manual testing assignments:', error);
-                throw error;
-            }
-        },
-
         async loadManualTestingProgress(sessionId) {
             try {
                 console.log('📊 Loading manual testing progress...');
                 
-                const response = await fetch(`${this.API_BASE_URL}/manual-testing/session/${sessionId}/progress`, {
+                const apiBaseUrl = this.API_BASE_URL || 'http://localhost:3001/api';
+            const response = await fetch(`${apiBaseUrl}/manual-testing/session/${sessionId}/progress`, {
                     headers: { Authorization: `Bearer ${this.token}` }
                 });
                 
@@ -2467,6 +2601,11 @@ function dashboard() {
                 console.error('❌ Error loading manual testing progress:', error);
                 throw error;
             }
+        },
+
+        applyManualTestingFilters() {
+            // Apply current filters to the loaded assignments
+            this.filterManualTestingAssignments();
         },
 
         filterManualTestingAssignments() {
@@ -2582,7 +2721,14 @@ function dashboard() {
                     params.append('page_type', pageType);
                 }
                 
-                const response = await fetch(`${this.API_BASE_URL}/manual-testing/requirement/${requirementId}/procedure?${params}`, {
+                // Add context parameters if we have current test information
+                if (this.currentManualTest) {
+                    params.append('page_id', this.currentManualTest.pageGroup.page_id);
+                    params.append('session_id', this.currentManualTest.sessionId);
+                }
+                
+                const apiBaseUrl = this.API_BASE_URL || 'http://localhost:3001/api';
+            const response = await fetch(`${apiBaseUrl}/manual-testing/requirement/${requirementId}/procedure?${params}`, {
                     headers: { Authorization: `Bearer ${this.token}` }
                 });
                 
@@ -2590,8 +2736,9 @@ function dashboard() {
                 
                 const data = await response.json();
                 this.manualTestingProcedure = data.requirement || null;
+                this.manualTestingContext = data.test_context || null;
                 
-                console.log('✅ Testing procedure loaded');
+                console.log('✅ Testing procedure loaded with context:', data.test_context?.category);
                 
             } catch (error) {
                 console.error('❌ Error loading testing procedure:', error);
@@ -2603,7 +2750,8 @@ function dashboard() {
             try {
                 console.log('💾 Submitting manual test result:', result);
                 
-                const response = await fetch(`${this.API_BASE_URL}/manual-testing/session/${this.currentManualTest.sessionId}/result`, {
+                const apiBaseUrl = this.API_BASE_URL || 'http://localhost:3001/api';
+            const response = await fetch(`${apiBaseUrl}/manual-testing/session/${this.currentManualTest.sessionId}/result`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -2634,6 +2782,7 @@ function dashboard() {
                 this.showManualTestingModal = false;
                 this.currentManualTest = null;
                 this.manualTestingProcedure = null;
+                this.manualTestingContext = null;
                 
                 this.showNotification(`Test result recorded: ${result}`, 'success');
                 console.log('✅ Manual test result submitted successfully');
@@ -2657,7 +2806,8 @@ function dashboard() {
             this.manualTestingFilters = {
                 status: '',
                 wcag_level: '',
-                page_id: ''
+                page_id: '',
+                coverage_type: 'smart'  // 'smart' or 'legacy'
             };
             this.filteredManualTestingAssignments = [...this.manualTestingAssignments];
         },
@@ -2680,7 +2830,8 @@ function dashboard() {
             try {
                 console.log('📄 Generating manual testing report...');
                 
-                const response = await fetch(`${this.API_BASE_URL}/../vpat/generate`, {
+                const apiBaseUrl = this.API_BASE_URL || 'http://localhost:3001/api';
+            const response = await fetch(`${apiBaseUrl}/../vpat/generate`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -2783,7 +2934,8 @@ function dashboard() {
             formData.append('pageId', this.currentManualTest.pageGroup.page_id);
             formData.append('requirementId', this.currentManualTest.assignment.requirement_id);
             
-            const response = await fetch(`${this.API_BASE_URL}/manual-testing/upload-image`, {
+            const apiBaseUrl = this.API_BASE_URL || 'http://localhost:3001/api';
+            const response = await fetch(`${apiBaseUrl}/manual-testing/upload-image`, {
                 method: 'POST',
                 headers: {
                     Authorization: `Bearer ${this.token}`
@@ -2822,7 +2974,8 @@ function dashboard() {
             try {
                 console.log('💾 Saving manual test result...');
                 
-                const response = await fetch(`${this.API_BASE_URL}/manual-testing/session/${this.currentManualTest.sessionId}/result`, {
+                const apiBaseUrl = this.API_BASE_URL || 'http://localhost:3001/api';
+                const response = await fetch(`${apiBaseUrl}/manual-testing/session/${this.currentManualTest.sessionId}/result`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -2857,7 +3010,7 @@ function dashboard() {
                     if (assignmentIndex !== -1) {
                         this.manualTestingAssignments[pageGroupIndex].assignments[assignmentIndex] = {
                             ...this.manualTestingAssignments[pageGroupIndex].assignments[assignmentIndex],
-                            assignment_status: 'completed',
+                            assignment_status: this.currentTestResult === 'in_progress' ? 'in_progress' : 'completed',
                             current_result: this.currentTestResult,
                             confidence_level: this.currentTestConfidence,
                             notes: this.currentTestNotes,
@@ -2888,6 +3041,7 @@ function dashboard() {
             this.showManualTestingModal = false;
             this.currentManualTest = null;
             this.manualTestingProcedure = null;
+            this.manualTestingContext = null;
             this.currentTestResult = '';
             this.currentTestConfidence = 'medium';
             this.currentTestNotes = '';
@@ -2921,10 +3075,170 @@ function dashboard() {
             switch (result) {
                 case 'pass': return 'text-green-600';
                 case 'fail': return 'text-red-600';
+                case 'in_progress': return 'text-yellow-600';
+                case 'assigned': return 'text-purple-600';
                 case 'not_applicable': return 'text-gray-600';
-                case 'not_tested': return 'text-yellow-600';
+                case 'not_tested': return 'text-gray-500';
                 default: return 'text-gray-600';
             }
+        },
+
+        getTestStatusBadge(result) {
+            switch (result) {
+                case 'pass': 
+                    return {
+                        class: 'bg-green-100 text-green-800 border-green-200',
+                        icon: 'fas fa-check-circle',
+                        text: 'Passed'
+                    };
+                case 'fail': 
+                    return {
+                        class: 'bg-red-100 text-red-800 border-red-200',
+                        icon: 'fas fa-times-circle',
+                        text: 'Failed'
+                    };
+                case 'in_progress': 
+                    return {
+                        class: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+                        icon: 'fas fa-clock',
+                        text: 'In Progress'
+                    };
+                case 'assigned': 
+                    return {
+                        class: 'bg-purple-100 text-purple-800 border-purple-200',
+                        icon: 'fas fa-user-check',
+                        text: 'Assigned'
+                    };
+                case 'not_applicable': 
+                    return {
+                        class: 'bg-gray-100 text-gray-800 border-gray-200',
+                        icon: 'fas fa-minus-circle',
+                        text: 'N/A'
+                    };
+                case 'not_tested':
+                default: 
+                    return {
+                        class: 'bg-blue-50 text-blue-700 border-blue-200',
+                        icon: 'fas fa-circle',
+                        text: 'Not Started'
+                    };
+            }
+        },
+
+        // ==============================================
+        // TESTER ASSIGNMENT FUNCTIONS
+        // ==============================================
+
+        async loadAvailableTesters() {
+            try {
+                console.log('👥 Loading available testers...');
+                
+                const apiBaseUrl = this.API_BASE_URL || 'http://localhost:3001/api';
+                const response = await fetch(`${apiBaseUrl}/manual-testing/testers`, {
+                    headers: { Authorization: `Bearer ${this.token}` }
+                });
+                
+                if (!response.ok) throw new Error('Failed to load testers');
+                
+                const data = await response.json();
+                this.availableTesters = data.testers;
+                
+                console.log('✅ Loaded testers:', this.availableTesters.length);
+                return this.availableTesters;
+                
+            } catch (error) {
+                console.error('❌ Error loading testers:', error);
+                this.showNotification('Failed to load available testers', 'error');
+                return [];
+            }
+        },
+
+        async assignTesterToRequirements(sessionId, pageId, requirementIds, testerId) {
+            try {
+                console.log('🎯 Assigning tester to requirements:', { sessionId, pageId, requirementIds, testerId });
+                
+                const apiBaseUrl = this.API_BASE_URL || 'http://localhost:3001/api';
+                const response = await fetch(`${apiBaseUrl}/manual-testing/assign-tester`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${this.token}`
+                    },
+                    body: JSON.stringify({
+                        session_id: sessionId,
+                        page_id: pageId,
+                        requirement_ids: requirementIds,
+                        assigned_tester_id: testerId,
+                        assigned_by: this.user?.full_name || this.user?.username || 'Unknown'
+                    })
+                });
+                
+                if (!response.ok) throw new Error('Failed to assign tester');
+                
+                const result = await response.json();
+                this.showNotification(result.message, 'success');
+                
+                // Refresh assignments
+                await this.loadManualTestingAssignments();
+                
+                return result;
+                
+            } catch (error) {
+                console.error('❌ Error assigning tester:', error);
+                this.showNotification('Failed to assign tester', 'error');
+                throw error;
+            }
+        },
+
+        async unassignTesterFromRequirements(sessionId, pageId, requirementIds) {
+            try {
+                console.log('🔄 Unassigning tester from requirements:', { sessionId, pageId, requirementIds });
+                
+                const apiBaseUrl = this.API_BASE_URL || 'http://localhost:3001/api';
+                const response = await fetch(`${apiBaseUrl}/manual-testing/unassign-tester`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${this.token}`
+                    },
+                    body: JSON.stringify({
+                        session_id: sessionId,
+                        page_id: pageId,
+                        requirement_ids: requirementIds
+                    })
+                });
+                
+                if (!response.ok) throw new Error('Failed to unassign tester');
+                
+                const result = await response.json();
+                this.showNotification(result.message, 'success');
+                
+                // Refresh assignments
+                await this.loadManualTestingAssignments();
+                
+                return result;
+                
+            } catch (error) {
+                console.error('❌ Error unassigning tester:', error);
+                this.showNotification('Failed to unassign tester', 'error');
+                throw error;
+            }
+        },
+
+        openTesterAssignmentModal(pageGroup, assignment) {
+            this.selectedAssignmentForTester = { pageGroup, assignment };
+            this.showTesterAssignmentModal = true;
+            
+            // Load testers if not already loaded
+            if (!this.availableTesters || this.availableTesters.length === 0) {
+                this.loadAvailableTesters();
+            }
+        },
+
+        closeTesterAssignmentModal() {
+            this.showTesterAssignmentModal = false;
+            this.selectedAssignmentForTester = null;
+            this.selectedTesterId = '';
         }
     };
 }

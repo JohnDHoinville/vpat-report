@@ -101,69 +101,189 @@ router.get('/requirements', authenticateToken, async (req, res) => {
 });
 
 // GET /api/manual-testing/session/:sessionId/assignments
-// Get testing assignments for a session
+// Get smart testing assignments for a session (excludes automated coverage, prioritizes manual-only criteria)
 router.get('/session/:sessionId/assignments', authenticateToken, async (req, res) => {
     try {
         const { sessionId } = req.params;
-        const { status, page_id, requirement_id, priority } = req.query;
+        const { status, page_id, requirement_id, priority, coverage_type = 'smart' } = req.query;
         
-        let query = `
-            WITH testing_matrix AS (
+        let query;
+        let params = [sessionId];
+        
+        if (coverage_type === 'smart') {
+            // Smart filtering: Exclude criteria already passed by automated tests, prioritize manual-only
+            query = `
+                WITH                 automated_coverage AS (
+                    -- Get pages that have automated test results but no violations for WCAG criteria (passed)
+                    SELECT DISTINCT 
+                        dp.id as page_id,
+                        wr.criterion_number
+                    FROM test_sessions ts
+                    JOIN site_discovery sd ON ts.project_id = sd.project_id  
+                    JOIN discovered_pages dp ON sd.id = dp.discovery_id
+                    JOIN automated_test_results ar ON dp.id = ar.page_id
+                    CROSS JOIN wcag_requirements wr
+                    WHERE ts.id = $1 
+                    AND ar.id IS NOT NULL  -- Has automated test results
+                    AND NOT EXISTS (
+                        -- No violations found for this WCAG criterion
+                        SELECT 1 FROM violations v 
+                        WHERE v.automated_result_id = ar.id 
+                        AND v.wcag_criterion = wr.criterion_number
+                    )
+                    AND wr.testable_method IN ('automated', 'hybrid')  -- Only for automatable criteria
+                ),
+                failed_automated AS (
+                    -- Get WCAG criteria that have violations and need manual verification
+                    SELECT DISTINCT 
+                        dp.id as page_id,
+                        v.wcag_criterion as criterion_number,
+                        'verification_needed' as assignment_type
+                    FROM test_sessions ts
+                    JOIN site_discovery sd ON ts.project_id = sd.project_id  
+                    JOIN discovered_pages dp ON sd.id = dp.discovery_id
+                    JOIN automated_test_results ar ON dp.id = ar.page_id
+                    JOIN violations v ON v.automated_result_id = ar.id
+                    WHERE ts.id = $1 
+                    AND v.wcag_criterion IS NOT NULL
+                ),
+                testing_matrix AS (
+                    SELECT 
+                        dp.id as page_id,
+                        dp.url as page_url,
+                        dp.title as page_title,
+                        dp.page_type,
+                        wr.id as requirement_id,
+                        wr.criterion_number,
+                        wr.title as requirement_title,
+                        wr.level as wcag_level,
+                        wr.manual_test_procedure,
+                        wr.testable_method,
+                        wr.automation_coverage,
+                        CASE 
+                            WHEN 'all' = ANY(wr.applies_to_page_types) THEN true
+                            WHEN dp.page_type = ANY(wr.applies_to_page_types) THEN true
+                            ELSE false
+                        END as applicable,
+                        CASE 
+                            WHEN fa.criterion_number IS NOT NULL THEN 'failed_verification'
+                            WHEN ac.criterion_number IS NOT NULL THEN 'automated_covered'
+                            WHEN wr.testable_method = 'manual_only' THEN 'manual_priority'
+                            WHEN wr.testable_method = 'hybrid' AND wr.automation_coverage = 'low' THEN 'manual_recommended'
+                            WHEN wr.testable_method = 'automated' THEN 'automated_primary'
+                            ELSE 'manual_standard'
+                        END as test_category,
+                        CASE 
+                            WHEN fa.criterion_number IS NOT NULL THEN 5  -- Failed automated = highest priority
+                            WHEN wr.testable_method = 'manual_only' THEN 4  -- Manual-only = high priority
+                            WHEN wr.testable_method = 'hybrid' AND wr.automation_coverage = 'low' THEN 3  -- Low automation coverage
+                            WHEN wr.level = 'A' THEN 2
+                            WHEN wr.level = 'AA' THEN 2  
+                            WHEN wr.level = 'AAA' THEN 1
+                            ELSE 0
+                        END as smart_priority_score
+                    FROM discovered_pages dp
+                    JOIN site_discovery sd ON dp.discovery_id = sd.id
+                    JOIN test_sessions ts ON sd.project_id = ts.project_id
+                    CROSS JOIN wcag_requirements wr
+                    LEFT JOIN automated_coverage ac ON (dp.id = ac.page_id AND wr.criterion_number = ac.criterion_number)
+                    LEFT JOIN failed_automated fa ON (dp.id = fa.page_id AND wr.criterion_number = fa.criterion_number)
+                    WHERE ts.id = $1
+                )
                 SELECT 
-                    dp.id as page_id,
-                    dp.url as page_url,
-                    dp.title as page_title,
-                    dp.page_type,
-                    wr.id as requirement_id,
-                    wr.criterion_number,
-                    wr.title as requirement_title,
-                    wr.level as wcag_level,
-                    wr.manual_test_procedure,
+                    tm.*,
+                    mtr.result as current_result,
+                    mtr.confidence_level,
+                    mtr.notes,
+                    mtr.tested_at,
+                    mtr.tester_name,
+                    mtr.assigned_tester,
                     CASE 
-                        WHEN 'all' = ANY(wr.applies_to_page_types) THEN true
-                        WHEN dp.page_type = ANY(wr.applies_to_page_types) THEN true
-                        ELSE false
-                    END as applicable,
+                        WHEN mtr.result IS NOT NULL THEN 'completed'
+                        WHEN tm.applicable = false THEN 'not_applicable'
+                        WHEN tm.test_category = 'automated_covered' THEN 'automated_passed'
+                        WHEN tm.test_category = 'failed_verification' THEN 'needs_verification'
+                        WHEN tm.test_category = 'manual_priority' THEN 'manual_required'
+                        WHEN tm.test_category = 'manual_recommended' THEN 'manual_recommended'
+                        WHEN tm.test_category = 'automated_primary' THEN 'automated_sufficient'
+                        ELSE 'pending'
+                    END as assignment_status
+                FROM testing_matrix tm
+                LEFT JOIN manual_test_results mtr ON (
+                    tm.page_id = mtr.page_id AND 
+                    tm.requirement_id = mtr.requirement_id AND 
+                    mtr.test_session_id = $1
+                )
+                WHERE tm.applicable = true
+                -- Smart filtering: Exclude automated-covered unless specifically requested
+                AND tm.test_category NOT IN ('automated_covered', 'automated_primary')
+            `;
+        } else {
+            // Legacy mode: Show all applicable criteria (backward compatibility)
+            query = `
+                WITH testing_matrix AS (
+                    SELECT 
+                        dp.id as page_id,
+                        dp.url as page_url,
+                        dp.title as page_title,
+                        dp.page_type,
+                        wr.id as requirement_id,
+                        wr.criterion_number,
+                        wr.title as requirement_title,
+                        wr.level as wcag_level,
+                        wr.manual_test_procedure,
+                        wr.testable_method,
+                        CASE 
+                            WHEN 'all' = ANY(wr.applies_to_page_types) THEN true
+                            WHEN dp.page_type = ANY(wr.applies_to_page_types) THEN true
+                            ELSE false
+                        END as applicable,
+                        'manual_standard' as test_category,
+                        CASE 
+                            WHEN wr.level = 'A' THEN 3
+                            WHEN wr.level = 'AA' THEN 2  
+                            WHEN wr.level = 'AAA' THEN 1
+                            ELSE 0
+                        END as smart_priority_score
+                    FROM discovered_pages dp
+                    JOIN site_discovery sd ON dp.discovery_id = sd.id
+                    JOIN test_sessions ts ON sd.project_id = ts.project_id
+                    CROSS JOIN wcag_requirements wr
+                    WHERE ts.id = $1
+                )
+                SELECT 
+                    tm.*,
+                    mtr.result as current_result,
+                    mtr.confidence_level,
+                    mtr.notes,
+                    mtr.tested_at,
+                    mtr.tester_name,
+                    mtr.assigned_tester,
                     CASE 
-                        WHEN wr.level = 'A' THEN 3
-                        WHEN wr.level = 'AA' THEN 2  
-                        WHEN wr.level = 'AAA' THEN 1
-                        ELSE 0
-                    END as priority_score
-                FROM discovered_pages dp
-                JOIN site_discovery sd ON dp.discovery_id = sd.id
-                JOIN test_sessions ts ON sd.project_id = ts.project_id
-                CROSS JOIN wcag_requirements wr
-                WHERE ts.id = $1
-            )
-            SELECT 
-                tm.*,
-                mtr.result as current_result,
-                mtr.confidence_level,
-                mtr.notes,
-                mtr.tested_at,
-                mtr.tester_name,
-                CASE 
-                    WHEN mtr.result IS NOT NULL THEN 'completed'
-                    WHEN tm.applicable THEN 'pending'
-                    ELSE 'not_applicable'
-                END as assignment_status
-            FROM testing_matrix tm
-            LEFT JOIN manual_test_results mtr ON (
-                tm.page_id = mtr.page_id AND 
-                tm.requirement_id = mtr.requirement_id AND 
-                mtr.test_session_id = $1
-            )
-            WHERE tm.applicable = true
-        `;
+                        WHEN mtr.result IS NOT NULL THEN 'completed'
+                        WHEN tm.applicable = false THEN 'not_applicable'
+                        ELSE 'pending'
+                    END as assignment_status
+                FROM testing_matrix tm
+                LEFT JOIN manual_test_results mtr ON (
+                    tm.page_id = mtr.page_id AND 
+                    tm.requirement_id = mtr.requirement_id AND 
+                    mtr.test_session_id = $1
+                )
+                WHERE tm.applicable = true
+            `;
+        }
         
-        const params = [sessionId];
-        
+        // Add filters
         if (status) {
             if (status === 'pending') {
                 query += ` AND mtr.result IS NULL`;
             } else if (status === 'completed') {
                 query += ` AND mtr.result IS NOT NULL`;
+            } else if (status === 'needs_verification') {
+                query += ` AND tm.test_category = 'failed_verification'`;
+            } else if (status === 'manual_priority') {
+                query += ` AND tm.test_category IN ('manual_priority', 'manual_recommended')`;
             }
         }
         
@@ -178,10 +298,10 @@ router.get('/session/:sessionId/assignments', authenticateToken, async (req, res
         }
         
         if (priority === 'high') {
-            query += ` AND tm.priority_score >= 2`;
+            query += ` AND tm.smart_priority_score >= 3`;
         }
         
-        query += ` ORDER BY tm.priority_score DESC, tm.criterion_number, tm.page_url`;
+        query += ` ORDER BY tm.smart_priority_score DESC, tm.criterion_number, tm.page_url`;
         
         const result = await pool.query(query, params);
         
@@ -204,30 +324,44 @@ router.get('/session/:sessionId/assignments', authenticateToken, async (req, res
                 requirement_title: row.requirement_title,
                 wcag_level: row.wcag_level,
                 manual_test_procedure: row.manual_test_procedure,
-                priority_score: row.priority_score,
+                testable_method: row.testable_method,
+                test_category: row.test_category,
+                smart_priority_score: row.smart_priority_score,
                 assignment_status: row.assignment_status,
                 current_result: row.current_result,
                 confidence_level: row.confidence_level,
                 notes: row.notes,
                 tested_at: row.tested_at,
-                tester_name: row.tester_name
+                tester_name: row.tester_name,
+                assigned_tester: row.assigned_tester
             });
         });
+        
+        // Calculate summary with category breakdown
+        const categorySummary = result.rows.reduce((acc, row) => {
+            acc[row.test_category] = (acc[row.test_category] || 0) + 1;
+            return acc;
+        }, {});
         
         res.json({
             success: true,
             assignments: Object.values(pageGroups),
             total_assignments: result.rows.length,
+            coverage_type: coverage_type,
             summary: {
                 pending: result.rows.filter(r => !r.current_result).length,
                 completed: result.rows.filter(r => r.current_result).length,
                 passed: result.rows.filter(r => r.current_result === 'pass').length,
-                failed: result.rows.filter(r => r.current_result === 'fail').length
-            }
+                failed: result.rows.filter(r => r.current_result === 'fail').length,
+                needs_verification: result.rows.filter(r => r.test_category === 'failed_verification').length,
+                manual_priority: result.rows.filter(r => r.test_category === 'manual_priority').length,
+                manual_recommended: result.rows.filter(r => r.test_category === 'manual_recommended').length
+            },
+            category_breakdown: categorySummary
         });
         
     } catch (error) {
-        console.error('❌ Error fetching test assignments:', error);
+        console.error('❌ Error fetching smart test assignments:', error);
         res.status(500).json({
             success: false,
             error: 'Failed to fetch test assignments'
@@ -325,10 +459,10 @@ router.post('/session/:sessionId/result', authenticateToken, async (req, res) =>
         }
         
         // Validate result value
-        if (!['pass', 'fail', 'not_applicable', 'not_tested'].includes(result)) {
+        if (!['pass', 'fail', 'not_applicable', 'not_tested', 'in_progress', 'assigned'].includes(result)) {
             return res.status(400).json({
                 success: false,
-                error: 'Invalid result value. Must be: pass, fail, not_applicable, or not_tested'
+                error: 'Invalid result value. Must be: pass, fail, not_applicable, not_tested, in_progress, or assigned'
             });
         }
 
@@ -611,12 +745,242 @@ router.get('/session/:sessionId/progress', authenticateToken, async (req, res) =
     }
 });
 
+// GET /api/manual-testing/session/:sessionId/coverage-analysis
+// Get comprehensive coverage analysis showing automated vs manual testing scope
+router.get('/session/:sessionId/coverage-analysis', authenticateToken, async (req, res) => {
+    try {
+        const { sessionId } = req.params;
+        
+        const analysisQuery = `
+            WITH             automated_coverage AS (
+                -- Get WCAG criteria coverage from automated tests
+                SELECT DISTINCT 
+                    dp.id as page_id,
+                    dp.url as page_url,
+                    dp.page_type,
+                    wr.criterion_number,
+                    CASE 
+                        WHEN v.wcag_criterion IS NOT NULL THEN 'fail'
+                        ELSE 'pass'
+                    END as automated_result,
+                    ar.tool_name,
+                    ar.executed_at as automated_tested_at
+                FROM test_sessions ts
+                JOIN site_discovery sd ON ts.project_id = sd.project_id  
+                JOIN discovered_pages dp ON sd.id = dp.discovery_id
+                JOIN automated_test_results ar ON dp.id = ar.page_id
+                CROSS JOIN wcag_requirements wr
+                LEFT JOIN violations v ON (v.automated_result_id = ar.id AND v.wcag_criterion = wr.criterion_number)
+                WHERE ts.id = $1 
+                AND wr.testable_method IN ('automated', 'hybrid')  -- Only for automatable criteria
+                AND ar.id IS NOT NULL  -- Has automated test results
+            ),
+            manual_coverage AS (
+                -- Get WCAG criteria coverage from manual tests
+                SELECT DISTINCT 
+                    dp.id as page_id,
+                    dp.url as page_url,
+                    dp.page_type,
+                    wr.criterion_number,
+                    mtr.result as manual_result,
+                    mtr.tested_at as manual_tested_at,
+                    mtr.tester_name
+                FROM test_sessions ts
+                JOIN site_discovery sd ON ts.project_id = sd.project_id  
+                JOIN discovered_pages dp ON sd.id = dp.discovery_id
+                JOIN wcag_requirements wr ON true
+                LEFT JOIN manual_test_results mtr ON (
+                    dp.id = mtr.page_id AND 
+                    wr.id = mtr.requirement_id AND 
+                    mtr.test_session_id = ts.id
+                )
+                WHERE ts.id = $1
+                AND (
+                    'all' = ANY(wr.applies_to_page_types) OR
+                    dp.page_type = ANY(wr.applies_to_page_types)
+                )
+            ),
+            wcag_universe AS (
+                -- All applicable WCAG criteria for this session's pages
+                SELECT DISTINCT
+                    dp.id as page_id,
+                    dp.url as page_url,
+                    dp.page_type,
+                    wr.criterion_number,
+                    wr.title,
+                    wr.level as wcag_level,
+                    wr.testable_method,
+                    wr.automation_coverage
+                FROM test_sessions ts
+                JOIN site_discovery sd ON ts.project_id = sd.project_id  
+                JOIN discovered_pages dp ON sd.id = dp.discovery_id
+                CROSS JOIN wcag_requirements wr
+                WHERE ts.id = $1
+                AND (
+                    'all' = ANY(wr.applies_to_page_types) OR
+                    dp.page_type = ANY(wr.applies_to_page_types)
+                )
+            )
+            SELECT 
+                wu.page_id,
+                wu.page_url,
+                wu.page_type,
+                wu.criterion_number,
+                wu.title,
+                wu.wcag_level,
+                wu.testable_method,
+                wu.automation_coverage,
+                ac.automated_result,
+                ac.tool_name,
+                ac.automated_tested_at,
+                mc.manual_result,
+                mc.manual_tested_at,
+                mc.tester_name,
+                CASE 
+                    WHEN ac.automated_result IS NOT NULL AND mc.manual_result IS NOT NULL THEN 'both_tested'
+                    WHEN ac.automated_result IS NOT NULL THEN 'automated_only'
+                    WHEN mc.manual_result IS NOT NULL THEN 'manual_only'
+                    WHEN wu.testable_method = 'automated' THEN 'automated_pending'
+                    WHEN wu.testable_method = 'manual_only' THEN 'manual_pending'
+                    ELSE 'untested'
+                END as coverage_status,
+                CASE 
+                    WHEN ac.automated_result = 'pass' AND mc.manual_result = 'pass' THEN 'verified_pass'
+                    WHEN ac.automated_result = 'fail' AND mc.manual_result = 'pass' THEN 'false_positive'
+                    WHEN ac.automated_result = 'pass' AND mc.manual_result = 'fail' THEN 'missed_by_automation'
+                    WHEN ac.automated_result = 'fail' AND mc.manual_result = 'fail' THEN 'confirmed_fail'
+                    WHEN ac.automated_result = 'pass' AND mc.manual_result IS NULL THEN 'auto_pass_unverified'
+                    WHEN ac.automated_result = 'fail' AND mc.manual_result IS NULL THEN 'auto_fail_unverified'
+                    WHEN ac.automated_result IS NULL AND mc.manual_result = 'pass' THEN 'manual_pass'
+                    WHEN ac.automated_result IS NULL AND mc.manual_result = 'fail' THEN 'manual_fail'
+                    ELSE 'no_result'
+                END as result_comparison
+            FROM wcag_universe wu
+            LEFT JOIN automated_coverage ac ON (wu.page_id = ac.page_id AND wu.criterion_number = ac.criterion_number)
+            LEFT JOIN manual_coverage mc ON (wu.page_id = mc.page_id AND wu.criterion_number = mc.criterion_number)
+            ORDER BY wu.page_url, wu.criterion_number
+        `;
+        
+        const result = await pool.query(analysisQuery, [sessionId]);
+        
+        // Calculate summary statistics
+        const coverage = result.rows;
+        const totalCriteria = coverage.length;
+        
+        // Coverage status breakdown
+        const coverageStatusSummary = coverage.reduce((acc, row) => {
+            acc[row.coverage_status] = (acc[row.coverage_status] || 0) + 1;
+            return acc;
+        }, {});
+        
+        // Result comparison breakdown
+        const resultComparisonSummary = coverage.reduce((acc, row) => {
+            acc[row.result_comparison] = (acc[row.result_comparison] || 0) + 1;
+            return acc;
+        }, {});
+        
+        // Testable method breakdown
+        const testableMethodSummary = coverage.reduce((acc, row) => {
+            acc[row.testable_method] = (acc[row.testable_method] || 0) + 1;
+            return acc;
+        }, {});
+        
+        // WCAG level breakdown  
+        const wcagLevelSummary = coverage.reduce((acc, row) => {
+            acc[row.wcag_level] = (acc[row.wcag_level] || 0) + 1;
+            return acc;
+        }, {});
+        
+        // Calculate efficiency metrics
+        const automatedTests = coverage.filter(r => r.automated_result).length;
+        const manualTests = coverage.filter(r => r.manual_result).length;
+        const duplicateTests = coverage.filter(r => r.automated_result && r.manual_result).length;
+        const automationEfficiency = totalCriteria > 0 ? Math.round((automatedTests / totalCriteria) * 100) : 0;
+        const manualEfficiency = totalCriteria > 0 ? Math.round((manualTests / totalCriteria) * 100) : 0;
+        const redundancyRate = automatedTests > 0 ? Math.round((duplicateTests / automatedTests) * 100) : 0;
+        
+        // Group by page for detailed breakdown
+        const pageBreakdown = {};
+        coverage.forEach(row => {
+            if (!pageBreakdown[row.page_id]) {
+                pageBreakdown[row.page_id] = {
+                    page_id: row.page_id,
+                    page_url: row.page_url,
+                    page_type: row.page_type,
+                    criteria: [],
+                    summary: {
+                        total: 0,
+                        automated_tested: 0,
+                        manual_tested: 0,
+                        both_tested: 0,
+                        untested: 0
+                    }
+                };
+            }
+            
+            pageBreakdown[row.page_id].criteria.push({
+                criterion_number: row.criterion_number,
+                title: row.title,
+                wcag_level: row.wcag_level,
+                testable_method: row.testable_method,
+                automation_coverage: row.automation_coverage,
+                coverage_status: row.coverage_status,
+                result_comparison: row.result_comparison,
+                automated_result: row.automated_result,
+                manual_result: row.manual_result
+            });
+            
+            // Update page summary
+            const pageSummary = pageBreakdown[row.page_id].summary;
+            pageSummary.total++;
+            
+            if (row.automated_result) pageSummary.automated_tested++;
+            if (row.manual_result) pageSummary.manual_tested++;
+            if (row.automated_result && row.manual_result) pageSummary.both_tested++;
+            if (!row.automated_result && !row.manual_result) pageSummary.untested++;
+        });
+        
+        res.json({
+            success: true,
+            session_id: sessionId,
+            total_criteria: totalCriteria,
+            coverage_analysis: {
+                coverage_status: coverageStatusSummary,
+                result_comparison: resultComparisonSummary,
+                testable_method: testableMethodSummary,
+                wcag_level: wcagLevelSummary
+            },
+            efficiency_metrics: {
+                automation_efficiency: automationEfficiency,
+                manual_efficiency: manualEfficiency,
+                redundancy_rate: redundancyRate,
+                total_automated_tests: automatedTests,
+                total_manual_tests: manualTests,
+                duplicate_tests: duplicateTests
+            },
+            page_breakdown: Object.values(pageBreakdown),
+            recommendations: generateCoverageRecommendations(coverageStatusSummary, resultComparisonSummary, efficiency_metrics = {
+                automation_efficiency: automationEfficiency,
+                manual_efficiency: manualEfficiency,
+                redundancy_rate: redundancyRate
+            })
+        });
+        
+    } catch (error) {
+        console.error('❌ Error generating coverage analysis:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to generate coverage analysis'
+        });
+    }
+});
+
 // GET /api/manual-testing/requirement/:id/procedure
-// Get detailed testing procedure for a requirement
+// Get detailed testing procedure for a requirement with context
 router.get('/requirement/:id/procedure', authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
-        const { page_type } = req.query;
+        const { page_type, page_id, session_id } = req.query;
         
         const requirement = await pool.query(`
             SELECT 
@@ -629,7 +993,9 @@ router.get('/requirement/:id/procedure', authenticateToken, async (req, res) => 
                 manual_test_procedure,
                 tool_mappings,
                 understanding_url,
-                applies_to_page_types
+                applies_to_page_types,
+                testable_method,
+                automation_coverage
             FROM wcag_requirements 
             WHERE id = $1
         `, [id]);
@@ -642,6 +1008,85 @@ router.get('/requirement/:id/procedure', authenticateToken, async (req, res) => 
         }
         
         const req_data = requirement.rows[0];
+        
+        // Get context about why this test is being shown
+        let testContext = {
+            category: 'manual_standard',
+            violations: [],
+            recommended_tools: [],
+            context_message: ''
+        };
+        
+        if (page_id && session_id) {
+            // Determine test category and get violation details if applicable
+            const contextQuery = `
+                WITH test_context AS (
+                    SELECT 
+                        CASE 
+                            WHEN v.wcag_criterion IS NOT NULL THEN 'failed_verification'
+                            WHEN wr.testable_method = 'manual_only' THEN 'manual_priority'
+                            WHEN wr.testable_method = 'hybrid' AND wr.automation_coverage = 'low' THEN 'manual_recommended'
+                            WHEN wr.testable_method = 'automated' THEN 'automated_primary'
+                            ELSE 'manual_standard'
+                        END as test_category
+                    FROM discovered_pages dp
+                    JOIN test_sessions ts ON dp.id = $2
+                    JOIN automated_test_results ar ON dp.id = ar.page_id
+                    CROSS JOIN wcag_requirements wr
+                    LEFT JOIN violations v ON (v.automated_result_id = ar.id AND v.wcag_criterion = wr.criterion_number)
+                    WHERE ts.id = $3 AND wr.id = $1
+                    LIMIT 1
+                )
+                SELECT 
+                    tc.test_category,
+                    COALESCE(
+                        json_agg(
+                            json_build_object(
+                                'id', v.id,
+                                'severity', v.severity,
+                                'description', v.description,
+                                'element_selector', v.element_selector,
+                                'element_html', v.element_html,
+                                'remediation_guidance', v.remediation_guidance,
+                                'tool_name', ar.tool_name
+                            )
+                        ) FILTER (WHERE v.id IS NOT NULL),
+                        '[]'::json
+                    ) as violations
+                FROM test_context tc
+                LEFT JOIN discovered_pages dp ON dp.id = $2
+                LEFT JOIN automated_test_results ar ON dp.id = ar.page_id
+                LEFT JOIN violations v ON (v.automated_result_id = ar.id AND v.wcag_criterion = $4)
+                GROUP BY tc.test_category
+            `;
+            
+            const contextResult = await pool.query(contextQuery, [id, page_id, session_id, req_data.criterion_number]);
+            
+            if (contextResult.rows.length > 0) {
+                const context = contextResult.rows[0];
+                testContext.category = context.test_category;
+                testContext.violations = context.violations || [];
+                
+                // Set context-specific guidance
+                switch (context.test_category) {
+                    case 'failed_verification':
+                        testContext.context_message = `⚠️ Automated testing found ${testContext.violations.length} potential issue(s) with this criterion. Please verify if these are genuine accessibility problems or false positives.`;
+                        testContext.recommended_tools = ['screen reader', 'keyboard navigation', 'manual inspection'];
+                        break;
+                    case 'manual_priority':
+                        testContext.context_message = `🔍 This criterion requires manual testing as it cannot be reliably automated. Focus on user experience and real-world accessibility.`;
+                        testContext.recommended_tools = ['screen reader', 'keyboard navigation', 'voice control', 'user testing'];
+                        break;
+                    case 'manual_recommended':
+                        testContext.context_message = `📋 This criterion has limited automation coverage. Manual testing helps ensure comprehensive accessibility.`;
+                        testContext.recommended_tools = ['screen reader', 'keyboard navigation', 'manual inspection'];
+                        break;
+                    default:
+                        testContext.context_message = `📝 Standard manual accessibility testing for this criterion.`;
+                        testContext.recommended_tools = ['screen reader', 'keyboard navigation', 'manual inspection'];
+                }
+            }
+        }
         
         // Customize procedure based on page type if provided
         let procedure = req_data.manual_test_procedure;
@@ -657,7 +1102,8 @@ router.get('/requirement/:id/procedure', authenticateToken, async (req, res) => 
             requirement: {
                 ...req_data,
                 manual_test_procedure: procedure
-            }
+            },
+            test_context: testContext
         });
         
     } catch (error) {
@@ -708,5 +1154,243 @@ async function updateSessionProgress(sessionId) {
         console.error('⚠️ Error updating session progress:', error);
     }
 }
+
+// Helper function to generate coverage recommendations
+function generateCoverageRecommendations(coverageStatus, resultComparison, efficiencyMetrics) {
+    const recommendations = [];
+    
+    // Check automation efficiency
+    if (efficiencyMetrics.automation_efficiency < 40) {
+        recommendations.push({
+            type: 'automation',
+            priority: 'high',
+            title: 'Increase Automated Testing Coverage',
+            description: `Only ${efficiencyMetrics.automation_efficiency}% of applicable WCAG criteria are covered by automated tests.`,
+            actions: [
+                'Add more automated testing tools (axe-core, pa11y, Lighthouse)',
+                'Configure tools to test more WCAG criteria',
+                'Implement automated testing in CI/CD pipeline'
+            ]
+        });
+    }
+    
+    // Check for manual testing gaps
+    if (coverageStatus.manual_pending > 5) {
+        recommendations.push({
+            type: 'manual',
+            priority: 'medium',
+            title: 'Address Manual Testing Backlog',
+            description: `${coverageStatus.manual_pending} manual-only criteria require testing.`,
+            actions: [
+                'Prioritize manual testing for Level A and AA criteria',
+                'Focus on user experience and accessibility workflow testing',
+                'Schedule screen reader and keyboard navigation testing'
+            ]
+        });
+    }
+    
+    // Check for verification needs
+    if (resultComparison.auto_fail_unverified > 0) {
+        recommendations.push({
+            type: 'verification',
+            priority: 'high',
+            title: 'Verify Failed Automated Tests',
+            description: `${resultComparison.auto_fail_unverified} automated test failures need manual verification.`,
+            actions: [
+                'Review false positive rates for automated tools',
+                'Manually verify flagged accessibility issues',
+                'Update automated test configurations to reduce noise'
+            ]
+        });
+    }
+    
+    // Check redundancy
+    if (efficiencyMetrics.redundancy_rate > 60) {
+        recommendations.push({
+            type: 'efficiency',
+            priority: 'low',
+            title: 'Reduce Testing Redundancy',
+            description: `${efficiencyMetrics.redundancy_rate}% of automated tests are being duplicated manually.`,
+            actions: [
+                'Configure manual testing to exclude criteria well-covered by automation',
+                'Focus manual testing on areas with low automation coverage',
+                'Use smart filtering to optimize testing workflows'
+            ]
+        });
+    }
+    
+    return recommendations;
+}
+
+// ==============================================
+// TESTER ASSIGNMENT ENDPOINTS
+// ==============================================
+
+// GET /api/manual-testing/testers
+// Get list of available testers
+router.get('/testers', authenticateToken, async (req, res) => {
+    try {
+        console.log('📋 Loading available testers...');
+        
+        const testers = await pool.query(`
+            SELECT 
+                id,
+                username,
+                full_name,
+                email,
+                role,
+                is_active
+            FROM users 
+            WHERE is_active = true
+            AND role IN ('admin', 'user')
+            ORDER BY full_name, username
+        `);
+        
+        res.json({
+            success: true,
+            testers: testers.rows
+        });
+        
+    } catch (error) {
+        console.error('❌ Error loading testers:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to load available testers'
+        });
+    }
+});
+
+// POST /api/manual-testing/assign-tester
+// Assign a tester to specific requirements
+router.post('/assign-tester', authenticateToken, async (req, res) => {
+    try {
+        const { 
+            session_id, 
+            page_id, 
+            requirement_ids, // Array of requirement IDs
+            assigned_tester_id,
+            assigned_by 
+        } = req.body;
+        
+        console.log('🎯 Assigning tester:', { session_id, page_id, requirement_ids, assigned_tester_id });
+        
+        // Get tester info
+        const testerResult = await pool.query(`
+            SELECT id, username, full_name FROM users WHERE id = $1
+        `, [assigned_tester_id]);
+        
+        if (testerResult.rows.length === 0) {
+            return res.status(400).json({
+                success: false,
+                error: 'Tester not found'
+            });
+        }
+        
+        const tester = testerResult.rows[0];
+        const assignments = [];
+        
+        // Process each requirement assignment
+        for (const requirement_id of requirement_ids) {
+            // Check if assignment already exists
+            const existingResult = await pool.query(`
+                SELECT id FROM manual_test_results 
+                WHERE test_session_id = $1 AND page_id = $2 AND requirement_id = $3
+            `, [session_id, page_id, requirement_id]);
+            
+            if (existingResult.rows.length > 0) {
+                // Update existing assignment
+                await pool.query(`
+                    UPDATE manual_test_results 
+                    SET assigned_tester = $1, 
+                        result = 'assigned',
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE id = $2
+                `, [tester.full_name || tester.username, existingResult.rows[0].id]);
+                
+                assignments.push({
+                    requirement_id,
+                    assignment_id: existingResult.rows[0].id,
+                    action: 'updated'
+                });
+            } else {
+                // Create new assignment
+                const newAssignment = await pool.query(`
+                    INSERT INTO manual_test_results (
+                        test_session_id, 
+                        page_id, 
+                        requirement_id, 
+                        requirement_type,
+                        result,
+                        assigned_tester,
+                        confidence_level,
+                        notes,
+                        tester_name,
+                        tested_at
+                    ) VALUES ($1, $2, $3, 'wcag', 'assigned', $4, 'medium', 
+                             'Assigned to tester for manual evaluation', $5, CURRENT_TIMESTAMP)
+                    RETURNING id
+                `, [session_id, page_id, requirement_id, tester.full_name || tester.username, assigned_by]);
+                
+                assignments.push({
+                    requirement_id,
+                    assignment_id: newAssignment.rows[0].id,
+                    action: 'created'
+                });
+            }
+        }
+        
+        // Update session progress
+        await updateSessionProgress(session_id);
+        
+        res.json({
+            success: true,
+            message: `Successfully assigned ${requirement_ids.length} requirement(s) to ${tester.full_name || tester.username}`,
+            assignments,
+            assigned_tester: tester
+        });
+        
+    } catch (error) {
+        console.error('❌ Error assigning tester:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to assign tester'
+        });
+    }
+});
+
+// POST /api/manual-testing/unassign-tester
+// Remove tester assignment from requirements
+router.post('/unassign-tester', authenticateToken, async (req, res) => {
+    try {
+        const { session_id, page_id, requirement_ids } = req.body;
+        
+        console.log('🔄 Unassigning tester from requirements:', { session_id, page_id, requirement_ids });
+        
+        for (const requirement_id of requirement_ids) {
+            await pool.query(`
+                UPDATE manual_test_results 
+                SET assigned_tester = NULL,
+                    result = 'not_tested',
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE test_session_id = $1 AND page_id = $2 AND requirement_id = $3
+            `, [session_id, page_id, requirement_id]);
+        }
+        
+        // Update session progress
+        await updateSessionProgress(session_id);
+        
+        res.json({
+            success: true,
+            message: `Successfully unassigned ${requirement_ids.length} requirement(s)`
+        });
+        
+    } catch (error) {
+        console.error('❌ Error unassigning tester:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to unassign tester'
+        });
+    }
+});
 
 module.exports = router; 
