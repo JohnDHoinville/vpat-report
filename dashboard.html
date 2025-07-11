@@ -167,6 +167,11 @@
                             class="py-4 px-1 border-b-2 font-medium text-sm transition-colors">
                         <i class="fas fa-search mr-2"></i>Site Discovery
                     </button>
+                    <button @click="activeTab = 'testing-sessions'; refreshTestingSessionsTabData()" 
+                            :class="activeTab === 'testing-sessions' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
+                            class="py-4 px-1 border-b-2 font-medium text-sm transition-colors">
+                        <i class="fas fa-tasks mr-2"></i>Testing Sessions
+                    </button>
                     <button @click="activeTab = 'testing'; refreshTestingTabData()" 
                             :class="activeTab === 'testing' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
                             class="py-4 px-1 border-b-2 font-medium text-sm transition-colors">
@@ -176,11 +181,6 @@
                             :class="activeTab === 'manual-testing' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
                             class="py-4 px-1 border-b-2 font-medium text-sm transition-colors">
                         <i class="fas fa-hand-paper mr-2"></i>Manual Testing
-                    </button>
-                    <button @click="activeTab = 'testing-sessions'; refreshTestingSessionsTabData()" 
-                            :class="activeTab === 'testing-sessions' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
-                            class="py-4 px-1 border-b-2 font-medium text-sm transition-colors">
-                        <i class="fas fa-tasks mr-2"></i>Testing Sessions
                     </button>
                     <button @click="activeTab = 'results'" 
                             :class="activeTab === 'results' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
