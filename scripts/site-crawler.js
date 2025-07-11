@@ -83,7 +83,12 @@ class SiteCrawler {
             this.baseHost = startUrl.hostname;
             this.baseProtocol = startUrl.protocol;
 
-            this.updateProgress(`Starting crawl of ${rootUrl}`, { depth: 0 });
+            this.updateProgress(`Starting crawl of ${rootUrl}`, { 
+                depth: 0, 
+                currentUrl: rootUrl,
+                currentDepth: 0,
+                maxDepth: this.options.maxDepth
+            });
 
             // Setup authentication if needed
             if (this.options.useAuth) {
@@ -122,7 +127,13 @@ class SiteCrawler {
 
                 try {
                     this.totalRequests++;
-                    this.updateProgress(`Fetching: ${url}`, { depth, queue: queue.length });
+                    this.updateProgress(`Fetching: ${url}`, { 
+                        depth, 
+                        queue: queue.length,
+                        currentUrl: url,
+                        currentDepth: depth,
+                        maxDepth: this.options.maxDepth
+                    });
 
                     const pageData = await this.fetchPage(url);
                     this.successfulRequests++;
@@ -172,7 +183,10 @@ class SiteCrawler {
             this.updateProgress(`Crawl completed. Found ${this.discoveredPages.length} pages`, {
                 completed: true,
                 totalPages: this.discoveredPages.length,
-                totalErrors: this.errors.length
+                totalErrors: this.errors.length,
+                currentUrl: 'Completed',
+                currentDepth: Math.max(...this.discoveredPages.map(p => p.depth), 0),
+                maxDepth: this.options.maxDepth
             });
 
             // Cleanup authentication

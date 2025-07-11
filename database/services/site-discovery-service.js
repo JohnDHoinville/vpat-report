@@ -280,6 +280,7 @@ class SiteDiscoveryService {
                         pagesFound: pagesFound,
                         currentUrl: currentUrl,
                         depth: progress.currentDepth || progress.depth || 0,
+                        maxDepth: progress.maxDepth || crawlerSettings.maxDepth || 3,
                         message: `Discovered ${pagesFound} pages - Currently crawling: ${currentUrl}`
                     });
                 }
