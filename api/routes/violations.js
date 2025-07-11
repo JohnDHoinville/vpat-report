@@ -890,10 +890,11 @@ router.get('/session/:sessionId/all-results', async (req, res) => {
                     FROM automated_test_results atr
                     JOIN discovered_pages dp ON atr.page_id = dp.id
                     CROSS JOIN LATERAL (
+                        -- Extract detailed pass data when available as array
                         SELECT 
-                            pass_item->>'id' as rule_id,
-                            pass_item->>'description' as description,
-                            pass_item->>'help' as help_text,
+                            COALESCE(pass_item->>'id', 'automated-pass') as rule_id,
+                            COALESCE(pass_item->>'description', 'Automated test passed') as description,
+                            COALESCE(pass_item->>'help', 'This test passed successfully') as help_text,
                             pass_item->>'helpUrl' as help_url,
                             CASE 
                                 WHEN pass_item->'tags' ? '1.1.1' THEN '1.1.1'
@@ -915,8 +916,28 @@ router.get('/session/:sessionId/all-results', async (req, res) => {
                                 ''
                             ) as element_html
                         FROM jsonb_array_elements(
-                            COALESCE(atr.raw_results->'result'->'passes', atr.raw_results->'passes', '[]'::jsonb)
+                            CASE 
+                                WHEN jsonb_typeof(COALESCE(atr.raw_results->'result'->'passes', atr.raw_results->'passes')) = 'array' 
+                                THEN COALESCE(atr.raw_results->'result'->'passes', atr.raw_results->'passes')
+                                ELSE '[]'::jsonb
+                            END
                         ) as pass_item
+                        WHERE jsonb_typeof(COALESCE(atr.raw_results->'result'->'passes', atr.raw_results->'passes')) = 'array'
+                        
+                        UNION ALL
+                        
+                        -- Generate summary entries when passes is scalar
+                        SELECT 
+                            (atr.tool_name || '-pass-' || generate_series.num) as rule_id,
+                            (atr.tool_name || ' automated test passed') as description,
+                            'This automated test passed successfully' as help_text,
+                            NULL as help_url,
+                            NULL as wcag_criterion,
+                            'body' as element_selector,
+                            '' as element_html
+                        FROM generate_series(1, LEAST(atr.passes_count, 10)) as generate_series(num)
+                        WHERE jsonb_typeof(COALESCE(atr.raw_results->'result'->'passes', atr.raw_results->'passes')) != 'array'
+                        AND atr.passes_count > 0
                     ) as passed_test
                     WHERE atr.test_session_id = $1 AND atr.passes_count > 0
                 ) all_passes
@@ -932,12 +953,11 @@ router.get('/session/:sessionId/all-results', async (req, res) => {
                     
                     UNION ALL
                     
-                    SELECT atr.id FROM automated_test_results atr
-                    CROSS JOIN LATERAL (
-                        SELECT 1 FROM jsonb_array_elements(
-                            COALESCE(atr.raw_results->'result'->'passes', atr.raw_results->'passes', '[]'::jsonb)
-                        )
-                    ) as passed_test
+                    -- Count automated pass entries based on passes_count
+                    SELECT 
+                        (atr.id::text || '-' || generate_series.num) as synthetic_id
+                    FROM automated_test_results atr
+                    CROSS JOIN generate_series(1, LEAST(atr.passes_count, 10)) as generate_series(num)
                     WHERE atr.test_session_id = $1 AND atr.passes_count > 0
                 ) all_passes
             `;
@@ -1031,10 +1051,11 @@ router.get('/session/:sessionId/all-results', async (req, res) => {
                     FROM automated_test_results atr
                     JOIN discovered_pages dp ON atr.page_id = dp.id
                     CROSS JOIN LATERAL (
+                        -- Extract detailed pass data when available as array
                         SELECT 
-                            pass_item->>'id' as rule_id,
-                            pass_item->>'description' as description,
-                            pass_item->>'help' as help_text,
+                            COALESCE(pass_item->>'id', 'automated-pass') as rule_id,
+                            COALESCE(pass_item->>'description', 'Automated test passed') as description,
+                            COALESCE(pass_item->>'help', 'This test passed successfully') as help_text,
                             pass_item->>'helpUrl' as help_url,
                             CASE 
                                 WHEN pass_item->'tags' ? '1.1.1' THEN '1.1.1'
@@ -1056,8 +1077,28 @@ router.get('/session/:sessionId/all-results', async (req, res) => {
                                 ''
                             ) as element_html
                         FROM jsonb_array_elements(
-                            COALESCE(atr.raw_results->'result'->'passes', atr.raw_results->'passes', '[]'::jsonb)
+                            CASE 
+                                WHEN jsonb_typeof(COALESCE(atr.raw_results->'result'->'passes', atr.raw_results->'passes')) = 'array' 
+                                THEN COALESCE(atr.raw_results->'result'->'passes', atr.raw_results->'passes')
+                                ELSE '[]'::jsonb
+                            END
                         ) as pass_item
+                        WHERE jsonb_typeof(COALESCE(atr.raw_results->'result'->'passes', atr.raw_results->'passes')) = 'array'
+                        
+                        UNION ALL
+                        
+                        -- Generate summary entries when passes is scalar
+                        SELECT 
+                            (atr.tool_name || '-pass-' || generate_series.num) as rule_id,
+                            (atr.tool_name || ' automated test passed') as description,
+                            'This automated test passed successfully' as help_text,
+                            NULL as help_url,
+                            NULL as wcag_criterion,
+                            'body' as element_selector,
+                            '' as element_html
+                        FROM generate_series(1, LEAST(atr.passes_count, 10)) as generate_series(num)
+                        WHERE jsonb_typeof(COALESCE(atr.raw_results->'result'->'passes', atr.raw_results->'passes')) != 'array'
+                        AND atr.passes_count > 0
                     ) as passed_test
                     WHERE atr.test_session_id = $1 AND atr.passes_count > 0
                 ) all_results
@@ -1080,12 +1121,11 @@ router.get('/session/:sessionId/all-results', async (req, res) => {
                     
                     UNION ALL
                     
-                    SELECT atr.id FROM automated_test_results atr
-                    CROSS JOIN LATERAL (
-                        SELECT 1 FROM jsonb_array_elements(
-                            COALESCE(atr.raw_results->'result'->'passes', atr.raw_results->'passes', '[]'::jsonb)
-                        )
-                    ) as passed_test
+                    -- Count automated pass entries based on passes_count
+                    SELECT 
+                        (atr.id::text || '-' || generate_series.num) as synthetic_id
+                    FROM automated_test_results atr
+                    CROSS JOIN generate_series(1, LEAST(atr.passes_count, 10)) as generate_series(num)
                     WHERE atr.test_session_id = $1 AND atr.passes_count > 0
                 ) all_results
             `;

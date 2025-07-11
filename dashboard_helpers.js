@@ -124,10 +124,13 @@ function dashboard() {
         },
         violationPagination: {
             limit: 50,
-            offset: 0,
+            page: 1,
             total: 0,
-            has_more: false
+            pages: 0,
+            hasNext: false,
+            hasPrev: false
         },
+        jumpToPageNumber: 1,
         loadingViolations: false,
 
         // Automated Test Details Modal State
@@ -2298,13 +2301,14 @@ function dashboard() {
             this.showViolationInspector = true;
             
             // Reset pagination and filters
-            this.violationPagination.offset = 0;
+            this.violationPagination.page = 1;
+            this.jumpToPageNumber = 1;
             this.violations = [];
             
             try {
                 await Promise.all([
                     this.loadViolationSummary(session.id),
-                    this.loadViolations(session.id)
+                    this.loadViolations(session.id, 1)
                 ]);
             } catch (error) {
                 console.error('Error opening violation inspector:', error);
@@ -2318,6 +2322,8 @@ function dashboard() {
             this.violations = [];
             this.violationSummary = {};
             this.selectedViolation = null;
+            this.violationPagination.page = 1;
+            this.jumpToPageNumber = 1;
             this.resetViolationFilters();
         },
 
@@ -2347,15 +2353,17 @@ function dashboard() {
             }
         },
 
-        async loadViolations(sessionId) {
+        async loadViolations(sessionId, page = null) {
             if (this.loadingViolations) return;
             
             this.loadingViolations = true;
             
             try {
+                const currentPage = page || this.violationPagination.page;
+                
                 const params = new URLSearchParams({
+                    page: currentPage,
                     limit: this.violationPagination.limit,
-                    offset: this.violationPagination.offset,
                     sort_by: this.violationSort.by,
                     sort_order: this.violationSort.order
                 });
@@ -2385,13 +2393,20 @@ function dashboard() {
                 
                 const data = await response.json();
                 
-                if (this.violationPagination.offset === 0) {
-                    this.violations = data.data || data.violations || data.results || [];
-                } else {
-                    this.violations.push(...(data.data || data.violations || data.results || []));
-                }
+                // Replace violations instead of appending for page-based pagination
+                this.violations = data.data || data.violations || data.results || [];
+                this.violationPagination = data.pagination || {
+                    page: currentPage,
+                    limit: this.violationPagination.limit,
+                    total: data.total || 0,
+                    pages: Math.ceil((data.total || 0) / this.violationPagination.limit),
+                    hasNext: currentPage < Math.ceil((data.total || 0) / this.violationPagination.limit),
+                    hasPrev: currentPage > 1
+                };
                 
-                this.violationPagination = data.pagination;
+                // Update jump to page number to current page
+                this.jumpToPageNumber = currentPage;
+                
             } catch (error) {
                 console.error('Error loading test results:', error);
                 this.addNotification('Error', 'Failed to load test results', 'error');
@@ -2400,17 +2415,57 @@ function dashboard() {
             }
         },
 
-        async loadMoreViolations() {
-            if (!this.violationPagination.has_more || this.loadingViolations) return;
+        async goToPage(page) {
+            if (page < 1 || page > this.violationPagination.pages || this.loadingViolations) return;
             
-            this.violationPagination.offset += this.violationPagination.limit;
-            await this.loadViolations(this.violationInspectorSession.id);
+            await this.loadViolations(this.violationInspectorSession.id, page);
+        },
+
+        getVisiblePageNumbers() {
+            const current = this.violationPagination.page;
+            const total = this.violationPagination.pages;
+            const visible = [];
+            
+            if (total <= 7) {
+                // Show all pages if 7 or fewer
+                for (let i = 1; i <= total; i++) {
+                    visible.push(i);
+                }
+            } else {
+                // Always show first page
+                visible.push(1);
+                
+                if (current <= 4) {
+                    // Current page is near the beginning
+                    for (let i = 2; i <= 5; i++) {
+                        visible.push(i);
+                    }
+                    visible.push('...');
+                    visible.push(total);
+                } else if (current >= total - 3) {
+                    // Current page is near the end
+                    visible.push('...');
+                    for (let i = total - 4; i <= total; i++) {
+                        visible.push(i);
+                    }
+                } else {
+                    // Current page is in the middle
+                    visible.push('...');
+                    for (let i = current - 1; i <= current + 1; i++) {
+                        visible.push(i);
+                    }
+                    visible.push('...');
+                    visible.push(total);
+                }
+            }
+            
+            return visible.filter(page => page !== '...' || visible.indexOf(page) === visible.lastIndexOf(page));
         },
 
         async applyViolationFilters() {
-            this.violationPagination.offset = 0;
+            this.violationPagination.page = 1;
             this.violations = [];
-            await this.loadViolations(this.violationInspectorSession.id);
+            await this.loadViolations(this.violationInspectorSession.id, 1);
         },
 
         resetViolationFilters() {
@@ -2429,6 +2484,8 @@ function dashboard() {
                 by: 'severity',
                 order: 'desc'
             };
+            this.violationPagination.page = 1;
+            this.jumpToPageNumber = 1;
         },
 
         async sortViolations(field) {
@@ -2439,9 +2496,9 @@ function dashboard() {
                 this.violationSort.order = 'asc';
             }
             
-            this.violationPagination.offset = 0;
+            this.violationPagination.page = 1;
             this.violations = [];
-            await this.loadViolations(this.violationInspectorSession.id);
+            await this.loadViolations(this.violationInspectorSession.id, 1);
         },
 
         async viewViolationDetails(violation) {
@@ -2643,14 +2700,15 @@ function dashboard() {
             this.violationInspectorSession = session;
             
             // Reset pagination and filters
-            this.violationPagination.offset = 0;
+            this.violationPagination.page = 1;
+            this.jumpToPageNumber = 1;
             this.violations = [];
             this.resetViolationFilters();
             
             try {
                 await Promise.all([
                     this.loadViolationSummary(session.id),
-                    this.loadViolations(session.id)
+                    this.loadViolations(session.id, 1)
                 ]);
                 
                 this.addNotification('Success', `Loaded results for ${session.name}`, 'success');
@@ -2666,6 +2724,8 @@ function dashboard() {
             this.violations = [];
             this.violationSummary = {};
             this.selectedViolation = null;
+            this.violationPagination.page = 1;
+            this.jumpToPageNumber = 1;
             this.resetViolationFilters();
         },
 
