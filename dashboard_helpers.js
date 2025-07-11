@@ -1975,11 +1975,6 @@ function dashboard() {
             }
         },
 
-        editAuthConfig(config) {
-            // Open edit modal (would need to be implemented)
-            this.showNotification('Edit authentication feature coming soon!', 'info');
-        },
-
         exportAuthConfig(config) {
             const exportData = {
                 ...config,
@@ -2002,17 +1997,20 @@ function dashboard() {
 
         editAuthConfig(config) {
             this.editingConfig = config;
+            
+            // Populate the form with ALL existing data
             this.editAuthForm = {
-                name: config.name || config.domain,
-                url: config.url,
-                type: config.type,
+                name: config.name || config.domain || '',
+                url: config.url || '',
+                type: config.type || 'basic',
                 username: config.username || '',
                 password: '', // Don't pre-fill password for security
-                loginPage: config.loginPage || '',
-                successUrl: config.successUrl || '',
+                loginPage: config.loginPage || config.login_page || '',
+                successUrl: config.successUrl || config.success_url || '',
                 apiKey: '', // Don't pre-fill API key for security
                 token: '' // Don't pre-fill token for security
             };
+            
             this.showEditAuth = true;
         },
 
@@ -2021,9 +2019,25 @@ function dashboard() {
                 if (!this.editingConfig) return;
 
                 this.loading = true;
+                
+                // Prepare the update data, including all form fields
+                const updateData = {
+                    name: this.editAuthForm.name,
+                    url: this.editAuthForm.url,
+                    type: this.editAuthForm.type,
+                    username: this.editAuthForm.username,
+                    password: this.editAuthForm.password, // Will be empty if not changed
+                    loginPage: this.editAuthForm.loginPage,
+                    successUrl: this.editAuthForm.successUrl,
+                    apiKey: this.editAuthForm.apiKey, // Will be empty if not changed
+                    token: this.editAuthForm.token // Will be empty if not changed
+                };
+                
+                console.log('🔄 Updating auth config with data:', updateData);
+                
                 const response = await this.apiCall(`/auth/configs/${this.editingConfig.id}`, {
                     method: 'PUT',
-                    body: JSON.stringify(this.editAuthForm)
+                    body: JSON.stringify(updateData)
                 });
 
                 // Update the config in the local array

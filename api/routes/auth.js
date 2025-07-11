@@ -721,6 +721,13 @@ router.put('/configs/:configId', authenticateToken, async (req, res) => {
     try {
         const { configId } = req.params;
         const { name, url, type, username, password, loginPage, successUrl, apiKey, token } = req.body;
+        
+        console.log(`🔄 Updating auth config ${configId} with data:`, {
+            name, url, type, username: username ? '[SET]' : '[EMPTY]', 
+            password: password ? '[SET]' : '[EMPTY]', loginPage, successUrl,
+            apiKey: apiKey ? '[SET]' : '[EMPTY]', token: token ? '[SET]' : '[EMPTY]'
+        });
+        
         const authStatesDir = path.join(__dirname, '../../reports/auth-states');
         const configFile = path.join(authStatesDir, `${configId}.json`);
         
@@ -734,24 +741,48 @@ router.put('/configs/:configId', authenticateToken, async (req, res) => {
         // Read existing configuration
         const existingConfig = JSON.parse(fs.readFileSync(configFile, 'utf8'));
         
-        // Update configuration with new values
+        // Update configuration with new values (use provided values or keep existing)
         const updatedConfig = {
             ...existingConfig,
-            name: name || existingConfig.name,
-            url: url || existingConfig.url,
-            type: type || existingConfig.type,
+            name: name !== undefined ? name : existingConfig.name,
+            url: url !== undefined ? url : existingConfig.url,
+            type: type !== undefined ? type : existingConfig.type,
             updated_at: new Date().toISOString()
         };
         
-        // Update type-specific fields
-        if (type === 'basic') {
-            if (username) updatedConfig.username = username;
-            if (password) updatedConfig.password = password;
-            if (loginPage) updatedConfig.loginPage = loginPage;
-            if (successUrl) updatedConfig.successUrl = successUrl;
-        } else if (type === 'advanced') {
-            if (apiKey) updatedConfig.apiKey = apiKey;
-            if (token) updatedConfig.token = token;
+        // Update type-specific fields based on the type
+        const currentType = type || existingConfig.type;
+        
+        if (currentType === 'basic') {
+            // For basic auth, update provided fields (allow empty strings to clear fields)
+            if (username !== undefined) updatedConfig.username = username;
+            if (password !== undefined && password !== '') updatedConfig.password = password; // Don't clear password if empty
+            if (loginPage !== undefined) updatedConfig.loginPage = loginPage;
+            if (successUrl !== undefined) updatedConfig.successUrl = successUrl;
+            
+            // Clear advanced auth fields when switching to basic
+            delete updatedConfig.apiKey;
+            delete updatedConfig.token;
+            
+        } else if (currentType === 'advanced') {
+            // For advanced auth, update provided fields (allow empty strings to clear fields) 
+            if (apiKey !== undefined && apiKey !== '') updatedConfig.apiKey = apiKey; // Don't clear apiKey if empty
+            if (token !== undefined && token !== '') updatedConfig.token = token; // Don't clear token if empty
+            
+            // Clear basic auth fields when switching to advanced
+            delete updatedConfig.username;
+            delete updatedConfig.password;
+            delete updatedConfig.loginPage;
+            delete updatedConfig.successUrl;
+            
+        } else if (currentType === 'sso') {
+            // For SSO, clear other auth fields
+            delete updatedConfig.username;
+            delete updatedConfig.password;
+            delete updatedConfig.loginPage;
+            delete updatedConfig.successUrl;
+            delete updatedConfig.apiKey;
+            delete updatedConfig.token;
         }
         
         // Write updated configuration
