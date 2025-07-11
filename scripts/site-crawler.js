@@ -262,14 +262,29 @@ class SiteCrawler {
                     timeout: this.options.timeout
                 });
                 
+                // Ensure URLs have proper protocols
+                const normalizeUrl = (url, baseUrl) => {
+                    if (!url) return url;
+                    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+                    
+                    // If URL starts with domain, add protocol
+                    if (url.includes('.')) {
+                        const protocol = new URL(baseUrl).protocol;
+                        return `${protocol}//${url}`;
+                    }
+                    
+                    // If URL is a path, make it relative to base URL
+                    return new URL(url, baseUrl).toString();
+                };
+                
                 authHelper.registerAuth(domain, {
-                    loginUrl: this.options.authConfig.loginUrl,
+                    loginUrl: normalizeUrl(this.options.authConfig.loginUrl, rootUrl),
                     username: this.options.authConfig.username || process.env.TEST_USERNAME,
                     password: this.options.authConfig.password || process.env.TEST_PASSWORD,
                     usernameSelector: this.options.authConfig.usernameSelector,
                     passwordSelector: this.options.authConfig.passwordSelector,
                     submitSelector: this.options.authConfig.submitSelector,
-                    successUrl: this.options.authConfig.successUrl,
+                    successUrl: normalizeUrl(this.options.authConfig.successUrl, rootUrl),
                     additionalSteps: this.options.authConfig.additionalSteps || [],
                     customLogin: this.options.authConfig.customLogin || null
                 });

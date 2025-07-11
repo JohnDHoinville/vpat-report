@@ -204,27 +204,54 @@ class SiteDiscoveryService {
             await this.updateDiscoveryStatus(discoveryId, 'in_progress');
 
             // Check for authentication for this domain
-            const authConfig = await this.checkAuthenticationAvailable(primaryUrl);
+            let authConfig = null;
+            try {
+                authConfig = await this.checkAuthenticationAvailable(primaryUrl);
+            } catch (error) {
+                console.warn(`⚠️ Authentication check failed for ${primaryUrl}:`, error.message);
+                // Continue without authentication
+            }
             
             // Configure crawler settings with authentication if available
             const crawlerSettings = { ...settings };
             
             if (authConfig) {
-                crawlerSettings.useAuth = true;
-                if (authConfig.type === 'traditional') {
-                    crawlerSettings.authConfig = authConfig.authConfig;
-                }
-                console.log(`🔐 Using ${authConfig.type} authentication for ${authConfig.domain} (${authConfig.sessionFile || authConfig.configFile})`);
-                
-                // Emit authentication info via WebSocket
-                if (this.wsService) {
-                    const projectId = await this.getProjectIdFromDiscovery(discoveryId);
-                    this.wsService.emitDiscoveryMilestone(projectId, discoveryId, {
-                        type: 'authentication_detected',
-                        message: `Using ${authConfig.type} authentication for ${authConfig.domain}`,
-                        authType: authConfig.type,
-                        domain: authConfig.domain
-                    });
+                try {
+                    crawlerSettings.useAuth = true;
+                    if (authConfig.type === 'traditional') {
+                        // Ensure auth config has proper URLs with protocols
+                        const authConfigWithProtocol = { ...authConfig.authConfig };
+                        if (authConfigWithProtocol.loginUrl && !authConfigWithProtocol.loginUrl.startsWith('http')) {
+                            const urlObj = new URL(primaryUrl);
+                            authConfigWithProtocol.loginUrl = `${urlObj.protocol}//${authConfigWithProtocol.loginUrl}`;
+                        }
+                        crawlerSettings.authConfig = authConfigWithProtocol;
+                    }
+                    console.log(`🔐 Using ${authConfig.type} authentication for ${authConfig.domain} (${authConfig.sessionFile || authConfig.configFile})`);
+                    
+                    // Emit authentication info via WebSocket
+                    if (this.wsService) {
+                        const projectId = await this.getProjectIdFromDiscovery(discoveryId);
+                        this.wsService.emitDiscoveryMilestone(projectId, discoveryId, {
+                            type: 'authentication_detected',
+                            message: `Using ${authConfig.type} authentication for ${authConfig.domain}`,
+                            authType: authConfig.type,
+                            domain: authConfig.domain
+                        });
+                    }
+                } catch (error) {
+                    console.warn(`⚠️ Authentication setup failed, continuing without authentication:`, error.message);
+                    crawlerSettings.useAuth = false;
+                    
+                    // Emit warning via WebSocket
+                    if (this.wsService) {
+                        const projectId = await this.getProjectIdFromDiscovery(discoveryId);
+                        this.wsService.emitDiscoveryMilestone(projectId, discoveryId, {
+                            type: 'authentication_warning',
+                            message: `Authentication setup failed, continuing as public site`,
+                            warning: error.message
+                        });
+                    }
                 }
             } else {
                 console.log(`🌐 No authentication found for ${new URL(primaryUrl).hostname}, crawling as public site`);
