@@ -1,244 +1,269 @@
-const express = require('express');
-const { db } = require('../../database/config');
-const { v4: uuidv4 } = require('uuid');
-
-const router = express.Router();
-
 /**
- * Test Session Routes
- * Handles CRUD operations for accessibility test sessions
+ * Testing Sessions API Routes
+ * Unified Testing Session Architecture
+ * Created: December 11, 2024
  */
+
+const express = require('express');
+const router = express.Router();
+const pool = require('../../database/config');
+const AuditLogger = require('../middleware/audit-logger');
+
+// Apply audit logging middleware to all routes
+router.use(AuditLogger.auditMiddleware());
 
 /**
  * GET /api/sessions
- * List all test sessions with optional filtering and pagination
+ * List testing sessions with filtering and pagination
  */
 router.get('/', async (req, res) => {
     try {
         const {
-            page = 1,
-            limit = 50,
             project_id,
             status,
-            search,
-            sort = 'created_at',
-            order = 'DESC'
+            conformance_level,
+            page = 1,
+            limit = 20,
+            sort_by = 'updated_at',
+            sort_order = 'DESC',
+            search
         } = req.query;
 
-        // Validate pagination
-        const pageNum = Math.max(1, parseInt(page));
-        const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
-        const offset = (pageNum - 1) * limitNum;
-
-        // Build query conditions
-        let whereClause = '';
+        // Build WHERE conditions
+        let whereConditions = [];
         let queryParams = [];
         let paramIndex = 1;
 
         if (project_id) {
-            whereClause += ` AND ts.project_id = $${paramIndex}`;
+            whereConditions.push(`ts.project_id = $${paramIndex}`);
             queryParams.push(project_id);
             paramIndex++;
         }
 
         if (status) {
-            whereClause += ` AND ts.status = $${paramIndex}`;
+            whereConditions.push(`ts.status = $${paramIndex}`);
             queryParams.push(status);
             paramIndex++;
         }
 
-        if (search) {
-            whereClause += ` AND (ts.name ILIKE $${paramIndex} OR ts.description ILIKE $${paramIndex + 1})`;
-            queryParams.push(`%${search}%`, `%${search}%`);
-            paramIndex += 2;
+        if (conformance_level) {
+            whereConditions.push(`ts.conformance_level = $${paramIndex}`);
+            queryParams.push(conformance_level);
+            paramIndex++;
         }
 
-        // Validate sort column
-        const allowedSortColumns = ['name', 'status', 'created_at', 'updated_at'];
-        const sortColumn = allowedSortColumns.includes(sort) ? sort : 'created_at';
-        const sortOrder = order.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+        if (search) {
+            whereConditions.push(`(ts.name ILIKE $${paramIndex} OR ts.description ILIKE $${paramIndex})`);
+            queryParams.push(`%${search}%`);
+            paramIndex++;
+        }
 
-        // Get total count
-        const countQuery = `
-            SELECT COUNT(*) 
-            FROM test_sessions ts 
-            WHERE 1=1 ${whereClause}
-        `;
-        const countResult = await db.query(countQuery, queryParams);
-        const totalItems = parseInt(countResult.rows[0].count);
+        const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
+        
+        // Validate sort parameters
+        const allowedSortFields = ['name', 'created_at', 'updated_at', 'completion_percentage', 'status'];
+        const sortField = allowedSortFields.includes(sort_by) ? sort_by : 'updated_at';
+        const sortDirection = sort_order.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
 
-        // Get sessions
-        queryParams.push(limitNum, offset);
-        const sessionsQuery = `
+        // Calculate offset
+        const offset = (parseInt(page) - 1) * parseInt(limit);
+
+        // Main query
+        const query = `
             SELECT 
-                ts.*,
+                ts.id,
+                ts.name,
+                ts.description,
+                ts.conformance_level,
+                ts.status,
+                ts.total_tests_count,
+                ts.completed_tests_count,
+                ts.passed_tests_count,
+                ts.failed_tests_count,
+                ts.completion_percentage,
+                ts.estimated_completion_date,
+                ts.created_at,
+                ts.updated_at,
                 p.name as project_name,
-                (
-                    SELECT COUNT(*) 
-                    FROM automated_test_results atr 
-                    WHERE atr.test_session_id = ts.id
-                ) as result_count,
-                (
-                    SELECT COUNT(DISTINCT atr.page_id) 
-                    FROM automated_test_results atr 
-                    WHERE atr.test_session_id = ts.id
-                ) as pages_tested
+                p.url as project_url,
+                au.username as created_by_username,
+                COUNT(ti.id) as current_test_instances
             FROM test_sessions ts
-            JOIN projects p ON ts.project_id = p.id
-            WHERE 1=1 ${whereClause}
-            ORDER BY ts.${sortColumn} ${sortOrder}
+            LEFT JOIN projects p ON ts.project_id = p.id
+            LEFT JOIN auth_users au ON ts.created_by = au.id
+            LEFT JOIN test_instances ti ON ts.id = ti.session_id
+            ${whereClause}
+            GROUP BY ts.id, p.name, p.url, au.username
+            ORDER BY ts.${sortField} ${sortDirection}
             LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
         `;
 
-        const result = await db.query(sessionsQuery, queryParams);
+        queryParams.push(parseInt(limit), offset);
+
+        const result = await pool.query(query, queryParams);
+
+        // Get total count for pagination
+        const countQuery = `
+            SELECT COUNT(DISTINCT ts.id) as total
+            FROM test_sessions ts
+            LEFT JOIN projects p ON ts.project_id = p.id
+            ${whereClause}
+        `;
+
+        const countResult = await pool.query(countQuery, queryParams.slice(0, -2)); // Remove limit and offset
+
+        const totalCount = parseInt(countResult.rows[0].total);
+        const totalPages = Math.ceil(totalCount / parseInt(limit));
 
         res.json({
+            success: true,
             data: result.rows,
             pagination: {
-                current_page: pageNum,
-                per_page: limitNum,
-                total_items: totalItems,
-                total_pages: Math.ceil(totalItems / limitNum),
-                has_next: pageNum * limitNum < totalItems,
-                has_prev: pageNum > 1
-            },
-            meta: {
-                project_id,
-                status,
-                search,
-                sort: sortColumn,
-                order: sortOrder
+                current_page: parseInt(page),
+                total_pages: totalPages,
+                total_count: totalCount,
+                limit: parseInt(limit),
+                has_next: parseInt(page) < totalPages,
+                has_prev: parseInt(page) > 1
             }
         });
 
     } catch (error) {
-        console.error('Error fetching sessions:', error);
+        console.error('Error fetching testing sessions:', error);
         res.status(500).json({
-            error: 'Failed to fetch sessions',
-            message: error.message
+            success: false,
+            message: 'Failed to fetch testing sessions',
+            error: error.message
         });
     }
 });
 
 /**
  * GET /api/sessions/:id
- * Get a specific test session by ID with related data
+ * Get detailed session information with progress summary
  */
 router.get('/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        const { include } = req.query;
+        const { include_tests = false } = req.query;
 
         // Get session details
         const sessionQuery = `
             SELECT 
                 ts.*,
                 p.name as project_name,
-                p.primary_url,
-                (
-                    SELECT COUNT(*) 
-                    FROM automated_test_results atr 
-                    WHERE atr.test_session_id = ts.id
-                ) as result_count,
-                (
-                    SELECT COUNT(DISTINCT atr.page_id) 
-                    FROM automated_test_results atr 
-                    WHERE atr.test_session_id = ts.id
-                ) as pages_tested,
-                (
-                    SELECT SUM(atr.violations_count) 
-                    FROM automated_test_results atr 
-                    WHERE atr.test_session_id = ts.id
-                ) as total_violations
+                p.url as project_url,
+                p.description as project_description,
+                au_created.username as created_by_username,
+                au_updated.username as updated_by_username
             FROM test_sessions ts
-            JOIN projects p ON ts.project_id = p.id
+            LEFT JOIN projects p ON ts.project_id = p.id
+            LEFT JOIN auth_users au_created ON ts.created_by = au_created.id
+            LEFT JOIN auth_users au_updated ON ts.updated_by = au_updated.id
             WHERE ts.id = $1
         `;
 
-        const result = await db.query(sessionQuery, [id]);
+        const sessionResult = await pool.query(sessionQuery, [id]);
 
-        if (result.rows.length === 0) {
+        if (sessionResult.rows.length === 0) {
             return res.status(404).json({
-                error: 'Session not found',
-                id
+                success: false,
+                message: 'Testing session not found'
             });
         }
 
-        const session = result.rows[0];
+        const session = sessionResult.rows[0];
 
-        // Include related data if requested
-        if (include) {
-            const includeItems = include.split(',');
+        // Get detailed progress statistics
+        const progressQuery = `
+            SELECT 
+                COUNT(*) as total_tests,
+                COUNT(*) FILTER (WHERE status = 'pending') as pending_tests,
+                COUNT(*) FILTER (WHERE status = 'in_progress') as in_progress_tests,
+                COUNT(*) FILTER (WHERE status = 'passed') as passed_tests,
+                COUNT(*) FILTER (WHERE status = 'failed') as failed_tests,
+                COUNT(*) FILTER (WHERE status = 'untestable') as untestable_tests,
+                COUNT(*) FILTER (WHERE status = 'not_applicable') as not_applicable_tests,
+                COUNT(*) FILTER (WHERE status = 'needs_review') as needs_review_tests,
+                COUNT(*) FILTER (WHERE test_method_used = 'automated') as automated_tests,
+                COUNT(*) FILTER (WHERE test_method_used = 'manual') as manual_tests,
+                COUNT(DISTINCT assigned_tester) as unique_testers,
+                COUNT(DISTINCT page_id) as pages_tested
+            FROM test_instances 
+            WHERE session_id = $1
+        `;
 
-            if (includeItems.includes('results')) {
-                const resultsQuery = `
-                    SELECT 
-                        atr.*,
-                        dp.url as page_url,
-                        dp.title as page_title
-                    FROM automated_test_results atr
-                    JOIN discovered_pages dp ON atr.page_id = dp.id
-                    WHERE atr.test_session_id = $1
-                    ORDER BY atr.executed_at DESC
-                `;
-                const resultsResult = await db.query(resultsQuery, [id]);
-                session.results = resultsResult.rows;
-            }
+        const progressResult = await pool.query(progressQuery, [id]);
+        const progress = progressResult.rows[0];
 
-            if (includeItems.includes('pages')) {
-                const pagesQuery = `
-                    SELECT DISTINCT
-                        dp.id,
-                        dp.url,
-                        dp.title,
-                        dp.page_type,
-                        (
-                            SELECT COUNT(*) 
-                            FROM automated_test_results atr 
-                            WHERE atr.page_id = dp.id AND atr.test_session_id = $1
-                        ) as test_count
-                    FROM discovered_pages dp
-                    JOIN automated_test_results atr ON dp.id = atr.page_id
-                    WHERE atr.test_session_id = $1
-                    ORDER BY dp.url
-                `;
-                const pagesResult = await db.query(pagesQuery, [id]);
-                session.pages = pagesResult.rows;
-            }
+        // Get requirement breakdown
+        const requirementBreakdown = await pool.query(`
+            SELECT 
+                tr.requirement_type,
+                tr.level,
+                COUNT(*) as total_requirements,
+                COUNT(*) FILTER (WHERE ti.status = 'passed') as passed_requirements,
+                COUNT(*) FILTER (WHERE ti.status = 'failed') as failed_requirements
+            FROM test_requirements tr
+            LEFT JOIN test_instances ti ON tr.id = ti.requirement_id AND ti.session_id = $1
+            WHERE tr.is_active = true
+            GROUP BY tr.requirement_type, tr.level
+            ORDER BY tr.requirement_type, tr.level
+        `, [id]);
 
-            if (includeItems.includes('summary')) {
-                const summaryQuery = `
-                    SELECT 
-                        atr.tool_name,
-                        COUNT(*) as test_count,
-                        SUM(atr.violations_count) as total_violations,
-                        AVG(atr.violations_count) as avg_violations,
-                        MIN(atr.executed_at) as first_test,
-                        MAX(atr.executed_at) as last_test
-                    FROM automated_test_results atr
-                    WHERE atr.test_session_id = $1
-                    GROUP BY atr.tool_name
-                    ORDER BY test_count DESC
-                `;
-                const summaryResult = await db.query(summaryQuery, [id]);
-                session.tool_summary = summaryResult.rows;
-            }
+        // Optionally include test instances
+        let testInstances = null;
+        if (include_tests === 'true') {
+            const testsQuery = `
+                SELECT 
+                    ti.id,
+                    ti.status,
+                    ti.assigned_tester,
+                    ti.confidence_level,
+                    ti.test_method_used,
+                    ti.updated_at,
+                    tr.criterion_number,
+                    tr.title as requirement_title,
+                    tr.requirement_type,
+                    tr.level as requirement_level,
+                    dp.url as page_url,
+                    dp.title as page_title,
+                    au.username as tester_username
+                FROM test_instances ti
+                JOIN test_requirements tr ON ti.requirement_id = tr.id
+                LEFT JOIN discovered_pages dp ON ti.page_id = dp.id
+                LEFT JOIN auth_users au ON ti.assigned_tester = au.id
+                WHERE ti.session_id = $1
+                ORDER BY tr.criterion_number, dp.url
+            `;
+
+            const testsResult = await pool.query(testsQuery, [id]);
+            testInstances = testsResult.rows;
         }
 
-        res.json(session);
+        res.json({
+            success: true,
+            data: {
+                session,
+                progress,
+                requirement_breakdown: requirementBreakdown.rows,
+                test_instances: testInstances
+            }
+        });
 
     } catch (error) {
-        console.error('Error fetching session:', error);
+        console.error('Error fetching session details:', error);
         res.status(500).json({
-            error: 'Failed to fetch session',
-            message: error.message
+            success: false,
+            message: 'Failed to fetch session details',
+            error: error.message
         });
     }
 });
 
 /**
  * POST /api/sessions
- * Create a new test session
+ * Create a new testing session with conformance level selection
  */
 router.post('/', async (req, res) => {
     try {
@@ -246,83 +271,104 @@ router.post('/', async (req, res) => {
             project_id,
             name,
             description,
-            scope = {},
-            test_type = 'full',
-            status = 'planning'
+            conformance_level,
+            page_scope = 'all', // 'all' or 'selected'
+            selected_pages = [],
+            auto_generate_tests = true
         } = req.body;
 
         // Validate required fields
-        if (!project_id) {
+        if (!project_id || !name || !conformance_level) {
             return res.status(400).json({
-                error: 'Validation failed',
-                message: 'Project ID is required'
+                success: false,
+                message: 'Missing required fields: project_id, name, conformance_level'
             });
         }
 
-        if (!name) {
+        // Validate conformance level
+        const validConformanceLevels = ['wcag_a', 'wcag_aa', 'wcag_aaa', 'section_508', 'combined'];
+        if (!validConformanceLevels.includes(conformance_level)) {
             return res.status(400).json({
-                error: 'Validation failed',
-                message: 'Session name is required'
+                success: false,
+                message: 'Invalid conformance level'
             });
         }
 
         // Verify project exists
-        const projectExists = await db.query('SELECT id FROM projects WHERE id = $1', [project_id]);
-        if (projectExists.rows.length === 0) {
-            return res.status(400).json({
-                error: 'Validation failed',
+        const projectResult = await pool.query('SELECT id FROM projects WHERE id = $1', [project_id]);
+        if (projectResult.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
                 message: 'Project not found'
             });
         }
 
-        // Validate status
-        const allowedStatuses = ['planning', 'in_progress', 'completed', 'cancelled'];
-        if (!allowedStatuses.includes(status)) {
-            return res.status(400).json({
-                error: 'Validation failed',
-                message: `Status must be one of: ${allowedStatuses.join(', ')}`
+        // Start transaction
+        const client = await pool.connect();
+        
+        try {
+            await client.query('BEGIN');
+
+            // Create testing session
+            const sessionResult = await client.query(`
+                INSERT INTO test_sessions (
+                    project_id, name, description, conformance_level, 
+                    status, created_by, updated_by
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+                RETURNING *
+            `, [
+                project_id,
+                name,
+                description,
+                conformance_level,
+                'draft',
+                req.user?.id,
+                req.user?.id
+            ]);
+
+            const session = sessionResult.rows[0];
+
+            // Auto-generate test instances if requested
+            if (auto_generate_tests) {
+                await generateTestInstances(client, session.id, conformance_level, page_scope, selected_pages);
+            }
+
+            await client.query('COMMIT');
+
+            // Get updated session with statistics
+            const updatedSession = await pool.query(`
+                SELECT ts.*, p.name as project_name
+                FROM test_sessions ts
+                LEFT JOIN projects p ON ts.project_id = p.id
+                WHERE ts.id = $1
+            `, [session.id]);
+
+            res.status(201).json({
+                success: true,
+                message: 'Testing session created successfully',
+                data: updatedSession.rows[0]
             });
+
+        } catch (error) {
+            await client.query('ROLLBACK');
+            throw error;
+        } finally {
+            client.release();
         }
-
-        // Validate test type
-        const allowedTestTypes = ['full', 'automated_only', 'manual_only', 'followup'];
-        if (!allowedTestTypes.includes(test_type)) {
-            return res.status(400).json({
-                error: 'Validation failed',
-                message: `Test type must be one of: ${allowedTestTypes.join(', ')}`
-            });
-        }
-
-        // Create session
-        const id = uuidv4();
-        const insertQuery = `
-            INSERT INTO test_sessions (
-                id, project_id, name, description, scope, test_type, status
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7)
-            RETURNING *
-        `;
-
-        const result = await db.query(insertQuery, [
-            id, project_id, name, description, JSON.stringify(scope), test_type, status
-        ]);
-
-        res.status(201).json({
-            message: 'Test session created successfully',
-            data: result.rows[0]
-        });
 
     } catch (error) {
-        console.error('Error creating session:', error);
+        console.error('Error creating testing session:', error);
         res.status(500).json({
-            error: 'Failed to create session',
-            message: error.message
+            success: false,
+            message: 'Failed to create testing session',
+            error: error.message
         });
     }
 });
 
 /**
  * PUT /api/sessions/:id
- * Update an existing test session
+ * Update session metadata and status
  */
 router.put('/:id', async (req, res) => {
     try {
@@ -330,83 +376,71 @@ router.put('/:id', async (req, res) => {
         const {
             name,
             description,
-            scope,
-            test_type,
-            status
+            status,
+            estimated_completion_date
         } = req.body;
 
         // Check if session exists
-        const existsQuery = 'SELECT id FROM test_sessions WHERE id = $1';
-        const existsResult = await db.query(existsQuery, [id]);
-
-        if (existsResult.rows.length === 0) {
+        const existingSession = await pool.query('SELECT * FROM test_sessions WHERE id = $1', [id]);
+        if (existingSession.rows.length === 0) {
             return res.status(404).json({
-                error: 'Session not found',
-                id
+                success: false,
+                message: 'Testing session not found'
             });
         }
 
-        // Build dynamic update query
-        const updateFields = [];
-        const values = [];
+        // Build update query dynamically
+        let updateFields = [];
+        let queryParams = [];
         let paramIndex = 1;
 
         if (name !== undefined) {
             updateFields.push(`name = $${paramIndex}`);
-            values.push(name);
+            queryParams.push(name);
             paramIndex++;
         }
 
         if (description !== undefined) {
             updateFields.push(`description = $${paramIndex}`);
-            values.push(description);
-            paramIndex++;
-        }
-
-        if (scope !== undefined) {
-            updateFields.push(`scope = $${paramIndex}`);
-            values.push(JSON.stringify(scope));
-            paramIndex++;
-        }
-
-        if (test_type !== undefined) {
-            const allowedTestTypes = ['full', 'automated_only', 'manual_only', 'followup'];
-            if (!allowedTestTypes.includes(test_type)) {
-                return res.status(400).json({
-                    error: 'Validation failed',
-                    message: `Test type must be one of: ${allowedTestTypes.join(', ')}`
-                });
-            }
-
-            updateFields.push(`test_type = $${paramIndex}`);
-            values.push(test_type);
+            queryParams.push(description);
             paramIndex++;
         }
 
         if (status !== undefined) {
-            const allowedStatuses = ['planning', 'in_progress', 'completed', 'cancelled'];
-            if (!allowedStatuses.includes(status)) {
+            const validStatuses = ['draft', 'active', 'completed', 'archived'];
+            if (!validStatuses.includes(status)) {
                 return res.status(400).json({
-                    error: 'Validation failed',
-                    message: `Status must be one of: ${allowedStatuses.join(', ')}`
+                    success: false,
+                    message: 'Invalid status value'
                 });
             }
-
             updateFields.push(`status = $${paramIndex}`);
-            values.push(status);
+            queryParams.push(status);
+            paramIndex++;
+        }
+
+        if (estimated_completion_date !== undefined) {
+            updateFields.push(`estimated_completion_date = $${paramIndex}`);
+            queryParams.push(estimated_completion_date);
             paramIndex++;
         }
 
         if (updateFields.length === 0) {
             return res.status(400).json({
-                error: 'Validation failed',
-                message: 'No valid fields provided for update'
+                success: false,
+                message: 'No valid fields to update'
             });
         }
 
-        // Add updated_at and id to the query
+        // Add updated_by and updated_at
+        updateFields.push(`updated_by = $${paramIndex}`);
+        queryParams.push(req.user?.id);
+        paramIndex++;
+
         updateFields.push(`updated_at = CURRENT_TIMESTAMP`);
-        values.push(id);
+
+        // Add WHERE clause parameter
+        queryParams.push(id);
 
         const updateQuery = `
             UPDATE test_sessions 
@@ -415,377 +449,242 @@ router.put('/:id', async (req, res) => {
             RETURNING *
         `;
 
-        const result = await db.query(updateQuery, values);
+        const result = await pool.query(updateQuery, queryParams);
 
         res.json({
-            message: 'Session updated successfully',
+            success: true,
+            message: 'Testing session updated successfully',
             data: result.rows[0]
         });
 
     } catch (error) {
-        console.error('Error updating session:', error);
+        console.error('Error updating testing session:', error);
         res.status(500).json({
-            error: 'Failed to update session',
-            message: error.message
-        });
-    }
-});
-
-/**
- * POST /api/sessions/:id/pause
- * Pause a running test session
- */
-router.post('/:id/pause', async (req, res) => {
-    try {
-        const { id } = req.params;
-
-        // Check if session exists and is in progress
-        const checkQuery = `
-            SELECT id, name, status
-            FROM test_sessions 
-            WHERE id = $1
-        `;
-        const checkResult = await db.query(checkQuery, [id]);
-
-        if (checkResult.rows.length === 0) {
-            return res.status(404).json({
-                error: 'Session not found',
-                id
-            });
-        }
-
-        const session = checkResult.rows[0];
-
-        if (session.status !== 'in_progress') {
-            return res.status(400).json({
-                error: 'Can only pause sessions that are in progress',
-                current_status: session.status
-            });
-        }
-
-        // Update session status to paused and store pause timestamp
-        const pauseQuery = `
-            UPDATE test_sessions 
-            SET status = 'paused', 
-                updated_at = CURRENT_TIMESTAMP,
-                paused_at = CURRENT_TIMESTAMP
-            WHERE id = $1
-            RETURNING *
-        `;
-        const result = await db.query(pauseQuery, [id]);
-
-        // TODO: Signal any running test processes to pause
-        // This would integrate with the testing service to gracefully pause ongoing tests
-
-        res.json({
-            message: 'Session paused successfully',
-            session: result.rows[0]
-        });
-
-    } catch (error) {
-        console.error('Error pausing session:', error);
-        res.status(500).json({
-            error: 'Failed to pause session',
-            message: error.message
-        });
-    }
-});
-
-/**
- * POST /api/sessions/:id/resume
- * Resume a paused test session
- */
-router.post('/:id/resume', async (req, res) => {
-    try {
-        const { id } = req.params;
-
-        // Check if session exists and is paused
-        const checkQuery = `
-            SELECT id, name, status, paused_at
-            FROM test_sessions 
-            WHERE id = $1
-        `;
-        const checkResult = await db.query(checkQuery, [id]);
-
-        if (checkResult.rows.length === 0) {
-            return res.status(404).json({
-                error: 'Session not found',
-                id
-            });
-        }
-
-        const session = checkResult.rows[0];
-
-        if (session.status !== 'paused') {
-            return res.status(400).json({
-                error: 'Can only resume sessions that are paused',
-                current_status: session.status
-            });
-        }
-
-        // Update session status to in_progress and clear pause timestamp
-        const resumeQuery = `
-            UPDATE test_sessions 
-            SET status = 'in_progress', 
-                updated_at = CURRENT_TIMESTAMP,
-                paused_at = NULL,
-                resumed_at = CURRENT_TIMESTAMP
-            WHERE id = $1
-            RETURNING *
-        `;
-        const result = await db.query(resumeQuery, [id]);
-
-        // TODO: Signal testing service to resume from where it left off
-        // This would integrate with the testing service to continue testing
-
-        res.json({
-            message: 'Session resumed successfully',
-            session: result.rows[0]
-        });
-
-    } catch (error) {
-        console.error('Error resuming session:', error);
-        res.status(500).json({
-            error: 'Failed to resume session',
-            message: error.message
+            success: false,
+            message: 'Failed to update testing session',
+            error: error.message
         });
     }
 });
 
 /**
  * DELETE /api/sessions/:id
- * Delete a test session and all related data
+ * Archive session (soft delete)
  */
 router.delete('/:id', async (req, res) => {
     try {
         const { id } = req.params;
+        const { permanent = false } = req.query;
 
-        // Check if session exists and get related data count
-        const checkQuery = `
-            SELECT 
-                ts.name,
-                p.name as project_name,
-                (SELECT COUNT(*) FROM automated_test_results WHERE test_session_id = ts.id) as result_count
-            FROM test_sessions ts
-            JOIN projects p ON ts.project_id = p.id
-            WHERE ts.id = $1
-        `;
-        const checkResult = await db.query(checkQuery, [id]);
-
-        if (checkResult.rows.length === 0) {
+        // Check if session exists
+        const existingSession = await pool.query('SELECT * FROM test_sessions WHERE id = $1', [id]);
+        if (existingSession.rows.length === 0) {
             return res.status(404).json({
-                error: 'Session not found',
-                id
+                success: false,
+                message: 'Testing session not found'
             });
         }
 
-        const session = checkResult.rows[0];
+        if (permanent === 'true') {
+            // Permanent deletion (use with caution)
+            await pool.query('DELETE FROM test_sessions WHERE id = $1', [id]);
+            
+            res.json({
+                success: true,
+                message: 'Testing session permanently deleted'
+            });
+        } else {
+            // Soft delete - archive the session
+            await pool.query(`
+                UPDATE test_sessions 
+                SET status = 'archived', updated_by = $2, updated_at = CURRENT_TIMESTAMP
+                WHERE id = $1
+            `, [id, req.user?.id]);
 
-        // Delete session (cascading will handle related data)
-        const deleteQuery = 'DELETE FROM test_sessions WHERE id = $1';
-        await db.query(deleteQuery, [id]);
-
-        res.json({
-            message: 'Session deleted successfully',
-            deleted: {
-                id,
-                name: session.name,
-                project_name: session.project_name,
-                results_deleted: session.result_count
-            }
-        });
+            res.json({
+                success: true,
+                message: 'Testing session archived successfully'
+            });
+        }
 
     } catch (error) {
-        console.error('Error deleting session:', error);
+        console.error('Error deleting testing session:', error);
         res.status(500).json({
-            error: 'Failed to delete session',
-            message: error.message
+            success: false,
+            message: 'Failed to delete testing session',
+            error: error.message
         });
     }
 });
 
 /**
- * GET /api/sessions/:id/results
- * Get all test results for a specific session
+ * POST /api/sessions/:id/duplicate
+ * Duplicate an existing session
  */
-router.get('/:id/results', async (req, res) => {
+router.post('/:id/duplicate', async (req, res) => {
     try {
         const { id } = req.params;
-        const {
-            page = 1,
-            limit = 50,
-            tool_name,
-            sort = 'executed_at',
-            order = 'DESC'
-        } = req.query;
+        const { name, copy_test_results = false } = req.body;
 
-        // Check if session exists
-        const sessionExists = await db.query('SELECT id FROM test_sessions WHERE id = $1', [id]);
-        if (sessionExists.rows.length === 0) {
+        // Get original session
+        const originalSession = await pool.query('SELECT * FROM test_sessions WHERE id = $1', [id]);
+        if (originalSession.rows.length === 0) {
             return res.status(404).json({
-                error: 'Session not found',
-                id
+                success: false,
+                message: 'Original testing session not found'
             });
         }
 
-        // Validate pagination
-        const pageNum = Math.max(1, parseInt(page));
-        const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
-        const offset = (pageNum - 1) * limitNum;
+        const original = originalSession.rows[0];
+        const client = await pool.connect();
 
-        // Build query
-        let whereClause = 'WHERE atr.test_session_id = $1';
-        let queryParams = [id];
-        let paramIndex = 2;
+        try {
+            await client.query('BEGIN');
 
-        if (tool_name) {
-            whereClause += ` AND atr.tool_name = $${paramIndex}`;
-            queryParams.push(tool_name);
-            paramIndex++;
+            // Create duplicate session
+            const duplicateResult = await client.query(`
+                INSERT INTO test_sessions (
+                    project_id, name, description, conformance_level,
+                    status, created_by, updated_by
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+                RETURNING *
+            `, [
+                original.project_id,
+                name || `${original.name} (Copy)`,
+                original.description,
+                original.conformance_level,
+                'draft',
+                req.user?.id,
+                req.user?.id
+            ]);
+
+            const duplicateSession = duplicateResult.rows[0];
+
+            // Copy test instances
+            if (copy_test_results) {
+                await client.query(`
+                    INSERT INTO test_instances (
+                        session_id, requirement_id, page_id, status,
+                        notes, evidence, test_method_used, assigned_tester,
+                        confidence_level
+                    )
+                    SELECT 
+                        $1, requirement_id, page_id, 
+                        CASE WHEN $2 THEN status ELSE 'pending' END,
+                        notes, evidence, test_method_used, assigned_tester,
+                        confidence_level
+                    FROM test_instances
+                    WHERE session_id = $3
+                `, [duplicateSession.id, copy_test_results, id]);
+            } else {
+                // Generate fresh test instances
+                await generateTestInstances(
+                    client, 
+                    duplicateSession.id, 
+                    original.conformance_level, 
+                    'all', 
+                    []
+                );
+            }
+
+            await client.query('COMMIT');
+
+            res.status(201).json({
+                success: true,
+                message: 'Testing session duplicated successfully',
+                data: duplicateSession
+            });
+
+        } catch (error) {
+            await client.query('ROLLBACK');
+            throw error;
+        } finally {
+            client.release();
         }
 
-        // Validate sort
-        const allowedSortColumns = ['tool_name', 'violations_count', 'executed_at'];
-        const sortColumn = allowedSortColumns.includes(sort) ? sort : 'executed_at';
-        const sortOrder = order.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
-
-        // Get total count
-        const countQuery = `SELECT COUNT(*) FROM automated_test_results atr ${whereClause}`;
-        const countResult = await db.query(countQuery, queryParams);
-        const totalItems = parseInt(countResult.rows[0].count);
-
-        // Get results
-        queryParams.push(limitNum, offset);
-        const resultsQuery = `
-            SELECT 
-                atr.*,
-                dp.url as page_url,
-                dp.title as page_title,
-                dp.page_type
-            FROM automated_test_results atr
-            JOIN discovered_pages dp ON atr.page_id = dp.id
-            ${whereClause}
-            ORDER BY atr.${sortColumn} ${sortOrder}
-            LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
-        `;
-
-        const result = await db.query(resultsQuery, queryParams);
-
-        res.json({
-            data: result.rows,
-            pagination: {
-                current_page: pageNum,
-                per_page: limitNum,
-                total_items: totalItems,
-                total_pages: Math.ceil(totalItems / limitNum),
-                has_next: pageNum * limitNum < totalItems,
-                has_prev: pageNum > 1
-            }
-        });
-
     } catch (error) {
-        console.error('Error fetching session results:', error);
+        console.error('Error duplicating testing session:', error);
         res.status(500).json({
-            error: 'Failed to fetch session results',
-            message: error.message
+            success: false,
+            message: 'Failed to duplicate testing session',
+            error: error.message
         });
     }
 });
 
 /**
- * GET /api/sessions/:id/summary
- * Get test session summary with statistics
+ * Helper function to generate test instances for a session
  */
-router.get('/:id/summary', async (req, res) => {
-    try {
-        const { id } = req.params;
-
-        // Check if session exists
-        const sessionQuery = `
-            SELECT 
-                ts.*,
-                p.name as project_name
-            FROM test_sessions ts
-            JOIN projects p ON ts.project_id = p.id
-            WHERE ts.id = $1
-        `;
-        const sessionResult = await db.query(sessionQuery, [id]);
-
-        if (sessionResult.rows.length === 0) {
-            return res.status(404).json({
-                error: 'Session not found',
-                id
-            });
-        }
-
-        const session = sessionResult.rows[0];
-
-        // Get summary statistics
-        const summaryQuery = `
-            SELECT 
-                COUNT(*) as total_tests,
-                COUNT(DISTINCT page_id) as pages_tested,
-                COUNT(DISTINCT tool_name) as tools_used,
-                SUM(violations_count) as total_violations,
-                AVG(violations_count) as avg_violations_per_test,
-                MIN(executed_at) as first_test,
-                MAX(executed_at) as last_test
-            FROM automated_test_results
-            WHERE test_session_id = $1
-        `;
-        const summaryResult = await db.query(summaryQuery, [id]);
-
-        // Get tool breakdown
-        const toolBreakdownQuery = `
-            SELECT 
-                tool_name,
-                COUNT(*) as test_count,
-                SUM(violations_count) as violations,
-                AVG(violations_count) as avg_violations
-            FROM automated_test_results
-            WHERE test_session_id = $1
-            GROUP BY tool_name
-            ORDER BY test_count DESC
-        `;
-        const toolBreakdownResult = await db.query(toolBreakdownQuery, [id]);
-
-        // Get page breakdown
-        const pageBreakdownQuery = `
-            SELECT 
-                dp.url,
-                dp.title,
-                dp.page_type,
-                COUNT(atr.id) as test_count,
-                SUM(atr.violations_count) as violations
-            FROM discovered_pages dp
-            JOIN automated_test_results atr ON dp.id = atr.page_id
-            WHERE atr.test_session_id = $1
-            GROUP BY dp.id, dp.url, dp.title, dp.page_type
-            ORDER BY violations DESC, test_count DESC
-        `;
-        const pageBreakdownResult = await db.query(pageBreakdownQuery, [id]);
-
-        res.json({
-            session: {
-                id: session.id,
-                name: session.name,
-                project_name: session.project_name,
-                status: session.status,
-                test_type: session.test_type,
-                created_at: session.created_at
-            },
-            summary: summaryResult.rows[0],
-            tool_breakdown: toolBreakdownResult.rows,
-            page_breakdown: pageBreakdownResult.rows.slice(0, 10) // Top 10 pages
-        });
-
-    } catch (error) {
-        console.error('Error fetching session summary:', error);
-        res.status(500).json({
-            error: 'Failed to fetch session summary',
-            message: error.message
-        });
+async function generateTestInstances(client, sessionId, conformanceLevel, pageScope, selectedPages) {
+    // Get applicable test requirements based on conformance level
+    let requirementConditions = ['tr.is_active = true'];
+    
+    if (conformanceLevel === 'wcag_a') {
+        requirementConditions.push("(tr.requirement_type = 'wcag' AND tr.level = 'a')");
+    } else if (conformanceLevel === 'wcag_aa') {
+        requirementConditions.push("(tr.requirement_type = 'wcag' AND tr.level IN ('a', 'aa'))");
+    } else if (conformanceLevel === 'wcag_aaa') {
+        requirementConditions.push("(tr.requirement_type = 'wcag' AND tr.level IN ('a', 'aa', 'aaa'))");
+    } else if (conformanceLevel === 'section_508') {
+        requirementConditions.push("tr.requirement_type = 'section_508'");
+    } else if (conformanceLevel === 'combined') {
+        requirementConditions.push("tr.requirement_type IN ('wcag', 'section_508')");
     }
-});
+
+    const requirementQuery = `
+        SELECT id FROM test_requirements tr
+        WHERE ${requirementConditions.join(' AND ')}
+        ORDER BY tr.requirement_type, tr.criterion_number
+    `;
+
+    const requirements = await client.query(requirementQuery);
+
+    // Get pages to test
+    let pages = [];
+    if (pageScope === 'selected' && selectedPages.length > 0) {
+        const pageQuery = `
+            SELECT id FROM discovered_pages 
+            WHERE id = ANY($1)
+        `;
+        const pageResult = await client.query(pageQuery, [selectedPages]);
+        pages = pageResult.rows;
+    } else {
+        // Get all pages for the project
+        const sessionProject = await client.query(`
+            SELECT project_id FROM test_sessions WHERE id = $1
+        `, [sessionId]);
+        
+        const pageQuery = `
+            SELECT id FROM discovered_pages 
+            WHERE project_id = $1
+            ORDER BY url
+        `;
+        const pageResult = await client.query(pageQuery, [sessionProject.rows[0].project_id]);
+        pages = pageResult.rows;
+    }
+
+    // Create test instances for each requirement/page combination
+    for (const requirement of requirements.rows) {
+        if (pages.length > 0) {
+            // Create test instances for each page
+            for (const page of pages) {
+                await client.query(`
+                    INSERT INTO test_instances (
+                        session_id, requirement_id, page_id, status
+                    ) VALUES ($1, $2, $3, $4)
+                    ON CONFLICT (session_id, requirement_id, page_id) DO NOTHING
+                `, [sessionId, requirement.id, page.id, 'pending']);
+            }
+        } else {
+            // Create site-wide test instance (no specific page)
+            await client.query(`
+                INSERT INTO test_instances (
+                    session_id, requirement_id, status
+                ) VALUES ($1, $2, $3)
+                ON CONFLICT (session_id, requirement_id, page_id) DO NOTHING
+            `, [sessionId, requirement.id, 'pending']);
+        }
+    }
+}
 
 module.exports = router; 

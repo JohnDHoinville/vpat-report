@@ -59,6 +59,62 @@ Instead of discovering issues and creating records, create complete test matrix 
 
 ---
 
+## Preservation Strategy: What We Keep
+
+This is a **major refactor, not a complete rewrite**. We will preserve proven components that work well and provide value:
+
+### 🎨 **UI/UX Components to Preserve**
+- **Overall Dashboard Design**: Current layout, navigation patterns, and visual hierarchy
+- **Color Scheme & Branding**: Existing CSS styling and visual identity 
+- **Alpine.js Framework**: Current reactive framework - works well for our needs
+- **Responsive Design**: Mobile-friendly layouts and breakpoints
+- **Component Library**: Existing buttons, modals, forms, and UI patterns
+
+### 🔐 **Authentication & Security**
+- **Login System**: Current authentication flow and session management
+- **User Management**: Existing user roles and permission structure
+- **WebSocket Integration**: Real-time updates and collaboration features
+- **Security Middleware**: Helmet, CORS, rate limiting already implemented
+- **Auth Configuration**: Project-based authentication configurations
+
+### 🛠️ **Technical Infrastructure**
+- **Node.js/Express Backend**: Proven, performant, well-structured
+- **PostgreSQL Database**: Robust, supports our complex queries
+- **Project Management**: Current project structure and organization
+- **File Management**: Existing report storage and export systems
+- **API Patterns**: RESTful conventions and error handling
+
+### 📊 **Features That Work Well**
+- **Project Selection & Management**: Current project workflow
+- **Page Discovery & Management**: Site crawling and page organization
+- **VPAT Generation**: Export capabilities and report formatting
+- **Tool Integrations**: Axe, Pa11y, WAVE integration patterns
+- **WebSocket Communications**: Real-time collaboration features
+- **Error Handling & Logging**: Current debugging and monitoring
+
+### 🔄 **What Gets Enhanced (Not Replaced)**
+- **Results Display**: Keep pagination/filtering UI, enhance data source
+- **Modal System**: Keep existing modals, enhance with audit timeline
+- **Navigation**: Keep tab structure, add new "Testing Session" tab
+- **Search & Filtering**: Keep current patterns, extend for test management
+- **Progress Tracking**: Keep visual indicators, enhance with compliance metrics
+
+### 📋 **Migration Approach**
+- **Gradual Transition**: Run new architecture alongside current system
+- **Feature Flags**: Toggle between old/new functionality during testing
+- **Data Preservation**: All existing data migrated to new structure
+- **URL Compatibility**: Maintain existing routes during transition
+- **Training Minimal**: UI familiarity reduces learning curve
+
+### 🎯 **Strategic Benefits**
+- **Reduced Risk**: Preserve working components, only change what's necessary
+- **Faster Development**: Leverage existing UI components and patterns
+- **User Adoption**: Familiar interface accelerates team acceptance
+- **Proven Stability**: Keep battle-tested authentication and infrastructure
+- **Cost Effective**: Major refactor vs. complete rebuild timeline/budget
+
+---
+
 ## User Stories & Requirements
 
 ### Epic 1: Testing Session Management

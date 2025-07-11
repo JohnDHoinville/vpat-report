@@ -1,0 +1,492 @@
+-- Test Requirements Seed Data
+-- WCAG 2.1 A/AA/AAA and Section 508 Requirements
+-- Created: December 11, 2024
+
+-- =============================================================================
+-- WCAG 2.1 LEVEL A REQUIREMENTS
+-- =============================================================================
+
+INSERT INTO test_requirements (
+    requirement_type, criterion_number, title, description, level, test_method,
+    testing_instructions, acceptance_criteria, failure_examples,
+    priority, estimated_time_minutes, wcag_url
+) VALUES
+
+-- Perceivable
+('wcag', '1.1.1', 'Non-text Content', 
+'All non-text content that is presented to the user has a text alternative that serves the equivalent purpose.',
+'a', 'both',
+'Test that all images, audio, video, and other non-text content have appropriate text alternatives. Check alt attributes, aria-label, aria-labelledby, or surrounding text.',
+'Images have meaningful alt text. Decorative images have empty alt="". Complex images have detailed descriptions. Audio/video have transcripts or captions.',
+'Images missing alt text. Decorative images with descriptive alt text. Complex charts without detailed descriptions.',
+1, 15, 'https://www.w3.org/WAI/WCAG21/Understanding/non-text-content.html'),
+
+('wcag', '1.2.1', 'Audio-only and Video-only (Prerecorded)',
+'For prerecorded audio-only and prerecorded video-only media, an alternative is provided.',
+'a', 'manual',
+'Check that prerecorded audio-only content has text transcripts and video-only content has audio descriptions or text alternatives.',
+'Audio-only media has complete transcripts. Video-only media has audio descriptions or detailed text descriptions.',
+'Audio podcasts without transcripts. Silent videos without descriptions.',
+2, 20, 'https://www.w3.org/WAI/WCAG21/Understanding/audio-only-and-video-only-prerecorded.html'),
+
+('wcag', '1.2.2', 'Captions (Prerecorded)',
+'Captions are provided for all prerecorded audio content in synchronized media.',
+'a', 'manual',
+'Verify that all prerecorded videos with audio have accurate, synchronized captions.',
+'All spoken content and important sounds are captioned. Captions are accurate and properly synchronized.',
+'Videos without captions. Inaccurate or poorly synchronized captions.',
+1, 25, 'https://www.w3.org/WAI/WCAG21/Understanding/captions-prerecorded.html'),
+
+('wcag', '1.2.3', 'Audio Description or Media Alternative (Prerecorded)',
+'An alternative for time-based media or audio description is provided for prerecorded synchronized media.',
+'a', 'manual',
+'Check that prerecorded videos have audio descriptions or full text alternatives that describe visual content.',
+'Visual information not available in audio is described. Audio descriptions or complete text alternatives are provided.',
+'Videos with important visual content but no audio descriptions.',
+2, 30, 'https://www.w3.org/WAI/WCAG21/Understanding/audio-description-or-media-alternative-prerecorded.html'),
+
+('wcag', '1.3.1', 'Info and Relationships',
+'Information, structure, and relationships conveyed through presentation can be programmatically determined.',
+'a', 'both',
+'Test that semantic markup conveys meaning. Check headings, lists, tables, form labels, and other structural elements.',
+'Headings use proper hierarchy. Lists use list markup. Tables have headers. Forms have proper labels. Content structure is meaningful.',
+'Headings styled with CSS instead of heading tags. Lists created with line breaks. Tables without headers.',
+1, 20, 'https://www.w3.org/WAI/WCAG21/Understanding/info-and-relationships.html'),
+
+('wcag', '1.3.2', 'Meaningful Sequence',
+'When the sequence in which content is presented affects its meaning, a correct reading sequence can be programmatically determined.',
+'a', 'automated',
+'Verify that content order in DOM matches visual presentation and logical reading order.',
+'Content follows logical reading order. Tab order matches visual layout. Screen readers get content in meaningful sequence.',
+'CSS positioning that disrupts logical order. Tab order not matching visual layout.',
+1, 15, 'https://www.w3.org/WAI/WCAG21/Understanding/meaningful-sequence.html'),
+
+('wcag', '1.3.3', 'Sensory Characteristics',
+'Instructions provided for understanding and operating content do not rely solely on sensory characteristics.',
+'a', 'manual',
+'Check that instructions don''t rely only on shape, size, visual location, orientation, or sound.',
+'Instructions include multiple identifying characteristics. Don''t rely solely on "click the red button" or "use the menu on the right".',
+'Instructions like "click the round button" without additional identification.',
+2, 10, 'https://www.w3.org/WAI/WCAG21/Understanding/sensory-characteristics.html'),
+
+('wcag', '1.4.1', 'Use of Color',
+'Color is not used as the only visual means of conveying information, indicating an action, prompting a response, or distinguishing a visual element.',
+'a', 'both',
+'Verify that color is not the only way to convey information. Check links, form validation, charts, and status indicators.',
+'Information is available through color plus other indicators (icons, text, patterns). Links are distinguishable without color.',
+'Error messages shown only in red. Required fields indicated only by red asterisk.',
+1, 15, 'https://www.w3.org/WAI/WCAG21/Understanding/use-of-color.html'),
+
+('wcag', '1.4.2', 'Audio Control',
+'If any audio plays automatically for more than 3 seconds, a mechanism is available to pause, stop, or control volume.',
+'a', 'automated',
+'Test for auto-playing audio and verify pause/stop controls are available.',
+'Auto-playing audio can be paused, stopped, or volume controlled. Controls are easy to find.',
+'Auto-playing audio without pause controls. Hidden or hard-to-find audio controls.',
+1, 10, 'https://www.w3.org/WAI/WCAG21/Understanding/audio-control.html'),
+
+-- Operable
+('wcag', '2.1.1', 'Keyboard',
+'All functionality of the content is operable through a keyboard interface.',
+'a', 'both',
+'Test that all interactive elements can be accessed and operated using only the keyboard.',
+'All buttons, links, forms, and interactive content work with keyboard. No keyboard traps exist.',
+'Interactive elements that can''t be reached by keyboard. Dropdown menus that require mouse.',
+1, 25, 'https://www.w3.org/WAI/WCAG21/Understanding/keyboard.html'),
+
+('wcag', '2.1.2', 'No Keyboard Trap',
+'If keyboard focus can be moved to a component using a keyboard interface, focus can be moved away using only keyboard.',
+'a', 'automated',
+'Test that keyboard focus can always move away from any component without getting stuck.',
+'Users can navigate away from any component using standard keyboard navigation or documented escape method.',
+'Modal dialogs that trap focus without escape method. Plugin content that captures keyboard.',
+1, 15, 'https://www.w3.org/WAI/WCAG21/Understanding/no-keyboard-trap.html'),
+
+('wcag', '2.1.4', 'Character Key Shortcuts',
+'If a keyboard shortcut uses only character keys, it can be turned off, remapped, or only active when component has focus.',
+'a', 'manual',
+'Check that single character keyboard shortcuts can be disabled or modified.',
+'Character-only shortcuts can be turned off, remapped, or only work when component is focused.',
+'Single character shortcuts that can''t be disabled and interfere with assistive technology.',
+3, 15, 'https://www.w3.org/WAI/WCAG21/Understanding/character-key-shortcuts.html'),
+
+('wcag', '2.2.1', 'Timing Adjustable',
+'For each time limit set by content, users can turn off, adjust, or extend the time limit.',
+'a', 'manual',
+'Test time limits and verify users can control them. Check session timeouts, auto-refresh, and timed content.',
+'Users can turn off, adjust, or extend time limits. Warnings given before time expires with option to extend.',
+'Session timeouts without warning. Auto-refresh without user control.',
+1, 20, 'https://www.w3.org/WAI/WCAG21/Understanding/timing-adjustable.html'),
+
+('wcag', '2.2.2', 'Pause, Stop, Hide',
+'For moving, blinking, scrolling, or auto-updating information, users can pause, stop, or hide it.',
+'a', 'automated',
+'Check that auto-playing animations, carousels, and updating content can be controlled by users.',
+'Moving content can be paused, stopped, or hidden. Auto-updating content has controls.',
+'Carousels without pause controls. Auto-updating news feeds without stop option.',
+1, 15, 'https://www.w3.org/WAI/WCAG21/Understanding/pause-stop-hide.html'),
+
+('wcag', '2.3.1', 'Three Flashes or Below Threshold',
+'Web pages do not contain anything that flashes more than three times in any one second period.',
+'a', 'automated',
+'Test for content that flashes more than 3 times per second.',
+'No content flashes more than 3 times per second, or flashing is below general and red flash thresholds.',
+'Animations or videos with rapid flashing. Strobe effects above threshold.',
+1, 10, 'https://www.w3.org/WAI/WCAG21/Understanding/three-flashes-or-below-threshold.html'),
+
+('wcag', '2.4.1', 'Bypass Blocks',
+'A mechanism is available to bypass blocks of content that are repeated on multiple Web pages.',
+'a', 'both',
+'Test for skip links or other mechanisms to bypass repeated navigation and content blocks.',
+'Skip links or headings allow users to bypass repeated content. Skip links work properly.',
+'Missing skip links. Skip links that don''t work or go to wrong location.',
+1, 10, 'https://www.w3.org/WAI/WCAG21/Understanding/bypass-blocks.html'),
+
+('wcag', '2.4.2', 'Page Titled',
+'Web pages have titles that describe topic or purpose.',
+'a', 'automated',
+'Verify that all pages have descriptive and unique titles.',
+'Page titles describe the page purpose. Titles are unique within the site. Titles update for dynamic content.',
+'Missing page titles. Generic titles like "Untitled" or "Page". Duplicate titles across different pages.',
+1, 5, 'https://www.w3.org/WAI/WCAG21/Understanding/page-titled.html'),
+
+('wcag', '2.4.3', 'Focus Order',
+'If a Web page can be navigated sequentially, focusable components receive focus in an order that preserves meaning.',
+'a', 'automated',
+'Test that tab order follows logical sequence and preserves meaning.',
+'Tab order follows visual layout and logical reading order. Focus moves in meaningful sequence.',
+'Tab order that jumps around page randomly. Focus moving to hidden elements.',
+1, 15, 'https://www.w3.org/WAI/WCAG21/Understanding/focus-order.html'),
+
+('wcag', '2.4.4', 'Link Purpose (In Context)',
+'The purpose of each link can be determined from the link text alone or link text together with programmatically determined context.',
+'a', 'both',
+'Test that link purposes are clear from link text or surrounding context.',
+'Link text clearly indicates destination or purpose. Context provides sufficient information for ambiguous links.',
+'Generic links like "click here" or "read more" without context. Links with same text going to different destinations.',
+1, 15, 'https://www.w3.org/WAI/WCAG21/Understanding/link-purpose-in-context.html'),
+
+-- Understandable
+('wcag', '3.1.1', 'Language of Page',
+'The default human language of each Web page can be programmatically determined.',
+'a', 'automated',
+'Test that pages have lang attribute declaring the primary language.',
+'HTML lang attribute correctly identifies page language. Language codes are valid.',
+'Missing lang attribute on html element. Invalid language codes.',
+1, 5, 'https://www.w3.org/WAI/WCAG21/Understanding/language-of-page.html'),
+
+('wcag', '3.2.1', 'On Focus',
+'When any component receives focus, it does not initiate a change of context.',
+'a', 'automated',
+'Test that focusing on elements doesn''t cause unexpected context changes.',
+'Focusing on form controls, links, or other elements doesn''t automatically submit forms or change pages.',
+'Form select elements that automatically submit on focus. Links that activate on focus.',
+1, 10, 'https://www.w3.org/WAI/WCAG21/Understanding/on-focus.html'),
+
+('wcag', '3.2.2', 'On Input',
+'Changing the setting of any user interface component does not automatically cause a change of context.',
+'a', 'automated',
+'Test that changing form controls doesn''t cause unexpected context changes.',
+'Changing form values doesn''t automatically submit forms or navigate away unless user is warned.',
+'Radio buttons that auto-submit forms. Select menus that auto-navigate.',
+1, 10, 'https://www.w3.org/WAI/WCAG21/Understanding/on-input.html'),
+
+('wcag', '3.3.1', 'Error Identification',
+'If an input error is automatically detected, the item that is in error is identified and described to the user in text.',
+'a', 'both',
+'Test that form validation errors are clearly identified and described.',
+'Errors are clearly identified with descriptive text. Error messages are associated with form fields.',
+'Validation that only shows red borders without text. Generic error messages.',
+1, 15, 'https://www.w3.org/WAI/WCAG21/Understanding/error-identification.html'),
+
+('wcag', '3.3.2', 'Labels or Instructions',
+'Labels or instructions are provided when content requires user input.',
+'a', 'both',
+'Test that form fields have proper labels or instructions.',
+'All form fields have labels. Complex forms have helpful instructions. Required fields are clearly marked.',
+'Form fields without labels. Missing instructions for complex forms.',
+1, 10, 'https://www.w3.org/WAI/WCAG21/Understanding/labels-or-instructions.html'),
+
+-- Robust  
+('wcag', '4.1.1', 'Parsing',
+'In content implemented using markup languages, elements have complete start and end tags and are nested properly.',
+'a', 'automated',
+'Test that HTML markup is valid and properly structured.',
+'HTML elements have proper start/end tags. Elements are nested correctly. IDs are unique.',
+'Missing closing tags. Improperly nested elements. Duplicate IDs.',
+1, 10, 'https://www.w3.org/WAI/WCAG21/Understanding/parsing.html'),
+
+('wcag', '4.1.2', 'Name, Role, Value',
+'For all user interface components, name and role can be programmatically determined.',
+'a', 'both',
+'Test that UI components have proper accessible names, roles, and states.',
+'Interactive elements have accessible names. Roles are properly defined. States and properties are communicated.',
+'Buttons without accessible names. Custom controls without proper ARIA.',
+1, 20, 'https://www.w3.org/WAI/WCAG21/Understanding/name-role-value.html');
+
+-- =============================================================================
+-- WCAG 2.1 LEVEL AA REQUIREMENTS  
+-- =============================================================================
+
+INSERT INTO test_requirements (
+    requirement_type, criterion_number, title, description, level, test_method,
+    testing_instructions, acceptance_criteria, failure_examples,
+    priority, estimated_time_minutes, wcag_url
+) VALUES
+
+('wcag', '1.2.4', 'Captions (Live)',
+'Captions are provided for all live audio content in synchronized media.',
+'aa', 'manual',
+'Check that live video content (webcasts, streaming) has captions.',
+'Live audio content has real-time captions that are accurate and synchronized.',
+'Live streams without captions. Inaccurate live captions.',
+2, 20, 'https://www.w3.org/WAI/WCAG21/Understanding/captions-live.html'),
+
+('wcag', '1.2.5', 'Audio Description (Prerecorded)',
+'Audio description is provided for all prerecorded video content in synchronized media.',
+'aa', 'manual',
+'Verify that prerecorded videos have audio descriptions for visual content.',
+'Important visual information is described in audio descriptions.',
+'Videos with important visual content but no audio descriptions.',
+2, 25, 'https://www.w3.org/WAI/WCAG21/Understanding/audio-description-prerecorded.html'),
+
+('wcag', '1.3.4', 'Orientation',
+'Content does not restrict its view and operation to a single display orientation unless specific orientation is essential.',
+'aa', 'automated',
+'Test that content works in both portrait and landscape orientations.',
+'Content adapts to both portrait and landscape. No artificial orientation restrictions.',
+'Content that only works in landscape mode. Apps that force orientation unnecessarily.',
+1, 15, 'https://www.w3.org/WAI/WCAG21/Understanding/orientation.html'),
+
+('wcag', '1.3.5', 'Identify Input Purpose',
+'The purpose of each input field can be programmatically determined when the input field serves a common purpose.',
+'aa', 'automated',
+'Test that common input fields have autocomplete attributes identifying their purpose.',
+'Form fields for common data (name, email, address) have proper autocomplete attributes.',
+'Email fields without autocomplete="email". Name fields without autocomplete attributes.',
+2, 10, 'https://www.w3.org/WAI/WCAG21/Understanding/identify-input-purpose.html'),
+
+('wcag', '1.4.3', 'Contrast (Minimum)',
+'Text and images of text have a contrast ratio of at least 4.5:1, except for large text which requires 3:1.',
+'aa', 'automated',
+'Test color contrast ratios for all text content.',
+'Normal text has 4.5:1 contrast ratio. Large text (18pt+ or 14pt+ bold) has 3:1 contrast ratio.',
+'Low contrast text that''s hard to read. Gray text on white background below ratio.',
+1, 20, 'https://www.w3.org/WAI/WCAG21/Understanding/contrast-minimum.html'),
+
+('wcag', '1.4.4', 'Resize Text',
+'Text can be resized without assistive technology up to 200 percent without loss of content or functionality.',
+'aa', 'automated',
+'Test that text can be zoomed to 200% without horizontal scrolling or content loss.',
+'Text resizes to 200% without horizontal scrolling. All content remains accessible.',
+'Fixed-size containers that clip text when zoomed. Horizontal scrolling at 200% zoom.',
+1, 15, 'https://www.w3.org/WAI/WCAG21/Understanding/resize-text.html'),
+
+('wcag', '1.4.5', 'Images of Text',
+'If the same visual presentation can be made using text alone, an image of text is not used.',
+'aa', 'manual',
+'Check that text is used instead of images of text unless customization is needed.',
+'Text is used instead of images. Images of text only when customization is essential.',
+'Logos or headings created as images when text would work. Decorative text images.',
+2, 10, 'https://www.w3.org/WAI/WCAG21/Understanding/images-of-text.html'),
+
+('wcag', '1.4.10', 'Reflow',
+'Content can be presented without loss of information or functionality and without requiring scrolling in two dimensions.',
+'aa', 'automated',
+'Test that content reflows properly at 320px width and 256px height.',
+'Content reflows without horizontal scrolling at 320px width. No two-dimensional scrolling required.',
+'Fixed-width layouts that require horizontal scrolling. Content that doesn''t reflow properly.',
+1, 20, 'https://www.w3.org/WAI/WCAG21/Understanding/reflow.html'),
+
+('wcag', '1.4.11', 'Non-text Contrast',
+'Visual information required to identify user interface components and graphical objects has a contrast ratio of at least 3:1.',
+'aa', 'automated',
+'Test contrast of UI components, icons, and graphical elements.',
+'UI component boundaries, icons, and graphics have 3:1 contrast ratio with adjacent colors.',
+'Form field borders with insufficient contrast. Icon buttons without enough contrast.',
+1, 25, 'https://www.w3.org/WAI/WCAG21/Understanding/non-text-contrast.html'),
+
+('wcag', '1.4.12', 'Text Spacing',
+'No loss of content or functionality occurs when text spacing is increased to specific values.',
+'aa', 'automated',
+'Test that content works with increased line height, paragraph spacing, letter spacing, and word spacing.',
+'Content remains functional with increased text spacing. No clipped or overlapping text.',
+'Content that breaks with increased line spacing. Overlapping text with letter spacing.',
+2, 15, 'https://www.w3.org/WAI/WCAG21/Understanding/text-spacing.html'),
+
+('wcag', '1.4.13', 'Content on Hover or Focus',
+'Additional content that appears on hover or focus can be dismissed, is hoverable, and remains visible.',
+'aa', 'automated',
+'Test hover/focus content like tooltips and dropdown menus.',
+'Hover content can be dismissed with Escape. Content stays visible when moved to. Content doesn''t disappear unexpectedly.',
+'Tooltips that disappear when mouse moves slightly. Hover content without dismiss mechanism.',
+2, 15, 'https://www.w3.org/WAI/WCAG21/Understanding/content-on-hover-or-focus.html'),
+
+('wcag', '2.4.5', 'Multiple Ways',
+'More than one way is available to locate a Web page within a set of Web pages.',
+'aa', 'manual',
+'Test that users can find pages through multiple methods (search, sitemap, navigation).',
+'Multiple navigation methods available: menu, search, sitemap, or breadcrumbs.',
+'Sites with only one way to find pages. Missing search or navigation aids.',
+2, 10, 'https://www.w3.org/WAI/WCAG21/Understanding/multiple-ways.html'),
+
+('wcag', '2.4.6', 'Headings and Labels',
+'Headings and labels describe topic or purpose.',
+'aa', 'both',
+'Test that headings and labels are descriptive and informative.',
+'Headings describe section content. Labels clearly indicate form field purpose.',
+'Generic headings like "Information". Vague labels like "Field 1".',
+1, 10, 'https://www.w3.org/WAI/WCAG21/Understanding/headings-and-labels.html'),
+
+('wcag', '2.4.7', 'Focus Visible',
+'Any keyboard operable user interface has a mode of operation where the keyboard focus indicator is visible.',
+'aa', 'automated',
+'Test that keyboard focus is clearly visible on all interactive elements.',
+'Focus indicators are clearly visible with sufficient contrast. All interactive elements show focus.',
+'Invisible focus indicators. Focus indicators removed with CSS. Insufficient contrast on focus.',
+1, 15, 'https://www.w3.org/WAI/WCAG21/Understanding/focus-visible.html'),
+
+('wcag', '2.5.1', 'Pointer Gestures',
+'All functionality that uses multipoint or path-based gestures can be operated with a single pointer.',
+'aa', 'manual',
+'Test that complex gestures have single-pointer alternatives.',
+'Multi-finger gestures have single-finger alternatives. Path-based gestures have simple alternatives.',
+'Pinch-to-zoom without + buttons. Swipe gestures without navigation buttons.',
+2, 15, 'https://www.w3.org/WAI/WCAG21/Understanding/pointer-gestures.html'),
+
+('wcag', '2.5.2', 'Pointer Cancellation',
+'Functions triggered by single-pointer activation can be undone or completed on up-event.',
+'aa', 'manual',
+'Test that pointer actions can be cancelled or undone.',
+'Actions complete on up-event (mouse up) or can be aborted. Down-event actions can be undone.',
+'Actions that trigger on mouse down without ability to cancel.',
+2, 10, 'https://www.w3.org/WAI/WCAG21/Understanding/pointer-cancellation.html'),
+
+('wcag', '2.5.3', 'Label in Name',
+'User interface components with labels that include text have accessible names that contain the label text.',
+'aa', 'automated',
+'Test that accessible names include visible label text.',
+'Accessible names start with or contain the visible label text.',
+'Buttons labeled "Search" with accessible name "Find". Mismatched visible and accessible labels.',
+1, 10, 'https://www.w3.org/WAI/WCAG21/Understanding/label-in-name.html'),
+
+('wcag', '2.5.4', 'Motion Actuation',
+'Functionality triggered by device motion can be disabled and operated by user interface components.',
+'aa', 'manual',
+'Test that motion-based features have alternative inputs and can be disabled.',
+'Motion features can be turned off. Alternative UI controls available for shake/tilt features.',
+'Shake-to-refresh without disable option. Motion controls without alternatives.',
+3, 10, 'https://www.w3.org/WAI/WCAG21/Understanding/motion-actuation.html'),
+
+('wcag', '3.1.2', 'Language of Parts',
+'The human language of each passage or phrase can be programmatically determined.',
+'aa', 'manual',
+'Test that content in different languages is properly marked.',
+'Foreign language content has lang attributes. Language changes are programmatically identified.',
+'Foreign phrases without lang attributes. Mixed language content not marked.',
+2, 15, 'https://www.w3.org/WAI/WCAG21/Understanding/language-of-parts.html'),
+
+('wcag', '3.2.3', 'Consistent Navigation',
+'Navigational mechanisms that are repeated on multiple Web pages occur in the same relative order.',
+'aa', 'manual',
+'Test that navigation is consistent across pages.',
+'Navigation menus appear in same order across pages. Repeated navigation is consistent.',
+'Navigation items in different orders on different pages.',
+2, 10, 'https://www.w3.org/WAI/WCAG21/Understanding/consistent-navigation.html'),
+
+('wcag', '3.2.4', 'Consistent Identification',
+'Components with the same functionality are identified consistently.',
+'aa', 'manual',
+'Test that similar components have consistent labels and identification.',
+'Similar functions have consistent names. Icons and labels are used consistently.',
+'Search buttons labeled differently across pages. Inconsistent icon usage.',
+2, 10, 'https://www.w3.org/WAI/WCAG21/Understanding/consistent-identification.html'),
+
+('wcag', '3.3.3', 'Error Suggestion',
+'If an input error is automatically detected and suggestions for correction are known, then the suggestions are provided.',
+'aa', 'both',
+'Test that error messages include helpful correction suggestions.',
+'Error messages provide specific guidance on how to fix the error.',
+'Generic error messages without helpful suggestions. Validation that only says "invalid".',
+1, 15, 'https://www.w3.org/WAI/WCAG21/Understanding/error-suggestion.html'),
+
+('wcag', '3.3.4', 'Error Prevention (Legal, Financial, Data)',
+'For Web pages that cause legal commitments or financial transactions or modify/delete user data, submissions are reversible, checked, or confirmed.',
+'aa', 'manual',
+'Test that important actions have safeguards like confirmation or review steps.',
+'Important transactions have confirmation steps. Submissions can be reviewed before final submission.',
+'Financial transactions without confirmation. Data deletion without confirmation.',
+1, 20, 'https://www.w3.org/WAI/WCAG21/Understanding/error-prevention-legal-financial-data.html'),
+
+('wcag', '4.1.3', 'Status Messages',
+'Status messages can be programmatically determined through role or properties without receiving focus.',
+'aa', 'automated',
+'Test that status messages are announced to screen readers using ARIA live regions.',
+'Status messages use aria-live, role="status", or role="alert". Messages are announced without focus changes.',
+'Success/error messages not announced to screen readers. Status changes without programmatic notification.',
+1, 15, 'https://www.w3.org/WAI/WCAG21/Understanding/status-messages.html');
+
+-- =============================================================================
+-- SECTION 508 REQUIREMENTS
+-- =============================================================================
+
+INSERT INTO test_requirements (
+    requirement_type, criterion_number, title, description, level, test_method,
+    testing_instructions, acceptance_criteria, failure_examples,
+    priority, estimated_time_minutes, section_508_url
+) VALUES
+
+('section_508', '502.2.1', 'Information and Relationships',
+'Information, structure, and relationships conveyed through presentation are programmatically determinable.',
+'base', 'both',
+'Test semantic markup, headings, lists, tables, and form relationships.',
+'Content structure is conveyed through proper markup. Relationships are programmatically determinable.',
+'Visual headings not marked as headings. Data tables without proper headers.',
+1, 20, 'https://www.access-board.gov/ict/#502.2.1'),
+
+('section_508', '502.2.2', 'Meaningful Sequence', 
+'When the sequence in which content is presented affects its meaning, a correct reading sequence is programmatically determinable.',
+'base', 'automated',
+'Test that DOM order matches meaningful content sequence.',
+'Reading order follows logical sequence. Tab order preserves meaning.',
+'CSS positioning disrupting logical order.',
+1, 15, 'https://www.access-board.gov/ict/#502.2.2'),
+
+('section_508', '502.3.1', 'Sensory Characteristics',
+'Instructions provided for understanding and operating content do not rely solely on sensory characteristics.',
+'base', 'manual', 
+'Check that instructions don''t rely only on shape, size, visual location, orientation, or sound.',
+'Instructions include multiple identifying characteristics beyond sensory ones.',
+'Instructions referencing only visual characteristics like color or position.',
+2, 10, 'https://www.access-board.gov/ict/#502.3.1'),
+
+('section_508', '502.3.2', 'Use of Color',
+'Color is not used as the only visual means of conveying information.',
+'base', 'both',
+'Test that color is not the sole method of conveying information.',
+'Information conveyed by color has additional indicators.',
+'Error states indicated only by red color.',
+1, 15, 'https://www.access-board.gov/ict/#502.3.2'),
+
+('section_508', '502.3.3', 'Contrast',
+'The visual presentation of text and images of text has a contrast ratio of at least 4.5:1 for normal text and 3:1 for large text.',
+'base', 'automated',
+'Test color contrast ratios meet minimum thresholds.',
+'Text meets contrast requirements: 4.5:1 normal, 3:1 large text.',
+'Insufficient contrast between text and background colors.',
+1, 20, 'https://www.access-board.gov/ict/#502.3.3'),
+
+('section_508', '502.4', 'Functionality',
+'Where ICT provides functionality, at least one mode of operation is operable through a keyboard interface.',
+'base', 'both',
+'Test complete keyboard accessibility of all functionality.',
+'All features accessible via keyboard. No keyboard traps exist.',
+'Interactive elements requiring mouse operation.',
+1, 25, 'https://www.access-board.gov/ict/#502.4');
+
+-- =============================================================================
+-- UPDATE STATISTICS  
+-- =============================================================================
+
+-- This will be executed after all inserts to update any computed values
+ANALYZE test_requirements; 
