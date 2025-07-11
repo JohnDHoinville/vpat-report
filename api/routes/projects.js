@@ -608,6 +608,125 @@ router.get('/:id/discoveries', async (req, res) => {
 });
 
 /**
+ * GET /api/projects/:id/discoveries/:discoveryId/pages
+ * Get all discovered pages for a specific discovery session
+ */
+router.get('/:id/discoveries/:discoveryId/pages', async (req, res) => {
+    try {
+        const { id: projectId, discoveryId } = req.params;
+        const {
+            page = 1,
+            limit = 100,
+            search,
+            page_type,
+            sort = 'url',
+            order = 'ASC'
+        } = req.query;
+
+        // Validate pagination
+        const pageNum = Math.max(1, parseInt(page));
+        const limitNum = Math.min(500, Math.max(1, parseInt(limit)));
+        const offset = (pageNum - 1) * limitNum;
+
+        // Build query conditions
+        let whereClause = 'WHERE dp.discovery_id = $1 AND sd.project_id = $2';
+        let queryParams = [discoveryId, projectId];
+        let paramIndex = 3;
+
+        if (search) {
+            whereClause += ` AND (dp.url ILIKE $${paramIndex} OR dp.title ILIKE $${paramIndex + 1})`;
+            queryParams.push(`%${search}%`, `%${search}%`);
+            paramIndex += 2;
+        }
+
+        if (page_type) {
+            whereClause += ` AND dp.page_type = $${paramIndex}`;
+            queryParams.push(page_type);
+            paramIndex++;
+        }
+
+        // Validate sort column
+        const allowedSortColumns = ['url', 'title', 'page_type', 'discovered_at', 'depth'];
+        const sortColumn = allowedSortColumns.includes(sort) ? sort : 'url';
+        const sortOrder = order.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+
+        // Get total count
+        const countQuery = `
+            SELECT COUNT(*) 
+            FROM discovered_pages dp 
+            JOIN site_discovery sd ON dp.discovery_id = sd.id
+            ${whereClause}
+        `;
+        const countResult = await db.query(countQuery, queryParams);
+        const totalItems = parseInt(countResult.rows[0].count);
+
+        // Get pages
+        queryParams.push(limitNum, offset);
+        const pagesQuery = `
+            SELECT 
+                dp.*,
+                sd.primary_url as site_primary_url,
+                sd.domain as site_domain,
+                sd.status as discovery_status,
+                (
+                    SELECT COUNT(*) 
+                    FROM automated_test_results atr 
+                    WHERE atr.page_id = dp.id
+                ) as test_count
+            FROM discovered_pages dp
+            JOIN site_discovery sd ON dp.discovery_id = sd.id
+            ${whereClause}
+            ORDER BY dp.${sortColumn} ${sortOrder}
+            LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+        `;
+
+        const result = await db.query(pagesQuery, queryParams);
+
+        // Also get discovery info
+        const discoveryQuery = `
+            SELECT id, domain, primary_url, status, total_pages_found, started_at, completed_at
+            FROM site_discovery 
+            WHERE id = $1 AND project_id = $2
+        `;
+        const discoveryResult = await db.query(discoveryQuery, [discoveryId, projectId]);
+
+        if (discoveryResult.rows.length === 0) {
+            return res.status(404).json({
+                error: 'Discovery not found',
+                discoveryId,
+                projectId
+            });
+        }
+
+        res.json({
+            discovery: discoveryResult.rows[0],
+            pages: result.rows,
+            pagination: {
+                current_page: pageNum,
+                per_page: limitNum,
+                total_items: totalItems,
+                total_pages: Math.ceil(totalItems / limitNum),
+                has_next: pageNum * limitNum < totalItems,
+                has_prev: pageNum > 1
+            },
+            meta: {
+                search,
+                page_type,
+                sort: sortColumn,
+                order: sortOrder
+            }
+        });
+
+    } catch (error) {
+        console.error('Error fetching discovery pages:', error);
+        res.status(500).json({
+            error: 'Failed to fetch discovery pages',
+            message: error.message
+        });
+    }
+});
+
+/**
  * POST /api/projects/:id/test-sessions
  * Start automated testing for a project (requires authentication)
  */

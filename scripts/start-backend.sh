@@ -15,7 +15,7 @@ NC='\033[0m' # No Color
 # Configuration
 BACKEND_PORT=3001
 FRONTEND_PORT=3000
-BACKEND_SCRIPT="scripts/dashboard-backend.js"
+BACKEND_SCRIPT="api/server.js"
 LOG_FILE="logs/backend-startup.log"
 PID_FILE="logs/backend.pid"
 

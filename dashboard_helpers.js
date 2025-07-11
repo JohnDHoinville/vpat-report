@@ -52,6 +52,11 @@ function dashboard() {
         analytics: {},
         sessions: [],
         
+        // Discovery Pages Modal Data
+        selectedDiscovery: null,
+        discoveredPages: [],
+        pagesLoading: false,
+        
         // Authentication Management Data
         authConfigs: [],
         showSetupAuth: false,
@@ -73,6 +78,7 @@ function dashboard() {
         showCreateProject: false,
         showStartDiscovery: false,
         showCreateSession: false,
+        showViewPages: false,
         showLogin: false,
         showProfile: false,
         showChangePassword: false,
@@ -729,7 +735,7 @@ function dashboard() {
             
             try {
                 const data = await this.apiCall(`/projects/${this.selectedProject.id}/discoveries`);
-                this.discoveries = data.discoveries || [];
+                this.discoveries = data.data || [];
                 console.log(`🔍 Loaded ${this.discoveries.length} discoveries for project`);
             } catch (error) {
                 console.error('Failed to load discoveries:', error);
@@ -772,7 +778,7 @@ function dashboard() {
             
             try {
                 const data = await this.apiCall(`/projects/${this.selectedProject.id}/sessions`);
-                this.testSessions = data.sessions || [];
+                this.testSessions = data.data || [];
                 console.log(`🧪 Loaded ${this.testSessions.length} test sessions for project`);
             } catch (error) {
                 console.error('Failed to load test sessions:', error);
@@ -789,7 +795,7 @@ function dashboard() {
                     project_id: this.selectedProject.id
                 };
                 
-                const data = await this.apiCall(`/projects/${this.selectedProject.id}/sessions`, {
+                const data = await this.apiCall(`/projects/${this.selectedProject.id}/test-sessions`, {
                     method: 'POST',
                     body: JSON.stringify(sessionData)
                 });
@@ -975,8 +981,24 @@ function dashboard() {
             this.showNotification('Edit project feature coming soon!', 'info');
         },
 
-        viewDiscoveryPages(discovery) {
-            this.showNotification(`Viewing ${discovery.total_pages_found} pages from discovery`, 'info');
+        async viewDiscoveryPages(discovery) {
+            if (!this.selectedProject || !discovery) return;
+            
+            this.selectedDiscovery = discovery;
+            this.showViewPages = true;
+            this.pagesLoading = true;
+            this.discoveredPages = [];
+            
+            try {
+                const data = await this.apiCall(`/projects/${this.selectedProject.id}/discoveries/${discovery.id}/pages`);
+                this.discoveredPages = data.pages || [];
+                console.log(`📄 Loaded ${this.discoveredPages.length} discovered pages`);
+            } catch (error) {
+                console.error('Failed to load discovered pages:', error);
+                this.showNotification('Failed to load discovered pages', 'error');
+            } finally {
+                this.pagesLoading = false;
+            }
         },
 
         viewSessionResults(session) {
