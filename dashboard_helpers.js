@@ -84,6 +84,53 @@ function dashboard() {
         analytics: {},
         sessions: [],
         
+        // Unified Test Grid Data (Task 2.1.1)
+        viewingSessionDetails: false,
+        currentSessionDetails: null,
+        testInstances: [],
+        filteredTestInstances: [],
+        paginatedTestInstances: [],
+        selectedTestInstances: [],
+        availableTesters: [],
+        
+        // Test Grid Filtering
+        testFilters: {
+            status: '',
+            requirementType: '',
+            conformanceLevel: '',
+            assignedTester: '',
+            search: ''
+        },
+        
+        // Test Grid Pagination
+        testGridPagination: {
+            page: 1,
+            pageSize: 50,
+            totalPages: 1
+        },
+        
+        // Test Grid Sorting
+        testGridSort: {
+            field: 'requirement_id',
+            direction: 'asc'
+        },
+        
+        // Test Instance Detail Modal (Task 2.1.2)
+        showTestInstanceModal: false,
+        currentTestInstance: null,
+        testInstanceDetails: null,
+        testInstanceHistory: [],
+        isLoadingTestInstance: false,
+        isSavingTestInstance: false,
+        
+        // Test Instance form state
+        testInstanceStatus: '',
+        testInstanceNotes: '',
+        testInstanceRemediationNotes: '',
+        testInstanceConfidenceLevel: 'medium',
+        testInstanceAssignedTester: '',
+        testInstanceEvidence: [],
+        
         // Discovery Pages Modal Data
         selectedDiscovery: null,
         discoveredPages: [],
@@ -3735,6 +3782,487 @@ function dashboard() {
             this.selectedTesterId = '';
         },
 
+        // Unified Test Grid Functions (Task 2.1.1)
+        async viewSessionTestGrid(session) {
+            this.currentSessionDetails = session;
+            this.viewingSessionDetails = true;
+            this.testInstances = [];
+            this.filteredTestInstances = [];
+            this.selectedTestInstances = [];
+            this.resetTestFilters();
+            this.resetTestGridPagination();
+            await this.loadTestInstances(session.id);
+        },
+
+        closeSessionTestGrid() {
+            this.viewingSessionDetails = false;
+            this.currentSessionDetails = null;
+            this.testInstances = [];
+            this.filteredTestInstances = [];
+            this.selectedTestInstances = [];
+        },
+
+        async loadTestInstances(sessionId) {
+            try {
+                this.loading = true;
+                const response = await this.apiCall(`/test-instances?session_id=${sessionId}&include_details=true&limit=1000&sort=updated_at&order=desc`);
+                
+                if (response.success) {
+                    this.testInstances = response.data.test_instances || [];
+                    this.applyTestFilters();
+                    // Load progress data
+                    await this.loadSessionProgressMetrics(sessionId);
+                    console.log('Test instances loaded:', this.testInstances.length);
+                } else {
+                    console.error('Failed to load test instances:', response.error);
+                    this.showNotification('Failed to load test instances', 'error');
+                }
+            } catch (error) {
+                console.error('Error loading test instances:', error);
+                this.showNotification('Error loading test instances', 'error');
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        async loadSessionProgressMetrics(sessionId) {
+            try {
+                const response = await this.apiCall(`/sessions/${sessionId}/progress`);
+                
+                if (response.success) {
+                    this.sessionProgressMetrics = response.data;
+                    this.calculateProgressTrends();
+                } else {
+                    console.error('Failed to load progress metrics:', response.error);
+                }
+            } catch (error) {
+                console.error('Error loading progress metrics:', error);
+            }
+        },
+
+        calculateProgressTrends() {
+            if (!this.testInstances.length) return;
+
+            // Calculate completion trends over time
+            const completedTests = this.testInstances.filter(t => ['passed', 'failed', 'not_applicable'].includes(t.status));
+            const dailyProgress = {};
+            
+            completedTests.forEach(test => {
+                if (test.completed_at) {
+                    const date = new Date(test.completed_at).toDateString();
+                    dailyProgress[date] = (dailyProgress[date] || 0) + 1;
+                }
+            });
+
+            this.progressTrends = {
+                dailyCompletions: dailyProgress,
+                completionVelocity: this.calculateCompletionVelocity(dailyProgress),
+                estimatedCompletion: this.estimateCompletionDate(),
+                productivityMetrics: this.calculateProductivityMetrics()
+            };
+        },
+
+        calculateCompletionVelocity(dailyProgress) {
+            const dates = Object.keys(dailyProgress).sort();
+            if (dates.length < 2) return 0;
+
+            const recentDays = dates.slice(-7); // Last 7 days
+            const totalCompleted = recentDays.reduce((sum, date) => sum + dailyProgress[date], 0);
+            return totalCompleted / recentDays.length; // Average per day
+        },
+
+        estimateCompletionDate() {
+            const remainingTests = this.testInstances.filter(t => t.status === 'pending' || t.status === 'in_progress').length;
+            const velocity = this.progressTrends?.completionVelocity || 1;
+            
+            if (velocity > 0) {
+                const daysRemaining = Math.ceil(remainingTests / velocity);
+                const estimatedDate = new Date();
+                estimatedDate.setDate(estimatedDate.getDate() + daysRemaining);
+                return estimatedDate;
+            }
+            return null;
+        },
+
+        calculateProductivityMetrics() {
+            const testerStats = {};
+            
+            this.testInstances.forEach(test => {
+                if (test.assigned_tester && ['passed', 'failed', 'not_applicable'].includes(test.status)) {
+                    const tester = test.assigned_tester_name || test.assigned_tester;
+                    if (!testerStats[tester]) {
+                        testerStats[tester] = { completed: 0, assigned: 0, avgTimeToComplete: 0 };
+                    }
+                    testerStats[tester].completed++;
+                }
+                
+                if (test.assigned_tester) {
+                    const tester = test.assigned_tester_name || test.assigned_tester;
+                    if (!testerStats[tester]) {
+                        testerStats[tester] = { completed: 0, assigned: 0, avgTimeToComplete: 0 };
+                    }
+                    testerStats[tester].assigned++;
+                }
+            });
+
+            return testerStats;
+        },
+
+        getProgressPercentage() {
+            if (!this.testInstances.length) return 0;
+            const completed = this.testInstances.filter(t => ['passed', 'failed', 'not_applicable'].includes(t.status)).length;
+            return Math.round((completed / this.testInstances.length) * 100);
+        },
+
+        getStatusBreakdown() {
+            const breakdown = {
+                pending: 0,
+                in_progress: 0,
+                passed: 0,
+                failed: 0,
+                untestable: 0,
+                not_applicable: 0,
+                needs_review: 0
+            };
+
+            this.testInstances.forEach(test => {
+                if (breakdown.hasOwnProperty(test.status)) {
+                    breakdown[test.status]++;
+                }
+            });
+
+            return breakdown;
+        },
+
+        getRequirementLevelBreakdown() {
+            const breakdown = { A: { total: 0, completed: 0 }, AA: { total: 0, completed: 0 }, AAA: { total: 0, completed: 0 } };
+            
+            this.testInstances.forEach(test => {
+                const level = test.requirement_level || 'AA';
+                if (breakdown[level]) {
+                    breakdown[level].total++;
+                    if (['passed', 'failed', 'not_applicable'].includes(test.status)) {
+                        breakdown[level].completed++;
+                    }
+                }
+            });
+
+            return breakdown;
+        },
+
+        getAssignmentStats() {
+            const assigned = this.testInstances.filter(t => t.assigned_tester).length;
+            const unassigned = this.testInstances.length - assigned;
+            
+            return {
+                assigned,
+                unassigned,
+                assignmentPercentage: this.testInstances.length > 0 ? Math.round((assigned / this.testInstances.length) * 100) : 0
+            };
+        },
+
+        getTeamWorkload() {
+            const workload = {};
+            
+            this.testInstances.forEach(test => {
+                if (test.assigned_tester) {
+                    const tester = test.assigned_tester_name || test.assigned_tester;
+                    if (!workload[tester]) {
+                        workload[tester] = { total: 0, completed: 0, inProgress: 0, pending: 0 };
+                    }
+                    
+                    workload[tester].total++;
+                    
+                    if (['passed', 'failed', 'not_applicable'].includes(test.status)) {
+                        workload[tester].completed++;
+                    } else if (test.status === 'in_progress') {
+                        workload[tester].inProgress++;
+                    } else if (test.status === 'pending') {
+                        workload[tester].pending++;
+                    }
+                }
+            });
+
+            return workload;
+        },
+
+        formatDuration(milliseconds) {
+            const days = Math.floor(milliseconds / (24 * 60 * 60 * 1000));
+            const hours = Math.floor((milliseconds % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
+            
+            if (days > 0) {
+                return `${days}d ${hours}h`;
+            } else if (hours > 0) {
+                return `${hours}h`;
+            } else {
+                return '<1h';
+            }
+        },
+
+        async refreshTestInstances() {
+            if (this.currentSessionDetails) {
+                await this.loadTestInstances(this.currentSessionDetails.id);
+            }
+        },
+
+        applyTestFilters() {
+            let filtered = [...this.testInstances];
+
+            // Apply status filter
+            if (this.testFilters.status) {
+                filtered = filtered.filter(test => test.status === this.testFilters.status);
+            }
+
+            // Apply requirement type filter
+            if (this.testFilters.requirementType) {
+                filtered = filtered.filter(test => test.test_method === this.testFilters.requirementType);
+            }
+
+            // Apply conformance level filter
+            if (this.testFilters.conformanceLevel) {
+                filtered = filtered.filter(test => test.conformance_level === this.testFilters.conformanceLevel);
+            }
+
+            // Apply assigned tester filter
+            if (this.testFilters.assignedTester) {
+                if (this.testFilters.assignedTester === 'unassigned') {
+                    filtered = filtered.filter(test => !test.assigned_tester);
+                } else {
+                    filtered = filtered.filter(test => test.assigned_tester === this.testFilters.assignedTester);
+                }
+            }
+
+            // Apply search filter
+            if (this.testFilters.search) {
+                const searchTerm = this.testFilters.search.toLowerCase();
+                filtered = filtered.filter(test => 
+                    (test.requirement_id && test.requirement_id.toLowerCase().includes(searchTerm)) ||
+                    (test.title && test.title.toLowerCase().includes(searchTerm)) ||
+                    (test.description && test.description.toLowerCase().includes(searchTerm)) ||
+                    (test.testing_instructions && test.testing_instructions.toLowerCase().includes(searchTerm))
+                );
+            }
+
+            // Apply sorting
+            filtered.sort((a, b) => {
+                const field = this.testGridSort.field;
+                const direction = this.testGridSort.direction;
+                
+                let aVal = a[field] || '';
+                let bVal = b[field] || '';
+                
+                if (typeof aVal === 'string') aVal = aVal.toLowerCase();
+                if (typeof bVal === 'string') bVal = bVal.toLowerCase();
+                
+                if (direction === 'asc') {
+                    return aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
+                } else {
+                    return aVal > bVal ? -1 : aVal < bVal ? 1 : 0;
+                }
+            });
+
+            this.filteredTestInstances = filtered;
+            this.updateTestGridPagination();
+        },
+
+        sortTestInstances(field) {
+            if (this.testGridSort.field === field) {
+                this.testGridSort.direction = this.testGridSort.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                this.testGridSort.field = field;
+                this.testGridSort.direction = 'asc';
+            }
+            this.applyTestFilters();
+        },
+
+        updateTestGridPagination() {
+            this.testGridPagination.totalPages = Math.ceil(this.filteredTestInstances.length / this.testGridPagination.pageSize);
+            
+            if (this.testGridPagination.page > this.testGridPagination.totalPages) {
+                this.testGridPagination.page = Math.max(1, this.testGridPagination.totalPages);
+            }
+
+            const startIndex = (this.testGridPagination.page - 1) * this.testGridPagination.pageSize;
+            const endIndex = startIndex + this.testGridPagination.pageSize;
+            this.paginatedTestInstances = this.filteredTestInstances.slice(startIndex, endIndex);
+        },
+
+        updateTestGridPage(page) {
+            if (page >= 1 && page <= this.testGridPagination.totalPages) {
+                this.testGridPagination.page = page;
+                this.updateTestGridPagination();
+            }
+        },
+
+        resetTestFilters() {
+            this.testFilters = {
+                status: '',
+                requirementType: '',
+                conformanceLevel: '',
+                assignedTester: '',
+                search: ''
+            };
+        },
+
+        resetTestGridPagination() {
+            this.testGridPagination = {
+                page: 1,
+                pageSize: 50,
+                totalPages: 1
+            };
+        },
+
+        // Bulk Operations
+        toggleTestSelection(testId) {
+            const index = this.selectedTestInstances.indexOf(testId);
+            if (index > -1) {
+                this.selectedTestInstances.splice(index, 1);
+            } else {
+                this.selectedTestInstances.push(testId);
+            }
+        },
+
+        toggleAllTestSelection() {
+            if (this.selectedTestInstances.length === this.paginatedTestInstances.length && this.paginatedTestInstances.length > 0) {
+                this.selectedTestInstances = [];
+            } else {
+                this.selectedTestInstances = this.paginatedTestInstances.map(test => test.id);
+            }
+        },
+
+        clearTestSelection() {
+            this.selectedTestInstances = [];
+        },
+
+        async bulkUpdateStatus(status) {
+            if (this.selectedTestInstances.length === 0) return;
+
+            try {
+                this.loading = true;
+                const promises = this.selectedTestInstances.map(testId => 
+                    this.apiCall(`/test-instances/${testId}`, 'PUT', { status })
+                );
+
+                await Promise.all(promises);
+                await this.refreshTestInstances();
+                this.clearTestSelection();
+                this.showNotification(`Updated ${this.selectedTestInstances.length} tests to ${status}`, 'success');
+            } catch (error) {
+                console.error('Error in bulk status update:', error);
+                this.showNotification('Error updating test statuses', 'error');
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        async bulkAssignTester() {
+            if (this.selectedTestInstances.length === 0 || !this.bulkAssignmentTester) return;
+
+            try {
+                this.loading = true;
+                const promises = this.selectedTestInstances.map(testId => 
+                    this.apiCall(`/test-instances/${testId}`, 'PUT', { assigned_tester: this.bulkAssignmentTester })
+                );
+
+                await Promise.all(promises);
+                await this.refreshTestInstances();
+                this.clearTestSelection();
+                this.bulkAssignmentTester = '';
+                
+                const tester = this.availableTesters.find(t => t.id === this.bulkAssignmentTester);
+                const testerName = tester ? (tester.full_name || tester.username) : 'selected tester';
+                this.showNotification(`Assigned ${this.selectedTestInstances.length} tests to ${testerName}`, 'success');
+            } catch (error) {
+                console.error('Error in bulk assignment:', error);
+                this.showNotification('Error assigning tests', 'error');
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        showQuickAssignModal(testInstance) {
+            this.quickAssignTestInstance = testInstance;
+            this.showQuickAssignModal = true;
+            
+            // Load testers if not already loaded
+            if (!this.availableTesters || this.availableTesters.length === 0) {
+                this.loadAvailableTesters();
+            }
+        },
+
+        async unassignTestInstance(testInstanceId) {
+            try {
+                const response = await this.apiCall(`/test-instances/${testInstanceId}`, 'PUT', { assigned_tester: null });
+                
+                if (response.success) {
+                    this.showNotification('Tester unassigned successfully', 'success');
+                    await this.refreshTestInstances();
+                } else {
+                    this.showNotification(response.error || 'Failed to unassign tester', 'error');
+                }
+            } catch (error) {
+                console.error('Error unassigning tester:', error);
+                this.showNotification('Failed to unassign tester', 'error');
+            }
+        },
+
+        // Helper functions for badges and formatting
+        getTestStatusBadgeClass(status) {
+            const classes = {
+                'pending': 'bg-yellow-100 text-yellow-800',
+                'in_progress': 'bg-blue-100 text-blue-800',
+                'passed': 'bg-green-100 text-green-800',
+                'failed': 'bg-red-100 text-red-800',
+                'not_applicable': 'bg-gray-100 text-gray-800'
+            };
+            return classes[status] || 'bg-gray-100 text-gray-800';
+        },
+
+        getTestMethodBadgeClass(method) {
+            const classes = {
+                'automated': 'bg-purple-100 text-purple-800',
+                'manual': 'bg-orange-100 text-orange-800',
+                'both': 'bg-indigo-100 text-indigo-800'
+            };
+            return classes[method] || 'bg-gray-100 text-gray-800';
+        },
+
+        getConformanceLevelBadgeClass(level) {
+            const classes = {
+                'A': 'bg-green-100 text-green-800',
+                'AA': 'bg-blue-100 text-blue-800',
+                'AAA': 'bg-purple-100 text-purple-800'
+            };
+            return classes[level] || 'bg-gray-100 text-gray-800';
+        },
+
+        formatTestStatus(status) {
+            const formatted = {
+                'pending': 'Pending',
+                'in_progress': 'In Progress',
+                'passed': 'Passed',
+                'failed': 'Failed',
+                'not_applicable': 'Not Applicable'
+            };
+            return formatted[status] || status;
+        },
+
+        getCompletedTestsCount() {
+            return this.testInstances.filter(test => 
+                test.status === 'passed' || test.status === 'failed' || test.status === 'not_applicable'
+            ).length;
+        },
+
+        truncateText(text, maxLength) {
+            if (!text || text.length <= maxLength) return text;
+            return text.substring(0, maxLength) + '...';
+        },
+
+        capitalizeFirst(str) {
+            if (!str) return '';
+            return str.charAt(0).toUpperCase() + str.slice(1);
+        },
+
         // Testing Sessions Management Functions
         async refreshTestingSessionsTabData() {
             if (!this.selectedProject) return;
@@ -3806,9 +4334,8 @@ function dashboard() {
         },
 
         viewTestingSessionDetails(session) {
-            // Navigate to session details view
-            console.log('Viewing session details:', session);
-            this.addNotification('Feature Coming Soon', 'Session details view will be available soon', 'info');
+            // Navigate to session test grid view
+            this.viewSessionTestGrid(session);
         },
 
         editTestingSession(session) {
@@ -3889,7 +4416,220 @@ function dashboard() {
                 'cancelled': 'bg-gray-100 text-gray-800'
             };
             return classes[status] || 'bg-gray-100 text-gray-800';
-        }
+        },
+
+        // Test Instance Detail Modal (Task 2.1.2)
+        showTestInstanceModal: false,
+        currentTestInstance: null,
+        testInstanceDetails: null,
+        testInstanceHistory: [],
+        isLoadingTestInstance: false,
+        isSavingTestInstance: false,
+        
+        // Test Instance form state
+        testInstanceStatus: '',
+        testInstanceNotes: '',
+        testInstanceRemediationNotes: '',
+        testInstanceConfidenceLevel: 'medium',
+        testInstanceAssignedTester: '',
+        testInstanceEvidence: [],
+
+        // Test Instance Detail Modal Functions (Task 2.1.2)
+        async openTestInstanceModal(testInstance) {
+            try {
+                console.log('🔍 Opening test instance details for:', testInstance.id);
+                
+                this.currentTestInstance = testInstance;
+                this.isLoadingTestInstance = true;
+                
+                // Reset form state
+                this.testInstanceStatus = testInstance.status || 'pending';
+                this.testInstanceNotes = testInstance.notes || '';
+                this.testInstanceRemediationNotes = testInstance.remediation_notes || '';
+                this.testInstanceConfidenceLevel = testInstance.confidence_level || 'medium';
+                this.testInstanceAssignedTester = testInstance.assigned_tester || '';
+                this.testInstanceEvidence = testInstance.evidence || [];
+                this.isSavingTestInstance = false;
+                
+                // Load detailed test information
+                await this.loadTestInstanceDetails(testInstance.id);
+                
+                // Load test history for this requirement
+                if (testInstance.requirement_id) {
+                    await this.loadTestInstanceHistory(testInstance.requirement_id, testInstance.page_id);
+                }
+                
+                this.showTestInstanceModal = true;
+                
+            } catch (error) {
+                console.error('❌ Error opening test instance details:', error);
+                this.showNotification('Failed to load test details', 'error');
+            } finally {
+                this.isLoadingTestInstance = false;
+            }
+        },
+
+        async loadTestInstanceDetails(testInstanceId) {
+            try {
+                const response = await this.apiCall(`/test-instances/${testInstanceId}`);
+                
+                if (response.success) {
+                    this.testInstanceDetails = response.data;
+                    console.log('Test instance details loaded:', this.testInstanceDetails);
+                } else {
+                    console.error('Failed to load test instance details:', response.error);
+                    this.showNotification('Failed to load test details', 'error');
+                }
+            } catch (error) {
+                console.error('Error loading test instance details:', error);
+                this.showNotification('Error loading test details', 'error');
+            }
+        },
+
+        async loadTestInstanceHistory(requirementId, pageId = null) {
+            try {
+                let endpoint = `/test-instances?requirement_id=${requirementId}&limit=20&sort=updated_at&order=desc`;
+                if (pageId) {
+                    endpoint += `&page_id=${pageId}`;
+                }
+
+                const response = await this.apiCall(endpoint);
+                
+                if (response.success) {
+                    this.testInstanceHistory = response.data || [];
+                    console.log('Test instance history loaded:', this.testInstanceHistory.length);
+                } else {
+                    console.error('Failed to load test instance history:', response.error);
+                    this.testInstanceHistory = [];
+                }
+            } catch (error) {
+                console.error('Error loading test instance history:', error);
+                this.testInstanceHistory = [];
+            }
+        },
+
+        async saveTestInstanceUpdate() {
+            if (!this.currentTestInstance) return;
+
+            try {
+                this.isSavingTestInstance = true;
+
+                const updateData = {
+                    status: this.testInstanceStatus,
+                    notes: this.testInstanceNotes,
+                    remediation_notes: this.testInstanceRemediationNotes,
+                    confidence_level: this.testInstanceConfidenceLevel,
+                    assigned_tester: this.testInstanceAssignedTester || null,
+                    evidence: this.testInstanceEvidence
+                };
+
+                const response = await this.apiCall(
+                    `/test-instances/${this.currentTestInstance.id}`, 
+                    'PUT', 
+                    updateData
+                );
+
+                if (response.success) {
+                    this.showNotification('Test instance updated successfully', 'success');
+                    
+                    // Update the current test instance
+                    Object.assign(this.currentTestInstance, updateData);
+                    
+                    // Refresh the test grid
+                    await this.refreshTestInstances();
+                    
+                    // Close modal
+                    this.closeTestInstanceModal();
+                } else {
+                    this.showNotification(response.error || 'Failed to update test instance', 'error');
+                }
+            } catch (error) {
+                console.error('Error saving test instance update:', error);
+                this.showNotification('Failed to save test instance update', 'error');
+            } finally {
+                this.isSavingTestInstance = false;
+            }
+        },
+
+        closeTestInstanceModal() {
+            this.showTestInstanceModal = false;
+            this.currentTestInstance = null;
+            this.testInstanceDetails = null;
+            this.testInstanceHistory = [];
+            this.isLoadingTestInstance = false;
+            this.isSavingTestInstance = false;
+            
+            // Reset form state
+            this.testInstanceStatus = '';
+            this.testInstanceNotes = '';
+            this.testInstanceRemediationNotes = '';
+            this.testInstanceConfidenceLevel = 'medium';
+            this.testInstanceAssignedTester = '';
+            this.testInstanceEvidence = [];
+        },
+
+        async assignTesterToTestInstance(testerId) {
+            if (!this.currentTestInstance || !testerId) return;
+
+            try {
+                const response = await this.apiCall(
+                    `/test-instances/${this.currentTestInstance.id}/assign`,
+                    'PUT',
+                    { assigned_tester: testerId }
+                );
+
+                if (response.success) {
+                    this.testInstanceAssignedTester = testerId;
+                    this.currentTestInstance.assigned_tester = testerId;
+                    this.showNotification('Tester assigned successfully', 'success');
+                    await this.refreshTestInstances();
+                } else {
+                    this.showNotification(response.error || 'Failed to assign tester', 'error');
+                }
+            } catch (error) {
+                console.error('Error assigning tester:', error);
+                this.showNotification('Failed to assign tester', 'error');
+            }
+        },
+
+        async unassignTesterFromTestInstance() {
+            if (!this.currentTestInstance) return;
+
+            try {
+                const response = await this.apiCall(
+                    `/test-instances/${this.currentTestInstance.id}/assign`,
+                    'PUT',
+                    { assigned_tester: null }
+                );
+
+                if (response.success) {
+                    this.testInstanceAssignedTester = '';
+                    this.currentTestInstance.assigned_tester = null;
+                    this.showNotification('Tester unassigned successfully', 'success');
+                    await this.refreshTestInstances();
+                } else {
+                    this.showNotification(response.error || 'Failed to unassign tester', 'error');
+                }
+            } catch (error) {
+                console.error('Error unassigning tester:', error);
+                this.showNotification('Failed to unassign tester', 'error');
+            }
+        },
+
+        getTestInstanceStatusDisplayText(status) {
+            const statusMap = {
+                'pending': 'Pending',
+                'in_progress': 'In Progress',
+                'passed': 'Passed',
+                'failed': 'Failed',
+                'untestable': 'Untestable',
+                'not_applicable': 'Not Applicable',
+                'needs_review': 'Needs Review'
+            };
+            return statusMap[status] || status;
+        },
+
+        // Testing Sessions Tab Functions
     };
 }
 
