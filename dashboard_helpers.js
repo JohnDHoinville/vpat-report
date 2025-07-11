@@ -906,17 +906,32 @@ function dashboard() {
         async createProject() {
             try {
                 this.loading = true;
+                
+                // Normalize the URL by adding protocol if missing
+                let normalizedUrl = this.newProject.primary_url.trim();
+                if (normalizedUrl && !normalizedUrl.match(/^https?:\/\//)) {
+                    // Default to HTTPS for security
+                    normalizedUrl = `https://${normalizedUrl}`;
+                }
+                
+                // Create project data with normalized URL
+                const projectData = {
+                    ...this.newProject,
+                    primary_url: normalizedUrl
+                };
+                
                 const data = await this.apiCall('/projects', {
                     method: 'POST',
-                    body: JSON.stringify(this.newProject)
+                    body: JSON.stringify(projectData)
                 });
                 
-                this.projects.push(data.project);
+                this.projects.push(data.data);
                 this.showCreateProject = false;
                 this.resetNewProject();
                 this.showNotification('Project created successfully!', 'success');
             } catch (error) {
                 console.error('Failed to create project:', error);
+                this.showNotification(error.message || 'Failed to create project', 'error');
             } finally {
                 this.loading = false;
             }
@@ -964,9 +979,23 @@ function dashboard() {
             
             try {
                 this.loading = true;
+                
+                // Normalize the URL by adding protocol if missing
+                let normalizedUrl = this.newDiscovery.primary_url.trim();
+                if (normalizedUrl && !normalizedUrl.match(/^https?:\/\//)) {
+                    // Default to HTTPS for security
+                    normalizedUrl = `https://${normalizedUrl}`;
+                }
+                
+                // Create discovery data with normalized URL
+                const discoveryData = {
+                    ...this.newDiscovery,
+                    primary_url: normalizedUrl
+                };
+                
                 const data = await this.apiCall(`/projects/${this.selectedProject.id}/discoveries`, {
                     method: 'POST',
-                    body: JSON.stringify(this.newDiscovery)
+                    body: JSON.stringify(discoveryData)
                 });
                 
                 this.discoveries.unshift(data.discovery);
@@ -978,6 +1007,7 @@ function dashboard() {
                 this.pollDiscoveryProgress(data.discovery.id);
             } catch (error) {
                 console.error('Failed to start discovery:', error);
+                this.showNotification(error.message || 'Failed to start discovery', 'error');
             } finally {
                 this.loading = false;
             }
