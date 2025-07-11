@@ -131,6 +131,7 @@ function dashboard() {
         
         // Authentication Management Data
         authConfigs: [],
+        projectAuthConfigs: [], // Filtered auth configs for selected project
         showSetupAuth: false,
         showEditAuth: false,
         editingConfig: null,
@@ -961,6 +962,7 @@ function dashboard() {
             
             this.loadProjectDiscoveries();
             this.loadProjectTestSessions();
+            this.loadProjectAuthConfigs();
             this.loadSelectedDiscoveries();
             // Switch to discovery tab after selection
             this.activeTab = 'discovery';
@@ -1730,14 +1732,86 @@ function dashboard() {
                 const response = await this.apiCall('/auth/configs');
                 this.authConfigs = response.configs || [];
                 console.log('🔐 Auth configs loaded:', this.authConfigs.length);
+                // Filter for current project if one is selected
+                if (this.selectedProject) {
+                    this.filterAuthConfigsForProject();
+                }
             } catch (error) {
                 console.error('Failed to load auth configs:', error);
                 this.authConfigs = [];
+                this.projectAuthConfigs = [];
             }
         },
 
+        async loadProjectAuthConfigs() {
+            if (!this.selectedProject) {
+                this.projectAuthConfigs = [];
+                return;
+            }
+            
+            // Load all auth configs if not already loaded
+            if (this.authConfigs.length === 0) {
+                await this.loadAuthConfigs();
+            } else {
+                // Filter existing configs for the project
+                this.filterAuthConfigsForProject();
+            }
+        },
+
+        filterAuthConfigsForProject() {
+            if (!this.selectedProject || !this.selectedProject.primary_url) {
+                this.projectAuthConfigs = [];
+                return;
+            }
+
+            try {
+                // Extract domain from project's primary URL
+                const projectUrl = new URL(this.selectedProject.primary_url);
+                const projectDomain = projectUrl.hostname;
+                
+                // Filter auth configs that match the project domain
+                this.projectAuthConfigs = this.authConfigs.filter(config => {
+                    if (config.domain === projectDomain) {
+                        return true;
+                    }
+                    
+                    // Also check if the config URL matches the project domain
+                    if (config.url) {
+                        try {
+                            const configUrl = new URL(config.url);
+                            return configUrl.hostname === projectDomain;
+                        } catch (error) {
+                            // If URL parsing fails, fall back to string comparison
+                            return config.url.includes(projectDomain);
+                        }
+                    }
+                    
+                    return false;
+                });
+                
+                console.log(`🔐 Filtered ${this.projectAuthConfigs.length} auth configs for project domain: ${projectDomain}`);
+                
+            } catch (error) {
+                console.error('Error filtering auth configs for project:', error);
+                this.projectAuthConfigs = [];
+            }
+        },
+
+        // Computed properties for authentication stats
+        getActiveAuthCount() {
+            return this.projectAuthConfigs.filter(config => config.status === 'active').length;
+        },
+
+        getPendingAuthCount() {
+            return this.projectAuthConfigs.filter(config => config.status === 'pending' || config.status === 'testing').length;
+        },
+
+        getFailedAuthCount() {
+            return this.projectAuthConfigs.filter(config => config.status === 'failed' || config.status === 'error').length;
+        },
+
         refreshAuthConfigs() {
-            this.loadAuthConfigs();
+            this.loadProjectAuthConfigs();
             this.showNotification('Authentication configurations refreshed', 'success');
         },
 
@@ -1811,7 +1885,7 @@ function dashboard() {
                 this.showNotification('Authentication setup completed successfully!', 'success');
                 this.showSetupAuth = false;
                 this.resetAuthSetup();
-                await this.loadAuthConfigs();
+                await this.loadProjectAuthConfigs();
 
             } catch (error) {
                 console.error('Authentication setup failed:', error);
@@ -2051,7 +2125,7 @@ function dashboard() {
                 this.showNotification('Authentication configuration updated successfully!', 'success');
                 
                 // Reload configs to get the latest data
-                await this.loadAuthConfigs();
+                await this.loadProjectAuthConfigs();
 
             } catch (error) {
                 console.error('Failed to update auth config:', error);
@@ -2087,7 +2161,9 @@ function dashboard() {
                     method: 'DELETE'
                 });
 
+                // Remove from both global and project-specific arrays
                 this.authConfigs = this.authConfigs.filter(c => c.id !== config.id);
+                this.projectAuthConfigs = this.projectAuthConfigs.filter(c => c.id !== config.id);
                 this.showNotification(`Authentication config deleted for ${config.domain}`, 'success');
             } catch (error) {
                 this.showNotification(`Failed to delete configuration: ${error.message}`, 'error');
