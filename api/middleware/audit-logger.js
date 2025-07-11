@@ -4,7 +4,7 @@
  * Created: December 11, 2024
  */
 
-const pool = require('../../database/config');
+const { pool } = require('../../database/config');
 
 /**
  * Enhanced audit logging middleware for API endpoints
@@ -169,7 +169,7 @@ class AuditLogger {
         const query = `
             CREATE TABLE IF NOT EXISTS api_activity_log (
                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                user_id UUID REFERENCES auth_users(id),
+                user_id UUID REFERENCES users(id),
                 action_type VARCHAR(50) NOT NULL,
                 ip_address INET,
                 user_agent TEXT,

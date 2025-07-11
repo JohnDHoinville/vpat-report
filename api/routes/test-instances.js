@@ -1,13 +1,8 @@
 const express = require('express');
 const router = express.Router();
-const { Pool } = require('pg');
+const { pool } = require('../../database/config');
 const { authenticateToken } = require('../middleware/auth');
 const AuditLogger = require('../middleware/audit-logger');
-
-// Database connection
-const pool = new Pool({
-    connectionString: process.env.DATABASE_URL || 'postgresql://postgres:password@localhost:5432/accessibility_testing',
-});
 
 /**
  * GET /api/test-instances/test

@@ -6,7 +6,7 @@ const AuditLogger = require('../middleware/audit-logger');
 
 // Database connection
 const pool = new Pool({
-    connectionString: process.env.DATABASE_URL || 'postgresql://postgres:password@localhost:5432/accessibility_db',
+    connectionString: process.env.DATABASE_URL || 'postgresql://postgres:password@localhost:5432/accessibility_testing',
 });
 
 /**

@@ -6,7 +6,7 @@
 
 const express = require('express');
 const router = express.Router();
-const pool = require('../../database/config');
+const { pool } = require('../../database/config');
 const AuditLogger = require('../middleware/audit-logger');
 
 // Apply audit logging middleware to all routes
@@ -81,19 +81,18 @@ router.get('/', async (req, res) => {
                 ts.passed_tests_count,
                 ts.failed_tests_count,
                 ts.completion_percentage,
-                ts.estimated_completion_date,
                 ts.created_at,
                 ts.updated_at,
                 p.name as project_name,
-                p.url as project_url,
+                p.primary_url as project_url,
                 au.username as created_by_username,
                 COUNT(ti.id) as current_test_instances
             FROM test_sessions ts
             LEFT JOIN projects p ON ts.project_id = p.id
-            LEFT JOIN auth_users au ON ts.created_by = au.id
+            LEFT JOIN users au ON ts.created_by = au.id
             LEFT JOIN test_instances ti ON ts.id = ti.session_id
             ${whereClause}
-            GROUP BY ts.id, p.name, p.url, au.username
+            GROUP BY ts.id, p.name, p.primary_url, au.username
             ORDER BY ts.${sortField} ${sortDirection}
             LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
         `;
@@ -152,14 +151,12 @@ router.get('/:id', async (req, res) => {
             SELECT 
                 ts.*,
                 p.name as project_name,
-                p.url as project_url,
+                p.primary_url as project_url,
                 p.description as project_description,
-                au_created.username as created_by_username,
-                au_updated.username as updated_by_username
+                au_created.username as created_by_username
             FROM test_sessions ts
             LEFT JOIN projects p ON ts.project_id = p.id
-            LEFT JOIN auth_users au_created ON ts.created_by = au_created.id
-            LEFT JOIN auth_users au_updated ON ts.updated_by = au_updated.id
+            LEFT JOIN users au_created ON ts.created_by = au_created.id
             WHERE ts.id = $1
         `;
 
@@ -226,15 +223,15 @@ router.get('/:id', async (req, res) => {
                     tr.title as requirement_title,
                     tr.requirement_type,
                     tr.level as requirement_level,
-                    dp.url as page_url,
+                    dp.primary_url as page_url,
                     dp.title as page_title,
                     au.username as tester_username
                 FROM test_instances ti
                 JOIN test_requirements tr ON ti.requirement_id = tr.id
                 LEFT JOIN discovered_pages dp ON ti.page_id = dp.id
-                LEFT JOIN auth_users au ON ti.assigned_tester = au.id
+                LEFT JOIN users au ON ti.assigned_tester = au.id
                 WHERE ti.session_id = $1
-                ORDER BY tr.criterion_number, dp.url
+                ORDER BY tr.criterion_number, dp.primary_url
             `;
 
             const testsResult = await pool.query(testsQuery, [id]);
@@ -286,7 +283,7 @@ router.post('/', async (req, res) => {
         }
 
         // Validate conformance level
-        const validConformanceLevels = ['wcag_a', 'wcag_aa', 'wcag_aaa', 'section_508', 'combined'];
+        const validConformanceLevels = ['A', 'AA', 'AAA', 'Section508', 'Custom'];
         if (!validConformanceLevels.includes(conformance_level)) {
             return res.status(400).json({
                 success: false,
@@ -313,16 +310,15 @@ router.post('/', async (req, res) => {
             const sessionResult = await client.query(`
                 INSERT INTO test_sessions (
                     project_id, name, description, conformance_level, 
-                    status, created_by, updated_by
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+                    status, created_by
+                ) VALUES ($1, $2, $3, $4, $5, $6)
                 RETURNING *
             `, [
                 project_id,
                 name,
                 description,
                 conformance_level,
-                'draft',
-                req.user?.id,
+                'planning',
                 req.user?.id
             ]);
 
@@ -376,8 +372,7 @@ router.put('/:id', async (req, res) => {
         const {
             name,
             description,
-            status,
-            estimated_completion_date
+            status
         } = req.body;
 
         // Check if session exists
@@ -419,12 +414,6 @@ router.put('/:id', async (req, res) => {
             paramIndex++;
         }
 
-        if (estimated_completion_date !== undefined) {
-            updateFields.push(`estimated_completion_date = $${paramIndex}`);
-            queryParams.push(estimated_completion_date);
-            paramIndex++;
-        }
-
         if (updateFields.length === 0) {
             return res.status(400).json({
                 success: false,
@@ -432,11 +421,7 @@ router.put('/:id', async (req, res) => {
             });
         }
 
-        // Add updated_by and updated_at
-        updateFields.push(`updated_by = $${paramIndex}`);
-        queryParams.push(req.user?.id);
-        paramIndex++;
-
+        // Add updated_at
         updateFields.push(`updated_at = CURRENT_TIMESTAMP`);
 
         // Add WHERE clause parameter
@@ -445,7 +430,7 @@ router.put('/:id', async (req, res) => {
         const updateQuery = `
             UPDATE test_sessions 
             SET ${updateFields.join(', ')}
-            WHERE id = $${paramIndex}
+            WHERE id = $${queryParams.length}
             RETURNING *
         `;
 
@@ -497,9 +482,9 @@ router.delete('/:id', async (req, res) => {
             // Soft delete - archive the session
             await pool.query(`
                 UPDATE test_sessions 
-                SET status = 'archived', updated_by = $2, updated_at = CURRENT_TIMESTAMP
+                SET status = 'archived', updated_at = CURRENT_TIMESTAMP
                 WHERE id = $1
-            `, [id, req.user?.id]);
+            `, [id]);
 
             res.json({
                 success: true,
@@ -545,16 +530,15 @@ router.post('/:id/duplicate', async (req, res) => {
             const duplicateResult = await client.query(`
                 INSERT INTO test_sessions (
                     project_id, name, description, conformance_level,
-                    status, created_by, updated_by
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+                    status, created_by
+                ) VALUES ($1, $2, $3, $4, $5, $6)
                 RETURNING *
             `, [
                 original.project_id,
                 name || `${original.name} (Copy)`,
                 original.description,
                 original.conformance_level,
-                'draft',
-                req.user?.id,
+                'planning',
                 req.user?.id
             ]);
 
@@ -619,72 +603,61 @@ async function generateTestInstances(client, sessionId, conformanceLevel, pageSc
     // Get applicable test requirements based on conformance level
     let requirementConditions = ['tr.is_active = true'];
     
-    if (conformanceLevel === 'wcag_a') {
+    if (conformanceLevel === 'A') {
         requirementConditions.push("(tr.requirement_type = 'wcag' AND tr.level = 'a')");
-    } else if (conformanceLevel === 'wcag_aa') {
+    } else if (conformanceLevel === 'AA') {
         requirementConditions.push("(tr.requirement_type = 'wcag' AND tr.level IN ('a', 'aa'))");
-    } else if (conformanceLevel === 'wcag_aaa') {
+    } else if (conformanceLevel === 'AAA') {
         requirementConditions.push("(tr.requirement_type = 'wcag' AND tr.level IN ('a', 'aa', 'aaa'))");
-    } else if (conformanceLevel === 'section_508') {
-        requirementConditions.push("tr.requirement_type = 'section_508'");
-    } else if (conformanceLevel === 'combined') {
-        requirementConditions.push("tr.requirement_type IN ('wcag', 'section_508')");
+    } else if (conformanceLevel === 'Section508') {
+        requirementConditions.push("tr.requirement_type = 'section508'");
+    } else if (conformanceLevel === 'Custom') {
+        // For Custom, include all active requirements
+        requirementConditions.push("tr.is_active = true");
     }
 
     const requirementQuery = `
         SELECT id FROM test_requirements tr
-        WHERE ${requirementConditions.join(' AND ')}
+        WHERE ${requirementConditions.join(' OR ')}
         ORDER BY tr.requirement_type, tr.criterion_number
     `;
 
     const requirements = await client.query(requirementQuery);
 
-    // Get pages to test
+    // Get pages to test - for now, create tests without specific pages
+    // Later this can be enhanced to link to actual discovered pages
     let pages = [];
-    if (pageScope === 'selected' && selectedPages.length > 0) {
-        const pageQuery = `
-            SELECT id FROM discovered_pages 
-            WHERE id = ANY($1)
-        `;
-        const pageResult = await client.query(pageQuery, [selectedPages]);
-        pages = pageResult.rows;
-    } else {
-        // Get all pages for the project
-        const sessionProject = await client.query(`
-            SELECT project_id FROM test_sessions WHERE id = $1
-        `, [sessionId]);
-        
-        const pageQuery = `
-            SELECT id FROM discovered_pages 
-            WHERE project_id = $1
-            ORDER BY url
-        `;
-        const pageResult = await client.query(pageQuery, [sessionProject.rows[0].project_id]);
-        pages = pageResult.rows;
-    }
 
-    // Create test instances for each requirement/page combination
-    for (const requirement of requirements.rows) {
-        if (pages.length > 0) {
-            // Create test instances for each page
+    if (pages.length === 0) {
+        // Create test instances without specific pages (site-wide tests)
+        for (const requirement of requirements.rows) {
+            await client.query(`
+                INSERT INTO test_instances (
+                    session_id, requirement_id, status
+                ) VALUES ($1, $2, $3)
+            `, [sessionId, requirement.id, 'pending']);
+        }
+    } else {
+        // Create test instances for each requirement/page combination
+        for (const requirement of requirements.rows) {
             for (const page of pages) {
                 await client.query(`
                     INSERT INTO test_instances (
                         session_id, requirement_id, page_id, status
                     ) VALUES ($1, $2, $3, $4)
-                    ON CONFLICT (session_id, requirement_id, page_id) DO NOTHING
                 `, [sessionId, requirement.id, page.id, 'pending']);
             }
-        } else {
-            // Create site-wide test instance (no specific page)
-            await client.query(`
-                INSERT INTO test_instances (
-                    session_id, requirement_id, status
-                ) VALUES ($1, $2, $3)
-                ON CONFLICT (session_id, requirement_id, page_id) DO NOTHING
-            `, [sessionId, requirement.id, 'pending']);
         }
     }
+
+    // Update session statistics
+    await client.query(`
+        UPDATE test_sessions 
+        SET total_tests_count = (
+            SELECT COUNT(*) FROM test_instances WHERE session_id = $1
+        )
+        WHERE id = $1
+    `, [sessionId]);
 }
 
 module.exports = router; 
