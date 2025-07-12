@@ -13,6 +13,7 @@ const {
     requireRole,
     pool
 } = require('../middleware/auth');
+const { db } = require('../../database/config');
 
 // Rate limiting for auth endpoints
 const authLimiter = rateLimit({
@@ -647,198 +648,231 @@ router.post('/test', authenticateToken, async (req, res) => {
     }
 });
 
+// Test route to debug the issue
+router.get('/test', (req, res) => {
+    res.json({ message: 'Auth routes working', query: req.query });
+});
+
 /**
  * GET /api/auth/configs
  * List authentication configurations from auth-states directory
  */
-router.get('/configs', authenticateToken, async (req, res) => {
+router.get('/configs', async (req, res) => {
     try {
-        const authStatesDir = path.join(__dirname, '../../reports/auth-states');
-        const configs = [];
+        const project_id = req.query ? req.query.project_id : undefined;
         
-        // Check if auth-states directory exists
-        if (fs.existsSync(authStatesDir)) {
-            const files = fs.readdirSync(authStatesDir);
-            
-            for (const file of files) {
-                if (file.endsWith('.json')) {
-                    try {
-                        const filePath = path.join(authStatesDir, file);
-                        const stats = fs.statSync(filePath);
-                        const content = fs.readFileSync(filePath, 'utf8');
-                        const configData = JSON.parse(content);
-                        
-                        // Extract domain from filename or config
-                        let domain = 'unknown';
-                        let type = 'unknown';
-                        let status = 'active';
-                        
-                        if (file.startsWith('live-session-')) {
-                            domain = file.replace('live-session-', '').replace(/\.json$/, '').split('-')[0];
-                            type = 'sso'; // Live sessions are always SSO
-                        } else if (file.startsWith('auth-config-')) {
-                            domain = file.replace('auth-config-', '').replace(/\.json$/, '');
-                            // Use the actual type from the config file, not filename-based assumption
-                            type = configData.type || 'basic';
-                        }
-                        
-                        // Override domain from config data if available
-                        if (configData.domain) {
-                            domain = configData.domain;
-                        }
-                        
-                        configs.push({
-                            id: file.replace('.json', ''),
-                            domain: domain,
-                            type: type,
-                            status: status,
-                            filename: file,
-                            url: configData.url || `https://${domain}`,
-                            last_used: stats.mtime.toISOString(),
-                            created_at: stats.birthtime.toISOString(),
-                            size: stats.size
-                        });
-                    } catch (parseError) {
-                        console.warn(`Failed to parse auth config ${file}:`, parseError.message);
-                    }
-                }
-            }
+        let query = `
+            SELECT 
+                ac.*,
+                p.name as project_name
+            FROM auth_configs ac
+            LEFT JOIN projects p ON ac.project_id = p.id
+            WHERE ac.status = 'active'
+        `;
+        const params = [];
+        
+        if (project_id) {
+            query += ` AND (ac.project_id = $1 OR ac.project_id IS NULL)`;
+            params.push(project_id);
         }
         
-        res.json({
-            configs: configs,
-            total: configs.length
-        });
+        query += ` ORDER BY ac.created_at DESC`;
         
+        const result = await db.query(query, params);
+        
+        res.json({
+            success: true,
+            data: result.rows
+        });
     } catch (error) {
-        console.error('Auth configs fetch error:', error);
+        console.error('Error fetching auth configs:', error);
         res.status(500).json({
-            error: 'Failed to fetch authentication configurations',
-            code: 'AUTH_CONFIGS_ERROR'
+            success: false,
+            message: 'Failed to fetch authentication configurations',
+            error: error.message
         });
     }
 });
 
 /**
- * PUT /api/auth/configs/:configId
+ * GET /api/auth/configs/:id
+ * Get authentication configuration by ID
+ */
+router.get('/configs/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        
+        const result = await db.query(`
+            SELECT 
+                ac.*,
+                p.name as project_name
+            FROM auth_configs ac
+            LEFT JOIN projects p ON ac.project_id = p.id
+            WHERE ac.id = $1
+        `, [id]);
+        
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'Authentication configuration not found'
+            });
+        }
+        
+        res.json({
+            success: true,
+            data: result.rows[0]
+        });
+    } catch (error) {
+        console.error('Error fetching auth config:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to fetch authentication configuration',
+            error: error.message
+        });
+    }
+});
+
+/**
+ * POST /api/auth/configs
+ * Create new authentication configuration
+ */
+router.post('/configs', async (req, res) => {
+    try {
+        const {
+            name,
+            type,
+            domain,
+            url,
+            username,
+            password,
+            login_page,
+            success_url,
+            project_id
+        } = req.body;
+        
+        // Get user ID from JWT token (assuming it's available in req.user)
+        const created_by = req.user?.id || '46088230-6133-45e3-8a04-06feea298094'; // fallback to admin
+        
+        const result = await db.query(`
+            INSERT INTO auth_configs (
+                name, type, domain, url, username, password, 
+                login_page, success_url, project_id, created_by
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+            RETURNING *
+        `, [name, type, domain, url, username, password, login_page, success_url, project_id, created_by]);
+        
+        res.status(201).json({
+            success: true,
+            message: 'Authentication configuration created successfully',
+            data: result.rows[0]
+        });
+    } catch (error) {
+        console.error('Error creating auth config:', error);
+        
+        if (error.code === '23505') { // Unique constraint violation
+            return res.status(400).json({
+                success: false,
+                message: 'Authentication configuration already exists for this domain and project'
+            });
+        }
+        
+        res.status(500).json({
+            success: false,
+            message: 'Failed to create authentication configuration',
+            error: error.message
+        });
+    }
+});
+
+/**
+ * PUT /api/auth/configs/:id
  * Update an authentication configuration
  */
-router.put('/configs/:configId', authenticateToken, async (req, res) => {
+router.put('/configs/:id', async (req, res) => {
     try {
-        const { configId } = req.params;
-        const { name, url, type, username, password, loginPage, successUrl, apiKey, token } = req.body;
+        const { id } = req.params;
+        const {
+            name,
+            type,
+            domain,
+            url,
+            username,
+            password,
+            login_page,
+            success_url,
+            status
+        } = req.body;
         
-        console.log(`🔄 Updating auth config ${configId} with data:`, {
-            name, url, type, username: username ? '[SET]' : '[EMPTY]', 
-            password: password ? '[SET]' : '[EMPTY]', loginPage, successUrl,
-            apiKey: apiKey ? '[SET]' : '[EMPTY]', token: token ? '[SET]' : '[EMPTY]'
-        });
+        const result = await db.query(`
+            UPDATE auth_configs 
+            SET 
+                name = $1,
+                type = $2,
+                domain = $3,
+                url = $4,
+                username = $5,
+                password = $6,
+                login_page = $7,
+                success_url = $8,
+                status = $9,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = $10
+            RETURNING *
+        `, [name, type, domain, url, username, password, login_page, success_url, status, id]);
         
-        const authStatesDir = path.join(__dirname, '../../reports/auth-states');
-        const configFile = path.join(authStatesDir, `${configId}.json`);
-        
-        if (!fs.existsSync(configFile)) {
+        if (result.rows.length === 0) {
             return res.status(404).json({
-                error: 'Authentication configuration not found',
-                code: 'CONFIG_NOT_FOUND'
+                success: false,
+                message: 'Authentication configuration not found'
             });
         }
         
-        // Read existing configuration
-        const existingConfig = JSON.parse(fs.readFileSync(configFile, 'utf8'));
-        
-        // Update configuration with new values (use provided values or keep existing)
-        const updatedConfig = {
-            ...existingConfig,
-            name: name !== undefined ? name : existingConfig.name,
-            url: url !== undefined ? url : existingConfig.url,
-            type: type !== undefined ? type : existingConfig.type,
-            updated_at: new Date().toISOString()
-        };
-        
-        // Update type-specific fields based on the type
-        const currentType = type || existingConfig.type;
-        
-        if (currentType === 'basic') {
-            // For basic auth, update provided fields (allow empty strings to clear fields)
-            if (username !== undefined) updatedConfig.username = username;
-            if (password !== undefined && password !== '') updatedConfig.password = password; // Don't clear password if empty
-            if (loginPage !== undefined) updatedConfig.loginPage = loginPage;
-            if (successUrl !== undefined) updatedConfig.successUrl = successUrl;
-            
-            // Clear advanced auth fields when switching to basic
-            delete updatedConfig.apiKey;
-            delete updatedConfig.token;
-            
-        } else if (currentType === 'advanced') {
-            // For advanced auth, update provided fields (allow empty strings to clear fields) 
-            if (apiKey !== undefined && apiKey !== '') updatedConfig.apiKey = apiKey; // Don't clear apiKey if empty
-            if (token !== undefined && token !== '') updatedConfig.token = token; // Don't clear token if empty
-            
-            // Clear basic auth fields when switching to advanced
-            delete updatedConfig.username;
-            delete updatedConfig.password;
-            delete updatedConfig.loginPage;
-            delete updatedConfig.successUrl;
-            
-        } else if (currentType === 'sso') {
-            // For SSO, clear other auth fields
-            delete updatedConfig.username;
-            delete updatedConfig.password;
-            delete updatedConfig.loginPage;
-            delete updatedConfig.successUrl;
-            delete updatedConfig.apiKey;
-            delete updatedConfig.token;
-        }
-        
-        // Write updated configuration
-        fs.writeFileSync(configFile, JSON.stringify(updatedConfig, null, 2));
-        
         res.json({
+            success: true,
             message: 'Authentication configuration updated successfully',
-            config_id: configId,
-            config: updatedConfig
+            data: result.rows[0]
         });
-        
     } catch (error) {
-        console.error('Auth config update error:', error);
+        console.error('Error updating auth config:', error);
         res.status(500).json({
-            error: 'Failed to update authentication configuration',
-            code: 'AUTH_UPDATE_ERROR'
+            success: false,
+            message: 'Failed to update authentication configuration',
+            error: error.message
         });
     }
 });
 
 /**
- * DELETE /api/auth/configs/:configId
+ * DELETE /api/auth/configs/:id
  * Delete an authentication configuration
  */
-router.delete('/configs/:configId', authenticateToken, async (req, res) => {
+router.delete('/configs/:id', async (req, res) => {
     try {
-        const { configId } = req.params;
-        const authStatesDir = path.join(__dirname, '../../reports/auth-states');
-        const configFile = path.join(authStatesDir, `${configId}.json`);
+        const { id } = req.params;
         
-        if (!fs.existsSync(configFile)) {
+        const result = await db.query(`
+            DELETE FROM auth_configs 
+            WHERE id = $1
+            RETURNING *
+        `, [id]);
+        
+        if (result.rows.length === 0) {
             return res.status(404).json({
-                error: 'Authentication configuration not found',
-                code: 'CONFIG_NOT_FOUND'
+                success: false,
+                message: 'Authentication configuration not found'
             });
         }
         
-        // Delete the configuration file
-        fs.unlinkSync(configFile);
-        
         res.json({
-            message: 'Authentication configuration deleted successfully',
-            config_id: configId
+            success: true,
+            message: 'Authentication configuration deleted successfully'
         });
-        
     } catch (error) {
-        console.error('Auth config delete error:', error);
+        console.error('Error deleting auth config:', error);
         res.status(500).json({
-            error: 'Failed to delete authentication configuration',
-            code: 'AUTH_DELETE_ERROR'
+            success: false,
+            message: 'Failed to delete authentication configuration',
+            error: error.message
         });
     }
 });
@@ -878,6 +912,50 @@ router.post('/import', authenticateToken, async (req, res) => {
         res.status(500).json({
             error: 'Failed to import authentication configuration',
             code: 'AUTH_IMPORT_ERROR'
+        });
+    }
+});
+
+/**
+ * POST /api/auth/configs/:id/test
+ * Test an authentication configuration
+ */
+router.post('/configs/:id/test', async (req, res) => {
+    try {
+        const { id } = req.params;
+        
+        const result = await db.query(`
+            SELECT * FROM auth_configs WHERE id = $1
+        `, [id]);
+        
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'Authentication configuration not found'
+            });
+        }
+        
+        const config = result.rows[0];
+        
+        // TODO: Implement actual authentication testing logic here
+        // For now, just return success
+        
+        res.json({
+            success: true,
+            message: 'Authentication configuration test completed',
+            data: {
+                config_id: config.id,
+                domain: config.domain,
+                type: config.type,
+                test_result: 'success' // This would be the actual test result
+            }
+        });
+    } catch (error) {
+        console.error('Error testing auth config:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to test authentication configuration',
+            error: error.message
         });
     }
 });

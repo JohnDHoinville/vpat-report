@@ -475,6 +475,9 @@ function dashboard() {
             if (this.selectedProject) {
                 this.loadProjectTestSessions();
             }
+            
+            // Refresh analytics to show updated violation counts
+            this.loadAnalytics();
         },
 
         // Enhanced Progress Tracking Methods
@@ -1204,9 +1207,11 @@ function dashboard() {
         // Analytics
         async loadAnalytics() {
             try {
-                const data = await this.apiCall('/results/statistics');
+                // Add cache-busting timestamp to ensure fresh data
+                const timestamp = Date.now();
+                const data = await this.apiCall(`/results/statistics?_t=${timestamp}`);
                 this.analytics = data || {};
-                console.log('📊 Analytics loaded');
+                console.log('📊 Analytics loaded:', this.analytics.overall);
             } catch (error) {
                 console.error('Failed to load analytics:', error);
                 // Set default values
@@ -1634,21 +1639,37 @@ function dashboard() {
             if (!this.sessionToDelete) return;
             
             try {
+                console.log('🗑️ Deleting test session:', this.sessionToDelete.name, this.sessionToDelete.id);
                 this.loading = true;
-                await this.apiCall(`/sessions/${this.sessionToDelete.id}`, {
+                
+                const response = await this.apiCall(`/sessions/${this.sessionToDelete.id}`, {
                     method: 'DELETE'
                 });
                 
-                // Remove from test sessions list
-                this.testSessions = this.testSessions.filter(s => s.id !== this.sessionToDelete.id);
+                console.log('🗑️ Delete response:', response);
+                
+                if (response.success) {
+                    this.showNotification(`Session "${this.sessionToDelete.name}" deleted successfully!`, 'success');
+                    
+                    // Refresh all session-related data
+                    await Promise.all([
+                        this.loadProjectTestSessions(),
+                        this.loadTestingSessions(),
+                        this.loadAnalytics()
+                    ]);
+                    
+                    console.log('✅ Session deleted and data refreshed');
+                } else {
+                    console.error('❌ Failed to delete session:', response.error);
+                    this.showNotification(response.error || 'Failed to delete session', 'error');
+                }
                 
                 this.showDeleteSession = false;
                 this.sessionToDelete = null;
-                this.showNotification('Test session deleted successfully!', 'success');
                 
             } catch (error) {
-                console.error('Failed to delete test session:', error);
-                this.showNotification('Failed to delete test session. Please try again.', 'error');
+                console.error('❌ Failed to delete test session:', error);
+                this.showNotification('Failed to delete test session: ' + (error.message || 'Unknown error'), 'error');
             } finally {
                 this.loading = false;
             }
@@ -1805,7 +1826,7 @@ function dashboard() {
             try {
                 console.log('🔐 Loading authentication configurations...');
                 const response = await this.apiCall('/auth/configs');
-                this.authConfigs = response.configs || [];
+                this.authConfigs = response.data || [];
                 console.log('🔐 Auth configs loaded:', this.authConfigs.length, this.authConfigs);
                 
                 // Filter for current project if one is selected
@@ -2036,30 +2057,37 @@ function dashboard() {
         },
 
         async setupBasicAuth(config) {
-            this.authSetup.progressMessage = 'Setting up username/password authentication...';
-            this.authSetup.progress = 20;
+            this.authSetup.progressMessage = 'Configuring basic authentication...';
+            this.authSetup.progress = 15;
 
             if (!this.token) {
                 throw new Error('Authentication token not available. Please login first.');
             }
 
-            const response = await fetch(`${this.API_BASE_URL}/auth/setup-basic`, {
+            // Create the auth config in the database
+            const authConfigData = {
+                name: config.name,
+                type: 'basic',
+                domain: this.extractDomainFromUrl(config.url),
+                url: config.url,
+                username: config.username,
+                password: config.password,
+                login_page: config.loginPage,
+                success_url: config.successUrl,
+                project_id: this.selectedProject?.id || null
+            };
+
+            const response = await this.apiCall('/auth/configs', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${this.token}`
-                },
-                body: JSON.stringify(config)
+                body: JSON.stringify(authConfigData)
             });
 
-            if (!response.ok) {
-                const errorText = await response.text();
-                console.error('Basic auth setup failed:', response.status, response.statusText, errorText);
-                throw new Error(`Setup failed: ${response.statusText} (${response.status})`);
+            if (!response.success) {
+                throw new Error(response.message || 'Failed to create authentication configuration');
             }
 
             await this.simulateAuthProgress();
-            return await response.json();
+            return response.data;
         },
 
         async setupAdvancedAuth(config) {
@@ -2111,27 +2139,16 @@ function dashboard() {
                 config.status = 'testing';
                 this.showNotification(`Testing authentication for ${config.domain}...`, 'info');
 
-                if (!this.token) {
-                    throw new Error('Authentication token not available. Please login first.');
-                }
-
-                const response = await fetch(`${this.API_BASE_URL}/auth/test`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${this.token}`
-                    },
-                    body: JSON.stringify({ configId: config.id })
+                const response = await this.apiCall(`/auth/configs/${config.id}/test`, {
+                    method: 'POST'
                 });
 
-                if (response.ok) {
+                if (response.success) {
                     config.status = 'active';
                     config.last_used = new Date().toISOString();
                     this.showNotification(`Authentication test successful for ${config.domain}`, 'success');
                 } else {
                     config.status = 'failed';
-                    const errorText = await response.text();
-                    console.error('Auth test failed:', response.status, errorText);
                     this.showNotification(`Authentication test failed for ${config.domain}`, 'error');
                 }
             } catch (error) {
@@ -2188,14 +2205,14 @@ function dashboard() {
                 // Prepare the update data, including all form fields
                 const updateData = {
                     name: this.editAuthForm.name,
+                    domain: this.extractDomainFromUrl(this.editAuthForm.url),
                     url: this.editAuthForm.url,
                     type: this.editAuthForm.type,
                     username: this.editAuthForm.username,
                     password: this.editAuthForm.password, // Will be empty if not changed
-                    loginPage: this.editAuthForm.loginPage,
-                    successUrl: this.editAuthForm.successUrl,
-                    apiKey: this.editAuthForm.apiKey, // Will be empty if not changed
-                    token: this.editAuthForm.token // Will be empty if not changed
+                    login_page: this.editAuthForm.loginPage,
+                    success_url: this.editAuthForm.successUrl,
+                    status: 'active'
                 };
                 
                 console.log('🔄 Updating auth config with data:', updateData);
@@ -2208,7 +2225,7 @@ function dashboard() {
                 // Update the config in the local array
                 const index = this.authConfigs.findIndex(c => c.id === this.editingConfig.id);
                 if (index !== -1) {
-                    this.authConfigs[index] = { ...this.authConfigs[index], ...response.config };
+                    this.authConfigs[index] = { ...this.authConfigs[index], ...response.data };
                 }
 
                 this.showEditAuth = false;
@@ -4381,28 +4398,48 @@ function dashboard() {
         },
 
         async deleteTestingSession(session) {
-            if (!session || !confirm(`Are you sure you want to delete the testing session "${session.name}"? This action cannot be undone.`)) {
+            if (!session) {
+                console.error('❌ No session provided for deletion');
+                this.showNotification('Error: No session selected for deletion', 'error');
+                return;
+            }
+
+            // Show confirmation dialog
+            const confirmed = confirm(`Are you sure you want to delete the testing session "${session.name}"?\n\nThis action cannot be undone and will remove:\n• All test results and findings\n• Session progress and configuration\n• Associated accessibility reports\n• Manual testing notes and observations`);
+            
+            if (!confirmed) {
+                console.log('🚫 Session deletion cancelled by user');
                 return;
             }
 
             try {
+                console.log('🗑️ Deleting testing session:', session.name, session.id);
                 this.loading = true;
+                
                 const response = await this.apiCall(`/sessions/${session.id}`, {
                     method: 'DELETE'
                 });
 
+                console.log('🗑️ Delete response:', response);
+
                 if (response.success) {
-                    this.addNotification('Session Deleted', 
-                        `Testing session "${session.name}" has been deleted`, 
-                        'success'
-                    );
-                    await this.loadTestingSessions();
+                    this.showNotification(`Session "${session.name}" deleted successfully`, 'success');
+                    
+                    // Refresh all session-related data
+                    await Promise.all([
+                        this.loadTestingSessions(),
+                        this.loadProjectTestSessions(),
+                        this.loadAnalytics()
+                    ]);
+                    
+                    console.log('✅ Session deleted and data refreshed');
                 } else {
+                    console.error('❌ Failed to delete session:', response.error);
                     this.showNotification(response.error || 'Failed to delete session', 'error');
                 }
             } catch (error) {
-                console.error('Error deleting session:', error);
-                this.showNotification('Error deleting session', 'error');
+                console.error('❌ Error deleting session:', error);
+                this.showNotification('Error deleting session: ' + (error.message || 'Unknown error'), 'error');
             } finally {
                 this.loading = false;
             }
@@ -4978,6 +5015,17 @@ function dashboard() {
 
             this.filteredTestInstances = filtered;
             this.updateTestGridPagination();
+        },
+
+        // Helper function to extract domain from URL
+        extractDomainFromUrl(url) {
+            try {
+                const urlObj = new URL(url);
+                return urlObj.hostname;
+            } catch (error) {
+                console.error('Error extracting domain from URL:', error);
+                return url; // fallback to original URL
+            }
         },
     };
 }

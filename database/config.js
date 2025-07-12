@@ -307,5 +307,6 @@ const db = new DatabaseHelper();
 module.exports = {
     db,
     pool,
-    dbConfig
+    dbConfig,
+    DatabaseHelper
 }; 

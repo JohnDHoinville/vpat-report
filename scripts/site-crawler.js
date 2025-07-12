@@ -292,42 +292,49 @@ class SiteCrawler {
     }
 
     /**
-     * Load smart authentication configuration for domain
+     * Load authentication configuration from database for domain
      */
-    loadSmartAuthConfig(domain, authStatesDir) {
-        if (!fs.existsSync(authStatesDir)) {
+    async loadAuthConfig(domain) {
+        try {
+            const response = await fetch(`http://localhost:3001/api/auth/configs?domain=${domain}`);
+            
+            if (!response.ok) {
+                console.warn(`⚠️ Failed to load auth config for ${domain}: ${response.status}`);
+                return null;
+            }
+            
+            const data = await response.json();
+            
+            if (data.success && data.data && data.data.length > 0) {
+                // Find the most relevant config for this domain
+                const config = data.data.find(c => c.domain === domain) || data.data[0];
+                
+                this.updateProgress(`🔐 Found authentication config for ${domain}: ${config.type}`);
+                
+                return {
+                    loginUrl: config.login_page || config.url,
+                    username: config.username,
+                    password: config.password,
+                    successUrl: config.success_url || config.url,
+                    type: config.type,
+                    domain: config.domain
+                };
+            }
+            
+            return null;
+        } catch (error) {
+            console.warn(`⚠️ Error loading auth config for ${domain}: ${error.message}`);
             return null;
         }
+    }
 
-        const files = fs.readdirSync(authStatesDir);
-        
-        // Look for smart auth config (highest priority)
-        const smartConfigFile = files.find(f => f.startsWith(`smart-auth-${domain}.json`));
-        if (smartConfigFile) {
-            try {
-                const configPath = path.join(authStatesDir, smartConfigFile);
-                const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-                this.updateProgress(`🧠 Found smart authentication config: ${smartConfigFile}`);
-                return config;
-            } catch (error) {
-                console.warn(`⚠️ Error loading smart auth config: ${error.message}`);
-            }
-        }
-
-        // Look for regular auth config
-        const authConfigFile = files.find(f => f.startsWith(`auth-config-${domain}.json`));
-        if (authConfigFile) {
-            try {
-                const configPath = path.join(authStatesDir, authConfigFile);
-                const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-                this.updateProgress(`📄 Found authentication config: ${authConfigFile}`);
-                return config;
-            } catch (error) {
-                console.warn(`⚠️ Error loading auth config: ${error.message}`);
-            }
-        }
-
-        return null;
+    /**
+     * Load smart authentication configuration for domain (legacy support)
+     */
+    loadSmartAuthConfig(domain, authStatesDir) {
+        // This method is kept for backward compatibility but will use database
+        // Call the async method and return a promise
+        return this.loadAuthConfig(domain);
     }
 
     /**
@@ -345,7 +352,7 @@ class SiteCrawler {
             const authStatesDir = path.join(__dirname, '../reports/auth-states');
             
             // Load smart authentication configuration
-            const smartAuthConfig = this.loadSmartAuthConfig(domain, authStatesDir);
+            const smartAuthConfig = await this.loadAuthConfig(domain);
             
             // For smart authentication, check if root URL needs auth
             if (smartAuthConfig && smartAuthConfig.type === 'smart') {

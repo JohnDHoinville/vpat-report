@@ -1075,12 +1075,12 @@ router.get('/:id/tests', async (req, res) => {
                 tr.requirement_type,
                 tr.level,
                 tr.success_criteria,
-                p.title as page_title,
-                p.url as page_url,
+                dp.title as page_title,
+                dp.url as page_url,
                 u.username as assigned_tester_name
             FROM test_instances ti
             LEFT JOIN test_requirements tr ON ti.requirement_id = tr.id
-            LEFT JOIN pages p ON ti.page_id = p.id
+            LEFT JOIN discovered_pages dp ON ti.page_id = dp.id
             LEFT JOIN users u ON ti.assigned_tester = u.id
             WHERE ${whereClause}
             ORDER BY ti.${sort_by} ${sort_order}

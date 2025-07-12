@@ -44,28 +44,26 @@ class SimpleTestingService {
             // Create test session
             const sessionResult = await client.query(
                 `INSERT INTO test_sessions 
-                 (project_id, name, description, scope, status, test_type, progress_summary)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7)
+                 (project_id, name, description, conformance_level, scope, status, test_type, progress_summary, created_by)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
                  RETURNING *`,
                 [
                     projectId,
                     sessionData.name || `Test Session - ${new Date().toISOString().split('T')[0]}`,
                     sessionData.description || 'Accessibility testing session',
-                    sessionData.scope || {
-                        testTypes: ['axe', 'pa11y', 'lighthouse'],
-                        includeManualTesting: true,
-                        wcagLevel: 'AA'
-                    },
+                    sessionData.conformance_level || 'AA', // Default to WCAG AA
+                    sessionData.scope || 'all',  // Use string instead of JSON
                     'planning',
                     sessionData.testType || 'full',
-                    {
+                    JSON.stringify({
                         pagesDiscovered: 0,
                         automatedTestsCompleted: 0,
                         manualTestsCompleted: 0,
                         violationsFound: 0,
                         automatedViolations: 0,
                         manualViolations: 0
-                    }
+                    }),
+                    sessionData.created_by || '46088230-6133-45e3-8a04-06feea298094' // Default admin user
                 ]
             );
             
@@ -126,7 +124,7 @@ class SimpleTestingService {
             
             // Update session status
             await client.query(
-                'UPDATE test_sessions SET status = $1, started_at = CURRENT_TIMESTAMP WHERE id = $2',
+                'UPDATE test_sessions SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
                 ['in_progress', sessionId]
             );
             
@@ -687,15 +685,13 @@ class SimpleTestingService {
             const values = [sessionId, status];
             let paramIndex = 3;
 
-            if (status === 'completed' || status === 'failed') {
-                updates.push(`completed_at = $${paramIndex++}`);
-                values.push(new Date());
-            }
-
             if (metadata && Object.keys(metadata).length > 0) {
                 updates.push(`progress_summary = progress_summary || $${paramIndex++}`);
                 values.push(JSON.stringify(metadata));
             }
+
+            // Always update the updated_at timestamp
+            updates.push('updated_at = CURRENT_TIMESTAMP');
 
             const query = `UPDATE test_sessions SET ${updates.join(', ')} WHERE id = $1`;
             await client.query(query, values);

@@ -414,14 +414,12 @@ router.delete('/:id', authenticateToken, async (req, res) => {
         await db.query('BEGIN');
         
         try {
-            // 1. Delete test instances first (they reference sessions and projects)
-            // Handle both session-based and direct project references
+            // 1. Delete test instances first (they reference sessions)
             const deleteTestInstancesQuery = `
                 DELETE FROM test_instances 
-                WHERE project_id = $1 
-                   OR session_id IN (
-                       SELECT id FROM test_sessions WHERE project_id = $1
-                   )
+                WHERE session_id IN (
+                    SELECT id FROM test_sessions WHERE project_id = $1
+                )
             `;
             await db.query(deleteTestInstancesQuery, [id]);
             
