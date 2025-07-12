@@ -1,0 +1,250 @@
+{
+  "testName": "Discovery-ee503174-060a-4fef-84b8-1a6e500eeeb0",
+  "rootUrl": "https://run-analysis.onrender.com",
+  "startTime": "2025-07-12T10:07:59.170Z",
+  "options": {
+    "maxDepth": 2,
+    "maxPages": 20,
+    "rateLimitMs": 2000,
+    "userAgent": "AccessibilityTestingBot/1.0",
+    "respectRobots": true,
+    "timeout": 10000,
+    "useAuth": false,
+    "authConfig": null,
+    "headless": true
+  },
+  "summary": {
+    "totalRequests": 16,
+    "successfulRequests": 16,
+    "discoveredPages": 20,
+    "errors": 0,
+    "maxDepthReached": 1
+  },
+  "pages": [
+    {
+      "url": "https://run-analysis.onrender.com/",
+      "title": "From Sitemap",
+      "depth": 0,
+      "parentUrl": "sitemap.xml",
+      "statusCode": "unknown",
+      "contentType": "unknown",
+      "wordCount": 0,
+      "lastModified": null,
+      "discoveredAt": "2025-07-12T10:07:25.269Z",
+      "source": "sitemap"
+    },
+    {
+      "url": "https://run-analysis.onrender.com/blog",
+      "title": "From Sitemap",
+      "depth": 0,
+      "parentUrl": "sitemap.xml",
+      "statusCode": "unknown",
+      "contentType": "unknown",
+      "wordCount": 0,
+      "lastModified": null,
+      "discoveredAt": "2025-07-12T10:07:25.269Z",
+      "source": "sitemap"
+    },
+    {
+      "url": "https://run-analysis.onrender.com/app",
+      "title": "From Sitemap",
+      "depth": 0,
+      "parentUrl": "sitemap.xml",
+      "statusCode": "unknown",
+      "contentType": "unknown",
+      "wordCount": 0,
+      "lastModified": null,
+      "discoveredAt": "2025-07-12T10:07:25.269Z",
+      "source": "sitemap"
+    },
+    {
+      "url": "https://run-analysis.onrender.com/tailwind-demo",
+      "title": "From Sitemap",
+      "depth": 0,
+      "parentUrl": "sitemap.xml",
+      "statusCode": "unknown",
+      "contentType": "unknown",
+      "wordCount": 0,
+      "lastModified": null,
+      "discoveredAt": "2025-07-12T10:07:25.269Z",
+      "source": "sitemap"
+    },
+    {
+      "url": "https://run-analysis.onrender.com",
+      "title": "ToeTheLine",
+      "depth": 0,
+      "parentUrl": null,
+      "statusCode": 200,
+      "contentType": "text/html; charset=utf-8",
+      "wordCount": 41,
+      "lastModified": null,
+      "discoveredAt": "2025-07-12T10:07:25.444Z"
+    },
+    {
+      "url": "https://run-analysis.onrender.com/favicon.ico",
+      "title": "No title",
+      "depth": 1,
+      "parentUrl": "https://run-analysis.onrender.com",
+      "statusCode": 200,
+      "contentType": "image/vnd.microsoft.icon",
+      "wordCount": 35,
+      "lastModified": "Tue, 01 Jul 2025 20:41:44 GMT",
+      "discoveredAt": "2025-07-12T10:07:27.811Z"
+    },
+    {
+      "url": "https://run-analysis.onrender.com/favicon-32x32.png",
+      "title": "No title",
+      "depth": 1,
+      "parentUrl": "https://run-analysis.onrender.com",
+      "statusCode": 200,
+      "contentType": "image/png",
+      "wordCount": 41,
+      "lastModified": "Tue, 01 Jul 2025 20:41:44 GMT",
+      "discoveredAt": "2025-07-12T10:07:29.993Z"
+    },
+    {
+      "url": "https://run-analysis.onrender.com/favicon-16x16.png",
+      "title": "No title",
+      "depth": 1,
+      "parentUrl": "https://run-analysis.onrender.com",
+      "statusCode": 200,
+      "contentType": "image/png",
+      "wordCount": 16,
+      "lastModified": "Tue, 01 Jul 2025 20:41:44 GMT",
+      "discoveredAt": "2025-07-12T10:07:32.159Z"
+    },
+    {
+      "url": "https://run-analysis.onrender.com/apple-touch-icon.png",
+      "title": "No title",
+      "depth": 1,
+      "parentUrl": "https://run-analysis.onrender.com",
+      "statusCode": 200,
+      "contentType": "image/png",
+      "wordCount": 327,
+      "lastModified": "Tue, 01 Jul 2025 20:41:44 GMT",
+      "discoveredAt": "2025-07-12T10:07:34.336Z"
+    },
+    {
+      "url": "https://run-analysis.onrender.com/manifest.json",
+      "title": "No title",
+      "depth": 1,
+      "parentUrl": "https://run-analysis.onrender.com",
+      "statusCode": 200,
+      "contentType": "application/json",
+      "wordCount": 74,
+      "lastModified": "Tue, 01 Jul 2025 20:41:44 GMT",
+      "discoveredAt": "2025-07-12T10:07:36.761Z"
+    },
+    {
+      "url": "https://run-analysis.onrender.com/static/css/main.1267d64a.css",
+      "title": "No title",
+      "depth": 1,
+      "parentUrl": "https://run-analysis.onrender.com",
+      "statusCode": 200,
+      "contentType": "text/css; charset=utf-8",
+      "wordCount": 2284,
+      "lastModified": "Tue, 01 Jul 2025 20:41:44 GMT",
+      "discoveredAt": "2025-07-12T10:07:38.996Z"
+    },
+    {
+      "url": "https://run-analysis.onrender.com/app",
+      "title": "ToeTheLine",
+      "depth": 1,
+      "parentUrl": "https://run-analysis.onrender.com",
+      "statusCode": 200,
+      "contentType": "text/html; charset=utf-8",
+      "wordCount": 41,
+      "lastModified": null,
+      "discoveredAt": "2025-07-12T10:07:41.178Z"
+    },
+    {
+      "url": "https://run-analysis.onrender.com/login",
+      "title": "ToeTheLine",
+      "depth": 1,
+      "parentUrl": "https://run-analysis.onrender.com",
+      "statusCode": 200,
+      "contentType": "text/html; charset=utf-8",
+      "wordCount": 41,
+      "lastModified": "Tue, 01 Jul 2025 20:41:44 GMT",
+      "discoveredAt": "2025-07-12T10:07:43.345Z"
+    },
+    {
+      "url": "https://run-analysis.onrender.com/signup",
+      "title": "ToeTheLine",
+      "depth": 1,
+      "parentUrl": "https://run-analysis.onrender.com",
+      "statusCode": 200,
+      "contentType": "text/html; charset=utf-8",
+      "wordCount": 41,
+      "lastModified": "Tue, 01 Jul 2025 20:41:44 GMT",
+      "discoveredAt": "2025-07-12T10:07:45.522Z"
+    },
+    {
+      "url": "https://run-analysis.onrender.com/register",
+      "title": "ToeTheLine",
+      "depth": 1,
+      "parentUrl": "https://run-analysis.onrender.com",
+      "statusCode": 200,
+      "contentType": "text/html; charset=utf-8",
+      "wordCount": 41,
+      "lastModified": "Tue, 01 Jul 2025 20:41:44 GMT",
+      "discoveredAt": "2025-07-12T10:07:47.697Z"
+    },
+    {
+      "url": "https://run-analysis.onrender.com/dashboard",
+      "title": "ToeTheLine",
+      "depth": 1,
+      "parentUrl": "https://run-analysis.onrender.com",
+      "statusCode": 200,
+      "contentType": "text/html; charset=utf-8",
+      "wordCount": 41,
+      "lastModified": "Tue, 01 Jul 2025 20:41:44 GMT",
+      "discoveredAt": "2025-07-12T10:07:50.110Z"
+    },
+    {
+      "url": "https://run-analysis.onrender.com/profile",
+      "title": "No title",
+      "depth": 1,
+      "parentUrl": "https://run-analysis.onrender.com",
+      "statusCode": 401,
+      "contentType": "application/json",
+      "wordCount": 2,
+      "lastModified": null,
+      "discoveredAt": "2025-07-12T10:07:52.425Z"
+    },
+    {
+      "url": "https://run-analysis.onrender.com/settings",
+      "title": "ToeTheLine",
+      "depth": 1,
+      "parentUrl": "https://run-analysis.onrender.com",
+      "statusCode": 200,
+      "contentType": "text/html; charset=utf-8",
+      "wordCount": 41,
+      "lastModified": "Tue, 01 Jul 2025 20:41:44 GMT",
+      "discoveredAt": "2025-07-12T10:07:54.706Z"
+    },
+    {
+      "url": "https://run-analysis.onrender.com/account",
+      "title": "ToeTheLine",
+      "depth": 1,
+      "parentUrl": "https://run-analysis.onrender.com",
+      "statusCode": 200,
+      "contentType": "text/html; charset=utf-8",
+      "wordCount": 41,
+      "lastModified": "Tue, 01 Jul 2025 20:41:44 GMT",
+      "discoveredAt": "2025-07-12T10:07:56.997Z"
+    },
+    {
+      "url": "https://run-analysis.onrender.com/home",
+      "title": "ToeTheLine",
+      "depth": 1,
+      "parentUrl": "https://run-analysis.onrender.com",
+      "statusCode": 200,
+      "contentType": "text/html; charset=utf-8",
+      "wordCount": 41,
+      "lastModified": "Tue, 01 Jul 2025 20:41:44 GMT",
+      "discoveredAt": "2025-07-12T10:07:59.166Z"
+    }
+  ],
+  "errors": []
+}
