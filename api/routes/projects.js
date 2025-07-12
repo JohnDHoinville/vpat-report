@@ -408,9 +408,59 @@ router.delete('/:id', authenticateToken, async (req, res) => {
 
         const project = checkResult.rows[0];
 
-        // Delete project (cascading will handle related data)
-        const deleteQuery = 'DELETE FROM projects WHERE id = $1';
-        await db.query(deleteQuery, [id]);
+        // Delete project with proper cascading deletion
+        // We need to handle this in a transaction to ensure data integrity
+        
+        await db.query('BEGIN');
+        
+        try {
+            // 1. Delete test instances first (they reference sessions and projects)
+            // Handle both session-based and direct project references
+            const deleteTestInstancesQuery = `
+                DELETE FROM test_instances 
+                WHERE project_id = $1 
+                   OR session_id IN (
+                       SELECT id FROM test_sessions WHERE project_id = $1
+                   )
+            `;
+            await db.query(deleteTestInstancesQuery, [id]);
+            
+            // 2. Delete automated test results
+            const deleteTestResultsQuery = `
+                DELETE FROM automated_test_results 
+                WHERE test_session_id IN (
+                    SELECT id FROM test_sessions WHERE project_id = $1
+                )
+            `;
+            await db.query(deleteTestResultsQuery, [id]);
+            
+            // 3. Delete test sessions
+            const deleteSessionsQuery = 'DELETE FROM test_sessions WHERE project_id = $1';
+            await db.query(deleteSessionsQuery, [id]);
+            
+            // 4. Delete discovered pages first (they reference discoveries)
+            const deletePagesQuery = `
+                DELETE FROM discovered_pages 
+                WHERE discovery_id IN (
+                    SELECT id FROM site_discovery WHERE project_id = $1
+                )
+            `;
+            await db.query(deletePagesQuery, [id]);
+            
+            // 5. Delete site discoveries
+            const deleteDiscoveriesQuery = 'DELETE FROM site_discovery WHERE project_id = $1';
+            await db.query(deleteDiscoveriesQuery, [id]);
+            
+            // 6. Finally delete the project
+            const deleteProjectQuery = 'DELETE FROM projects WHERE id = $1';
+            await db.query(deleteProjectQuery, [id]);
+            
+            await db.query('COMMIT');
+            
+        } catch (deleteError) {
+            await db.query('ROLLBACK');
+            throw deleteError;
+        }
 
         res.json({
             message: 'Project deleted successfully',
