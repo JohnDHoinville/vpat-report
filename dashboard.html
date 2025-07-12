@@ -4729,6 +4729,230 @@
             </div>
         </div>
 
+        <!-- Test Instance Detail Modal (Task 2.1.2) -->
+        <div x-show="showTestInstanceModal" 
+             x-transition:enter="transition ease-out duration-300"
+             x-transition:enter-start="opacity-0"
+             x-transition:enter-end="opacity-100"
+             x-transition:leave="transition ease-in duration-200"
+             x-transition:leave-start="opacity-100"
+             x-transition:leave-end="opacity-0"
+             class="fixed inset-0 bg-black bg-opacity-50 z-70 flex items-center justify-center p-4"
+             @click.self="closeTestInstanceModal">
+            <div class="bg-white rounded-lg shadow-xl w-full max-w-6xl max-h-[95vh] overflow-y-auto">
+                <div x-show="currentTestInstance" class="p-6 space-y-6">
+                    <!-- Modal Header -->
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <h3 class="text-2xl font-bold text-gray-900">Test Instance Details</h3>
+                            <p class="text-gray-600 text-sm mt-1" x-text="currentTestInstance?.criterion_number + ' - ' + currentTestInstance?.requirement_title"></p>
+                        </div>
+                        <button @click="closeTestInstanceModal" class="text-gray-400 hover:text-gray-600">
+                            <i class="fas fa-times text-xl"></i>
+                        </button>
+                    </div>
+
+                    <!-- Test Overview -->
+                    <div class="bg-blue-50 rounded-lg p-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <h4 class="text-lg font-semibold text-blue-900 mb-3">Test Details</h4>
+                                <div class="space-y-2 text-sm">
+                                    <div>
+                                        <span class="font-medium text-blue-800">WCAG Criterion:</span>
+                                        <span class="ml-2 font-mono bg-blue-100 px-2 py-1 rounded text-blue-900" x-text="currentTestInstance?.criterion_number"></span>
+                                    </div>
+                                    <div>
+                                        <span class="font-medium text-blue-800">WCAG Level:</span>
+                                        <span :class="'ml-2 px-2 py-1 rounded text-xs font-semibold ' + getWcagLevelBadgeClass(currentTestInstance?.requirement_level)" 
+                                              x-text="currentTestInstance?.requirement_level?.toUpperCase()"></span>
+                                    </div>
+                                    <div>
+                                        <span class="font-medium text-blue-800">Test Method:</span>
+                                        <span class="ml-2 text-blue-900" x-text="currentTestInstance?.test_method_used || 'Manual'"></span>
+                                    </div>
+                                    <div>
+                                        <span class="font-medium text-blue-800">Page:</span>
+                                        <a :href="currentTestInstance?.page_url" target="_blank" class="ml-2 text-blue-600 hover:text-blue-800">
+                                            <span x-text="currentTestInstance?.page_title || currentTestInstance?.page_url"></span>
+                                            <i class="fas fa-external-link-alt ml-1 text-xs"></i>
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                            <div>
+                                <h4 class="text-lg font-semibold text-blue-900 mb-3">Current Status</h4>
+                                <div class="space-y-2 text-sm">
+                                    <div>
+                                        <span class="font-medium text-blue-800">Status:</span>
+                                        <span :class="getTestStatusBadgeClass(currentTestInstance?.status) + ' ml-2 px-2 py-1 text-xs font-medium rounded-full'" 
+                                              x-text="currentTestInstance?.status"></span>
+                                    </div>
+                                    <div x-show="currentTestInstance?.assigned_tester">
+                                        <span class="font-medium text-blue-800">Assigned Tester:</span>
+                                        <span class="ml-2 text-blue-900" x-text="currentTestInstance?.tester_username || 'Unassigned'"></span>
+                                    </div>
+                                    <div>
+                                        <span class="font-medium text-blue-800">Confidence Level:</span>
+                                        <span class="ml-2 text-blue-900" x-text="currentTestInstance?.confidence_level || 'Medium'"></span>
+                                    </div>
+                                    <div x-show="currentTestInstance?.updated_at">
+                                        <span class="font-medium text-blue-800">Last Updated:</span>
+                                        <span class="ml-2 text-blue-900" x-text="formatDate(currentTestInstance?.updated_at)"></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Requirement Description -->
+                    <div class="bg-gray-50 border border-gray-200 rounded-lg p-6">
+                        <h4 class="text-lg font-semibold text-gray-900 mb-3">Requirement Description</h4>
+                        <div class="bg-white border border-gray-200 rounded p-4">
+                            <p class="text-sm text-gray-900" x-text="currentTestInstance?.requirement_description"></p>
+                        </div>
+                    </div>
+
+                    <!-- Test Form -->
+                    <div class="bg-white border border-gray-200 rounded-lg p-6">
+                        <h4 class="text-lg font-semibold text-gray-900 mb-4">Test Results</h4>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <!-- Status and Assignment -->
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Test Status</label>
+                                    <select x-model="testInstanceStatus" 
+                                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                        <option value="pending">Pending</option>
+                                        <option value="in_progress">In Progress</option>
+                                        <option value="passed">Passed</option>
+                                        <option value="failed">Failed</option>
+                                        <option value="not_applicable">Not Applicable</option>
+                                        <option value="untestable">Untestable</option>
+                                        <option value="needs_review">Needs Review</option>
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Assigned Tester</label>
+                                    <select x-model="testInstanceAssignedTester" 
+                                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                        <option value="">Unassigned</option>
+                                        <template x-for="tester in availableTesters" :key="tester.id">
+                                            <option :value="tester.id" x-text="tester.username"></option>
+                                        </template>
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Confidence Level</label>
+                                    <select x-model="testInstanceConfidenceLevel" 
+                                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                        <option value="low">Low</option>
+                                        <option value="medium">Medium</option>
+                                        <option value="high">High</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Evidence Upload -->
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Evidence Files</label>
+                                    <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                                        <input type="file" multiple accept="image/*,.pdf,.doc,.docx" 
+                                               @change="handleEvidenceUpload($event)"
+                                               class="hidden" id="evidence-upload">
+                                        <label for="evidence-upload" class="cursor-pointer">
+                                            <div class="text-gray-400">
+                                                <i class="fas fa-cloud-upload-alt text-3xl mb-2"></i>
+                                                <p class="text-sm">Click to upload evidence files</p>
+                                                <p class="text-xs text-gray-500">PNG, JPG, PDF, DOC files</p>
+                                            </div>
+                                        </label>
+                                    </div>
+                                    
+                                    <!-- Evidence List -->
+                                    <div x-show="testInstanceEvidence.length > 0" class="mt-3 space-y-2">
+                                        <template x-for="(file, index) in testInstanceEvidence" :key="index">
+                                            <div class="flex items-center justify-between bg-gray-50 p-2 rounded">
+                                                <span class="text-sm text-gray-700" x-text="file.name"></span>
+                                                <button @click="removeEvidence(index)" class="text-red-600 hover:text-red-800">
+                                                    <i class="fas fa-trash text-sm"></i>
+                                                </button>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Notes Section -->
+                        <div class="mt-6 space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Test Notes</label>
+                                <textarea x-model="testInstanceNotes" 
+                                          rows="4" 
+                                          placeholder="Add detailed notes about the test results, findings, or observations..."
+                                          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Remediation Notes</label>
+                                <textarea x-model="testInstanceRemediationNotes" 
+                                          rows="3" 
+                                          placeholder="Add notes about recommended fixes or remediation steps..."
+                                          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Test History -->
+                    <div x-show="testInstanceHistory.length > 0" class="bg-gray-50 border border-gray-200 rounded-lg p-6">
+                        <h4 class="text-lg font-semibold text-gray-900 mb-3">Test History</h4>
+                        <div class="space-y-3">
+                            <template x-for="history in testInstanceHistory" :key="history.id">
+                                <div class="bg-white border border-gray-200 rounded p-3">
+                                    <div class="flex justify-between items-start mb-2">
+                                        <div class="flex items-center space-x-2">
+                                            <span :class="getTestStatusBadgeClass(history.status) + ' px-2 py-1 text-xs font-medium rounded-full'" 
+                                                  x-text="history.status"></span>
+                                            <span class="text-sm text-gray-600" x-text="history.tester_username"></span>
+                                        </div>
+                                        <span class="text-xs text-gray-500" x-text="formatDate(history.updated_at)"></span>
+                                    </div>
+                                    <div x-show="history.notes" class="text-sm text-gray-700" x-text="history.notes"></div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="flex justify-end space-x-3 pt-6 border-t border-gray-200">
+                        <button @click="closeTestInstanceModal" 
+                                class="px-6 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors">
+                            Cancel
+                        </button>
+                        <button @click="saveTestInstance()" 
+                                :disabled="isSavingTestInstance"
+                                class="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:bg-gray-400">
+                            <span x-show="!isSavingTestInstance">Save Changes</span>
+                            <span x-show="isSavingTestInstance">
+                                <i class="fas fa-spinner fa-spin mr-2"></i>Saving...
+                            </span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Loading State -->
+                <div x-show="isLoadingTestInstance" class="p-6 text-center">
+                    <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                    <p class="text-gray-600">Loading test details...</p>
+                </div>
+            </div>
+        </div>
+
         <!-- Create Testing Session Modal -->
         <div x-show="showCreateTestingSession" 
              x-transition:enter="transition ease-out duration-300"

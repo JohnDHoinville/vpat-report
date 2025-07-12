@@ -4551,6 +4551,62 @@ function dashboard() {
             }
         },
 
+        // Alias for modal compatibility
+        async saveTestInstance() {
+            return await this.saveTestInstanceUpdate();
+        },
+
+        // Evidence handling functions for test instance modal
+        async handleEvidenceUpload(event) {
+            const files = Array.from(event.target.files);
+            
+            for (const file of files) {
+                if (file.size > 10 * 1024 * 1024) { // 10MB limit
+                    this.showNotification(`File ${file.name} is too large (max 10MB)`, 'error');
+                    continue;
+                }
+                
+                if (!file.type.match(/^(image\/|application\/pdf|application\/msword|application\/vnd\.openxmlformats-officedocument\.wordprocessingml\.document)/)) {
+                    this.showNotification(`File ${file.name} is not a supported type`, 'error');
+                    continue;
+                }
+                
+                try {
+                    // Create preview URL
+                    const url = URL.createObjectURL(file);
+                    
+                    // Add to evidence array
+                    this.testInstanceEvidence.push({
+                        name: file.name,
+                        file: file,
+                        url: url,
+                        type: file.type.startsWith('image/') ? 'image' : 'document',
+                        size: file.size,
+                        id: 'temp_' + Date.now() + '_' + Math.random().toString(36).substring(2)
+                    });
+                    
+                } catch (error) {
+                    console.error('Error handling evidence file:', error);
+                    this.showNotification(`Failed to process ${file.name}`, 'error');
+                }
+            }
+            
+            // Clear the input
+            event.target.value = '';
+        },
+
+        removeEvidence(index) {
+            if (index >= 0 && index < this.testInstanceEvidence.length) {
+                // Revoke object URL to prevent memory leaks
+                const evidence = this.testInstanceEvidence[index];
+                if (evidence.url && evidence.url.startsWith('blob:')) {
+                    URL.revokeObjectURL(evidence.url);
+                }
+                
+                this.testInstanceEvidence.splice(index, 1);
+            }
+        },
+
         closeTestInstanceModal() {
             this.showTestInstanceModal = false;
             this.currentTestInstance = null;
