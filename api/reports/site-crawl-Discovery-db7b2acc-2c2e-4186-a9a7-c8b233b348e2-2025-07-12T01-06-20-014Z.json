@@ -1,0 +1,31 @@
+{
+  "testName": "Discovery-db7b2acc-2c2e-4186-a9a7-c8b233b348e2",
+  "rootUrl": "https://run-analysis.onrender.com",
+  "startTime": "2025-07-12T01:06:20.014Z",
+  "options": {
+    "maxDepth": "1",
+    "maxPages": 50,
+    "rateLimitMs": 2000,
+    "userAgent": "AccessibilityTestingBot/1.0",
+    "respectRobots": false,
+    "timeout": 10000,
+    "useAuth": false,
+    "authConfig": null,
+    "headless": true
+  },
+  "summary": {
+    "totalRequests": 1,
+    "successfulRequests": 0,
+    "discoveredPages": 0,
+    "errors": 1,
+    "maxDepthReached": 0
+  },
+  "pages": [],
+  "errors": [
+    {
+      "url": "https://run-analysis.onrender.com",
+      "error": "getaddrinfo ENOTFOUND run-analysis.onrender.com",
+      "timestamp": "2025-07-12T01:06:20.013Z"
+    }
+  ]
+}

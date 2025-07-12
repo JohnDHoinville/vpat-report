@@ -4009,60 +4009,67 @@ function dashboard() {
         },
 
         applyTestFilters() {
-            let filtered = [...this.testInstances];
+            let filtered = [...this.testInstances].filter(test => test); // Filter out null/undefined tests first
 
             // Apply status filter
             if (this.testFilters.status) {
-                filtered = filtered.filter(test => test.status === this.testFilters.status);
+                filtered = filtered.filter(test => test && test.status === this.testFilters.status);
             }
 
             // Apply requirement type filter
             if (this.testFilters.requirementType) {
-                filtered = filtered.filter(test => test.test_method === this.testFilters.requirementType);
+                filtered = filtered.filter(test => test && test.test_method === this.testFilters.requirementType);
             }
 
             // Apply conformance level filter
             if (this.testFilters.conformanceLevel) {
-                filtered = filtered.filter(test => test.conformance_level === this.testFilters.conformanceLevel);
+                filtered = filtered.filter(test => test && test.requirement_level === this.testFilters.conformanceLevel);
             }
 
             // Apply assigned tester filter
             if (this.testFilters.assignedTester) {
                 if (this.testFilters.assignedTester === 'unassigned') {
-                    filtered = filtered.filter(test => !test.assigned_tester);
+                    filtered = filtered.filter(test => test && !test.assigned_tester);
                 } else {
-                    filtered = filtered.filter(test => test.assigned_tester === this.testFilters.assignedTester);
+                    filtered = filtered.filter(test => test && test.assigned_tester === this.testFilters.assignedTester);
                 }
             }
 
             // Apply search filter
             if (this.testFilters.search) {
                 const searchTerm = this.testFilters.search.toLowerCase();
-                filtered = filtered.filter(test => 
-                    (test.requirement_id && test.requirement_id.toLowerCase().includes(searchTerm)) ||
-                    (test.title && test.title.toLowerCase().includes(searchTerm)) ||
-                    (test.description && test.description.toLowerCase().includes(searchTerm)) ||
-                    (test.testing_instructions && test.testing_instructions.toLowerCase().includes(searchTerm))
+                filtered = filtered.filter(test => test &&
+                    ((test.requirement_id && test.requirement_id.toLowerCase().includes(searchTerm)) ||
+                    (test.criterion_number && test.criterion_number.toLowerCase().includes(searchTerm)) ||
+                    (test.requirement_title && test.requirement_title.toLowerCase().includes(searchTerm)) ||
+                    (test.requirement_description && test.requirement_description.toLowerCase().includes(searchTerm)) ||
+                    (test.testing_instructions && test.testing_instructions.toLowerCase().includes(searchTerm)))
                 );
             }
 
             // Apply sorting
-            filtered.sort((a, b) => {
-                const field = this.testGridSort.field;
-                const direction = this.testGridSort.direction;
-                
-                let aVal = a[field] || '';
-                let bVal = b[field] || '';
-                
-                if (typeof aVal === 'string') aVal = aVal.toLowerCase();
-                if (typeof bVal === 'string') bVal = bVal.toLowerCase();
-                
-                if (direction === 'asc') {
-                    return aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
-                } else {
-                    return aVal > bVal ? -1 : aVal < bVal ? 1 : 0;
-                }
-            });
+            if (this.testGridSort.field) {
+                filtered.sort((a, b) => {
+                    // Add null checks for sorting
+                    if (!a || !b) return 0;
+                    
+                    let aVal = a[this.testGridSort.field] || '';
+                    let bVal = b[this.testGridSort.field] || '';
+                    
+                    // Handle special cases
+                    if (this.testGridSort.field === 'updated_at') {
+                        aVal = new Date(aVal);
+                        bVal = new Date(bVal);
+                    } else if (typeof aVal === 'string') {
+                        aVal = aVal.toLowerCase();
+                        bVal = bVal.toLowerCase();
+                    }
+                    
+                    if (aVal < bVal) return this.testGridSort.direction === 'asc' ? -1 : 1;
+                    if (aVal > bVal) return this.testGridSort.direction === 'asc' ? 1 : -1;
+                    return 0;
+                });
+            }
 
             this.filteredTestInstances = filtered;
             this.updateTestGridPagination();
@@ -4125,11 +4132,11 @@ function dashboard() {
             }
         },
 
-        toggleAllTestSelection() {
-            if (this.selectedTestInstances.length === this.paginatedTestInstances.length && this.paginatedTestInstances.length > 0) {
-                this.selectedTestInstances = [];
+        toggleAllTestSelection(checked) {
+            if (checked) {
+                this.selectedTestInstances = [...this.paginatedTestInstances.filter(t => t && t.id).map(t => t.id)];
             } else {
-                this.selectedTestInstances = this.paginatedTestInstances.map(test => test.id);
+                this.selectedTestInstances = [];
             }
         },
 
@@ -4725,12 +4732,12 @@ function dashboard() {
 
                 if (response.success) {
                     // Update local data
-                    const testIndex = this.testInstances.findIndex(t => t.id === this.draggedTest.id);
+                    const testIndex = this.testInstances.findIndex(t => t && t.id === this.draggedTest.id);
                     if (testIndex !== -1) {
                         this.testInstances[testIndex].assigned_tester = testerId;
                         this.testInstances[testIndex].assigned_tester_name = testerId ? 
-                            (this.availableTesters.find(t => t.id === testerId)?.full_name || 
-                             this.availableTesters.find(t => t.id === testerId)?.username) : null;
+                            (this.availableTesters.find(t => t && t.id === testerId)?.full_name || 
+                             this.availableTesters.find(t => t && t.id === testerId)?.username) : null;
                     }
                     
                     this.applyTestFilters();
@@ -4751,35 +4758,35 @@ function dashboard() {
 
         // Workload Distribution Functions
         getTesterWorkload(testerId) {
-            return this.testInstances.filter(test => test.assigned_tester === testerId).length;
+            return this.testInstances.filter(test => test && test.assigned_tester === testerId).length;
         },
 
         getOptimalWorkloadPerTester() {
-            const totalTests = this.testInstances.length;
-            const totalTesters = this.availableTesters.length;
+            const totalTests = this.testInstances.filter(test => test).length;
+            const totalTesters = this.availableTesters.filter(tester => tester).length;
             return totalTesters > 0 ? Math.ceil(totalTests / totalTesters) : 0;
         },
 
         getUnassignedTests() {
-            return this.testInstances.filter(test => !test.assigned_tester).slice(0, 10); // Limit for display
+            return this.testInstances.filter(test => test && !test.assigned_tester).slice(0, 10); // Limit for display
         },
 
         getAssignedTests(testerId) {
-            return this.testInstances.filter(test => test.assigned_tester === testerId).slice(0, 10); // Limit for display
+            return this.testInstances.filter(test => test && test.assigned_tester === testerId).slice(0, 10); // Limit for display
         },
 
         getUnassignedTestCount() {
-            return this.testInstances.filter(test => !test.assigned_tester).length;
+            return this.testInstances.filter(test => test && !test.assigned_tester).length;
         },
 
         getAssignedTestCount() {
-            return this.testInstances.filter(test => test.assigned_tester).length;
+            return this.testInstances.filter(test => test && test.assigned_tester).length;
         },
 
         // Enhanced Selection Functions
         toggleAllTestSelection(checked) {
             if (checked) {
-                this.selectedTestInstances = [...this.paginatedTestInstances.map(t => t.id)];
+                this.selectedTestInstances = [...this.paginatedTestInstances.filter(t => t && t.id).map(t => t.id)];
             } else {
                 this.selectedTestInstances = [];
             }
@@ -4846,10 +4853,17 @@ function dashboard() {
             }
             
             // Simple assignment to next available tester with lowest workload
-            const testerWorkloads = this.availableTesters.map(tester => ({
-                tester,
-                workload: this.getTesterWorkload(tester.id)
-            }));
+            const testerWorkloads = this.availableTesters
+                .filter(tester => tester && tester.id) // Filter out null testers
+                .map(tester => ({
+                    tester,
+                    workload: this.getTesterWorkload(tester.id)
+                }));
+            
+            if (testerWorkloads.length === 0) {
+                this.showNotification('No valid testers available', 'warning');
+                return;
+            }
             
             testerWorkloads.sort((a, b) => a.workload - b.workload);
             const selectedTester = testerWorkloads[0].tester;
@@ -4900,47 +4914,50 @@ function dashboard() {
 
         // Enhanced Apply Filters Function (Override existing)
         applyTestFilters() {
-            let filtered = [...this.testInstances];
+            let filtered = [...this.testInstances].filter(test => test); // Filter out null/undefined tests first
 
             // Apply status filter
             if (this.testFilters.status) {
-                filtered = filtered.filter(test => test.status === this.testFilters.status);
+                filtered = filtered.filter(test => test && test.status === this.testFilters.status);
             }
 
             // Apply requirement type filter
             if (this.testFilters.requirementType) {
-                filtered = filtered.filter(test => test.test_method === this.testFilters.requirementType);
+                filtered = filtered.filter(test => test && test.test_method === this.testFilters.requirementType);
             }
 
             // Apply conformance level filter
             if (this.testFilters.conformanceLevel) {
-                filtered = filtered.filter(test => test.requirement_level === this.testFilters.conformanceLevel);
+                filtered = filtered.filter(test => test && test.requirement_level === this.testFilters.conformanceLevel);
             }
 
             // Apply assigned tester filter
             if (this.testFilters.assignedTester) {
                 if (this.testFilters.assignedTester === 'unassigned') {
-                    filtered = filtered.filter(test => !test.assigned_tester);
+                    filtered = filtered.filter(test => test && !test.assigned_tester);
                 } else {
-                    filtered = filtered.filter(test => test.assigned_tester === this.testFilters.assignedTester);
+                    filtered = filtered.filter(test => test && test.assigned_tester === this.testFilters.assignedTester);
                 }
             }
 
             // Apply search filter
             if (this.testFilters.search) {
                 const searchTerm = this.testFilters.search.toLowerCase();
-                filtered = filtered.filter(test => 
-                    (test.requirement_id && test.requirement_id.toLowerCase().includes(searchTerm)) ||
+                filtered = filtered.filter(test => test &&
+                    ((test.requirement_id && test.requirement_id.toLowerCase().includes(searchTerm)) ||
                     (test.criterion_number && test.criterion_number.toLowerCase().includes(searchTerm)) ||
                     (test.requirement_title && test.requirement_title.toLowerCase().includes(searchTerm)) ||
                     (test.requirement_description && test.requirement_description.toLowerCase().includes(searchTerm)) ||
-                    (test.testing_instructions && test.testing_instructions.toLowerCase().includes(searchTerm))
+                    (test.testing_instructions && test.testing_instructions.toLowerCase().includes(searchTerm)))
                 );
             }
 
             // Apply sorting
             if (this.testGridSort.field) {
                 filtered.sort((a, b) => {
+                    // Add null checks for sorting
+                    if (!a || !b) return 0;
+                    
                     let aVal = a[this.testGridSort.field] || '';
                     let bVal = b[this.testGridSort.field] || '';
                     
