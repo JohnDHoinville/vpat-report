@@ -118,18 +118,21 @@ function dashboard() {
         // Test Instance Detail Modal (Task 2.1.2)
         showTestInstanceModal: false,
         currentTestInstance: null,
-        testInstanceDetails: null,
+        testInstanceStatus: '',
+        testInstanceConfidenceLevel: '',
+        testInstanceNotes: '',
+        testInstanceRemediationNotes: '',
+        testInstanceEvidence: [],
+        testInstanceAssignedTester: '',
         testInstanceHistory: [],
         isLoadingTestInstance: false,
         isSavingTestInstance: false,
         
-        // Test Instance form state
-        testInstanceStatus: '',
-        testInstanceNotes: '',
-        testInstanceRemediationNotes: '',
-        testInstanceConfidenceLevel: 'medium',
-        testInstanceAssignedTester: '',
-        testInstanceEvidence: [],
+        // Test Assignment Interface (Task 2.1.3)
+        showTestAssignmentPanel: false,
+        draggedTest: null,
+        dragOverTester: null,
+        bulkAssignmentTester: '',
         
         // Discovery Pages Modal Data
         selectedDiscovery: null,
@@ -4421,18 +4424,20 @@ function dashboard() {
         // Test Instance Detail Modal (Task 2.1.2)
         showTestInstanceModal: false,
         currentTestInstance: null,
-        testInstanceDetails: null,
-        testInstanceHistory: [],
-        isLoadingTestInstance: false,
-        isSavingTestInstance: false,
-        
-        // Test Instance form state
         testInstanceStatus: '',
+        testInstanceConfidenceLevel: '',
         testInstanceNotes: '',
-        testInstanceRemediationNotes: '',
-        testInstanceConfidenceLevel: 'medium',
-        testInstanceAssignedTester: '',
         testInstanceEvidence: [],
+        testInstanceAssignedTester: '',
+        
+        // Test Assignment Interface (Task 2.1.3)
+        showTestAssignmentPanel: false,
+        draggedTest: null,
+        dragOverTester: null,
+        bulkAssignmentTester: '',
+        
+        // Enhanced pagination for test grid
+        paginatedTestInstances: [],
 
         // Test Instance Detail Modal Functions (Task 2.1.2)
         async openTestInstanceModal(testInstance) {
@@ -4686,6 +4691,277 @@ function dashboard() {
         },
 
         // Testing Sessions Tab Functions
+
+        // ==============================================
+        // TEST ASSIGNMENT INTERFACE FUNCTIONS (Task 2.1.3)
+        // ==============================================
+
+        // Drag and Drop Functions
+        handleTestDragStart(event, test) {
+            this.draggedTest = test;
+            event.dataTransfer.effectAllowed = 'move';
+            event.dataTransfer.setData('text/html', event.target.outerHTML);
+            event.target.style.opacity = '0.5';
+        },
+
+        handleTestDragEnd(event) {
+            event.target.style.opacity = '1';
+            this.draggedTest = null;
+            this.dragOverTester = null;
+        },
+
+        async handleTestDrop(event, testerId) {
+            event.preventDefault();
+            
+            if (!this.draggedTest) return;
+            
+            try {
+                // Update test assignment
+                const response = await this.apiCall(
+                    `/test-instances/${this.draggedTest.id}/assign`,
+                    'PUT',
+                    { assigned_tester: testerId }
+                );
+
+                if (response.success) {
+                    // Update local data
+                    const testIndex = this.testInstances.findIndex(t => t.id === this.draggedTest.id);
+                    if (testIndex !== -1) {
+                        this.testInstances[testIndex].assigned_tester = testerId;
+                        this.testInstances[testIndex].assigned_tester_name = testerId ? 
+                            (this.availableTesters.find(t => t.id === testerId)?.full_name || 
+                             this.availableTesters.find(t => t.id === testerId)?.username) : null;
+                    }
+                    
+                    this.applyTestFilters();
+                    this.showNotification(
+                        testerId ? 'Test assigned successfully' : 'Test unassigned successfully', 
+                        'success'
+                    );
+                } else {
+                    this.showNotification(response.error || 'Failed to update assignment', 'error');
+                }
+            } catch (error) {
+                console.error('Error in drag assignment:', error);
+                this.showNotification('Failed to update assignment', 'error');
+            }
+            
+            this.dragOverTester = null;
+        },
+
+        // Workload Distribution Functions
+        getTesterWorkload(testerId) {
+            return this.testInstances.filter(test => test.assigned_tester === testerId).length;
+        },
+
+        getOptimalWorkloadPerTester() {
+            const totalTests = this.testInstances.length;
+            const totalTesters = this.availableTesters.length;
+            return totalTesters > 0 ? Math.ceil(totalTests / totalTesters) : 0;
+        },
+
+        getUnassignedTests() {
+            return this.testInstances.filter(test => !test.assigned_tester).slice(0, 10); // Limit for display
+        },
+
+        getAssignedTests(testerId) {
+            return this.testInstances.filter(test => test.assigned_tester === testerId).slice(0, 10); // Limit for display
+        },
+
+        getUnassignedTestCount() {
+            return this.testInstances.filter(test => !test.assigned_tester).length;
+        },
+
+        getAssignedTestCount() {
+            return this.testInstances.filter(test => test.assigned_tester).length;
+        },
+
+        // Enhanced Selection Functions
+        toggleAllTestSelection(checked) {
+            if (checked) {
+                this.selectedTestInstances = [...this.paginatedTestInstances.map(t => t.id)];
+            } else {
+                this.selectedTestInstances = [];
+            }
+        },
+
+        toggleTestSelection(testId, checked) {
+            if (checked) {
+                if (!this.selectedTestInstances.includes(testId)) {
+                    this.selectedTestInstances.push(testId);
+                }
+            } else {
+                const index = this.selectedTestInstances.indexOf(testId);
+                if (index > -1) {
+                    this.selectedTestInstances.splice(index, 1);
+                }
+            }
+        },
+
+        clearTestSelection() {
+            this.selectedTestInstances = [];
+            this.bulkAssignmentTester = '';
+        },
+
+        // Enhanced Sorting Functions
+        sortTestInstances(field) {
+            if (this.testGridSort.field === field) {
+                this.testGridSort.direction = this.testGridSort.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                this.testGridSort.field = field;
+                this.testGridSort.direction = 'asc';
+            }
+            
+            this.applyTestFilters();
+        },
+
+        // Enhanced Pagination Functions
+        updateTestGridPagination() {
+            const totalItems = this.filteredTestInstances.length;
+            this.testGridPagination.totalPages = Math.ceil(totalItems / this.testGridPagination.pageSize);
+            
+            // Ensure current page is valid
+            if (this.testGridPagination.page > this.testGridPagination.totalPages) {
+                this.testGridPagination.page = Math.max(1, this.testGridPagination.totalPages);
+            }
+            
+            // Calculate paginated results
+            const startIndex = (this.testGridPagination.page - 1) * this.testGridPagination.pageSize;
+            const endIndex = startIndex + this.testGridPagination.pageSize;
+            this.paginatedTestInstances = this.filteredTestInstances.slice(startIndex, endIndex);
+        },
+
+        changeTestGridPage(page) {
+            if (page >= 1 && page <= this.testGridPagination.totalPages) {
+                this.testGridPagination.page = page;
+                this.updateTestGridPagination();
+            }
+        },
+
+        // Quick Assignment Function
+        async quickAssignTest(test) {
+            if (this.availableTesters.length === 0) {
+                this.showNotification('No available testers found', 'warning');
+                return;
+            }
+            
+            // Simple assignment to next available tester with lowest workload
+            const testerWorkloads = this.availableTesters.map(tester => ({
+                tester,
+                workload: this.getTesterWorkload(tester.id)
+            }));
+            
+            testerWorkloads.sort((a, b) => a.workload - b.workload);
+            const selectedTester = testerWorkloads[0].tester;
+            
+            try {
+                const response = await this.apiCall(
+                    `/test-instances/${test.id}/assign`,
+                    'PUT',
+                    { assigned_tester: selectedTester.id }
+                );
+
+                if (response.success) {
+                    test.assigned_tester = selectedTester.id;
+                    test.assigned_tester_name = selectedTester.full_name || selectedTester.username;
+                    this.applyTestFilters();
+                    this.showNotification(`Test assigned to ${test.assigned_tester_name}`, 'success');
+                } else {
+                    this.showNotification(response.error || 'Failed to assign test', 'error');
+                }
+            } catch (error) {
+                console.error('Error in quick assignment:', error);
+                this.showNotification('Failed to assign test', 'error');
+            }
+        },
+
+        // Enhanced Badge Functions
+        getConformanceLevelBadgeClass(level) {
+            const levelMap = {
+                'A': 'bg-green-100 text-green-800',
+                'AA': 'bg-blue-100 text-blue-800', 
+                'AAA': 'bg-purple-100 text-purple-800'
+            };
+            return levelMap[level?.toUpperCase()] || 'bg-gray-100 text-gray-800';
+        },
+
+        getTestStatusBadgeClass(status) {
+            const statusMap = {
+                'pending': 'bg-gray-100 text-gray-800',
+                'in_progress': 'bg-yellow-100 text-yellow-800',
+                'passed': 'bg-green-100 text-green-800',
+                'failed': 'bg-red-100 text-red-800',
+                'not_applicable': 'bg-blue-100 text-blue-800',
+                'untestable': 'bg-orange-100 text-orange-800',
+                'needs_review': 'bg-purple-100 text-purple-800'
+            };
+            return statusMap[status] || 'bg-gray-100 text-gray-800';
+        },
+
+        // Enhanced Apply Filters Function (Override existing)
+        applyTestFilters() {
+            let filtered = [...this.testInstances];
+
+            // Apply status filter
+            if (this.testFilters.status) {
+                filtered = filtered.filter(test => test.status === this.testFilters.status);
+            }
+
+            // Apply requirement type filter
+            if (this.testFilters.requirementType) {
+                filtered = filtered.filter(test => test.test_method === this.testFilters.requirementType);
+            }
+
+            // Apply conformance level filter
+            if (this.testFilters.conformanceLevel) {
+                filtered = filtered.filter(test => test.requirement_level === this.testFilters.conformanceLevel);
+            }
+
+            // Apply assigned tester filter
+            if (this.testFilters.assignedTester) {
+                if (this.testFilters.assignedTester === 'unassigned') {
+                    filtered = filtered.filter(test => !test.assigned_tester);
+                } else {
+                    filtered = filtered.filter(test => test.assigned_tester === this.testFilters.assignedTester);
+                }
+            }
+
+            // Apply search filter
+            if (this.testFilters.search) {
+                const searchTerm = this.testFilters.search.toLowerCase();
+                filtered = filtered.filter(test => 
+                    (test.requirement_id && test.requirement_id.toLowerCase().includes(searchTerm)) ||
+                    (test.criterion_number && test.criterion_number.toLowerCase().includes(searchTerm)) ||
+                    (test.requirement_title && test.requirement_title.toLowerCase().includes(searchTerm)) ||
+                    (test.requirement_description && test.requirement_description.toLowerCase().includes(searchTerm)) ||
+                    (test.testing_instructions && test.testing_instructions.toLowerCase().includes(searchTerm))
+                );
+            }
+
+            // Apply sorting
+            if (this.testGridSort.field) {
+                filtered.sort((a, b) => {
+                    let aVal = a[this.testGridSort.field] || '';
+                    let bVal = b[this.testGridSort.field] || '';
+                    
+                    // Handle special cases
+                    if (this.testGridSort.field === 'updated_at') {
+                        aVal = new Date(aVal);
+                        bVal = new Date(bVal);
+                    } else if (typeof aVal === 'string') {
+                        aVal = aVal.toLowerCase();
+                        bVal = bVal.toLowerCase();
+                    }
+                    
+                    if (aVal < bVal) return this.testGridSort.direction === 'asc' ? -1 : 1;
+                    if (aVal > bVal) return this.testGridSort.direction === 'asc' ? 1 : -1;
+                    return 0;
+                });
+            }
+
+            this.filteredTestInstances = filtered;
+            this.updateTestGridPagination();
+        },
     };
 }
 

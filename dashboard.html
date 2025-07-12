@@ -1478,7 +1478,7 @@
                 </div>
             </div>
 
-<!-- Test Grid View (Task 2.1.1) -->
+<!-- Test Grid View (Task 2.1.1 & 2.1.3) -->
 <div x-show="activeTab === 'testing-sessions' && viewingSessionDetails && currentSessionDetails" class="space-y-6">
     <!-- Header -->
     <div class="bg-white rounded-lg shadow-md border border-gray-200 p-6">
@@ -1491,6 +1491,11 @@
                 </p>
             </div>
             <div class="flex space-x-2">
+                <button @click="showTestAssignmentPanel = !showTestAssignmentPanel" 
+                        :class="showTestAssignmentPanel ? 'bg-purple-600 hover:bg-purple-700' : 'bg-gray-600 hover:bg-gray-700'"
+                        class="px-3 py-2 text-white rounded text-sm transition-colors">
+                    <i class="fas fa-users mr-1"></i>Assignment Panel
+                </button>
                 <button @click="refreshTestInstances()" 
                         class="px-3 py-2 bg-gray-600 text-white rounded text-sm hover:bg-gray-700">
                     <i class="fas fa-refresh mr-1"></i>Refresh
@@ -1503,23 +1508,273 @@
         </div>
     </div>
 
-    <!-- Test Instances Table -->
+    <!-- Assignment Panel (Task 2.1.3) -->
+    <div x-show="showTestAssignmentPanel" 
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="opacity-0 transform -translate-y-2"
+         x-transition:enter-end="opacity-100 transform translate-y-0"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-start="opacity-100 transform translate-y-0"
+         x-transition:leave-end="opacity-0 transform -translate-y-2"
+         class="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+        <div class="flex justify-between items-center mb-6">
+            <h4 class="text-lg font-semibold text-gray-900">
+                <i class="fas fa-users text-purple-600 mr-2"></i>Team Assignment & Workload Distribution
+            </h4>
+            <div class="flex space-x-2">
+                <button @click="loadAvailableTesters()" 
+                        class="px-3 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700">
+                    <i class="fas fa-refresh mr-1"></i>Refresh Team
+                </button>
+            </div>
+        </div>
+
+        <!-- Team Members Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-6">
+            <!-- Unassigned Tests Column -->
+            <div class="bg-gray-50 rounded-lg border-2 border-dashed border-gray-300 p-4 min-h-[200px]"
+                 @drop="handleTestDrop($event, null)"
+                 @dragover.prevent
+                 @dragenter.prevent>
+                <div class="text-center mb-3">
+                    <i class="fas fa-inbox text-gray-400 text-2xl mb-2"></i>
+                    <h5 class="font-medium text-gray-700">Unassigned Tests</h5>
+                    <p class="text-sm text-gray-500" x-text="getUnassignedTestCount() + ' tests'"></p>
+                </div>
+                <div class="space-y-2 max-h-32 overflow-y-auto">
+                    <template x-for="test in getUnassignedTests()" :key="test.id">
+                        <div class="bg-white p-2 rounded border cursor-move text-xs"
+                             draggable="true"
+                             @dragstart="handleTestDragStart($event, test)"
+                             @dragend="handleTestDragEnd($event)">
+                            <div class="font-medium text-gray-900" x-text="test.criterion_number"></div>
+                            <div class="text-gray-600 truncate" x-text="test.requirement_title"></div>
+                            <div class="flex justify-between items-center mt-1">
+                                <span :class="getTestStatusBadgeClass(test.status) + ' px-1 py-0.5 text-xs rounded'"
+                                      x-text="test.status"></span>
+                                <span :class="getConformanceLevelBadgeClass(test.requirement_level) + ' px-1 py-0.5 text-xs rounded'"
+                                      x-text="test.requirement_level"></span>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- Team Member Columns -->
+            <template x-for="tester in availableTesters" :key="tester.id">
+                <div class="bg-blue-50 rounded-lg border-2 border-blue-200 p-4 min-h-[200px]"
+                     @drop="handleTestDrop($event, tester.id)"
+                     @dragover.prevent
+                     @dragenter.prevent
+                     :class="{'border-blue-400 bg-blue-100': dragOverTester === tester.id}">
+                    <div class="text-center mb-3">
+                        <div class="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold text-sm mx-auto mb-2">
+                            <span x-text="(tester.full_name || tester.username).charAt(0).toUpperCase()"></span>
+                        </div>
+                        <h5 class="font-medium text-gray-900" x-text="tester.full_name || tester.username"></h5>
+                        <p class="text-sm text-gray-600" x-text="getTesterWorkload(tester.id) + ' assigned'"></p>
+                        <div class="mt-2">
+                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                <div class="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+                                     :style="{ width: Math.min(100, (getTesterWorkload(tester.id) / getOptimalWorkloadPerTester()) * 100) + '%' }"></div>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1" 
+                               x-text="Math.round((getTesterWorkload(tester.id) / getOptimalWorkloadPerTester()) * 100) + '% capacity'"></p>
+                        </div>
+                    </div>
+                    <div class="space-y-2 max-h-32 overflow-y-auto">
+                        <template x-for="test in getAssignedTests(tester.id)" :key="test.id">
+                            <div class="bg-white p-2 rounded border cursor-move text-xs"
+                                 draggable="true"
+                                 @dragstart="handleTestDragStart($event, test)"
+                                 @dragend="handleTestDragEnd($event)">
+                                <div class="font-medium text-gray-900" x-text="test.criterion_number"></div>
+                                <div class="text-gray-600 truncate" x-text="test.requirement_title"></div>
+                                <div class="flex justify-between items-center mt-1">
+                                    <span :class="getTestStatusBadgeClass(test.status) + ' px-1 py-0.5 text-xs rounded'"
+                                          x-text="test.status"></span>
+                                    <span :class="getConformanceLevelBadgeClass(test.requirement_level) + ' px-1 py-0.5 text-xs rounded'"
+                                          x-text="test.requirement_level"></span>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </template>
+        </div>
+
+        <!-- Workload Statistics -->
+        <div class="bg-gray-50 rounded-lg p-4">
+            <h6 class="font-medium text-gray-900 mb-3">Team Workload Overview</h6>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
+                <div class="text-center">
+                    <div class="font-bold text-2xl text-blue-600" x-text="testInstances.length"></div>
+                    <div class="text-gray-600">Total Tests</div>
+                </div>
+                <div class="text-center">
+                    <div class="font-bold text-2xl text-green-600" x-text="getAssignedTestCount()"></div>
+                    <div class="text-gray-600">Assigned</div>
+                </div>
+                <div class="text-center">
+                    <div class="font-bold text-2xl text-gray-600" x-text="getUnassignedTestCount()"></div>
+                    <div class="text-gray-600">Unassigned</div>
+                </div>
+                <div class="text-center">
+                    <div class="font-bold text-2xl text-purple-600" x-text="availableTesters.length"></div>
+                    <div class="text-gray-600">Team Members</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Enhanced Filters & Controls (Task 2.1.3) -->
+    <div class="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+        <div class="flex flex-wrap gap-4 items-center justify-between">
+            <div class="flex flex-wrap gap-4 items-center">
+                <!-- Status Filter -->
+                <div>
+                    <label class="block text-xs font-medium text-gray-700 mb-1">Status</label>
+                    <select x-model="testFilters.status" @change="applyTestFilters()" 
+                            class="px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="">All Statuses</option>
+                        <option value="pending">Pending</option>
+                        <option value="in_progress">In Progress</option>
+                        <option value="passed">Passed</option>
+                        <option value="failed">Failed</option>
+                        <option value="not_applicable">Not Applicable</option>
+                        <option value="untestable">Untestable</option>
+                        <option value="needs_review">Needs Review</option>
+                    </select>
+                </div>
+
+                <!-- Assigned Tester Filter -->
+                <div>
+                    <label class="block text-xs font-medium text-gray-700 mb-1">Assigned Tester</label>
+                    <select x-model="testFilters.assignedTester" @change="applyTestFilters()" 
+                            class="px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="">All Testers</option>
+                        <option value="unassigned">Unassigned</option>
+                        <template x-for="tester in availableTesters" :key="tester.id">
+                            <option :value="tester.id" x-text="tester.full_name || tester.username"></option>
+                        </template>
+                    </select>
+                </div>
+
+                <!-- Conformance Level Filter -->
+                <div>
+                    <label class="block text-xs font-medium text-gray-700 mb-1">Level</label>
+                    <select x-model="testFilters.conformanceLevel" @change="applyTestFilters()" 
+                            class="px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="">All Levels</option>
+                        <option value="A">Level A</option>
+                        <option value="AA">Level AA</option>
+                        <option value="AAA">Level AAA</option>
+                    </select>
+                </div>
+
+                <!-- Test Method Filter -->
+                <div>
+                    <label class="block text-xs font-medium text-gray-700 mb-1">Method</label>
+                    <select x-model="testFilters.requirementType" @change="applyTestFilters()" 
+                            class="px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="">All Methods</option>
+                        <option value="manual">Manual Only</option>
+                        <option value="automated">Automated</option>
+                        <option value="hybrid">Hybrid</option>
+                    </select>
+                </div>
+
+                <!-- Search -->
+                <div>
+                    <label class="block text-xs font-medium text-gray-700 mb-1">Search</label>
+                    <input type="text" x-model="testFilters.search" @input="applyTestFilters()" 
+                           placeholder="Search tests..." 
+                           class="px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+            </div>
+
+            <!-- Bulk Actions -->
+            <div x-show="selectedTestInstances.length > 0" class="flex items-center space-x-2">
+                <span class="text-sm text-gray-600" x-text="selectedTestInstances.length + ' selected'"></span>
+                <select x-model="bulkAssignmentTester" 
+                        class="px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-purple-500">
+                    <option value="">Assign to...</option>
+                    <template x-for="tester in availableTesters" :key="tester.id">
+                        <option :value="tester.id" x-text="tester.full_name || tester.username"></option>
+                    </template>
+                </select>
+                <button @click="bulkAssignTester()" 
+                        :disabled="!bulkAssignmentTester"
+                        class="px-3 py-2 bg-purple-600 text-white rounded text-sm hover:bg-purple-700 disabled:bg-gray-400">
+                    <i class="fas fa-users mr-1"></i>Assign
+                </button>
+                <button @click="clearTestSelection()" 
+                        class="px-3 py-2 bg-gray-600 text-white rounded text-sm hover:bg-gray-700">
+                    <i class="fas fa-times mr-1"></i>Clear
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Enhanced Test Instances Table -->
     <div class="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden">
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                     <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Criterion
+                        <th class="px-6 py-3 text-left">
+                            <input type="checkbox" 
+                                   @change="toggleAllTestSelection($event.target.checked)"
+                                   :checked="selectedTestInstances.length === paginatedTestInstances.length && paginatedTestInstances.length > 0"
+                                   class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
                         </th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Requirement
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                            @click="sortTestInstances('criterion_number')">
+                            <div class="flex items-center">
+                                Criterion
+                                <i :class="testGridSort.field === 'criterion_number' ? (testGridSort.direction === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down') : 'fas fa-sort'" 
+                                   class="ml-1 text-gray-400"></i>
+                            </div>
                         </th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Level
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                            @click="sortTestInstances('requirement_title')">
+                            <div class="flex items-center">
+                                Requirement
+                                <i :class="testGridSort.field === 'requirement_title' ? (testGridSort.direction === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down') : 'fas fa-sort'" 
+                                   class="ml-1 text-gray-400"></i>
+                            </div>
                         </th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Status
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                            @click="sortTestInstances('requirement_level')">
+                            <div class="flex items-center">
+                                Level
+                                <i :class="testGridSort.field === 'requirement_level' ? (testGridSort.direction === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down') : 'fas fa-sort'" 
+                                   class="ml-1 text-gray-400"></i>
+                            </div>
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                            @click="sortTestInstances('status')">
+                            <div class="flex items-center">
+                                Status
+                                <i :class="testGridSort.field === 'status' ? (testGridSort.direction === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down') : 'fas fa-sort'" 
+                                   class="ml-1 text-gray-400"></i>
+                            </div>
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                            @click="sortTestInstances('assigned_tester_name')">
+                            <div class="flex items-center">
+                                Assigned Tester
+                                <i :class="testGridSort.field === 'assigned_tester_name' ? (testGridSort.direction === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down') : 'fas fa-sort'" 
+                                   class="ml-1 text-gray-400"></i>
+                            </div>
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                            @click="sortTestInstances('updated_at')">
+                            <div class="flex items-center">
+                                Last Updated
+                                <i :class="testGridSort.field === 'updated_at' ? (testGridSort.direction === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down') : 'fas fa-sort'" 
+                                   class="ml-1 text-gray-400"></i>
+                            </div>
                         </th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Actions
@@ -1527,8 +1782,15 @@
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
-                    <template x-for="test in testInstances" :key="test.id">
-                        <tr class="hover:bg-gray-50">
+                    <template x-for="test in paginatedTestInstances" :key="test.id">
+                        <tr class="hover:bg-gray-50" 
+                            :class="{'bg-blue-50': selectedTestInstances.includes(test.id)}">
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <input type="checkbox" 
+                                       :checked="selectedTestInstances.includes(test.id)"
+                                       @change="toggleTestSelection(test.id, $event.target.checked)"
+                                       class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                            </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900" 
                                 x-text="test.criterion_number"></td>
                             <td class="px-6 py-4 text-sm text-gray-900">
@@ -1536,23 +1798,71 @@
                                 <div class="text-gray-500 text-xs" x-text="test.requirement_description?.substring(0, 100) + '...'"></div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
-                                <span class="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800" 
+                                <span :class="getConformanceLevelBadgeClass(test.requirement_level) + ' px-2 py-1 text-xs font-medium rounded-full'" 
                                       x-text="test.requirement_level?.toUpperCase()"></span>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
-                                <span class="px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800" 
+                                <span :class="getTestStatusBadgeClass(test.status) + ' px-2 py-1 text-xs font-medium rounded-full'" 
                                       x-text="test.status"></span>
                             </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                <div x-show="test.assigned_tester_name" class="flex items-center">
+                                    <div class="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center text-white text-xs mr-2">
+                                        <span x-text="test.assigned_tester_name ? test.assigned_tester_name.charAt(0).toUpperCase() : '?'"></span>
+                                    </div>
+                                    <span x-text="test.assigned_tester_name"></span>
+                                </div>
+                                <span x-show="!test.assigned_tester_name" class="text-gray-400 italic">Unassigned</span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                <span x-text="formatDate(test.updated_at)"></span>
+                            </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                <button @click="openTestInstanceModal(test)" 
-                                        class="text-blue-600 hover:text-blue-900">
-                                    <i class="fas fa-eye"></i> View
-                                </button>
+                                <div class="flex space-x-2">
+                                    <button @click="openTestInstanceModal(test)" 
+                                            class="text-blue-600 hover:text-blue-900">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                    <button @click="quickAssignTest(test)" 
+                                            class="text-purple-600 hover:text-purple-900">
+                                        <i class="fas fa-user-plus"></i>
+                                    </button>
+                                </div>
                             </td>
                         </tr>
                     </template>
                 </tbody>
             </table>
+        </div>
+
+        <!-- Pagination -->
+        <div x-show="testGridPagination.totalPages > 1" class="bg-gray-50 px-6 py-3 border-t border-gray-200">
+            <div class="flex items-center justify-between">
+                <div class="text-sm text-gray-700">
+                    Showing <span x-text="((testGridPagination.page - 1) * testGridPagination.pageSize) + 1"></span> to 
+                    <span x-text="Math.min(testGridPagination.page * testGridPagination.pageSize, filteredTestInstances.length)"></span> of 
+                    <span x-text="filteredTestInstances.length"></span> results
+                </div>
+                <div class="flex space-x-2">
+                    <button @click="changeTestGridPage(testGridPagination.page - 1)" 
+                            :disabled="testGridPagination.page === 1"
+                            class="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+                        Previous
+                    </button>
+                    <template x-for="page in Array.from({length: testGridPagination.totalPages}, (_, i) => i + 1)" :key="page">
+                        <button @click="changeTestGridPage(page)" 
+                                :class="page === testGridPagination.page ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'"
+                                class="px-3 py-1 text-sm border border-gray-300 rounded">
+                            <span x-text="page"></span>
+                        </button>
+                    </template>
+                    <button @click="changeTestGridPage(testGridPagination.page + 1)" 
+                            :disabled="testGridPagination.page === testGridPagination.totalPages"
+                            class="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+                        Next
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 
