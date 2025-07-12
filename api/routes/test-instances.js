@@ -568,6 +568,7 @@ router.post('/:id/assign', authenticateToken, async (req, res) => {
         const { id } = req.params;
         const { assigned_tester, notes } = req.body;
 
+        // Validate required fields
         if (!assigned_tester) {
             return res.status(400).json({
                 success: false,
@@ -575,28 +576,37 @@ router.post('/:id/assign', authenticateToken, async (req, res) => {
             });
         }
 
-        const updateQuery = `
-            UPDATE test_instances 
-            SET assigned_tester = $1, assigned_at = $2, notes = COALESCE(notes, '') || $3, updated_at = $4
-            WHERE id = $5
-            RETURNING *
-        `;
-
-        const assignmentNote = notes ? `\n[Assignment] ${notes}` : '';
-        const result = await pool.query(updateQuery, [
-            assigned_tester,
-            new Date(),
-            assignmentNote,
-            new Date(),
-            id
-        ]);
-
-        if (result.rows.length === 0) {
+        // Check if test instance exists
+        const instanceExists = await pool.query('SELECT id FROM test_instances WHERE id = $1', [id]);
+        if (instanceExists.rows.length === 0) {
             return res.status(404).json({
                 success: false,
                 error: 'Test instance not found'
             });
         }
+
+        // Check if user exists
+        const userExists = await pool.query('SELECT id FROM users WHERE id = $1', [assigned_tester]);
+        if (userExists.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'User not found'
+            });
+        }
+
+        // Update the test instance
+        const updateQuery = `
+            UPDATE test_instances 
+            SET 
+                assigned_tester = $1,
+                assigned_at = CURRENT_TIMESTAMP,
+                updated_at = CURRENT_TIMESTAMP,
+                notes = COALESCE($2, notes)
+            WHERE id = $3
+            RETURNING *
+        `;
+
+        const result = await pool.query(updateQuery, [assigned_tester, notes, id]);
 
         res.json({
             success: true,
@@ -609,6 +619,59 @@ router.post('/:id/assign', authenticateToken, async (req, res) => {
         res.status(500).json({
             success: false,
             error: 'Failed to assign test instance',
+            details: error.message
+        });
+    }
+});
+
+/**
+ * GET /api/test-instances/:id/assign
+ * Get available testers for assignment
+ */
+router.get('/:id/assign', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        // Check if test instance exists
+        const instanceExists = await pool.query('SELECT id FROM test_instances WHERE id = $1', [id]);
+        if (instanceExists.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Test instance not found'
+            });
+        }
+
+        // Get available testers
+        const testersQuery = `
+            SELECT 
+                u.id,
+                u.username,
+                u.full_name,
+                u.email,
+                u.role,
+                COUNT(ti.id) as assigned_tests_count
+            FROM users u
+            LEFT JOIN test_instances ti ON u.id = ti.assigned_tester AND ti.status IN ('pending', 'in_progress')
+            WHERE u.is_active = true AND u.role IN ('admin', 'user')
+            GROUP BY u.id, u.username, u.full_name, u.email, u.role
+            ORDER BY assigned_tests_count ASC, u.username ASC
+        `;
+
+        const result = await pool.query(testersQuery);
+
+        res.json({
+            success: true,
+            data: {
+                available_testers: result.rows,
+                test_instance_id: id
+            }
+        });
+
+    } catch (error) {
+        console.error('❌ Error fetching available testers:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch available testers',
             details: error.message
         });
     }

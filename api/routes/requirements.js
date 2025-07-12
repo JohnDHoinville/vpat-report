@@ -328,71 +328,34 @@ router.get('/conformance/:level', authenticateToken, async (req, res) => {
 
 /**
  * GET /api/requirements/stats/summary
- * Get statistics about test requirements
+ * Get summary statistics for test requirements
  */
 router.get('/stats/summary', authenticateToken, async (req, res) => {
     try {
-        const query = `
+        const statsQuery = `
             SELECT 
-                requirement_type,
-                test_method,
-                COUNT(*) as count,
-                COUNT(CASE WHEN is_active = true THEN 1 END) as enabled_count
+                COUNT(*) as total_requirements,
+                COUNT(CASE WHEN is_active = true THEN 1 END) as active_requirements,
+                COUNT(CASE WHEN requirement_type = 'wcag' THEN 1 END) as wcag_requirements,
+                COUNT(CASE WHEN requirement_type = 'section_508' THEN 1 END) as section_508_requirements,
+                COUNT(CASE WHEN level = 'A' THEN 1 END) as level_a_requirements,
+                COUNT(CASE WHEN level = 'AA' THEN 1 END) as level_aa_requirements,
+                COUNT(CASE WHEN level = 'AAA' THEN 1 END) as level_aaa_requirements,
+                COUNT(CASE WHEN test_method = 'automated' THEN 1 END) as automated_requirements,
+                COUNT(CASE WHEN test_method = 'manual' THEN 1 END) as manual_requirements,
+                COUNT(CASE WHEN test_method = 'both' THEN 1 END) as both_requirements
             FROM test_requirements
-            GROUP BY requirement_type, test_method
-            ORDER BY requirement_type, test_method
         `;
 
-        const result = await pool.query(query);
-
-        // Calculate totals
-        const totals = {
-            total_requirements: 0,
-            enabled_requirements: 0,
-            by_conformance: {},
-            by_category: {}
-        };
-
-        result.rows.forEach(row => {
-            totals.total_requirements += parseInt(row.count);
-            totals.enabled_requirements += parseInt(row.enabled_count);
-
-            // Group by conformance level
-            if (!totals.by_conformance[row.requirement_type]) {
-                totals.by_conformance[row.requirement_type] = {
-                    total: 0,
-                    enabled: 0,
-                    categories: {}
-                };
-            }
-            totals.by_conformance[row.requirement_type].total += parseInt(row.count);
-            totals.by_conformance[row.requirement_type].enabled += parseInt(row.enabled_count);
-            totals.by_conformance[row.requirement_type].categories[row.test_method] = {
-                total: parseInt(row.count),
-                enabled: parseInt(row.enabled_count)
-            };
-
-            // Group by category
-            if (!totals.by_category[row.test_method]) {
-                totals.by_category[row.test_method] = {
-                    total: 0,
-                    enabled: 0
-                };
-            }
-            totals.by_category[row.test_method].total += parseInt(row.count);
-            totals.by_category[row.test_method].enabled += parseInt(row.enabled_count);
-        });
+        const result = await pool.query(statsQuery);
 
         res.json({
             success: true,
-            data: {
-                summary: totals,
-                detailed: result.rows
-            }
+            data: result.rows[0]
         });
 
     } catch (error) {
-        console.error('❌ Error fetching requirements statistics:', error);
+        console.error('❌ Error fetching requirements stats:', error);
         res.status(500).json({
             success: false,
             error: 'Failed to fetch requirements statistics',
