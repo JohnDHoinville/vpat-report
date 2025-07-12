@@ -44,6 +44,12 @@ router.get('/', async (req, res) => {
             whereConditions.push(`ts.status = $${paramIndex}`);
             queryParams.push(status);
             paramIndex++;
+        } else {
+            // By default, exclude archived sessions unless specifically requested
+            const include_archived = req.query.include_archived === 'true';
+            if (!include_archived) {
+                whereConditions.push(`ts.status != 'archived'`);
+            }
         }
 
         if (conformance_level) {
