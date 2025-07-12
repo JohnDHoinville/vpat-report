@@ -10,7 +10,7 @@ require('dotenv').config();
 const dbConfig = {
     host: process.env.DB_HOST || 'localhost',
     port: parseInt(process.env.DB_PORT) || 5432,
-    database: process.env.DB_NAME || 'accessibility_testing',
+    database: process.env.DB_NAME || 'accessibility_db',
     user: process.env.DB_USER || process.env.USER,
     password: process.env.DB_PASSWORD || '',
     

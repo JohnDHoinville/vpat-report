@@ -223,7 +223,7 @@ router.get('/:id', async (req, res) => {
                     tr.title as requirement_title,
                     tr.requirement_type,
                     tr.level as requirement_level,
-                    dp.primary_url as page_url,
+                    dp.url as page_url,
                     dp.title as page_title,
                     au.username as tester_username
                 FROM test_instances ti
@@ -231,7 +231,7 @@ router.get('/:id', async (req, res) => {
                 LEFT JOIN discovered_pages dp ON ti.page_id = dp.id
                 LEFT JOIN users au ON ti.assigned_tester = au.id
                 WHERE ti.session_id = $1
-                ORDER BY tr.criterion_number, dp.primary_url
+                ORDER BY tr.criterion_number, dp.url
             `;
 
             const testsResult = await pool.query(testsQuery, [id]);
@@ -253,6 +253,132 @@ router.get('/:id', async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Failed to fetch session details',
+            error: error.message
+        });
+    }
+});
+
+/**
+ * GET /api/sessions/:id/progress
+ * Get detailed progress metrics for a testing session
+ */
+router.get('/:id/progress', async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        // Check if session exists
+        const sessionExists = await pool.query('SELECT id FROM test_sessions WHERE id = $1', [id]);
+        if (sessionExists.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'Testing session not found'
+            });
+        }
+
+        // Get detailed progress metrics
+        const progressQuery = `
+            WITH progress_metrics AS (
+                SELECT 
+                    COUNT(*) as total_tests,
+                    COUNT(CASE WHEN status = 'pending' THEN 1 END) as pending_tests,
+                    COUNT(CASE WHEN status = 'in_progress' THEN 1 END) as in_progress_tests,
+                    COUNT(CASE WHEN status = 'passed' THEN 1 END) as passed_tests,
+                    COUNT(CASE WHEN status = 'failed' THEN 1 END) as failed_tests,
+                    COUNT(CASE WHEN status = 'untestable' THEN 1 END) as untestable_tests,
+                    COUNT(CASE WHEN status = 'not_applicable' THEN 1 END) as not_applicable_tests,
+                    COUNT(CASE WHEN status = 'needs_review' THEN 1 END) as needs_review_tests,
+                    COUNT(CASE WHEN status IN ('passed', 'failed', 'not_applicable', 'untestable') THEN 1 END) as completed_tests,
+                    COUNT(DISTINCT assigned_tester) FILTER (WHERE assigned_tester IS NOT NULL) as active_testers,
+                    COUNT(DISTINCT page_id) as pages_under_test
+                FROM test_instances 
+                WHERE session_id = $1
+            ),
+            requirement_breakdown AS (
+                SELECT 
+                    tr.level as conformance_level,
+                    COUNT(*) as total_requirements,
+                    COUNT(CASE WHEN ti.status IN ('passed', 'failed', 'not_applicable', 'untestable') THEN 1 END) as completed_requirements,
+                    COUNT(CASE WHEN ti.status = 'passed' THEN 1 END) as passed_requirements,
+                    COUNT(CASE WHEN ti.status = 'failed' THEN 1 END) as failed_requirements
+                FROM test_instances ti
+                JOIN test_requirements tr ON ti.requirement_id = tr.id
+                WHERE ti.session_id = $1
+                GROUP BY tr.level
+            ),
+            tester_workload AS (
+                SELECT 
+                    u.username as tester_name,
+                    COUNT(*) as assigned_tests,
+                    COUNT(CASE WHEN ti.status IN ('passed', 'failed', 'not_applicable', 'untestable') THEN 1 END) as completed_tests,
+                    COUNT(CASE WHEN ti.status = 'in_progress' THEN 1 END) as in_progress_tests,
+                    ROUND(
+                        (COUNT(CASE WHEN ti.status IN ('passed', 'failed', 'not_applicable', 'untestable') THEN 1 END) * 100.0) / 
+                        NULLIF(COUNT(*), 0), 1
+                    ) as completion_percentage
+                FROM test_instances ti
+                LEFT JOIN users u ON ti.assigned_tester = u.id
+                WHERE ti.session_id = $1 AND ti.assigned_tester IS NOT NULL
+                GROUP BY u.id, u.username
+            )
+            SELECT 
+                (SELECT row_to_json(progress_metrics) FROM progress_metrics) as overall_progress,
+                (
+                    SELECT json_agg(
+                        json_build_object(
+                            'conformance_level', conformance_level,
+                            'total_requirements', total_requirements,
+                            'completed_requirements', completed_requirements,
+                            'passed_requirements', passed_requirements,
+                            'failed_requirements', failed_requirements,
+                            'completion_percentage', ROUND((completed_requirements * 100.0) / NULLIF(total_requirements, 0), 1)
+                        )
+                    ) FROM requirement_breakdown
+                ) as requirement_breakdown,
+                (
+                    SELECT json_agg(
+                        json_build_object(
+                            'tester_name', tester_name,
+                            'assigned_tests', assigned_tests,
+                            'completed_tests', completed_tests,
+                            'in_progress_tests', in_progress_tests,
+                            'completion_percentage', completion_percentage
+                        )
+                    ) FROM tester_workload
+                ) as tester_workload
+        `;
+
+        const result = await pool.query(progressQuery, [id]);
+        const progressData = result.rows[0];
+
+        // Calculate completion percentage
+        const overallProgress = progressData.overall_progress || {};
+        const completionPercentage = overallProgress.total_tests > 0 
+            ? Math.round((overallProgress.completed_tests / overallProgress.total_tests) * 100)
+            : 0;
+
+        res.json({
+            success: true,
+            data: {
+                session_id: id,
+                completion_percentage: completionPercentage,
+                overall_progress: overallProgress,
+                requirement_breakdown: progressData.requirement_breakdown || [],
+                tester_workload: progressData.tester_workload || [],
+                summary: {
+                    total_tests: overallProgress.total_tests || 0,
+                    completed_tests: overallProgress.completed_tests || 0,
+                    remaining_tests: (overallProgress.total_tests || 0) - (overallProgress.completed_tests || 0),
+                    active_testers: overallProgress.active_testers || 0,
+                    pages_under_test: overallProgress.pages_under_test || 0
+                }
+            }
+        });
+
+    } catch (error) {
+        console.error('Error fetching session progress:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to fetch session progress',
             error: error.message
         });
     }
@@ -591,6 +717,295 @@ router.post('/:id/duplicate', async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Failed to duplicate testing session',
+            error: error.message
+        });
+    }
+});
+
+/**
+ * GET /api/sessions/:sessionId/tests
+ * Get test instances for a specific session with filtering and pagination
+ */
+router.get('/:sessionId/tests', async (req, res) => {
+    try {
+        const { sessionId } = req.params;
+        const {
+            page = 1,
+            limit = 25,
+            status,
+            requirement_type,
+            level,
+            assigned_tester,
+            search,
+            sort_by = 'updated_at',
+            sort_order = 'DESC'
+        } = req.query;
+
+        // Verify session exists
+        const sessionCheck = await pool.query('SELECT id FROM test_sessions WHERE id = $1', [sessionId]);
+        if (sessionCheck.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'Testing session not found'
+            });
+        }
+
+        // Build WHERE conditions
+        let whereConditions = ['ti.session_id = $1'];
+        let queryParams = [sessionId];
+        let paramIndex = 2;
+
+        if (status) {
+            whereConditions.push(`ti.status = $${paramIndex}`);
+            queryParams.push(status);
+            paramIndex++;
+        }
+
+        if (requirement_type) {
+            whereConditions.push(`tr.requirement_type = $${paramIndex}`);
+            queryParams.push(requirement_type);
+            paramIndex++;
+        }
+
+        if (level) {
+            whereConditions.push(`tr.level = $${paramIndex}`);
+            queryParams.push(level);
+            paramIndex++;
+        }
+
+        if (assigned_tester) {
+            whereConditions.push(`ti.assigned_tester = $${paramIndex}`);
+            queryParams.push(assigned_tester);
+            paramIndex++;
+        }
+
+        if (search) {
+            whereConditions.push(`(tr.title ILIKE $${paramIndex} OR tr.description ILIKE $${paramIndex})`);
+            queryParams.push(`%${search}%`);
+            paramIndex++;
+        }
+
+        const whereClause = whereConditions.join(' AND ');
+
+        // Calculate pagination
+        const pageNum = Math.max(1, parseInt(page));
+        const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
+        const offset = (pageNum - 1) * limitNum;
+
+        // Validate sort parameters
+        const allowedSortFields = ['updated_at', 'created_at', 'status', 'criterion_number'];
+        const sortField = allowedSortFields.includes(sort_by) ? sort_by : 'updated_at';
+        const sortDirection = sort_order.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+
+        // Get test instances
+        const testsQuery = `
+            SELECT 
+                ti.id,
+                ti.status,
+                ti.assigned_tester,
+                ti.confidence_level,
+                ti.test_method_used,
+                ti.notes,
+                ti.evidence,
+                ti.remediation_notes,
+                ti.created_at,
+                ti.updated_at,
+                tr.criterion_number,
+                tr.title as requirement_title,
+                tr.description as requirement_description,
+                tr.requirement_type,
+                tr.level as requirement_level,
+                tr.test_method as default_test_method,
+                dp.url as page_url,
+                dp.title as page_title,
+                au.username as tester_username,
+                au.full_name as tester_full_name
+            FROM test_instances ti
+            JOIN test_requirements tr ON ti.requirement_id = tr.id
+            LEFT JOIN discovered_pages dp ON ti.page_id = dp.id
+            LEFT JOIN users au ON ti.assigned_tester = au.id
+            WHERE ${whereClause}
+            ORDER BY tr.${sortField} ${sortDirection}
+            LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+        `;
+
+        queryParams.push(limitNum, offset);
+        const testsResult = await pool.query(testsQuery, queryParams);
+
+        // Get total count for pagination
+        const countQuery = `
+            SELECT COUNT(*) as total
+            FROM test_instances ti
+            JOIN test_requirements tr ON ti.requirement_id = tr.id
+            LEFT JOIN discovered_pages dp ON ti.page_id = dp.id
+            WHERE ${whereClause}
+        `;
+
+        const countResult = await pool.query(countQuery, queryParams.slice(0, -2));
+        const totalCount = parseInt(countResult.rows[0].total);
+        const totalPages = Math.ceil(totalCount / limitNum);
+
+        res.json({
+            success: true,
+            data: testsResult.rows,
+            pagination: {
+                current_page: pageNum,
+                total_pages: totalPages,
+                total_count: totalCount,
+                limit: limitNum,
+                has_next: pageNum < totalPages,
+                has_prev: pageNum > 1
+            }
+        });
+
+    } catch (error) {
+        console.error('Error fetching session test instances:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to fetch test instances',
+            error: error.message
+        });
+    }
+});
+
+/**
+ * GET /api/sessions/:sessionId/progress
+ * Get progress metrics and analytics for a specific session
+ */
+router.get('/:sessionId/progress', async (req, res) => {
+    try {
+        const { sessionId } = req.params;
+
+        // Verify session exists
+        const sessionCheck = await pool.query('SELECT id, name FROM test_sessions WHERE id = $1', [sessionId]);
+        if (sessionCheck.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'Testing session not found'
+            });
+        }
+
+        // Get comprehensive progress metrics
+        const progressQuery = `
+            WITH session_stats AS (
+                SELECT 
+                    COUNT(*) as total_tests,
+                    COUNT(*) FILTER (WHERE status = 'pending') as pending_tests,
+                    COUNT(*) FILTER (WHERE status = 'in_progress') as in_progress_tests,
+                    COUNT(*) FILTER (WHERE status = 'passed') as passed_tests,
+                    COUNT(*) FILTER (WHERE status = 'failed') as failed_tests,
+                    COUNT(*) FILTER (WHERE status = 'untestable') as untestable_tests,
+                    COUNT(*) FILTER (WHERE status = 'not_applicable') as not_applicable_tests,
+                    COUNT(*) FILTER (WHERE status = 'needs_review') as needs_review_tests,
+                    COUNT(*) FILTER (WHERE status IN ('passed', 'failed', 'untestable', 'not_applicable')) as completed_tests,
+                    COUNT(DISTINCT assigned_tester) FILTER (WHERE assigned_tester IS NOT NULL) as unique_testers,
+                    COUNT(DISTINCT page_id) FILTER (WHERE page_id IS NOT NULL) as pages_tested
+                FROM test_instances 
+                WHERE session_id = $1
+            ),
+            requirement_level_stats AS (
+                SELECT 
+                    tr.level,
+                    tr.requirement_type,
+                    COUNT(*) as total_requirements,
+                    COUNT(*) FILTER (WHERE ti.status = 'passed') as passed_requirements,
+                    COUNT(*) FILTER (WHERE ti.status = 'failed') as failed_requirements
+                FROM test_instances ti
+                JOIN test_requirements tr ON ti.requirement_id = tr.id
+                WHERE ti.session_id = $1
+                GROUP BY tr.level, tr.requirement_type
+            ),
+            tester_stats AS (
+                SELECT 
+                    au.id as tester_id,
+                    au.username,
+                    au.full_name,
+                    COUNT(*) as assigned_tests,
+                    COUNT(*) FILTER (WHERE ti.status IN ('passed', 'failed', 'untestable', 'not_applicable')) as completed_tests,
+                    COUNT(*) FILTER (WHERE ti.status = 'passed') as passed_tests,
+                    COUNT(*) FILTER (WHERE ti.status = 'failed') as failed_tests
+                FROM test_instances ti
+                LEFT JOIN users au ON ti.assigned_tester = au.id
+                WHERE ti.session_id = $1 AND ti.assigned_tester IS NOT NULL
+                GROUP BY au.id, au.username, au.full_name
+            )
+            SELECT 
+                (SELECT row_to_json(session_stats.*) FROM session_stats) as overall_progress,
+                (
+                    SELECT json_agg(
+                        json_build_object(
+                            'level', level,
+                            'requirement_type', requirement_type,
+                            'total_requirements', total_requirements,
+                            'completed_requirements', completed_requirements,
+                            'passed_requirements', passed_requirements,
+                            'failed_requirements', failed_requirements,
+                            'completion_percentage', ROUND((completed_requirements * 100.0) / NULLIF(total_requirements, 0), 1)
+                        )
+                    )
+                    FROM requirement_level_stats
+                ) as requirement_breakdown,
+                (
+                    SELECT json_agg(
+                        json_build_object(
+                            'tester_id', tester_id,
+                            'username', username,
+                            'full_name', full_name,
+                            'assigned_tests', assigned_tests,
+                            'completed_tests', completed_tests,
+                            'passed_tests', passed_tests,
+                            'failed_tests', failed_tests,
+                            'completion_percentage', ROUND((completed_tests * 100.0) / NULLIF(assigned_tests, 0), 1)
+                        )
+                    )
+                    FROM tester_stats
+                ) as tester_breakdown
+        `;
+
+        const progressResult = await pool.query(progressQuery, [sessionId]);
+        const progressData = progressResult.rows[0];
+
+        // Calculate additional metrics
+        const overallProgress = progressData.overall_progress || {};
+        const completionPercentage = overallProgress.total_tests > 0 
+            ? Math.round((overallProgress.completed_tests / overallProgress.total_tests) * 100) 
+            : 0;
+
+        // Get trend data (last 7 days of activity)
+        const trendQuery = `
+            SELECT 
+                DATE(updated_at) as date,
+                COUNT(*) FILTER (WHERE status IN ('passed', 'failed', 'untestable', 'not_applicable')) as tests_completed
+            FROM test_instances 
+            WHERE session_id = $1 
+            AND updated_at >= NOW() - INTERVAL '7 days'
+            GROUP BY DATE(updated_at)
+            ORDER BY date
+        `;
+
+        const trendResult = await pool.query(trendQuery, [sessionId]);
+
+        res.json({
+            success: true,
+            session_id: sessionId,
+            session_name: sessionCheck.rows[0].name,
+            data: {
+                overall_progress: {
+                    ...overallProgress,
+                    completion_percentage: completionPercentage
+                },
+                requirement_breakdown: progressData.requirement_breakdown || [],
+                tester_breakdown: progressData.tester_breakdown || [],
+                daily_progress: trendResult.rows,
+                last_updated: new Date().toISOString()
+            }
+        });
+
+    } catch (error) {
+        console.error('Error fetching session progress:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to fetch session progress',
             error: error.message
         });
     }

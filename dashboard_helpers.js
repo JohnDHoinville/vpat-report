@@ -2922,12 +2922,12 @@ function dashboard() {
             page_id: '',
             coverage_type: 'smart'  // 'smart' or 'legacy'
         },
-        manualTestingCoverageAnalysis: null,
+        manualTestingCoverageAnalysis: { recommendations: [] },
         showCoverageAnalysis: false,
         showManualTestingModal: false,
         currentManualTest: null,
         manualTestingProcedure: null,
-        manualTestingContext: null,
+        manualTestingContext: { violations: [], recommended_tools: [] },
 
         // Tester Assignment Properties
         availableTesters: [],
@@ -3805,10 +3805,10 @@ function dashboard() {
         async loadTestInstances(sessionId) {
             try {
                 this.loading = true;
-                const response = await this.apiCall(`/test-instances?session_id=${sessionId}&include_details=true&limit=1000&sort=updated_at&order=desc`);
+                const response = await this.apiCall(`/sessions/${sessionId}/tests?limit=1000&page=1&sort_by=updated_at&sort_order=DESC`);
                 
                 if (response.success) {
-                    this.testInstances = response.data.test_instances || [];
+                    this.testInstances = response.data || [];
                     this.applyTestFilters();
                     // Load progress data
                     await this.loadSessionProgressMetrics(sessionId);
