@@ -4626,44 +4626,83 @@ function dashboard() {
             }
         },
 
-        async saveTestInstanceUpdate() {
+        async saveTestInstance() {
             if (!this.currentTestInstance) return;
 
             try {
                 this.isSavingTestInstance = true;
 
-                const updateData = {
+                // Use the enhanced status management endpoint for better validation
+                const statusUpdateData = {
                     status: this.testInstanceStatus,
+                    confidence_level: this.testInstanceConfidenceLevel,
                     notes: this.testInstanceNotes,
                     remediation_notes: this.testInstanceRemediationNotes,
-                    confidence_level: this.testInstanceConfidenceLevel,
-                    assigned_tester: this.testInstanceAssignedTester || null,
                     evidence: this.testInstanceEvidence
                 };
 
-                const response = await this.apiCall(
-                    `/test-instances/${this.currentTestInstance.id}`, 
+                // Update status using the enhanced endpoint
+                const statusResponse = await this.apiCall(
+                    `/test-instances/${this.currentTestInstance.id}/status`, 
                     'PUT', 
-                    updateData
+                    statusUpdateData
                 );
 
-                if (response.success) {
-                    this.showNotification('Test instance updated successfully', 'success');
-                    
-                    // Update the current test instance
-                    Object.assign(this.currentTestInstance, updateData);
-                    
-                    // Refresh the test grid
-                    await this.refreshTestInstances();
-                    
-                    // Close modal
-                    this.closeTestInstanceModal();
-                } else {
-                    this.showNotification(response.error || 'Failed to update test instance', 'error');
+                if (!statusResponse.success) {
+                    // Handle validation errors gracefully
+                    if (statusResponse.validationErrors) {
+                        this.showNotification(
+                            `Validation failed: ${statusResponse.validationErrors.join(', ')}`, 
+                            'error'
+                        );
+                        return;
+                    }
+                    throw new Error(statusResponse.error || 'Failed to update status');
                 }
+
+                // Update assignment if changed
+                if (this.testInstanceAssignedTester !== this.currentTestInstance.assigned_tester) {
+                    const assignmentData = {
+                        assigned_tester: this.testInstanceAssignedTester,
+                        notes: `Assignment updated via test detail modal`
+                    };
+
+                    const assignResponse = await this.apiCall(
+                        `/test-instances/${this.currentTestInstance.id}/assign`, 
+                        'POST', 
+                        assignmentData
+                    );
+
+                    if (!assignResponse.success) {
+                        console.warn('Failed to update assignment:', assignResponse.error);
+                        this.showNotification('Status updated but assignment change failed', 'warning');
+                    }
+                }
+
+                // Update the test instance in our local data
+                const testIndex = this.testInstances.findIndex(t => t && t.id === this.currentTestInstance.id);
+                if (testIndex !== -1) {
+                    this.testInstances[testIndex] = {
+                        ...this.testInstances[testIndex],
+                        ...statusResponse.data
+                    };
+                }
+
+                // Refresh the filtered and paginated views
+                this.applyTestFilters();
+
+                this.showNotification(
+                    statusResponse.statusChange 
+                        ? `Test status updated from ${statusResponse.statusChange.from} to ${statusResponse.statusChange.to}`
+                        : 'Test instance updated successfully', 
+                    'success'
+                );
+
+                this.closeTestInstanceModal();
+
             } catch (error) {
-                console.error('Error saving test instance update:', error);
-                this.showNotification('Failed to save test instance update', 'error');
+                console.error('❌ Error saving test instance:', error);
+                this.showNotification('Failed to save test instance: ' + error.message, 'error');
             } finally {
                 this.isSavingTestInstance = false;
             }
@@ -4677,51 +4716,141 @@ function dashboard() {
         // Evidence handling functions for test instance modal
         async handleEvidenceUpload(event) {
             const files = Array.from(event.target.files);
-            
-            for (const file of files) {
-                if (file.size > 10 * 1024 * 1024) { // 10MB limit
-                    this.showNotification(`File ${file.name} is too large (max 10MB)`, 'error');
-                    continue;
+            if (files.length === 0) return;
+
+            try {
+                for (const file of files) {
+                    // Validate file size (50MB limit)
+                    if (file.size > 50 * 1024 * 1024) {
+                        this.showNotification(`File ${file.name} is too large (max 50MB)`, 'error');
+                        continue;
+                    }
+
+                    // Validate file type
+                    const allowedTypes = [
+                        'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml',
+                        'video/mp4', 'video/webm', 'video/quicktime',
+                        'audio/mp3', 'audio/wav', 'audio/ogg',
+                        'application/pdf', 'text/plain', 'text/html', 'application/json',
+                        'application/zip', 'application/x-zip-compressed'
+                    ];
+
+                    if (!allowedTypes.includes(file.type)) {
+                        this.showNotification(`File type ${file.type} not allowed`, 'error');
+                        continue;
+                    }
+
+                    // Determine evidence type based on file type
+                    let evidenceType = 'other';
+                    if (file.type.startsWith('image/')) {
+                        evidenceType = 'screenshot';
+                    } else if (file.type.startsWith('video/')) {
+                        evidenceType = 'video';
+                    } else if (file.type.startsWith('audio/')) {
+                        evidenceType = 'audio';
+                    } else if (file.type === 'application/pdf') {
+                        evidenceType = 'document';
+                    }
+
+                    // Create a temporary file path (in real implementation, this would be uploaded to storage)
+                    const tempFilePath = `evidence/${Date.now()}_${file.name}`;
+
+                    // Add evidence via API
+                    const evidenceData = {
+                        evidence_type: evidenceType,
+                        file_path: tempFilePath,
+                        description: `Uploaded file: ${file.name}`,
+                        file_size: file.size,
+                        mime_type: file.type,
+                        original_filename: file.name,
+                        metadata: {
+                            upload_method: 'test_detail_modal',
+                            file_hash: await this.calculateFileHash(file)
+                        }
+                    };
+
+                    const response = await this.apiCall(
+                        `/test-instances/${this.currentTestInstance.id}/evidence`,
+                        'POST',
+                        evidenceData
+                    );
+
+                    if (response.success) {
+                        // Update local evidence array
+                        this.testInstanceEvidence = response.data.test_instance.evidence || [];
+                        this.showNotification(`Evidence ${file.name} uploaded successfully`, 'success');
+                    } else {
+                        this.showNotification(`Failed to upload ${file.name}: ${response.error}`, 'error');
+                    }
                 }
-                
-                if (!file.type.match(/^(image\/|application\/pdf|application\/msword|application\/vnd\.openxmlformats-officedocument\.wordprocessingml\.document)/)) {
-                    this.showNotification(`File ${file.name} is not a supported type`, 'error');
-                    continue;
-                }
-                
-                try {
-                    // Create preview URL
-                    const url = URL.createObjectURL(file);
-                    
-                    // Add to evidence array
-                    this.testInstanceEvidence.push({
-                        name: file.name,
-                        file: file,
-                        url: url,
-                        type: file.type.startsWith('image/') ? 'image' : 'document',
-                        size: file.size,
-                        id: 'temp_' + Date.now() + '_' + Math.random().toString(36).substring(2)
-                    });
-                    
-                } catch (error) {
-                    console.error('Error handling evidence file:', error);
-                    this.showNotification(`Failed to process ${file.name}`, 'error');
-                }
+
+                // Clear the file input
+                event.target.value = '';
+
+            } catch (error) {
+                console.error('❌ Error uploading evidence:', error);
+                this.showNotification('Failed to upload evidence: ' + error.message, 'error');
             }
-            
-            // Clear the input
-            event.target.value = '';
         },
 
-        removeEvidence(index) {
-            if (index >= 0 && index < this.testInstanceEvidence.length) {
-                // Revoke object URL to prevent memory leaks
-                const evidence = this.testInstanceEvidence[index];
-                if (evidence.url && evidence.url.startsWith('blob:')) {
-                    URL.revokeObjectURL(evidence.url);
+        async calculateFileHash(file) {
+            // Simple hash calculation for file integrity
+            try {
+                const arrayBuffer = await file.arrayBuffer();
+                const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
+                const hashArray = Array.from(new Uint8Array(hashBuffer));
+                return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+            } catch (error) {
+                console.warn('Could not calculate file hash:', error);
+                return null;
+            }
+        },
+
+        async removeEvidence(evidenceId) {
+            if (!this.currentTestInstance || !evidenceId) return;
+
+            try {
+                const response = await this.apiCall(
+                    `/test-instances/${this.currentTestInstance.id}/evidence/${evidenceId}`,
+                    'DELETE'
+                );
+
+                if (response.success) {
+                    // Update local evidence array (filter out deleted items)
+                    this.testInstanceEvidence = (response.data.test_instance.evidence || [])
+                        .filter(ev => ev.status !== 'deleted');
+                    this.showNotification('Evidence removed successfully', 'success');
+                } else {
+                    this.showNotification('Failed to remove evidence: ' + response.error, 'error');
                 }
-                
-                this.testInstanceEvidence.splice(index, 1);
+
+            } catch (error) {
+                console.error('❌ Error removing evidence:', error);
+                this.showNotification('Failed to remove evidence: ' + error.message, 'error');
+            }
+        },
+
+        async updateEvidenceDescription(evidenceId, newDescription) {
+            if (!this.currentTestInstance || !evidenceId) return;
+
+            try {
+                const response = await this.apiCall(
+                    `/test-instances/${this.currentTestInstance.id}/evidence/${evidenceId}`,
+                    'PUT',
+                    { description: newDescription }
+                );
+
+                if (response.success) {
+                    // Update local evidence array
+                    this.testInstanceEvidence = response.data.test_instance.evidence || [];
+                    this.showNotification('Evidence description updated', 'success');
+                } else {
+                    this.showNotification('Failed to update evidence: ' + response.error, 'error');
+                }
+
+            } catch (error) {
+                console.error('❌ Error updating evidence:', error);
+                this.showNotification('Failed to update evidence: ' + error.message, 'error');
             }
         },
 
@@ -5184,7 +5313,330 @@ function dashboard() {
             if (config.auth_role === 'user') return 'bg-blue-100 text-blue-800';
             if (config.auth_role === 'guest') return 'bg-gray-100 text-gray-800';
             return 'bg-purple-100 text-purple-800';
-        }
+        },
+
+        // Review Workflow Functions
+        async submitTestForReview(testInstanceId, reviewerId = null, reviewNotes = '', priority = 'normal') {
+            try {
+                const reviewData = {
+                    reviewer_id: reviewerId,
+                    review_notes: reviewNotes,
+                    priority: priority
+                };
+
+                const response = await this.apiCall(
+                    `/test-instances/${testInstanceId}/review`,
+                    'POST',
+                    reviewData
+                );
+
+                if (response.success) {
+                    // Update local test instance
+                    const testIndex = this.testInstances.findIndex(t => t && t.id === testInstanceId);
+                    if (testIndex !== -1) {
+                        this.testInstances[testIndex] = {
+                            ...this.testInstances[testIndex],
+                            ...response.data
+                        };
+                    }
+
+                    this.applyTestFilters();
+                    this.showNotification('Test submitted for review successfully', 'success');
+                    return response.data;
+                } else {
+                    this.showNotification('Failed to submit test for review: ' + response.error, 'error');
+                    return null;
+                }
+
+            } catch (error) {
+                console.error('❌ Error submitting test for review:', error);
+                this.showNotification('Failed to submit test for review: ' + error.message, 'error');
+                return null;
+            }
+        },
+
+        async approveTestReview(testInstanceId, approvedStatus, reviewComments = '', confidenceAdjustment = null, recommendations = '') {
+            try {
+                const approvalData = {
+                    approved_status: approvedStatus,
+                    review_comments: reviewComments,
+                    confidence_adjustment: confidenceAdjustment,
+                    recommendations: recommendations
+                };
+
+                const response = await this.apiCall(
+                    `/test-instances/${testInstanceId}/review/approve`,
+                    'POST',
+                    approvalData
+                );
+
+                if (response.success) {
+                    // Update local test instance
+                    const testIndex = this.testInstances.findIndex(t => t && t.id === testInstanceId);
+                    if (testIndex !== -1) {
+                        this.testInstances[testIndex] = {
+                            ...this.testInstances[testIndex],
+                            ...response.data
+                        };
+                    }
+
+                    this.applyTestFilters();
+                    this.showNotification(`Test approved as ${approvedStatus}`, 'success');
+                    return response.data;
+                } else {
+                    this.showNotification('Failed to approve test: ' + response.error, 'error');
+                    return null;
+                }
+
+            } catch (error) {
+                console.error('❌ Error approving test review:', error);
+                this.showNotification('Failed to approve test: ' + error.message, 'error');
+                return null;
+            }
+        },
+
+        async rejectTestReview(testInstanceId, rejectionReason, requiredChanges = '', returnToStatus = 'in_progress', priority = 'normal') {
+            try {
+                const rejectionData = {
+                    rejection_reason: rejectionReason,
+                    required_changes: requiredChanges,
+                    return_to_status: returnToStatus,
+                    priority: priority
+                };
+
+                const response = await this.apiCall(
+                    `/test-instances/${testInstanceId}/review/reject`,
+                    'POST',
+                    rejectionData
+                );
+
+                if (response.success) {
+                    // Update local test instance
+                    const testIndex = this.testInstances.findIndex(t => t && t.id === testInstanceId);
+                    if (testIndex !== -1) {
+                        this.testInstances[testIndex] = {
+                            ...this.testInstances[testIndex],
+                            ...response.data
+                        };
+                    }
+
+                    this.applyTestFilters();
+                    this.showNotification('Test review rejected and returned for changes', 'success');
+                    return response.data;
+                } else {
+                    this.showNotification('Failed to reject test: ' + response.error, 'error');
+                    return null;
+                }
+
+            } catch (error) {
+                console.error('❌ Error rejecting test review:', error);
+                this.showNotification('Failed to reject test: ' + error.message, 'error');
+                return null;
+            }
+        },
+
+        async loadPendingReviews(sessionId = null, projectId = null) {
+            try {
+                let endpoint = '/test-instances/reviews/pending';
+                const params = new URLSearchParams();
+
+                if (sessionId) params.append('session_id', sessionId);
+                if (projectId) params.append('project_id', projectId);
+                
+                if (params.toString()) {
+                    endpoint += '?' + params.toString();
+                }
+
+                const response = await this.apiCall(endpoint);
+
+                if (response.success) {
+                    this.pendingReviews = response.data || [];
+                    this.reviewSummary = response.summary || {};
+                    return response.data;
+                } else {
+                    console.error('Failed to load pending reviews:', response.error);
+                    this.pendingReviews = [];
+                    return [];
+                }
+
+            } catch (error) {
+                console.error('❌ Error loading pending reviews:', error);
+                this.pendingReviews = [];
+                return [];
+            }
+        },
+
+        // Bulk Operations
+        async bulkUpdateTestStatus(testInstanceIds, status, confidenceLevel = null, notes = '', force = false) {
+            try {
+                const bulkData = {
+                    test_instance_ids: testInstanceIds,
+                    status: status,
+                    confidence_level: confidenceLevel,
+                    notes: notes,
+                    force: force
+                };
+
+                const response = await this.apiCall(
+                    '/test-instances/bulk/status',
+                    'POST',
+                    bulkData
+                );
+
+                if (response.success) {
+                    // Update local test instances
+                    response.results.forEach(result => {
+                        if (result.success) {
+                            const testIndex = this.testInstances.findIndex(t => t && t.id === result.testId);
+                            if (testIndex !== -1) {
+                                this.testInstances[testIndex] = {
+                                    ...this.testInstances[testIndex],
+                                    ...result.data
+                                };
+                            }
+                        }
+                    });
+
+                    this.applyTestFilters();
+                    this.clearTestSelection();
+
+                    const successCount = response.summary.successful;
+                    const totalCount = response.summary.total;
+                    
+                    if (response.errors.length > 0) {
+                        this.showNotification(
+                            `Bulk update completed: ${successCount}/${totalCount} successful. ${response.errors.length} errors.`,
+                            'warning'
+                        );
+                    } else {
+                        this.showNotification(`Successfully updated ${successCount} test(s) to ${status}`, 'success');
+                    }
+
+                    return response;
+                } else {
+                    this.showNotification('Bulk status update failed: ' + response.error, 'error');
+                    return null;
+                }
+
+            } catch (error) {
+                console.error('❌ Error in bulk status update:', error);
+                this.showNotification('Bulk status update failed: ' + error.message, 'error');
+                return null;
+            }
+        },
+
+        async bulkAssignTests(testInstanceIds, assignedTester, notes = '') {
+            try {
+                const bulkData = {
+                    test_instance_ids: testInstanceIds,
+                    assigned_tester: assignedTester,
+                    notes: notes
+                };
+
+                const response = await this.apiCall(
+                    '/test-instances/bulk/assign',
+                    'POST',
+                    bulkData
+                );
+
+                if (response.success) {
+                    // Update local test instances
+                    response.results.forEach(result => {
+                        if (result.success) {
+                            const testIndex = this.testInstances.findIndex(t => t && t.id === result.testId);
+                            if (testIndex !== -1) {
+                                this.testInstances[testIndex] = {
+                                    ...this.testInstances[testIndex],
+                                    ...result.data
+                                };
+                            }
+                        }
+                    });
+
+                    this.applyTestFilters();
+                    this.clearTestSelection();
+
+                    const successCount = response.summary.successful;
+                    const totalCount = response.summary.total;
+                    const testerName = response.summary.assignedTo;
+
+                    if (response.errors.length > 0) {
+                        this.showNotification(
+                            `Bulk assignment completed: ${successCount}/${totalCount} successful. ${response.errors.length} errors.`,
+                            'warning'
+                        );
+                    } else {
+                        this.showNotification(`Successfully assigned ${successCount} test(s) to ${testerName}`, 'success');
+                    }
+
+                    return response;
+                } else {
+                    this.showNotification('Bulk assignment failed: ' + response.error, 'error');
+                    return null;
+                }
+
+            } catch (error) {
+                console.error('❌ Error in bulk assignment:', error);
+                this.showNotification('Bulk assignment failed: ' + error.message, 'error');
+                return null;
+            }
+        },
+
+        async bulkAddNotes(testInstanceIds, notes, append = true) {
+            try {
+                const bulkData = {
+                    test_instance_ids: testInstanceIds,
+                    notes: notes,
+                    append: append
+                };
+
+                const response = await this.apiCall(
+                    '/test-instances/bulk/notes',
+                    'POST',
+                    bulkData
+                );
+
+                if (response.success) {
+                    // Update local test instances
+                    response.results.forEach(result => {
+                        if (result.success) {
+                            const testIndex = this.testInstances.findIndex(t => t && t.id === result.testId);
+                            if (testIndex !== -1) {
+                                this.testInstances[testIndex] = {
+                                    ...this.testInstances[testIndex],
+                                    ...result.data
+                                };
+                            }
+                        }
+                    });
+
+                    this.applyTestFilters();
+                    this.clearTestSelection();
+
+                    const successCount = response.summary.successful;
+                    const totalCount = response.summary.total;
+
+                    if (response.errors.length > 0) {
+                        this.showNotification(
+                            `Bulk notes update completed: ${successCount}/${totalCount} successful. ${response.errors.length} errors.`,
+                            'warning'
+                        );
+                    } else {
+                        this.showNotification(`Successfully updated notes for ${successCount} test(s)`, 'success');
+                    }
+
+                    return response;
+                } else {
+                    this.showNotification('Bulk notes update failed: ' + response.error, 'error');
+                    return null;
+                }
+
+            } catch (error) {
+                console.error('❌ Error in bulk notes update:', error);
+                this.showNotification('Bulk notes update failed: ' + error.message, 'error');
+                return null;
+            }
+        },
     };
 }
 
