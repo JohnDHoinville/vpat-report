@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unified Results - WCAG Compliance Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-sm border-b">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <i class="fas fa-universal-access text-blue-600 text-2xl mr-3"></i>
+                    <h1 class="text-xl font-semibold text-gray-900">Unified Results Dashboard</h1>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <button onclick="exportResults()" class="btn-secondary">
+                        <i class="fas fa-download mr-2"></i>Export Results
+                    </button>
+                    <button onclick="refreshResults()" class="btn-primary">
+                        <i class="fas fa-sync-alt mr-2"></i>Refresh
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Session Info & Summary -->
+        <div class="bg-white rounded-lg shadow-sm border mb-8">
+            <div class="p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h2 class="text-2xl font-bold text-gray-900" id="session-name">Loading...</h2>
+                        <p class="text-gray-600" id="session-info">Loading session information...</p>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-3xl font-bold text-blue-600" id="compliance-score">--%</div>
+                        <div class="text-sm text-gray-500">Compliance Score</div>
+                    </div>
+                </div>
+                
+                <!-- Summary Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
+                    <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                        <div class="flex items-center">
+                            <i class="fas fa-check-circle text-green-600 text-xl mr-3"></i>
+                            <div>
+                                <div class="text-2xl font-bold text-green-700" id="passed-count">0</div>
+                                <div class="text-sm text-green-600">Passed</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+                        <div class="flex items-center">
+                            <i class="fas fa-exclamation-circle text-red-600 text-xl mr-3"></i>
+                            <div>
+                                <div class="text-2xl font-bold text-red-700" id="violations-count">0</div>
+                                <div class="text-sm text-red-600">Violations</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                        <div class="flex items-center">
+                            <i class="fas fa-question-circle text-gray-600 text-xl mr-3"></i>
+                            <div>
+                                <div class="text-2xl font-bold text-gray-700" id="untested-count">0</div>
+                                <div class="text-sm text-gray-600">Not Tested</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                        <div class="flex items-center">
+                            <i class="fas fa-exclamation-triangle text-yellow-600 text-xl mr-3"></i>
+                            <div>
+                                <div class="text-2xl font-bold text-yellow-700" id="attention-count">0</div>
+                                <div class="text-sm text-yellow-600">Needs Attention</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="bg-white rounded-lg shadow-sm border mb-6">
+            <div class="p-4">
+                <div class="flex flex-wrap items-center gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">WCAG Level</label>
+                        <select id="level-filter" class="form-select">
+                            <option value="">All Levels</option>
+                            <option value="A">Level A</option>
+                            <option value="AA">Level AA</option>
+                            <option value="AAA">Level AAA</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                        <select id="status-filter" class="form-select">
+                            <option value="">All Status</option>
+                            <option value="passed">Passed</option>
+                            <option value="violation">Violations</option>
+                            <option value="not_tested">Not Tested</option>
+                            <option value="not_applicable">Not Applicable</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Test Method</label>
+                        <select id="method-filter" class="form-select">
+                            <option value="">All Methods</option>
+                            <option value="automated">Automated Only</option>
+                            <option value="manual">Manual Only</option>
+                            <option value="hybrid">Hybrid</option>
+                        </select>
+                    </div>
+                    
+                    <div class="flex-1"></div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Search</label>
+                        <input type="text" id="search-filter" placeholder="Search requirements..." class="form-input">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Table -->
+        <div class="bg-white rounded-lg shadow-sm border">
+            <div class="p-4 border-b">
+                <h3 class="text-lg font-semibold text-gray-900">WCAG Requirements Results</h3>
+                <p class="text-sm text-gray-600 mt-1">Unified view of automated and manual test results per requirement</p>
+            </div>
+            
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Requirement
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Level
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Automated Results
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Manual Results
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Overall Status
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Confidence
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Actions
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody id="results-table-body" class="bg-white divide-y divide-gray-200">
+                        <!-- Results will be populated here -->
+                    </tbody>
+                </table>
+            </div>
+            
+            <div id="loading-indicator" class="text-center py-8">
+                <i class="fas fa-spinner fa-spin text-gray-400 text-2xl"></i>
+                <p class="text-gray-500 mt-2">Loading results...</p>
+            </div>
+            
+            <div id="no-results" class="text-center py-8 hidden">
+                <i class="fas fa-search text-gray-400 text-3xl"></i>
+                <p class="text-gray-500 mt-2">No results found matching your filters</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Requirement Details Modal -->
+    <div id="requirement-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg max-w-4xl w-full max-h-screen overflow-y-auto">
+                <div class="p-6 border-b">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-lg font-semibold text-gray-900" id="modal-title">Requirement Details</h3>
+                        <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600">
+                            <i class="fas fa-times text-xl"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="p-6" id="modal-content">
+                    <!-- Modal content will be populated here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .btn-primary {
+            @apply bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium flex items-center;
+        }
+        
+        .btn-secondary {
+            @apply bg-white hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-md text-sm font-medium border border-gray-300 flex items-center;
+        }
+        
+        .form-select, .form-input {
+            @apply block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm;
+        }
+        
+        .status-badge {
+            @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+        }
+        
+        .status-passed {
+            @apply bg-green-100 text-green-800;
+        }
+        
+        .status-violation {
+            @apply bg-red-100 text-red-800;
+        }
+        
+        .status-not-tested {
+            @apply bg-gray-100 text-gray-800;
+        }
+        
+        .status-not-applicable {
+            @apply bg-blue-100 text-blue-800;
+        }
+        
+        .confidence-high {
+            @apply bg-green-100 text-green-800;
+        }
+        
+        .confidence-medium {
+            @apply bg-yellow-100 text-yellow-800;
+        }
+        
+        .confidence-low {
+            @apply bg-orange-100 text-orange-800;
+        }
+        
+        .confidence-unknown {
+            @apply bg-gray-100 text-gray-800;
+        }
+        
+        .level-badge {
+            @apply inline-flex items-center px-2 py-1 rounded text-xs font-medium;
+        }
+        
+        .level-a {
+            @apply bg-blue-100 text-blue-800;
+        }
+        
+        .level-aa {
+            @apply bg-purple-100 text-purple-800;
+        }
+        
+        .level-aaa {
+            @apply bg-indigo-100 text-indigo-800;
+        }
+    </style>
+
+    <script>
+        // Global variables
+        let currentSessionId = null;
+        let allResults = {};
+        let filteredResults = {};
+
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', function() {
+            // Get session ID from URL parameters
+            const urlParams = new URLSearchParams(window.location.search);
+            currentSessionId = urlParams.get('sessionId');
+            
+            if (!currentSessionId) {
+                alert('No session ID provided');
+                return;
+            }
+
+            // Set up event listeners
+            setupEventListeners();
+            
+            // Load initial data
+            loadUnifiedResults();
+        });
+
+        function setupEventListeners() {
+            // Filter change events
+            document.getElementById('level-filter').addEventListener('change', applyFilters);
+            document.getElementById('status-filter').addEventListener('change', applyFilters);
+            document.getElementById('method-filter').addEventListener('change', applyFilters);
+            document.getElementById('search-filter').addEventListener('input', applyFilters);
+        }
+
+        async function loadUnifiedResults() {
+            try {
+                showLoading(true);
+                
+                const response = await fetch(`/api/unified-results/session/${currentSessionId}`, {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    allResults = data.data.results;
+                    filteredResults = { ...allResults };
+                    
+                    updateSessionInfo(data.data.session);
+                    updateSummaryCards(data.data.summary);
+                    renderResultsTable();
+                } else {
+                    throw new Error(data.error || 'Failed to load results');
+                }
+                
+            } catch (error) {
+                console.error('Error loading unified results:', error);
+                alert('Failed to load unified results: ' + error.message);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function updateSessionInfo(session) {
+            document.getElementById('session-name').textContent = session.name || 'Unnamed Session';
+            document.getElementById('session-info').textContent = 
+                `${session.projectName} • ${session.conformanceLevel?.toUpperCase() || 'WCAG AA'} • ${session.status || 'Active'}`;
+        }
+
+        function updateSummaryCards(summary) {
+            document.getElementById('passed-count').textContent = summary.passed || 0;
+            document.getElementById('violations-count').textContent = summary.violations || 0;
+            document.getElementById('untested-count').textContent = summary.notTested || 0;
+            document.getElementById('attention-count').textContent = summary.requiresAttention || 0;
+            
+            // Calculate and display compliance score
+            const complianceScore = summary.tested > 0 ? 
+                Math.round((summary.passed / summary.tested) * 100) : 0;
+            document.getElementById('compliance-score').textContent = `${complianceScore}%`;
+        }
+
+        function applyFilters() {
+            const levelFilter = document.getElementById('level-filter').value;
+            const statusFilter = document.getElementById('status-filter').value;
+            const methodFilter = document.getElementById('method-filter').value;
+            const searchFilter = document.getElementById('search-filter').value.toLowerCase();
+
+            filteredResults = {};
+
+            Object.keys(allResults).forEach(criterionNumber => {
+                const result = allResults[criterionNumber];
+                let include = true;
+
+                // Apply level filter
+                if (levelFilter && result.level !== levelFilter) {
+                    include = false;
+                }
+
+                // Apply status filter
+                if (statusFilter && result.overallStatus !== statusFilter) {
+                    include = false;
+                }
+
+                // Apply method filter
+                if (methodFilter && result.testStrategy?.primary !== methodFilter) {
+                    include = false;
+                }
+
+                // Apply search filter
+                if (searchFilter) {
+                    const searchableText = `${criterionNumber} ${result.title} ${result.principle}`.toLowerCase();
+                    if (!searchableText.includes(searchFilter)) {
+                        include = false;
+                    }
+                }
+
+                if (include) {
+                    filteredResults[criterionNumber] = result;
+                }
+            });
+
+            renderResultsTable();
+        }
+
+        function renderResultsTable() {
+            const tbody = document.getElementById('results-table-body');
+            const noResults = document.getElementById('no-results');
+            
+            tbody.innerHTML = '';
+
+            const resultKeys = Object.keys(filteredResults);
+            
+            if (resultKeys.length === 0) {
+                noResults.classList.remove('hidden');
+                return;
+            } else {
+                noResults.classList.add('hidden');
+            }
+
+            // Sort results by criterion number
+            resultKeys.sort().forEach(criterionNumber => {
+                const result = filteredResults[criterionNumber];
+                const row = createResultRow(criterionNumber, result);
+                tbody.appendChild(row);
+            });
+        }
+
+        function createResultRow(criterionNumber, result) {
+            const row = document.createElement('tr');
+            row.className = 'hover:bg-gray-50';
+
+            row.innerHTML = `
+                <td class="px-6 py-4 whitespace-nowrap">
+                    <div>
+                        <div class="text-sm font-medium text-gray-900">${criterionNumber}</div>
+                        <div class="text-sm text-gray-500">${result.title}</div>
+                        <div class="text-xs text-gray-400">${result.principle}</div>
+                    </div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                    <span class="level-badge level-${result.level.toLowerCase()}">${result.level}</span>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                    <div class="text-sm">
+                        ${result.automatedResults.tools.length > 0 ? 
+                            `<div class="text-gray-900">${result.automatedResults.tools.join(', ')}</div>
+                             <div class="text-gray-500">${result.automatedResults.violations.length} violations</div>` :
+                            '<div class="text-gray-400">No automated testing</div>'
+                        }
+                    </div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                    <div class="text-sm">
+                        ${result.manualResults.tests.length > 0 ? 
+                            `<div class="text-gray-900">${result.manualResults.tests.length} tests</div>
+                             <div class="text-gray-500">Result: ${result.manualResults.overallResult || 'Pending'}</div>` :
+                            '<div class="text-gray-400">No manual testing</div>'
+                        }
+                    </div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                    <span class="status-badge status-${result.overallStatus.replace('_', '-')}">
+                        ${getStatusIcon(result.overallStatus)} ${formatStatus(result.overallStatus)}
+                    </span>
+                    ${result.requiresAttention ? '<i class="fas fa-exclamation-triangle text-yellow-500 ml-2" title="Requires attention"></i>' : ''}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                    <span class="status-badge confidence-${result.overallConfidence}">
+                        ${result.overallConfidence}
+                    </span>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <button onclick="viewRequirementDetails('${criterionNumber}')" 
+                            class="text-blue-600 hover:text-blue-900 mr-3">
+                        <i class="fas fa-eye mr-1"></i>View
+                    </button>
+                    ${result.overallStatus === 'not_tested' ? 
+                        `<button onclick="startTesting('${criterionNumber}')" 
+                                class="text-green-600 hover:text-green-900">
+                            <i class="fas fa-play mr-1"></i>Test
+                        </button>` : ''
+                    }
+                </td>
+            `;
+
+            return row;
+        }
+
+        function getStatusIcon(status) {
+            switch (status) {
+                case 'passed': return '<i class="fas fa-check-circle"></i>';
+                case 'violation': return '<i class="fas fa-exclamation-circle"></i>';
+                case 'not_tested': return '<i class="fas fa-question-circle"></i>';
+                case 'not_applicable': return '<i class="fas fa-minus-circle"></i>';
+                default: return '<i class="fas fa-circle"></i>';
+            }
+        }
+
+        function formatStatus(status) {
+            switch (status) {
+                case 'not_tested': return 'Not Tested';
+                case 'not_applicable': return 'Not Applicable';
+                default: return status.charAt(0).toUpperCase() + status.slice(1);
+            }
+        }
+
+        async function viewRequirementDetails(criterionNumber) {
+            try {
+                const response = await fetch(`/api/unified-results/requirement/${currentSessionId}/${criterionNumber}`, {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    showRequirementModal(criterionNumber, data.data);
+                } else {
+                    throw new Error(data.error || 'Failed to load requirement details');
+                }
+                
+            } catch (error) {
+                console.error('Error loading requirement details:', error);
+                alert('Failed to load requirement details: ' + error.message);
+            }
+        }
+
+        function showRequirementModal(criterionNumber, data) {
+            const modal = document.getElementById('requirement-modal');
+            const title = document.getElementById('modal-title');
+            const content = document.getElementById('modal-content');
+
+            title.textContent = `${criterionNumber}: ${data.mapping.requirement?.title || 'Unknown'}`;
+            
+            content.innerHTML = `
+                <div class="space-y-6">
+                    <!-- Requirement Info -->
+                    <div>
+                        <h4 class="text-lg font-semibold text-gray-900 mb-2">Requirement Information</h4>
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <span class="text-sm font-medium text-gray-500">Level:</span>
+                                    <span class="ml-2 level-badge level-${data.mapping.requirement?.level?.toLowerCase()}">${data.mapping.requirement?.level}</span>
+                                </div>
+                                <div>
+                                    <span class="text-sm font-medium text-gray-500">Principle:</span>
+                                    <span class="ml-2 text-sm text-gray-900">${data.mapping.requirement?.principle}</span>
+                                </div>
+                                <div class="col-span-2">
+                                    <span class="text-sm font-medium text-gray-500">Test Strategy:</span>
+                                    <span class="ml-2 text-sm text-gray-900">${data.mapping.testStrategy?.description || 'Not specified'}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Automated Results -->
+                    <div>
+                        <h4 class="text-lg font-semibold text-gray-900 mb-2">Automated Test Results</h4>
+                        ${data.automatedResults.length > 0 ? `
+                            <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+                                <div class="space-y-3">
+                                    ${data.automatedResults.map(result => `
+                                        <div class="border-b border-red-200 pb-2 last:border-b-0">
+                                            <div class="flex items-center justify-between">
+                                                <span class="text-sm font-medium text-red-800">${result.tool_name}</span>
+                                                <span class="text-xs text-red-600">${result.severity}</span>
+                                            </div>
+                                            <div class="text-sm text-red-700 mt-1">${result.description}</div>
+                                            <div class="text-xs text-red-600 mt-1">Page: ${result.url}</div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        ` : `
+                            <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 text-center">
+                                <i class="fas fa-robot text-gray-400 text-2xl mb-2"></i>
+                                <p class="text-gray-500">No automated violations found</p>
+                            </div>
+                        `}
+                    </div>
+
+                    <!-- Manual Results -->
+                    <div>
+                        <h4 class="text-lg font-semibold text-gray-900 mb-2">Manual Test Results</h4>
+                        ${data.manualResults.length > 0 ? `
+                            <div class="space-y-3">
+                                ${data.manualResults.map(result => `
+                                    <div class="border border-gray-200 rounded-lg p-4">
+                                        <div class="flex items-center justify-between mb-2">
+                                            <span class="text-sm font-medium text-gray-900">Page: ${result.title || result.url}</span>
+                                            <span class="status-badge status-${result.result}">${formatStatus(result.result)}</span>
+                                        </div>
+                                        ${result.notes ? `<div class="text-sm text-gray-600 mb-2">${result.notes}</div>` : ''}
+                                        <div class="text-xs text-gray-500">
+                                            Tested by: ${result.tester_name || 'Unknown'} • 
+                                            Confidence: ${result.confidence_level || 'Unknown'} •
+                                            ${result.tested_at ? new Date(result.tested_at).toLocaleDateString() : 'Date unknown'}
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        ` : `
+                            <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 text-center">
+                                <i class="fas fa-user-check text-gray-400 text-2xl mb-2"></i>
+                                <p class="text-gray-500">No manual tests completed</p>
+                                <button onclick="startManualTest('${criterionNumber}')" class="btn-primary mt-3">
+                                    <i class="fas fa-play mr-2"></i>Start Manual Test
+                                </button>
+                            </div>
+                        `}
+                    </div>
+
+                    <!-- Test Procedures -->
+                    ${data.mapping.manualProcedure ? `
+                        <div>
+                            <h4 class="text-lg font-semibold text-gray-900 mb-2">Manual Test Procedure</h4>
+                            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                <div class="text-sm text-blue-800 mb-2 font-medium">Steps:</div>
+                                <ol class="list-decimal list-inside space-y-1 text-sm text-blue-700">
+                                    ${data.mapping.manualProcedure.manualSteps.map(step => `<li>${step}</li>`).join('')}
+                                </ol>
+                                <div class="mt-3 text-xs text-blue-600">
+                                    Tools needed: ${data.mapping.manualProcedure.toolsNeeded.join(', ')} •
+                                    Estimated time: ${data.mapping.manualProcedure.estimatedTime} minutes
+                                </div>
+                            </div>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+
+            modal.classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('requirement-modal').classList.add('hidden');
+        }
+
+        function startTesting(criterionNumber) {
+            // Redirect to testing interface
+            window.location.href = `/dashboard.html?sessionId=${currentSessionId}&requirement=${criterionNumber}`;
+        }
+
+        function startManualTest(criterionNumber) {
+            // Redirect to manual testing interface
+            window.location.href = `/dashboard.html?sessionId=${currentSessionId}&requirement=${criterionNumber}&test=manual`;
+        }
+
+        function refreshResults() {
+            loadUnifiedResults();
+        }
+
+        function exportResults() {
+            // Export functionality
+            const csvContent = generateCSVExport();
+            downloadCSV(csvContent, `unified-results-${currentSessionId}.csv`);
+        }
+
+        function generateCSVExport() {
+            const headers = ['Criterion', 'Title', 'Level', 'Principle', 'Overall Status', 'Confidence', 'Automated Tools', 'Manual Tests', 'Requires Attention'];
+            const rows = [headers];
+
+            Object.keys(filteredResults).forEach(criterionNumber => {
+                const result = filteredResults[criterionNumber];
+                rows.push([
+                    criterionNumber,
+                    result.title,
+                    result.level,
+                    result.principle,
+                    result.overallStatus,
+                    result.overallConfidence,
+                    result.automatedResults.tools.join('; '),
+                    result.manualResults.tests.length,
+                    result.requiresAttention ? 'Yes' : 'No'
+                ]);
+            });
+
+            return rows.map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
+        }
+
+        function downloadCSV(content, filename) {
+            const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', filename);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function showLoading(show) {
+            const loading = document.getElementById('loading-indicator');
+            const table = document.getElementById('results-table-body');
+            
+            if (show) {
+                loading.classList.remove('hidden');
+                table.innerHTML = '';
+            } else {
+                loading.classList.add('hidden');
+            }
+        }
+
+        // Close modal when clicking outside
+        document.getElementById('requirement-modal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeModal();
+            }
+        });
+    </script>
+</body>
+</html> 

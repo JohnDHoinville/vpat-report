@@ -2064,7 +2064,7 @@ function dashboard() {
                 throw new Error('Authentication token not available. Please login first.');
             }
 
-            // Create the auth config in the database
+            // Create the auth config in the database with new fields for multiple configs
             const authConfigData = {
                 name: config.name,
                 type: 'basic',
@@ -2074,7 +2074,11 @@ function dashboard() {
                 password: config.password,
                 login_page: config.loginPage,
                 success_url: config.successUrl,
-                project_id: this.selectedProject?.id || null
+                project_id: this.selectedProject?.id || null,
+                auth_role: config.auth_role || 'default',
+                auth_description: config.auth_description || `Basic authentication for ${config.username}`,
+                priority: config.priority || 1,
+                is_default: config.is_default || false
             };
 
             const response = await this.apiCall('/auth/configs', {
@@ -2180,7 +2184,7 @@ function dashboard() {
         editAuthConfig(config) {
             this.editingConfig = config;
             
-            // Populate the form with ALL existing data
+            // Populate the form with ALL existing data including new fields
             this.editAuthForm = {
                 name: config.name || config.domain || '',
                 url: config.url || '',
@@ -2190,7 +2194,11 @@ function dashboard() {
                 loginPage: config.loginPage || config.login_page || '',
                 successUrl: config.successUrl || config.success_url || '',
                 apiKey: '', // Don't pre-fill API key for security
-                token: '' // Don't pre-fill token for security
+                token: '', // Don't pre-fill token for security
+                auth_role: config.auth_role || 'default',
+                auth_description: config.auth_description || '',
+                priority: config.priority || 1,
+                is_default: config.is_default || false
             };
             
             this.showEditAuth = true;
@@ -2202,7 +2210,7 @@ function dashboard() {
 
                 this.loading = true;
                 
-                // Prepare the update data, including all form fields
+                // Prepare the update data, including all form fields and new fields
                 const updateData = {
                     name: this.editAuthForm.name,
                     domain: this.extractDomainFromUrl(this.editAuthForm.url),
@@ -2212,7 +2220,11 @@ function dashboard() {
                     password: this.editAuthForm.password, // Will be empty if not changed
                     login_page: this.editAuthForm.loginPage,
                     success_url: this.editAuthForm.successUrl,
-                    status: 'active'
+                    status: 'active',
+                    auth_role: this.editAuthForm.auth_role,
+                    auth_description: this.editAuthForm.auth_description,
+                    priority: this.editAuthForm.priority,
+                    is_default: this.editAuthForm.is_default
                 };
                 
                 console.log('🔄 Updating auth config with data:', updateData);
@@ -2260,7 +2272,7 @@ function dashboard() {
         },
 
         async deleteAuthConfig(config) {
-            if (!confirm(`Are you sure you want to delete the authentication configuration for ${config.domain}?`)) {
+            if (!confirm(`Are you sure you want to delete the "${config.auth_role}" authentication configuration?`)) {
                 return;
             }
 
@@ -2269,11 +2281,17 @@ function dashboard() {
                     method: 'DELETE'
                 });
 
-                // Remove from both global and project-specific arrays
-                this.authConfigs = this.authConfigs.filter(c => c.id !== config.id);
-                this.projectAuthConfigs = this.projectAuthConfigs.filter(c => c.id !== config.id);
-                this.showNotification(`Authentication config deleted for ${config.domain}`, 'success');
+                if (response.success) {
+                    // Remove from local arrays
+                    this.authConfigs = this.authConfigs.filter(c => c.id !== config.id);
+                    this.projectAuthConfigs = this.projectAuthConfigs.filter(c => c.id !== config.id);
+                    
+                    this.showNotification(`${config.auth_role} authentication configuration deleted`, 'success');
+                } else {
+                    throw new Error(response.message || 'Failed to delete configuration');
+                }
             } catch (error) {
+                console.error('Failed to delete auth config:', error);
                 this.showNotification(`Failed to delete configuration: ${error.message}`, 'error');
             }
         },
@@ -4471,6 +4489,7 @@ function dashboard() {
         testInstanceStatus: '',
         testInstanceConfidenceLevel: '',
         testInstanceNotes: '',
+        testInstanceRemediationNotes: '',
         testInstanceEvidence: [],
         testInstanceAssignedTester: '',
         
@@ -5027,6 +5046,95 @@ function dashboard() {
                 return url; // fallback to original URL
             }
         },
+
+        // New method to create additional auth configs for the same domain
+        addAuthConfig() {
+            if (!this.selectedProject) {
+                this.showNotification('Please select a project first', 'error');
+                return;
+            }
+            
+            this.showSetupAuth = true;
+            this.startAuthSetup('basic'); // Default to basic auth
+        },
+
+        // New method to set an auth config as default
+        async setAsDefault(config) {
+            try {
+                const updateData = {
+                    ...config,
+                    is_default: true
+                };
+                
+                const response = await this.apiCall(`/auth/configs/${config.id}`, {
+                    method: 'PUT',
+                    body: JSON.stringify(updateData)
+                });
+
+                if (response.success) {
+                    // Update local state
+                    this.projectAuthConfigs.forEach(c => {
+                        c.is_default = c.id === config.id;
+                    });
+                    
+                    this.showNotification(`${config.auth_role} authentication set as default`, 'success');
+                } else {
+                    throw new Error(response.message || 'Failed to set as default');
+                }
+            } catch (error) {
+                console.error('Failed to set auth config as default:', error);
+                this.showNotification(`Failed to set as default: ${error.message}`, 'error');
+            }
+        },
+
+        // New method to delete an auth config
+        async deleteAuthConfig(config) {
+            if (!confirm(`Are you sure you want to delete the "${config.auth_role}" authentication configuration?`)) {
+                return;
+            }
+
+            try {
+                const response = await this.apiCall(`/auth/configs/${config.id}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.success) {
+                    // Remove from local arrays
+                    this.authConfigs = this.authConfigs.filter(c => c.id !== config.id);
+                    this.projectAuthConfigs = this.projectAuthConfigs.filter(c => c.id !== config.id);
+                    
+                    this.showNotification(`${config.auth_role} authentication configuration deleted`, 'success');
+                } else {
+                    throw new Error(response.message || 'Failed to delete configuration');
+                }
+            } catch (error) {
+                console.error('Failed to delete auth config:', error);
+                this.showNotification(`Failed to delete configuration: ${error.message}`, 'error');
+            }
+        },
+
+        // Helper method to get auth role display name
+        getAuthRoleDisplayName(role) {
+            const roleNames = {
+                'default': 'Default User',
+                'admin': 'Administrator',
+                'user': 'Regular User',
+                'guest': 'Guest User',
+                'editor': 'Editor',
+                'viewer': 'Viewer',
+                'moderator': 'Moderator'
+            };
+            return roleNames[role] || role.charAt(0).toUpperCase() + role.slice(1);
+        },
+
+        // Helper method to get auth config badge color
+        getAuthConfigBadgeColor(config) {
+            if (config.is_default) return 'bg-green-100 text-green-800';
+            if (config.auth_role === 'admin') return 'bg-red-100 text-red-800';
+            if (config.auth_role === 'user') return 'bg-blue-100 text-blue-800';
+            if (config.auth_role === 'guest') return 'bg-gray-100 text-gray-800';
+            return 'bg-purple-100 text-purple-800';
+        }
     };
 }
 

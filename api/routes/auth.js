@@ -654,6 +654,49 @@ router.get('/test', (req, res) => {
 });
 
 /**
+ * GET /api/auth/configs/domain/:domain
+ * Get all authentication configurations for a specific domain and project
+ */
+router.get('/configs/domain/:domain', async (req, res) => {
+    try {
+        const { domain } = req.params;
+        const { project_id } = req.query;
+        
+        let query = `
+            SELECT 
+                ac.*,
+                p.name as project_name
+            FROM auth_configs ac
+            LEFT JOIN projects p ON ac.project_id = p.id
+            WHERE ac.domain = $1 AND ac.status = 'active'
+        `;
+        const params = [domain];
+        
+        if (project_id) {
+            query += ` AND (ac.project_id = $2 OR ac.project_id IS NULL)`;
+            params.push(project_id);
+        }
+        
+        query += ` ORDER BY ac.priority ASC, ac.is_default DESC, ac.created_at ASC`;
+        
+        const result = await db.query(query, params);
+        
+        res.json({
+            success: true,
+            data: result.rows,
+            count: result.rows.length
+        });
+    } catch (error) {
+        console.error('Error fetching auth configs for domain:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to fetch authentication configurations for domain',
+            error: error.message
+        });
+    }
+});
+
+/**
  * GET /api/auth/configs
  * List authentication configurations from auth-states directory
  */
@@ -734,7 +777,7 @@ router.get('/configs/:id', async (req, res) => {
 
 /**
  * POST /api/auth/configs
- * Create new authentication configuration
+ * Create new authentication configuration (supports multiple configs per domain/project)
  */
 router.post('/configs', async (req, res) => {
     try {
@@ -747,32 +790,100 @@ router.post('/configs', async (req, res) => {
             password,
             login_page,
             success_url,
-            project_id
+            project_id,
+            auth_role = 'default',
+            auth_description,
+            priority = 1,
+            is_default = false
         } = req.body;
         
         // Get user ID from JWT token (assuming it's available in req.user)
         const created_by = req.user?.id || '46088230-6133-45e3-8a04-06feea298094'; // fallback to admin
         
+        // Check if a config with the same role already exists for this domain/project
+        const existingConfig = await db.query(`
+            SELECT * FROM auth_configs 
+            WHERE domain = $1 AND project_id = $2 AND auth_role = $3
+        `, [domain, project_id, auth_role]);
+        
+        if (existingConfig.rows.length > 0) {
+            // Update existing configuration with the same role
+            const updateResult = await db.query(`
+                UPDATE auth_configs 
+                SET 
+                    name = $1,
+                    type = $2,
+                    url = $3,
+                    username = $4,
+                    password = $5,
+                    login_page = $6,
+                    success_url = $7,
+                    auth_description = $8,
+                    priority = $9,
+                    is_default = $10,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE domain = $11 AND project_id = $12 AND auth_role = $13
+                RETURNING *
+            `, [name, type, url, username, password, login_page, success_url, auth_description, priority, is_default, domain, project_id, auth_role]);
+            
+            // If this is being set as default, unset other defaults for the same domain/project
+            if (is_default) {
+                await db.query(`
+                    UPDATE auth_configs 
+                    SET is_default = false 
+                    WHERE domain = $1 AND project_id = $2 AND id != $3
+                `, [domain, project_id, updateResult.rows[0].id]);
+            }
+            
+            return res.status(200).json({
+                success: true,
+                message: 'Authentication configuration updated successfully',
+                data: updateResult.rows[0],
+                action: 'updated'
+            });
+        }
+        
+        // If this is being set as default, unset other defaults for the same domain/project
+        if (is_default) {
+            await db.query(`
+                UPDATE auth_configs 
+                SET is_default = false 
+                WHERE domain = $1 AND project_id = $2
+            `, [domain, project_id]);
+        }
+        
+        // Create new configuration
         const result = await db.query(`
             INSERT INTO auth_configs (
                 name, type, domain, url, username, password, 
-                login_page, success_url, project_id, created_by
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+                login_page, success_url, project_id, created_by,
+                auth_role, auth_description, priority, is_default
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
             RETURNING *
-        `, [name, type, domain, url, username, password, login_page, success_url, project_id, created_by]);
+        `, [name, type, domain, url, username, password, login_page, success_url, project_id, created_by,
+            auth_role, auth_description, priority, is_default]);
         
         res.status(201).json({
             success: true,
             message: 'Authentication configuration created successfully',
-            data: result.rows[0]
+            data: result.rows[0],
+            action: 'created'
         });
     } catch (error) {
         console.error('Error creating auth config:', error);
         
         if (error.code === '23505') { // Unique constraint violation
+            if (error.constraint === 'auth_configs_domain_project_role_key') {
+                return res.status(400).json({
+                    success: false,
+                    message: `Authentication configuration with role '${req.body.auth_role || 'default'}' already exists for this domain and project. Please use a different role name or update the existing configuration.`,
+                    code: 'DUPLICATE_AUTH_ROLE'
+                });
+            }
             return res.status(400).json({
                 success: false,
-                message: 'Authentication configuration already exists for this domain and project'
+                message: 'Authentication configuration already exists',
+                code: 'DUPLICATE_AUTH_CONFIG'
             });
         }
         
