@@ -1497,6 +1497,10 @@
                 </p>
             </div>
             <div class="flex space-x-2">
+                <button @click="openChangeApprovalWorkflow(currentSessionDetails.id, currentSessionDetails.name)" 
+                        class="px-3 py-2 bg-orange-600 text-white rounded text-sm hover:bg-orange-700 transition-colors">
+                    <i class="fas fa-gavel mr-1"></i>Approvals
+                </button>
                 <button @click="showTestAssignmentPanel = !showTestAssignmentPanel" 
                         :class="showTestAssignmentPanel ? 'bg-purple-600 hover:bg-purple-700' : 'bg-gray-600 hover:bg-gray-700'"
                         class="px-3 py-2 text-white rounded text-sm transition-colors">

@@ -1,0 +1,325 @@
+<!-- Change Approval Workflow Modal -->
+<div x-show="changeApproval.isModalOpen" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" x-transition>
+    <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-7xl shadow-lg rounded-md bg-white">
+        <!-- Modal Header -->
+        <div class="flex items-center justify-between pb-4 border-b">
+            <div>
+                <h3 class="text-lg font-medium text-gray-900">Change Approval Workflow</h3>
+                <p class="text-sm text-gray-600" x-text="`Session: ${changeApproval.currentSessionName}`"></p>
+            </div>
+            <div class="flex items-center space-x-4">
+                <!-- Statistics Summary -->
+                <div class="flex items-center space-x-4 text-sm">
+                    <div class="flex items-center">
+                        <div class="w-3 h-3 bg-yellow-500 rounded-full mr-2"></div>
+                        <span x-text="`${changeApproval.pendingCount} Pending`"></span>
+                    </div>
+                    <div class="flex items-center">
+                        <div class="w-3 h-3 bg-gray-500 rounded-full mr-2"></div>
+                        <span x-text="`${changeApproval.totalCount} Total`"></span>
+                    </div>
+                </div>
+                <button @click="closeChangeApprovalWorkflow()" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="mt-4" x-show="!changeApproval.currentRequest">
+            <!-- Filters -->
+            <div class="bg-gray-50 p-4 rounded-lg mb-6">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                        <select x-model="changeApproval.filters.status" @change="applyApprovalFilters()" class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                            <option value="pending">Pending</option>
+                            <option value="approved">Approved</option>
+                            <option value="rejected">Rejected</option>
+                            <option value="auto_approved">Auto Approved</option>
+                            <option value="expired">Expired</option>
+                            <option value="all">All</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Urgency</label>
+                        <select x-model="changeApproval.filters.urgency" @change="applyApprovalFilters()" class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                            <option value="">All Urgency Levels</option>
+                            <option value="critical">Critical</option>
+                            <option value="high">High</option>
+                            <option value="normal">Normal</option>
+                            <option value="low">Low</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Change Type</label>
+                        <select x-model="changeApproval.filters.change_type" @change="applyApprovalFilters()" class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                            <option value="">All Types</option>
+                            <option value="status_change">Status Change</option>
+                            <option value="assignment_change">Assignment Change</option>
+                            <option value="evidence_modification">Evidence Modification</option>
+                            <option value="confidence_change">Confidence Change</option>
+                            <option value="bulk_change">Bulk Change</option>
+                            <option value="critical_finding">Critical Finding</option>
+                        </select>
+                    </div>
+                    <div class="flex items-end">
+                        <button @click="resetApprovalFilters()" class="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+                            Reset Filters
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Approval Requests List -->
+            <div class="space-y-4">
+                <!-- Loading State -->
+                <div x-show="changeApproval.isLoading" class="text-center py-8">
+                    <i class="fas fa-spinner fa-spin text-2xl text-gray-400 mb-2"></i>
+                    <p class="text-gray-600">Loading approval requests...</p>
+                </div>
+
+                <!-- Empty State -->
+                <div x-show="!changeApproval.isLoading && changeApproval.requests.length === 0" class="text-center py-8">
+                    <i class="fas fa-clipboard-check text-4xl text-gray-300 mb-4"></i>
+                    <p class="text-gray-600">No approval requests found</p>
+                </div>
+
+                <!-- Requests List -->
+                <template x-for="request in changeApproval.requests" :key="request.id">
+                    <div class="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
+                        <div class="flex items-start justify-between">
+                            <div class="flex-1">
+                                <!-- Request Header -->
+                                <div class="flex items-center space-x-3 mb-3">
+                                    <span class="px-2 py-1 text-xs font-medium rounded-full" :class="getApprovalUrgencyBadgeClass(request.urgency_level)" x-text="request.urgency_level.toUpperCase()"></span>
+                                    <span class="px-2 py-1 text-xs font-medium rounded-full" :class="getApprovalStatusBadgeClass(request.status)" x-text="request.status.replace('_', ' ').toUpperCase()"></span>
+                                    <span class="text-sm text-gray-500" x-text="getChangeTypeDisplayText(request.change_type)"></span>
+                                </div>
+
+                                <!-- Request Details -->
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                    <div>
+                                        <h4 class="font-medium text-gray-900 mb-1">Test Requirement</h4>
+                                        <p class="text-sm text-gray-600" x-text="`${request.criterion_number}: ${request.requirement_title}`"></p>
+                                        <p class="text-xs text-gray-500 mt-1" x-text="request.page_url || 'Site-wide test'"></p>
+                                    </div>
+                                    <div>
+                                        <h4 class="font-medium text-gray-900 mb-1">Change Details</h4>
+                                        <p class="text-sm text-gray-600" x-text="request.change_reason"></p>
+                                        <div class="text-xs text-gray-500 mt-1">
+                                            <span x-text="`${request.field_name}: ${JSON.stringify(request.old_value)} → ${JSON.stringify(request.new_value)}`"></span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Request Metadata -->
+                                <div class="flex items-center justify-between text-sm text-gray-500">
+                                    <div class="flex items-center space-x-4">
+                                        <span x-text="`Requested by: ${request.requester_full_name || request.requester_username}`"></span>
+                                        <span x-text="`${formatRelativeTime(request.requested_at)}`"></span>
+                                    </div>
+                                    <div class="flex items-center space-x-4">
+                                        <span x-text="`Approvals: ${request.approvals_received}/${request.required_approvers}`"></span>
+                                        <span x-text="formatApprovalDeadline(request.approval_deadline)" :class="request.hours_until_deadline < 0 ? 'text-red-600' : request.hours_until_deadline < 24 ? 'text-orange-600' : 'text-gray-500'"></span>
+                                    </div>
+                                </div>
+
+                                <!-- Progress Bar -->
+                                <div class="mt-3">
+                                    <div class="w-full bg-gray-200 rounded-full h-2">
+                                        <div class="bg-blue-600 h-2 rounded-full transition-all duration-300" :style="`width: ${getApprovalProgressPercentage(request)}%`"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Actions -->
+                            <div class="ml-6 flex flex-col space-y-2">
+                                <button @click="viewApprovalRequestDetails(request)" class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors">
+                                    <i class="fas fa-eye mr-2"></i>Review
+                                </button>
+                                <template x-if="request.status === 'pending'">
+                                    <div class="flex space-x-2">
+                                        <button @click="quickApprove(request)" class="px-3 py-1 bg-green-600 text-white text-xs font-medium rounded hover:bg-green-700 transition-colors">
+                                            <i class="fas fa-check"></i>
+                                        </button>
+                                        <button @click="quickReject(request)" class="px-3 py-1 bg-red-600 text-white text-xs font-medium rounded hover:bg-red-700 transition-colors">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+
+                <!-- Load More Button -->
+                <div x-show="changeApproval.pagination.hasMore && !changeApproval.isLoading" class="text-center mt-6">
+                    <button @click="loadMoreApprovalRequests()" class="px-6 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+                        Load More Requests
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Request Details View -->
+        <div x-show="changeApproval.currentRequest" class="mt-4">
+            <template x-if="changeApproval.currentRequest">
+                <div>
+                    <!-- Back Button -->
+                    <div class="mb-4">
+                        <button @click="changeApproval.currentRequest = null" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                            <i class="fas fa-arrow-left mr-2"></i>Back to Requests
+                        </button>
+                    </div>
+
+                    <!-- Request Header -->
+                    <div class="bg-gray-50 p-6 rounded-lg mb-6">
+                        <div class="flex items-start justify-between">
+                            <div>
+                                <h3 class="text-lg font-medium text-gray-900 mb-2">Approval Request Details</h3>
+                                <div class="flex items-center space-x-3 mb-3">
+                                    <span class="px-2 py-1 text-xs font-medium rounded-full" :class="getApprovalUrgencyBadgeClass(changeApproval.currentRequest.request.urgency_level)" x-text="changeApproval.currentRequest.request.urgency_level.toUpperCase()"></span>
+                                    <span class="px-2 py-1 text-xs font-medium rounded-full" :class="getApprovalStatusBadgeClass(changeApproval.currentRequest.request.status)" x-text="changeApproval.currentRequest.request.status.replace('_', ' ').toUpperCase()"></span>
+                                    <span class="text-sm text-gray-600" x-text="getChangeTypeDisplayText(changeApproval.currentRequest.request.change_type)"></span>
+                                </div>
+                                <p class="text-sm text-gray-600" x-text="changeApproval.currentRequest.request.change_reason"></p>
+                            </div>
+                            <div class="text-right text-sm text-gray-500">
+                                <p x-text="`Requested: ${formatRelativeTime(changeApproval.currentRequest.request.requested_at)}`"></p>
+                                <p x-text="`Deadline: ${formatApprovalDeadline(changeApproval.currentRequest.request.approval_deadline)}`"></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Test Instance Details -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                        <div class="bg-white border border-gray-200 rounded-lg p-6">
+                            <h4 class="font-medium text-gray-900 mb-4">Test Instance</h4>
+                            <div class="space-y-3">
+                                <div>
+                                    <span class="text-sm font-medium text-gray-700">Requirement:</span>
+                                    <p class="text-sm text-gray-600" x-text="`${changeApproval.currentRequest.request.criterion_number}: ${changeApproval.currentRequest.request.requirement_title}`"></p>
+                                </div>
+                                <div>
+                                    <span class="text-sm font-medium text-gray-700">Page:</span>
+                                    <p class="text-sm text-gray-600" x-text="changeApproval.currentRequest.request.page_url || 'Site-wide test'"></p>
+                                </div>
+                                <div>
+                                    <span class="text-sm font-medium text-gray-700">Current Status:</span>
+                                    <span class="ml-2 px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800" x-text="changeApproval.currentRequest.request.test_status"></span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-white border border-gray-200 rounded-lg p-6">
+                            <h4 class="font-medium text-gray-900 mb-4">Proposed Change</h4>
+                            <div class="space-y-3">
+                                <div>
+                                    <span class="text-sm font-medium text-gray-700">Field:</span>
+                                    <span class="ml-2 text-sm text-gray-600" x-text="changeApproval.currentRequest.request.field_name"></span>
+                                </div>
+                                <div>
+                                    <span class="text-sm font-medium text-gray-700">From:</span>
+                                    <span class="ml-2 px-2 py-1 text-xs bg-red-100 text-red-800 rounded" x-text="JSON.stringify(changeApproval.currentRequest.request.old_value)"></span>
+                                </div>
+                                <div>
+                                    <span class="text-sm font-medium text-gray-700">To:</span>
+                                    <span class="ml-2 px-2 py-1 text-xs bg-green-100 text-green-800 rounded" x-text="JSON.stringify(changeApproval.currentRequest.request.new_value)"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Approval Form (if pending) -->
+                    <div x-show="changeApproval.currentRequest.request.status === 'pending'" class="bg-white border border-gray-200 rounded-lg p-6 mb-6">
+                        <h4 class="font-medium text-gray-900 mb-4">Submit Approval Decision</h4>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Decision</label>
+                                <div class="flex space-x-4">
+                                    <label class="flex items-center">
+                                        <input type="radio" x-model="changeApproval.approvalDecision.decision" value="approved" class="mr-2">
+                                        <span class="text-sm text-green-700 font-medium">Approve</span>
+                                    </label>
+                                    <label class="flex items-center">
+                                        <input type="radio" x-model="changeApproval.approvalDecision.decision" value="rejected" class="mr-2">
+                                        <span class="text-sm text-red-700 font-medium">Reject</span>
+                                    </label>
+                                    <label class="flex items-center">
+                                        <input type="radio" x-model="changeApproval.approvalDecision.decision" value="abstained" class="mr-2">
+                                        <span class="text-sm text-gray-700 font-medium">Abstain</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Reason (Required)</label>
+                                <textarea x-model="changeApproval.approvalDecision.reason" rows="3" class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" placeholder="Provide a reason for your decision..."></textarea>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Conditions (Optional)</label>
+                                <textarea x-model="changeApproval.approvalDecision.conditions" rows="2" class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" placeholder="Any conditions or requirements for this approval..."></textarea>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Review Notes (Optional)</label>
+                                <textarea x-model="changeApproval.approvalDecision.review_notes" rows="2" class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" placeholder="Additional notes for your review..."></textarea>
+                            </div>
+
+                            <div class="flex justify-end space-x-3">
+                                <button @click="changeApproval.currentRequest = null" class="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+                                    Cancel
+                                </button>
+                                <button @click="submitApprovalDecision()" :disabled="changeApproval.isLoading || !changeApproval.approvalDecision.decision || !changeApproval.approvalDecision.reason.trim()" class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                                    <i x-show="changeApproval.isLoading" class="fas fa-spinner fa-spin mr-2"></i>
+                                    Submit Decision
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Approval History -->
+                    <div x-show="changeApproval.currentRequest.approvals && changeApproval.currentRequest.approvals.length > 0" class="bg-white border border-gray-200 rounded-lg p-6 mb-6">
+                        <h4 class="font-medium text-gray-900 mb-4">Approval History</h4>
+                        <div class="space-y-3">
+                            <template x-for="approval in changeApproval.currentRequest.approvals" :key="approval.id">
+                                <div class="flex items-start justify-between p-3 bg-gray-50 rounded-lg">
+                                    <div>
+                                        <div class="flex items-center space-x-2 mb-1">
+                                            <span class="font-medium text-sm" x-text="approval.approver_full_name || approval.approver_username"></span>
+                                            <span class="px-2 py-1 text-xs font-medium rounded-full" :class="approval.decision === 'approved' ? 'bg-green-100 text-green-800' : approval.decision === 'rejected' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'" x-text="approval.decision.toUpperCase()"></span>
+                                        </div>
+                                        <p class="text-sm text-gray-600" x-text="approval.decision_reason"></p>
+                                        <p x-show="approval.conditions" class="text-xs text-gray-500 mt-1" x-text="`Conditions: ${approval.conditions}`"></p>
+                                    </div>
+                                    <span class="text-xs text-gray-500" x-text="formatRelativeTime(approval.decided_at)"></span>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- Escalation History -->
+                    <div x-show="changeApproval.currentRequest.escalations && changeApproval.currentRequest.escalations.length > 0" class="bg-white border border-gray-200 rounded-lg p-6">
+                        <h4 class="font-medium text-gray-900 mb-4">Escalation History</h4>
+                        <div class="space-y-3">
+                            <template x-for="escalation in changeApproval.currentRequest.escalations" :key="escalation.id">
+                                <div class="flex items-start justify-between p-3 bg-orange-50 rounded-lg">
+                                    <div>
+                                        <div class="flex items-center space-x-2 mb-1">
+                                            <span class="font-medium text-sm" x-text="`Escalated to: ${escalation.escalated_to_full_name}`"></span>
+                                            <span class="px-2 py-1 text-xs font-medium rounded-full bg-orange-100 text-orange-800" x-text="`Level ${escalation.escalation_level}`"></span>
+                                        </div>
+                                        <p class="text-sm text-gray-600" x-text="escalation.escalation_reason"></p>
+                                    </div>
+                                    <span class="text-xs text-gray-500" x-text="formatRelativeTime(escalation.created_at)"></span>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+</div> 

@@ -393,6 +393,64 @@ function dashboard() {
                     this.addNotification(data.title || 'Update', data.message, data.type || 'info');
                 });
                 
+                // Activity feed events
+                this.socket.on('activity_update', (data) => {
+                    console.log('📢 Activity update:', data);
+                    this.handleActivityFeedUpdate(data);
+                });
+                
+                this.socket.on('test_status_changed', (data) => {
+                    console.log('🔄 Test status changed:', data);
+                    this.handleActivityFeedUpdate({
+                        session_id: data.session_id,
+                        action_type: 'status_change',
+                        change_description: `Status changed from ${data.old_status} to ${data.new_status}`,
+                        username: data.username,
+                        criterion_number: data.criterion_number,
+                        test_instance_id: data.test_instance_id,
+                        timestamp: new Date().toISOString()
+                    });
+                });
+                
+                this.socket.on('evidence_uploaded', (data) => {
+                    console.log('📎 Evidence uploaded:', data);
+                    this.handleActivityFeedUpdate({
+                        session_id: data.session_id,
+                        action_type: 'evidence_uploaded',
+                        change_description: `Evidence uploaded: ${data.filename}`,
+                        username: data.username,
+                        criterion_number: data.criterion_number,
+                        test_instance_id: data.test_instance_id,
+                        timestamp: new Date().toISOString()
+                    });
+                });
+                
+                this.socket.on('test_assigned', (data) => {
+                    console.log('👤 Test assigned:', data);
+                    this.handleActivityFeedUpdate({
+                        session_id: data.session_id,
+                        action_type: 'assignment',
+                        change_description: `Test assigned to ${data.assigned_to}`,
+                        username: data.assigned_by,
+                        criterion_number: data.criterion_number,
+                        test_instance_id: data.test_instance_id,
+                        timestamp: new Date().toISOString()
+                    });
+                });
+                
+                this.socket.on('review_requested', (data) => {
+                    console.log('👀 Review requested:', data);
+                    this.handleActivityFeedUpdate({
+                        session_id: data.session_id,
+                        action_type: 'review_requested',
+                        change_description: `Review requested`,
+                        username: data.requested_by,
+                        criterion_number: data.criterion_number,
+                        test_instance_id: data.test_instance_id,
+                        timestamp: new Date().toISOString()
+                    });
+                });
+                
                 // Milestone events
                 this.socket.on('discovery_milestone', (data) => {
                     this.handleDiscoveryMilestone(data);
@@ -3880,6 +3938,9 @@ function dashboard() {
             this.resetTestFilters();
             this.resetTestGridPagination();
             await this.loadTestInstances(session.id);
+            
+            // Initialize activity feed for this session
+            await this.initActivityFeed(session.id, session.name);
         },
 
         closeSessionTestGrid() {
@@ -3888,6 +3949,9 @@ function dashboard() {
             this.testInstances = [];
             this.filteredTestInstances = [];
             this.selectedTestInstances = [];
+            
+            // Close activity feed when closing session
+            this.closeActivityFeed();
         },
 
         async loadTestInstances(sessionId) {
@@ -5637,6 +5701,1061 @@ function dashboard() {
                 return null;
             }
         },
+
+        // =============================================================================
+        // AUDIT TIMELINE VISUALIZATION
+        // =============================================================================
+
+        // Audit Timeline State
+        auditTimeline: {
+            sessionId: null,
+            sessionName: '',
+            timeline: [],
+            statistics: null,
+            filters: {
+                start_date: '',
+                end_date: '',
+                user_id: '',
+                action_type: '',
+                test_instance_id: ''
+            },
+            pagination: {
+                limit: 50,
+                offset: 0,
+                has_more: false
+            },
+            loading: false,
+            error: null,
+            selectedTimelineItem: null,
+            expandedItems: new Set(),
+            groupBy: 'day', // 'hour', 'day', 'week'
+            viewMode: 'timeline' // 'timeline', 'table', 'chart'
+        },
+
+        /**
+         * Open audit timeline for a session
+         */
+        async openAuditTimeline(session) {
+            this.auditTimeline.sessionId = session.id;
+            this.auditTimeline.sessionName = session.name;
+            this.auditTimeline.loading = true;
+            this.auditTimeline.error = null;
+            
+            // Reset filters and pagination
+            this.resetAuditTimelineFilters();
+            
+            // Load initial timeline data
+            await this.loadAuditTimeline();
+            
+            // Show modal
+            const modal = document.getElementById('auditTimelineModal');
+            if (modal) {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            }
+        },
+
+        /**
+         * Load audit timeline data
+         */
+        async loadAuditTimeline() {
+            if (!this.auditTimeline.sessionId) return;
+
+            this.auditTimeline.loading = true;
+            this.auditTimeline.error = null;
+
+            try {
+                // Build query parameters
+                const params = new URLSearchParams({
+                    limit: this.auditTimeline.pagination.limit,
+                    offset: this.auditTimeline.pagination.offset
+                });
+
+                // Add filters if set
+                Object.entries(this.auditTimeline.filters).forEach(([key, value]) => {
+                    if (value && value.trim()) {
+                        params.append(key, value.trim());
+                    }
+                });
+
+                const response = await this.apiCall(
+                    `/sessions/${this.auditTimeline.sessionId}/audit-timeline?${params}`,
+                    { method: 'GET' }
+                );
+
+                if (response.success) {
+                    this.auditTimeline.timeline = response.data.timeline;
+                    this.auditTimeline.statistics = response.data.statistics;
+                    this.auditTimeline.pagination = response.data.pagination;
+                    this.auditTimeline.sessionName = response.session_name;
+                } else {
+                    throw new Error(response.message || 'Failed to load audit timeline');
+                }
+
+            } catch (error) {
+                console.error('Error loading audit timeline:', error);
+                this.auditTimeline.error = error.message;
+                this.showNotification('Failed to load audit timeline: ' + error.message, 'error');
+            } finally {
+                this.auditTimeline.loading = false;
+            }
+        },
+
+        /**
+         * Apply audit timeline filters
+         */
+        async applyAuditTimelineFilters() {
+            this.auditTimeline.pagination.offset = 0; // Reset to first page
+            await this.loadAuditTimeline();
+        },
+
+        /**
+         * Reset audit timeline filters
+         */
+        resetAuditTimelineFilters() {
+            this.auditTimeline.filters = {
+                start_date: '',
+                end_date: '',
+                user_id: '',
+                action_type: '',
+                test_instance_id: ''
+            };
+            this.auditTimeline.pagination = {
+                limit: 50,
+                offset: 0,
+                has_more: false
+            };
+        },
+
+        /**
+         * Load more timeline items (pagination)
+         */
+        async loadMoreTimelineItems() {
+            if (!this.auditTimeline.pagination.has_more || this.auditTimeline.loading) return;
+
+            this.auditTimeline.pagination.offset += this.auditTimeline.pagination.limit;
+            
+            const currentTimeline = [...this.auditTimeline.timeline];
+            await this.loadAuditTimeline();
+            
+            // Append new items to existing timeline
+            this.auditTimeline.timeline = [...currentTimeline, ...this.auditTimeline.timeline];
+        },
+
+        /**
+         * Toggle timeline item expansion
+         */
+        toggleTimelineItem(auditId) {
+            if (this.auditTimeline.expandedItems.has(auditId)) {
+                this.auditTimeline.expandedItems.delete(auditId);
+            } else {
+                this.auditTimeline.expandedItems.add(auditId);
+            }
+        },
+
+        /**
+         * Check if timeline item is expanded
+         */
+        isTimelineItemExpanded(auditId) {
+            return this.auditTimeline.expandedItems.has(auditId);
+        },
+
+        /**
+         * View timeline item details
+         */
+        viewTimelineItemDetails(timelineItem) {
+            this.auditTimeline.selectedTimelineItem = timelineItem;
+            
+            // Show details modal
+            const modal = document.getElementById('timelineItemDetailsModal');
+            if (modal) {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            }
+        },
+
+        /**
+         * Close timeline item details
+         */
+        closeTimelineItemDetails() {
+            this.auditTimeline.selectedTimelineItem = null;
+            
+            const modal = document.getElementById('timelineItemDetailsModal');
+            if (modal) {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+        },
+
+        /**
+         * Close audit timeline modal
+         */
+        closeAuditTimeline() {
+            this.auditTimeline.sessionId = null;
+            this.auditTimeline.sessionName = '';
+            this.auditTimeline.timeline = [];
+            this.auditTimeline.statistics = null;
+            this.auditTimeline.expandedItems.clear();
+            this.auditTimeline.selectedTimelineItem = null;
+            
+            const modal = document.getElementById('auditTimelineModal');
+            if (modal) {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+        },
+
+        /**
+         * Get action type display text
+         */
+        getActionTypeDisplayText(actionType) {
+            const actionTypes = {
+                'created': 'Test Created',
+                'assignment': 'Assigned',
+                'status_change': 'Status Changed',
+                'note_updated': 'Notes Updated',
+                'note_added': 'Notes Added',
+                'evidence_uploaded': 'Evidence Added',
+                'evidence_removed': 'Evidence Removed',
+                'review_requested': 'Review Requested',
+                'reviewed': 'Reviewed',
+                'approved': 'Approved',
+                'rejected': 'Rejected',
+                'remediation_added': 'Remediation Added',
+                'automated_update': 'Automated Update'
+            };
+            return actionTypes[actionType] || actionType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        },
+
+        /**
+         * Get action type icon
+         */
+        getActionTypeIcon(actionType) {
+            const icons = {
+                'created': '🆕',
+                'assignment': '👤',
+                'status_change': '🔄',
+                'note_updated': '📝',
+                'note_added': '📝',
+                'evidence_uploaded': '📎',
+                'evidence_removed': '🗑️',
+                'review_requested': '👀',
+                'reviewed': '✅',
+                'approved': '✅',
+                'rejected': '❌',
+                'remediation_added': '🔧',
+                'automated_update': '🤖'
+            };
+            return icons[actionType] || '📋';
+        },
+
+        /**
+         * Get action type color class
+         */
+        getActionTypeColorClass(actionType) {
+            const colors = {
+                'created': 'text-blue-600 bg-blue-50',
+                'assignment': 'text-purple-600 bg-purple-50',
+                'status_change': 'text-orange-600 bg-orange-50',
+                'note_updated': 'text-gray-600 bg-gray-50',
+                'note_added': 'text-gray-600 bg-gray-50',
+                'evidence_uploaded': 'text-green-600 bg-green-50',
+                'evidence_removed': 'text-red-600 bg-red-50',
+                'review_requested': 'text-yellow-600 bg-yellow-50',
+                'reviewed': 'text-green-600 bg-green-50',
+                'approved': 'text-green-600 bg-green-50',
+                'rejected': 'text-red-600 bg-red-50',
+                'remediation_added': 'text-indigo-600 bg-indigo-50',
+                'automated_update': 'text-cyan-600 bg-cyan-50'
+            };
+            return colors[actionType] || 'text-gray-600 bg-gray-50';
+        },
+
+        /**
+         * Format relative time
+         */
+        formatRelativeTime(timestamp) {
+            const now = new Date();
+            const time = new Date(timestamp);
+            const diffMs = now - time;
+            const diffSecs = Math.floor(diffMs / 1000);
+            const diffMins = Math.floor(diffSecs / 60);
+            const diffHours = Math.floor(diffMins / 60);
+            const diffDays = Math.floor(diffHours / 24);
+
+            if (diffSecs < 60) return 'Just now';
+            if (diffMins < 60) return `${diffMins} minute${diffMins !== 1 ? 's' : ''} ago`;
+            if (diffHours < 24) return `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`;
+            if (diffDays < 7) return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
+            
+            return this.formatDate(timestamp);
+        },
+
+        /**
+         * Format timeline duration
+         */
+        formatTimelineDuration(seconds) {
+            if (!seconds) return '';
+            
+            const mins = Math.floor(seconds / 60);
+            const hours = Math.floor(mins / 60);
+            const days = Math.floor(hours / 24);
+
+            if (days > 0) return `${days}d ${hours % 24}h`;
+            if (hours > 0) return `${hours}h ${mins % 60}m`;
+            if (mins > 0) return `${mins}m ${seconds % 60}s`;
+            return `${seconds}s`;
+        },
+
+        /**
+         * Group timeline items by date
+         */
+        getGroupedTimeline() {
+            if (!this.auditTimeline.timeline.length) return {};
+
+            const grouped = {};
+            
+            this.auditTimeline.timeline.forEach(item => {
+                const date = new Date(item.timestamp);
+                let groupKey;
+
+                switch (this.auditTimeline.groupBy) {
+                    case 'hour':
+                        groupKey = date.toISOString().substring(0, 13) + ':00:00';
+                        break;
+                    case 'week':
+                        const startOfWeek = new Date(date);
+                        startOfWeek.setDate(date.getDate() - date.getDay());
+                        groupKey = startOfWeek.toISOString().substring(0, 10);
+                        break;
+                    case 'day':
+                    default:
+                        groupKey = date.toISOString().substring(0, 10);
+                        break;
+                }
+
+                if (!grouped[groupKey]) {
+                    grouped[groupKey] = [];
+                }
+                grouped[groupKey].push(item);
+            });
+
+            return grouped;
+        },
+
+        /**
+         * Format group header
+         */
+        formatGroupHeader(groupKey) {
+            const date = new Date(groupKey);
+            const today = new Date();
+            const yesterday = new Date(today);
+            yesterday.setDate(today.getDate() - 1);
+
+            const dateStr = date.toISOString().substring(0, 10);
+            const todayStr = today.toISOString().substring(0, 10);
+            const yesterdayStr = yesterday.toISOString().substring(0, 10);
+
+            if (dateStr === todayStr) return 'Today';
+            if (dateStr === yesterdayStr) return 'Yesterday';
+
+            switch (this.auditTimeline.groupBy) {
+                case 'hour':
+                    return date.toLocaleString('en-US', { 
+                        weekday: 'short', 
+                        month: 'short', 
+                        day: 'numeric', 
+                        hour: 'numeric',
+                        hour12: true
+                    });
+                case 'week':
+                    const endOfWeek = new Date(date);
+                    endOfWeek.setDate(date.getDate() + 6);
+                    return `Week of ${date.toLocaleDateString()} - ${endOfWeek.toLocaleDateString()}`;
+                case 'day':
+                default:
+                    return date.toLocaleDateString('en-US', { 
+                        weekday: 'long', 
+                        year: 'numeric', 
+                        month: 'long', 
+                        day: 'numeric' 
+                    });
+            }
+        },
+
+        /**
+         * Export audit timeline
+         */
+        async exportAuditTimeline(format = 'csv') {
+            if (!this.auditTimeline.timeline.length) {
+                this.showNotification('No timeline data to export', 'warning');
+                return;
+            }
+
+            try {
+                let content, filename, mimeType;
+
+                if (format === 'csv') {
+                    const headers = [
+                        'Timestamp', 'Action Type', 'User', 'Test Criterion', 
+                        'Page URL', 'Description', 'Old Value', 'New Value'
+                    ];
+                    
+                    const rows = this.auditTimeline.timeline.map(item => [
+                        item.formatted_timestamp,
+                        this.getActionTypeDisplayText(item.action_type),
+                        item.username || 'System',
+                        item.criterion_number || '',
+                        item.page_url || '',
+                        item.change_description || '',
+                        JSON.stringify(item.old_value || ''),
+                        JSON.stringify(item.new_value || '')
+                    ]);
+
+                    content = [headers, ...rows]
+                        .map(row => row.map(cell => `"${cell}"`).join(','))
+                        .join('\n');
+                    
+                    filename = `audit-timeline-${this.auditTimeline.sessionId}-${new Date().toISOString().split('T')[0]}.csv`;
+                    mimeType = 'text/csv';
+
+                } else if (format === 'json') {
+                    content = JSON.stringify({
+                        session_id: this.auditTimeline.sessionId,
+                        session_name: this.auditTimeline.sessionName,
+                        exported_at: new Date().toISOString(),
+                        statistics: this.auditTimeline.statistics,
+                        timeline: this.auditTimeline.timeline
+                    }, null, 2);
+                    
+                    filename = `audit-timeline-${this.auditTimeline.sessionId}-${new Date().toISOString().split('T')[0]}.json`;
+                    mimeType = 'application/json';
+                }
+
+                this.downloadFile(content, filename, mimeType);
+                this.showNotification(`Timeline exported as ${format.toUpperCase()}`, 'success');
+
+            } catch (error) {
+                console.error('Error exporting timeline:', error);
+                this.showNotification('Failed to export timeline', 'error');
+            }
+        },
+
+        // =============================================================================
+        // ACTIVITY FEED INTERFACE
+        // =============================================================================
+
+        // Activity Feed State
+        activityFeed: {
+            sessionId: null,
+            sessionName: '',
+            activities: [],
+            summary: null,
+            isOpen: false,
+            loading: false,
+            error: null,
+            autoRefresh: true,
+            refreshInterval: 30000, // 30 seconds
+            lastUpdate: null,
+            unreadCount: 0,
+            filters: {
+                include_system: true,
+                action_types: [],
+                users: []
+            },
+            pagination: {
+                limit: 20,
+                offset: 0,
+                has_more: false
+            }
+        },
+
+        /**
+         * Initialize activity feed for a session
+         */
+        async initActivityFeed(sessionId, sessionName) {
+            this.activityFeed.sessionId = sessionId;
+            this.activityFeed.sessionName = sessionName;
+            this.activityFeed.activities = [];
+            this.activityFeed.unreadCount = 0;
+            this.activityFeed.lastUpdate = new Date().toISOString();
+            
+            // Load initial activities
+            await this.loadActivityFeed();
+            
+            // Start auto-refresh if enabled
+            if (this.activityFeed.autoRefresh) {
+                this.startActivityFeedAutoRefresh();
+            }
+        },
+
+        /**
+         * Load activity feed data
+         */
+        async loadActivityFeed(append = false) {
+            if (!this.activityFeed.sessionId) return;
+
+            this.activityFeed.loading = true;
+            this.activityFeed.error = null;
+
+            try {
+                // Build query parameters
+                const params = new URLSearchParams({
+                    limit: this.activityFeed.pagination.limit,
+                    offset: append ? this.activityFeed.pagination.offset : 0,
+                    include_system: this.activityFeed.filters.include_system
+                });
+
+                // Add since parameter for real-time updates
+                if (append && this.activityFeed.lastUpdate) {
+                    params.append('since', this.activityFeed.lastUpdate);
+                }
+
+                const response = await this.apiCall(
+                    `/sessions/${this.activityFeed.sessionId}/activity-feed?${params}`,
+                    { method: 'GET' }
+                );
+
+                if (response.success) {
+                    if (append) {
+                        // Add new activities to the beginning
+                        const newActivities = response.data.activities.filter(
+                            newActivity => !this.activityFeed.activities.some(
+                                existing => existing.activity_id === newActivity.activity_id
+                            )
+                        );
+                        this.activityFeed.activities = [...newActivities, ...this.activityFeed.activities];
+                        this.activityFeed.unreadCount += newActivities.length;
+                    } else {
+                        this.activityFeed.activities = response.data.activities;
+                        this.activityFeed.unreadCount = 0;
+                    }
+                    
+                    this.activityFeed.summary = response.data.summary;
+                    this.activityFeed.pagination = response.data.pagination;
+                    this.activityFeed.lastUpdate = response.data.real_time.server_timestamp;
+                } else {
+                    throw new Error(response.message || 'Failed to load activity feed');
+                }
+
+            } catch (error) {
+                console.error('Error loading activity feed:', error);
+                this.activityFeed.error = error.message;
+                this.showNotification('Failed to load activity feed: ' + error.message, 'error');
+            } finally {
+                this.activityFeed.loading = false;
+            }
+        },
+
+        /**
+         * Start auto-refresh for activity feed
+         */
+        startActivityFeedAutoRefresh() {
+            // Clear existing interval
+            if (this.activityFeedInterval) {
+                clearInterval(this.activityFeedInterval);
+            }
+
+            this.activityFeedInterval = setInterval(async () => {
+                if (this.activityFeed.sessionId && this.activityFeed.autoRefresh) {
+                    await this.loadActivityFeed(true); // Append new activities
+                }
+            }, this.activityFeed.refreshInterval);
+        },
+
+        /**
+         * Stop auto-refresh for activity feed
+         */
+        stopActivityFeedAutoRefresh() {
+            if (this.activityFeedInterval) {
+                clearInterval(this.activityFeedInterval);
+                this.activityFeedInterval = null;
+            }
+        },
+
+        /**
+         * Toggle activity feed panel
+         */
+        toggleActivityFeed() {
+            this.activityFeed.isOpen = !this.activityFeed.isOpen;
+            
+            if (this.activityFeed.isOpen) {
+                // Mark activities as read when opened
+                this.activityFeed.unreadCount = 0;
+            }
+        },
+
+        /**
+         * Close activity feed
+         */
+        closeActivityFeed() {
+            this.activityFeed.isOpen = false;
+            this.activityFeed.sessionId = null;
+            this.activityFeed.sessionName = '';
+            this.activityFeed.activities = [];
+            this.activityFeed.summary = null;
+            this.activityFeed.unreadCount = 0;
+            this.stopActivityFeedAutoRefresh();
+        },
+
+        /**
+         * Load more activities (pagination)
+         */
+        async loadMoreActivities() {
+            if (!this.activityFeed.pagination.has_more || this.activityFeed.loading) return;
+
+            const currentActivities = [...this.activityFeed.activities];
+            this.activityFeed.pagination.offset += this.activityFeed.pagination.limit;
+            
+            await this.loadActivityFeed();
+            
+            // Append to existing activities
+            this.activityFeed.activities = [...currentActivities, ...this.activityFeed.activities];
+        },
+
+        /**
+         * Apply activity feed filters
+         */
+        async applyActivityFeedFilters() {
+            this.activityFeed.pagination.offset = 0;
+            await this.loadActivityFeed();
+        },
+
+        /**
+         * Reset activity feed filters
+         */
+        resetActivityFeedFilters() {
+            this.activityFeed.filters = {
+                include_system: true,
+                action_types: [],
+                users: []
+            };
+            this.applyActivityFeedFilters();
+        },
+
+        /**
+         * Toggle auto-refresh
+         */
+        toggleActivityFeedAutoRefresh() {
+            this.activityFeed.autoRefresh = !this.activityFeed.autoRefresh;
+            
+            if (this.activityFeed.autoRefresh) {
+                this.startActivityFeedAutoRefresh();
+            } else {
+                this.stopActivityFeedAutoRefresh();
+            }
+        },
+
+        /**
+         * Get activity feed badge count
+         */
+        getActivityFeedBadgeCount() {
+            return this.activityFeed.unreadCount > 99 ? '99+' : this.activityFeed.unreadCount.toString();
+        },
+
+        /**
+         * Format activity timestamp
+         */
+        formatActivityTime(timestamp) {
+            const now = new Date();
+            const time = new Date(timestamp);
+            const diffMs = now - time;
+            const diffSecs = Math.floor(diffMs / 1000);
+            const diffMins = Math.floor(diffSecs / 60);
+            const diffHours = Math.floor(diffMins / 60);
+            const diffDays = Math.floor(diffHours / 24);
+
+            if (diffSecs < 60) return 'Just now';
+            if (diffMins < 60) return `${diffMins}m ago`;
+            if (diffHours < 24) return `${diffHours}h ago`;
+            if (diffDays < 7) return `${diffDays}d ago`;
+            
+            return time.toLocaleDateString();
+        },
+
+        /**
+         * Get activity icon class
+         */
+        getActivityIconClass(actionType) {
+            const icons = {
+                'created': 'fas fa-plus-circle text-blue-600',
+                'assignment': 'fas fa-user-tag text-purple-600',
+                'status_change': 'fas fa-exchange-alt text-orange-600',
+                'note_updated': 'fas fa-sticky-note text-gray-600',
+                'evidence_uploaded': 'fas fa-paperclip text-green-600',
+                'review_requested': 'fas fa-eye text-yellow-600',
+                'reviewed': 'fas fa-check-circle text-green-600',
+                'approved': 'fas fa-thumbs-up text-green-600',
+                'rejected': 'fas fa-thumbs-down text-red-600'
+            };
+            return icons[actionType] || 'fas fa-circle text-gray-600';
+        },
+
+        /**
+         * Get activity description
+         */
+        getActivityDescription(activity) {
+            const user = activity.username || 'System';
+            const criterion = activity.criterion_number || 'Unknown';
+            
+            switch (activity.action_type) {
+                case 'created':
+                    return `${user} created test for ${criterion}`;
+                case 'assignment':
+                    return `${user} was assigned to test ${criterion}`;
+                case 'status_change':
+                    return `${user} changed status of ${criterion}`;
+                case 'note_updated':
+                    return `${user} updated notes for ${criterion}`;
+                case 'evidence_uploaded':
+                    return `${user} uploaded evidence for ${criterion}`;
+                case 'review_requested':
+                    return `${user} requested review for ${criterion}`;
+                case 'reviewed':
+                    return `${user} reviewed test ${criterion}`;
+                default:
+                    return activity.change_description || `${user} performed action on ${criterion}`;
+            }
+        },
+
+        /**
+         * Navigate to test from activity
+         */
+        async navigateToTestFromActivity(activity) {
+            if (activity.test_instance_id) {
+                // Open the test instance modal
+                await this.openTestInstanceModal({ id: activity.test_instance_id });
+                this.closeActivityFeed();
+            }
+        },
+
+        /**
+         * Handle WebSocket activity update
+         */
+        handleActivityFeedUpdate(data) {
+            // Handle real-time activity feed updates
+            if (data.activity_type === 'test_status_changed' || 
+                data.activity_type === 'evidence_uploaded' ||
+                data.activity_type === 'test_assigned' ||
+                data.activity_type === 'review_requested') {
+                
+                // Add new activity to the feed
+                this.activityFeed.activities.unshift({
+                    id: `ws_${Date.now()}`,
+                    action_type: data.activity_type,
+                    change_description: data.description || 'Real-time update',
+                    timestamp: new Date().toISOString(),
+                    username: data.username || 'System',
+                    full_name: data.full_name || 'System',
+                    criterion_number: data.criterion_number,
+                    page_url: data.page_url,
+                    test_instance_id: data.test_instance_id
+                });
+                
+                // Increment unread count if feed is closed
+                if (!this.activityFeed.isOpen) {
+                    this.activityFeed.unreadCount++;
+                }
+                
+                // Limit activities to prevent memory issues
+                if (this.activityFeed.activities.length > 100) {
+                    this.activityFeed.activities = this.activityFeed.activities.slice(0, 100);
+                }
+            }
+        },
+
+        // ===========================
+        // CHANGE APPROVAL WORKFLOW
+        // ===========================
+
+        changeApproval: {
+            isModalOpen: false,
+            isLoading: false,
+            currentSessionId: null,
+            currentSessionName: '',
+            
+            // Approval requests data
+            requests: [],
+            pendingCount: 0,
+            totalCount: 0,
+            pagination: {
+                limit: 20,
+                offset: 0,
+                hasMore: false
+            },
+            
+            // Filters
+            filters: {
+                status: 'pending',
+                urgency: '',
+                requester: '',
+                change_type: ''
+            },
+            
+            // Current request being viewed/processed
+            currentRequest: null,
+            approvalDecision: {
+                decision: '',
+                reason: '',
+                conditions: '',
+                review_notes: ''
+            },
+            
+            // Statistics
+            statistics: {
+                overall: {},
+                daily_breakdown: []
+            }
+        },
+
+        async openChangeApprovalWorkflow(sessionId, sessionName) {
+            try {
+                this.changeApproval.currentSessionId = sessionId;
+                this.changeApproval.currentSessionName = sessionName;
+                this.changeApproval.isModalOpen = true;
+                
+                // Load initial data
+                await this.loadApprovalRequests();
+                await this.loadApprovalStatistics();
+                
+            } catch (error) {
+                console.error('Error opening change approval workflow:', error);
+                this.showNotification('Failed to load approval workflow', 'error');
+            }
+        },
+
+        async loadApprovalRequests(append = false) {
+            try {
+                this.changeApproval.isLoading = true;
+                
+                const params = new URLSearchParams({
+                    limit: this.changeApproval.pagination.limit,
+                    offset: append ? this.changeApproval.pagination.offset : 0,
+                    ...this.changeApproval.filters
+                });
+                
+                const response = await this.apiCall(`/sessions/${this.changeApproval.currentSessionId}/approval-requests?${params}`);
+                
+                if (append) {
+                    this.changeApproval.requests.push(...response.requests);
+                } else {
+                    this.changeApproval.requests = response.requests;
+                }
+                
+                this.changeApproval.pagination = response.pagination;
+                this.changeApproval.totalCount = response.pagination.total;
+                this.changeApproval.pendingCount = response.requests.filter(r => r.status === 'pending').length;
+                
+            } catch (error) {
+                console.error('Error loading approval requests:', error);
+                this.showNotification('Failed to load approval requests', 'error');
+            } finally {
+                this.changeApproval.isLoading = false;
+            }
+        },
+
+        async loadApprovalStatistics() {
+            try {
+                const response = await this.apiCall(`/sessions/${this.changeApproval.currentSessionId}/approval-statistics`);
+                this.changeApproval.statistics = response;
+            } catch (error) {
+                console.error('Error loading approval statistics:', error);
+            }
+        },
+
+        async applyApprovalFilters() {
+            this.changeApproval.pagination.offset = 0;
+            await this.loadApprovalRequests();
+        },
+
+        resetApprovalFilters() {
+            this.changeApproval.filters = {
+                status: 'pending',
+                urgency: '',
+                requester: '',
+                change_type: ''
+            };
+            this.applyApprovalFilters();
+        },
+
+        async loadMoreApprovalRequests() {
+            if (this.changeApproval.pagination.hasMore && !this.changeApproval.isLoading) {
+                this.changeApproval.pagination.offset += this.changeApproval.pagination.limit;
+                await this.loadApprovalRequests(true);
+            }
+        },
+
+        async viewApprovalRequestDetails(request) {
+            try {
+                this.changeApproval.isLoading = true;
+                
+                const response = await this.apiCall(`/sessions/${this.changeApproval.currentSessionId}/approval-requests/${request.id}`);
+                this.changeApproval.currentRequest = response;
+                
+                // Reset approval decision form
+                this.changeApproval.approvalDecision = {
+                    decision: '',
+                    reason: '',
+                    conditions: '',
+                    review_notes: ''
+                };
+                
+            } catch (error) {
+                console.error('Error loading approval request details:', error);
+                this.showNotification('Failed to load request details', 'error');
+            } finally {
+                this.changeApproval.isLoading = false;
+            }
+        },
+
+        async submitApprovalDecision() {
+            try {
+                this.changeApproval.isLoading = true;
+                
+                const { decision, reason, conditions, review_notes } = this.changeApproval.approvalDecision;
+                
+                if (!decision) {
+                    this.showNotification('Please select a decision', 'error');
+                    return;
+                }
+                
+                if (!reason.trim()) {
+                    this.showNotification('Please provide a reason for your decision', 'error');
+                    return;
+                }
+                
+                const response = await this.apiCall(
+                    `/sessions/${this.changeApproval.currentSessionId}/approval-requests/${this.changeApproval.currentRequest.request.id}/approve`,
+                    {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            decision,
+                            reason,
+                            conditions,
+                            review_notes
+                        })
+                    }
+                );
+                
+                this.showNotification(response.message, 'success');
+                
+                // Refresh the requests list
+                await this.loadApprovalRequests();
+                
+                // Close the details view
+                this.changeApproval.currentRequest = null;
+                
+            } catch (error) {
+                console.error('Error submitting approval decision:', error);
+                this.showNotification('Failed to submit approval decision', 'error');
+            } finally {
+                this.changeApproval.isLoading = false;
+            }
+        },
+
+        async createManualApprovalRequest(testInstanceId, changeType, fieldName, oldValue, newValue, reason, urgencyLevel = 'normal') {
+            try {
+                const response = await this.apiCall(
+                    `/sessions/${this.changeApproval.currentSessionId}/approval-requests`,
+                    {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            test_instance_id: testInstanceId,
+                            change_type: changeType,
+                            field_name: fieldName,
+                            old_value: oldValue,
+                            new_value: newValue,
+                            change_reason: reason,
+                            urgency_level: urgencyLevel,
+                            business_justification: `Manual approval request for ${changeType}`,
+                            impact_assessment: 'Test result change requiring approval'
+                        })
+                    }
+                );
+                
+                this.showNotification('Approval request created successfully', 'success');
+                
+                // Refresh approval requests if modal is open
+                if (this.changeApproval.isModalOpen) {
+                    await this.loadApprovalRequests();
+                }
+                
+                return response;
+                
+            } catch (error) {
+                console.error('Error creating manual approval request:', error);
+                this.showNotification('Failed to create approval request', 'error');
+                throw error;
+            }
+        },
+
+        closeChangeApprovalWorkflow() {
+            this.changeApproval.isModalOpen = false;
+            this.changeApproval.currentRequest = null;
+            this.changeApproval.currentSessionId = null;
+            this.changeApproval.currentSessionName = '';
+            this.changeApproval.requests = [];
+            this.changeApproval.statistics = { overall: {}, daily_breakdown: [] };
+        },
+
+        getApprovalUrgencyBadgeClass(urgency) {
+            const classes = {
+                'critical': 'bg-red-500 text-white',
+                'high': 'bg-orange-500 text-white',
+                'normal': 'bg-blue-500 text-white',
+                'low': 'bg-gray-500 text-white'
+            };
+            return classes[urgency] || classes.normal;
+        },
+
+        getApprovalStatusBadgeClass(status) {
+            const classes = {
+                'pending': 'bg-yellow-500 text-white',
+                'approved': 'bg-green-500 text-white',
+                'rejected': 'bg-red-500 text-white',
+                'auto_approved': 'bg-blue-500 text-white',
+                'expired': 'bg-gray-500 text-white',
+                'cancelled': 'bg-gray-400 text-white'
+            };
+            return classes[status] || classes.pending;
+        },
+
+        getChangeTypeDisplayText(changeType) {
+            const displayTexts = {
+                'status_change': 'Status Change',
+                'assignment_change': 'Assignment Change',
+                'evidence_modification': 'Evidence Modification',
+                'notes_modification': 'Notes Modification',
+                'remediation_change': 'Remediation Change',
+                'confidence_change': 'Confidence Change',
+                'bulk_change': 'Bulk Change',
+                'critical_finding': 'Critical Finding'
+            };
+            return displayTexts[changeType] || changeType;
+        },
+
+        formatApprovalDeadline(deadline) {
+            const deadlineDate = new Date(deadline);
+            const now = new Date();
+            const diffHours = (deadlineDate - now) / (1000 * 60 * 60);
+            
+            if (diffHours < 0) {
+                return 'Overdue';
+            } else if (diffHours < 1) {
+                return `${Math.round(diffHours * 60)} minutes remaining`;
+            } else if (diffHours < 24) {
+                return `${Math.round(diffHours)} hours remaining`;
+            } else {
+                return `${Math.round(diffHours / 24)} days remaining`;
+            }
+        },
+
+        getApprovalProgressPercentage(request) {
+            if (!request.required_approvers || request.required_approvers === 0) {
+                return 0;
+            }
+            return Math.round((request.approvals_received / request.required_approvers) * 100);
+        }
     };
 }
 
@@ -5665,7 +6784,965 @@ function exportData(data, filename) {
 window.dashboard = dashboard;
 
 // Initialize when DOM is loaded
+// Audit Report Generation System
+window.auditReport = {
+    isGenerating: false,
+    currentReport: null,
+    reportOptions: {
+        format: 'json',
+        includeEvidence: true,
+        includeTimeline: true,
+        reportType: 'full',
+        dateRange: null
+    },
+    
+    // Generate comprehensive audit report
+    async generateReport(sessionId, options = {}) {
+        if (this.isGenerating) return;
+        
+        this.isGenerating = true;
+        this.reportOptions = { ...this.reportOptions, ...options };
+        
+        try {
+            // Build query parameters
+            const params = new URLSearchParams();
+            Object.entries(this.reportOptions).forEach(([key, value]) => {
+                if (value !== null && value !== undefined) {
+                    params.append(key, value.toString());
+                }
+            });
+            
+            const response = await fetch(`/api/sessions/${sessionId}/audit-report?${params}`, {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            if (!response.ok) {
+                throw new Error('Failed to generate audit report');
+            }
+            
+            const data = await response.json();
+            this.currentReport = data.report;
+            
+            // Update UI
+            this.updateReportDisplay();
+            
+            return data;
+            
+        } catch (error) {
+            console.error('Error generating audit report:', error);
+            throw error;
+        } finally {
+            this.isGenerating = false;
+        }
+    },
+    
+    // Update report display in UI
+    updateReportDisplay() {
+        if (!this.currentReport) return;
+        
+        const reportContainer = document.getElementById('audit-report-container');
+        if (!reportContainer) return;
+        
+        const report = this.currentReport;
+        const metadata = report.metadata;
+        const summary = report.executive_summary;
+        
+        reportContainer.innerHTML = `
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <!-- Report Header -->
+                <div class="border-b pb-4 mb-6">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <h2 class="text-2xl font-bold text-gray-900">Accessibility Audit Report</h2>
+                            <p class="text-gray-600 mt-1">${metadata.projectName}</p>
+                            <p class="text-sm text-gray-500">Session: ${metadata.sessionName}</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-sm text-gray-500">Generated: ${this.formatDateTime(metadata.generatedAt)}</p>
+                            <p class="text-sm text-gray-500">By: ${metadata.generatedBy}</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Executive Summary -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <div class="bg-gradient-to-r from-blue-50 to-blue-100 p-4 rounded-lg">
+                        <h3 class="font-semibold text-blue-900 mb-2">Overall Compliance</h3>
+                        <div class="text-3xl font-bold text-blue-700">${summary.overallCompliance}%</div>
+                        <div class="text-sm text-blue-600">${summary.complianceLevel}</div>
+                    </div>
+                    <div class="bg-gradient-to-r from-green-50 to-green-100 p-4 rounded-lg">
+                        <h3 class="font-semibold text-green-900 mb-2">Tests Passed</h3>
+                        <div class="text-3xl font-bold text-green-700">${summary.passedTests}</div>
+                        <div class="text-sm text-green-600">of ${summary.totalTests} total</div>
+                    </div>
+                    <div class="bg-gradient-to-r from-red-50 to-red-100 p-4 rounded-lg">
+                        <h3 class="font-semibold text-red-900 mb-2">Tests Failed</h3>
+                        <div class="text-3xl font-bold text-red-700">${summary.failedTests}</div>
+                        <div class="text-sm text-red-600">require attention</div>
+                    </div>
+                </div>
+                
+                <!-- WCAG Level Breakdown -->
+                <div class="mb-8">
+                    <h3 class="text-lg font-semibold mb-4">WCAG Level Breakdown</h3>
+                    <div class="grid grid-cols-3 gap-4">
+                        <div class="bg-gray-50 p-4 rounded-lg text-center">
+                            <div class="text-2xl font-bold text-gray-700">${report.wcag_breakdown.levelA}</div>
+                            <div class="text-sm text-gray-600">Level A Tests</div>
+                        </div>
+                        <div class="bg-gray-50 p-4 rounded-lg text-center">
+                            <div class="text-2xl font-bold text-gray-700">${report.wcag_breakdown.levelAA}</div>
+                            <div class="text-sm text-gray-600">Level AA Tests</div>
+                        </div>
+                        <div class="bg-gray-50 p-4 rounded-lg text-center">
+                            <div class="text-2xl font-bold text-gray-700">${report.wcag_breakdown.levelAAA}</div>
+                            <div class="text-sm text-gray-600">Level AAA Tests</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Testing Statistics -->
+                <div class="mb-8">
+                    <h3 class="text-lg font-semibold mb-4">Testing Coverage</h3>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div class="text-center">
+                            <div class="text-xl font-bold text-gray-700">${summary.pagesTested}</div>
+                            <div class="text-sm text-gray-600">Pages Tested</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-xl font-bold text-gray-700">${summary.criteriaTested}</div>
+                            <div class="text-sm text-gray-600">Criteria Tested</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-xl font-bold text-gray-700">${summary.notApplicableTests}</div>
+                            <div class="text-sm text-gray-600">Not Applicable</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-xl font-bold text-gray-700">${summary.pendingTests}</div>
+                            <div class="text-sm text-gray-600">Pending</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Action Buttons -->
+                <div class="flex flex-wrap gap-3 mb-6">
+                    <button onclick="auditReport.showComplianceDetails()" 
+                            class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                        <i class="fas fa-chart-bar mr-2"></i>View Compliance Details
+                    </button>
+                    <button onclick="auditReport.showRecommendations()" 
+                            class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors">
+                        <i class="fas fa-lightbulb mr-2"></i>View Recommendations
+                    </button>
+                    ${report.timeline_data ? `
+                        <button onclick="auditReport.showTimelineData()" 
+                                class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors">
+                            <i class="fas fa-clock mr-2"></i>View Timeline
+                        </button>
+                    ` : ''}
+                    ${report.evidence_summary ? `
+                        <button onclick="auditReport.showEvidenceSummary()" 
+                                class="bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 transition-colors">
+                            <i class="fas fa-paperclip mr-2"></i>View Evidence
+                        </button>
+                    ` : ''}
+                </div>
+                
+                <!-- Export Options -->
+                <div class="border-t pt-4">
+                    <h3 class="text-lg font-semibold mb-3">Export Options</h3>
+                    <div class="flex flex-wrap gap-3">
+                        <button onclick="auditReport.exportReport('json')" 
+                                class="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors">
+                            <i class="fas fa-download mr-2"></i>Export JSON
+                        </button>
+                        <button onclick="auditReport.exportReport('csv')" 
+                                class="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors">
+                            <i class="fas fa-file-csv mr-2"></i>Export CSV
+                        </button>
+                        <button onclick="auditReport.generatePDF()" 
+                                class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors">
+                            <i class="fas fa-file-pdf mr-2"></i>Generate PDF
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+    },
+    
+    // Show compliance details modal
+    showComplianceDetails() {
+        if (!this.currentReport?.compliance_details) return;
+        
+        const details = this.currentReport.compliance_details;
+        const modalContent = `
+            <div class="space-y-4">
+                <h3 class="text-lg font-semibold">WCAG Compliance Details</h3>
+                <div class="max-h-96 overflow-y-auto">
+                    <table class="w-full text-sm">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-3 py-2 text-left">Level</th>
+                                <th class="px-3 py-2 text-left">Criterion</th>
+                                <th class="px-3 py-2 text-center">Total</th>
+                                <th class="px-3 py-2 text-center">Passed</th>
+                                <th class="px-3 py-2 text-center">Failed</th>
+                                <th class="px-3 py-2 text-center">N/A</th>
+                                <th class="px-3 py-2 text-center">Compliance %</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${details.map(detail => `
+                                <tr class="border-b">
+                                    <td class="px-3 py-2">
+                                        <span class="px-2 py-1 text-xs rounded ${this.getLevelBadgeClass(detail.level)}">
+                                            ${detail.level}
+                                        </span>
+                                    </td>
+                                    <td class="px-3 py-2 font-mono text-xs">${detail.criterion_id}</td>
+                                    <td class="px-3 py-2 text-center">${detail.total_tests}</td>
+                                    <td class="px-3 py-2 text-center text-green-600">${detail.passed}</td>
+                                    <td class="px-3 py-2 text-center text-red-600">${detail.failed}</td>
+                                    <td class="px-3 py-2 text-center text-gray-500">${detail.not_applicable}</td>
+                                    <td class="px-3 py-2 text-center">
+                                        <span class="font-semibold ${detail.compliance_percentage >= 80 ? 'text-green-600' : detail.compliance_percentage >= 60 ? 'text-yellow-600' : 'text-red-600'}">
+                                            ${detail.compliance_percentage || 'N/A'}%
+                                        </span>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+        
+        this.showModal('Compliance Details', modalContent);
+    },
+    
+    // Show recommendations modal
+    showRecommendations() {
+        if (!this.currentReport?.recommendations) return;
+        
+        const recommendations = this.currentReport.recommendations;
+        const modalContent = `
+            <div class="space-y-4">
+                <h3 class="text-lg font-semibold">Recommendations</h3>
+                <div class="max-h-96 overflow-y-auto space-y-4">
+                    ${recommendations.map(rec => `
+                        <div class="border rounded-lg p-4">
+                            <div class="flex items-start justify-between mb-2">
+                                <h4 class="font-semibold text-gray-900">${rec.title}</h4>
+                                <span class="px-2 py-1 text-xs rounded ${this.getPriorityBadgeClass(rec.priority)}">
+                                    ${rec.priority.toUpperCase()}
+                                </span>
+                            </div>
+                            <p class="text-gray-600 text-sm mb-3">${rec.description}</p>
+                            <div class="space-y-1">
+                                <p class="text-sm font-medium text-gray-700">Action Items:</p>
+                                <ul class="list-disc list-inside text-sm text-gray-600 space-y-1">
+                                    ${rec.actionItems.map(item => `<li>${item}</li>`).join('')}
+                                </ul>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+        
+        this.showModal('Recommendations', modalContent);
+    },
+    
+    // Show timeline data modal
+    showTimelineData() {
+        if (!this.currentReport?.timeline_data) return;
+        
+        const timeline = this.currentReport.timeline_data;
+        const modalContent = `
+            <div class="space-y-4">
+                <h3 class="text-lg font-semibold">Activity Timeline</h3>
+                <div class="max-h-96 overflow-y-auto">
+                    <table class="w-full text-sm">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-3 py-2 text-left">Date</th>
+                                <th class="px-3 py-2 text-center">Total Activities</th>
+                                <th class="px-3 py-2 text-center">Status Changes</th>
+                                <th class="px-3 py-2 text-center">Evidence Uploads</th>
+                                <th class="px-3 py-2 text-center">Comments</th>
+                                <th class="px-3 py-2 text-center">Active Users</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${timeline.map(day => `
+                                <tr class="border-b">
+                                    <td class="px-3 py-2 font-medium">${this.formatDate(day.activity_date)}</td>
+                                    <td class="px-3 py-2 text-center">${day.total_activities}</td>
+                                    <td class="px-3 py-2 text-center">${day.status_changes}</td>
+                                    <td class="px-3 py-2 text-center">${day.evidence_uploads}</td>
+                                    <td class="px-3 py-2 text-center">${day.comments_added}</td>
+                                    <td class="px-3 py-2 text-center">${day.active_users}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+        
+        this.showModal('Activity Timeline', modalContent);
+    },
+    
+    // Show evidence summary modal
+    showEvidenceSummary() {
+        if (!this.currentReport?.evidence_summary) return;
+        
+        const evidence = this.currentReport.evidence_summary;
+        const modalContent = `
+            <div class="space-y-4">
+                <h3 class="text-lg font-semibold">Evidence Summary</h3>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-blue-50 p-4 rounded-lg text-center">
+                        <div class="text-2xl font-bold text-blue-700">${evidence.total_evidence}</div>
+                        <div class="text-sm text-blue-600">Total Evidence Items</div>
+                    </div>
+                    <div class="bg-green-50 p-4 rounded-lg text-center">
+                        <div class="text-2xl font-bold text-green-700">${evidence.uploaded_files}</div>
+                        <div class="text-sm text-green-600">Uploaded Files</div>
+                    </div>
+                    <div class="bg-yellow-50 p-4 rounded-lg text-center">
+                        <div class="text-2xl font-bold text-yellow-700">${evidence.screenshots}</div>
+                        <div class="text-sm text-yellow-600">Screenshots</div>
+                    </div>
+                    <div class="bg-purple-50 p-4 rounded-lg text-center">
+                        <div class="text-2xl font-bold text-purple-700">${evidence.documents}</div>
+                        <div class="text-sm text-purple-600">Documents</div>
+                    </div>
+                </div>
+                ${evidence.videos > 0 ? `
+                    <div class="bg-red-50 p-4 rounded-lg text-center">
+                        <div class="text-2xl font-bold text-red-700">${evidence.videos}</div>
+                        <div class="text-sm text-red-600">Videos</div>
+                    </div>
+                ` : ''}
+            </div>
+        `;
+        
+        this.showModal('Evidence Summary', modalContent);
+    },
+    
+    // Export report in different formats
+    async exportReport(format) {
+        if (!this.currentReport) return;
+        
+        try {
+            let content, filename, mimeType;
+            
+            if (format === 'json') {
+                content = JSON.stringify(this.currentReport, null, 2);
+                filename = `audit-report-${this.currentReport.metadata.sessionId}-${Date.now()}.json`;
+                mimeType = 'application/json';
+            } else if (format === 'csv') {
+                content = this.generateCSVReport();
+                filename = `audit-report-${this.currentReport.metadata.sessionId}-${Date.now()}.csv`;
+                mimeType = 'text/csv';
+            }
+            
+            // Create and download file
+            const blob = new Blob([content], { type: mimeType });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+        } catch (error) {
+            console.error('Error exporting report:', error);
+            alert('Failed to export report');
+        }
+    },
+    
+    // Generate CSV format report
+    generateCSVReport() {
+        const report = this.currentReport;
+        const lines = [];
+        
+        // Header
+        lines.push('Accessibility Audit Report');
+        lines.push(`Project: ${report.metadata.projectName}`);
+        lines.push(`Session: ${report.metadata.sessionName}`);
+        lines.push(`Generated: ${this.formatDateTime(report.metadata.generatedAt)}`);
+        lines.push('');
+        
+        // Executive Summary
+        lines.push('Executive Summary');
+        lines.push('Metric,Value');
+        lines.push(`Total Tests,${report.executive_summary.totalTests}`);
+        lines.push(`Passed Tests,${report.executive_summary.passedTests}`);
+        lines.push(`Failed Tests,${report.executive_summary.failedTests}`);
+        lines.push(`Not Applicable Tests,${report.executive_summary.notApplicableTests}`);
+        lines.push(`Pending Tests,${report.executive_summary.pendingTests}`);
+        lines.push(`Overall Compliance,${report.executive_summary.overallCompliance}%`);
+        lines.push(`Compliance Level,${report.executive_summary.complianceLevel}`);
+        lines.push('');
+        
+        // Compliance Details
+        if (report.compliance_details?.length > 0) {
+            lines.push('Compliance Details');
+            lines.push('Level,Criterion,Total Tests,Passed,Failed,Not Applicable,Compliance %');
+            report.compliance_details.forEach(detail => {
+                lines.push(`${detail.level},${detail.criterion_id},${detail.total_tests},${detail.passed},${detail.failed},${detail.not_applicable},${detail.compliance_percentage || 'N/A'}`);
+            });
+            lines.push('');
+        }
+        
+        return lines.join('\n');
+    },
+    
+    // Generate PDF report
+    async generatePDF() {
+        if (!this.currentReport) return;
+        
+        try {
+            // For now, this creates an HTML version that can be printed to PDF
+            // In a full implementation, you'd use a PDF library like jsPDF or Puppeteer
+            const printWindow = window.open('', '_blank');
+            const htmlContent = this.generatePrintableHTML();
+            
+            printWindow.document.write(htmlContent);
+            printWindow.document.close();
+            printWindow.focus();
+            
+            // Auto-trigger print dialog
+            setTimeout(() => {
+                printWindow.print();
+            }, 500);
+            
+        } catch (error) {
+            console.error('Error generating PDF:', error);
+            alert('Failed to generate PDF');
+        }
+    },
+    
+    // Generate printable HTML for PDF
+    generatePrintableHTML() {
+        const report = this.currentReport;
+        const metadata = report.metadata;
+        const summary = report.executive_summary;
+        
+        return `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Accessibility Audit Report - ${metadata.projectName}</title>
+                <style>
+                    body { font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; }
+                    .header { border-bottom: 2px solid #333; padding-bottom: 20px; margin-bottom: 30px; }
+                    .summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin: 20px 0; }
+                    .summary-card { border: 1px solid #ddd; padding: 15px; text-align: center; }
+                    .metric-value { font-size: 24px; font-weight: bold; color: #333; }
+                    .metric-label { font-size: 12px; color: #666; }
+                    .compliance-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+                    .compliance-table th, .compliance-table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                    .compliance-table th { background-color: #f5f5f5; }
+                    .recommendations { margin: 30px 0; }
+                    .recommendation { border: 1px solid #ddd; margin: 10px 0; padding: 15px; }
+                    .priority-critical { border-left: 4px solid #dc2626; }
+                    .priority-high { border-left: 4px solid #ea580c; }
+                    .priority-medium { border-left: 4px solid #ca8a04; }
+                    @media print { body { margin: 20px; } }
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                    <h1>Accessibility Audit Report</h1>
+                    <h2>${metadata.projectName}</h2>
+                    <p><strong>Session:</strong> ${metadata.sessionName}</p>
+                    <p><strong>Generated:</strong> ${this.formatDateTime(metadata.generatedAt)} by ${metadata.generatedBy}</p>
+                </div>
+                
+                <div class="executive-summary">
+                    <h2>Executive Summary</h2>
+                    <div class="summary-grid">
+                        <div class="summary-card">
+                            <div class="metric-value">${summary.overallCompliance}%</div>
+                            <div class="metric-label">Overall Compliance</div>
+                            <div class="metric-label">${summary.complianceLevel}</div>
+                        </div>
+                        <div class="summary-card">
+                            <div class="metric-value">${summary.passedTests}</div>
+                            <div class="metric-label">Tests Passed</div>
+                        </div>
+                        <div class="summary-card">
+                            <div class="metric-value">${summary.failedTests}</div>
+                            <div class="metric-label">Tests Failed</div>
+                        </div>
+                    </div>
+                </div>
+                
+                ${report.compliance_details?.length > 0 ? `
+                    <div class="compliance-details">
+                        <h2>WCAG Compliance Details</h2>
+                        <table class="compliance-table">
+                            <thead>
+                                <tr>
+                                    <th>Level</th>
+                                    <th>Criterion</th>
+                                    <th>Total</th>
+                                    <th>Passed</th>
+                                    <th>Failed</th>
+                                    <th>N/A</th>
+                                    <th>Compliance %</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${report.compliance_details.map(detail => `
+                                    <tr>
+                                        <td>${detail.level}</td>
+                                        <td>${detail.criterion_id}</td>
+                                        <td>${detail.total_tests}</td>
+                                        <td>${detail.passed}</td>
+                                        <td>${detail.failed}</td>
+                                        <td>${detail.not_applicable}</td>
+                                        <td>${detail.compliance_percentage || 'N/A'}%</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                ` : ''}
+                
+                ${report.recommendations?.length > 0 ? `
+                    <div class="recommendations">
+                        <h2>Recommendations</h2>
+                        ${report.recommendations.map(rec => `
+                            <div class="recommendation priority-${rec.priority}">
+                                <h3>${rec.title}</h3>
+                                <p><strong>Priority:</strong> ${rec.priority.toUpperCase()}</p>
+                                <p>${rec.description}</p>
+                                <h4>Action Items:</h4>
+                                <ul>
+                                    ${rec.actionItems.map(item => `<li>${item}</li>`).join('')}
+                                </ul>
+                            </div>
+                        `).join('')}
+                    </div>
+                ` : ''}
+            </body>
+            </html>
+        `;
+    },
+    
+    // Utility functions
+    formatDateTime(dateString) {
+        return new Date(dateString).toLocaleString();
+    },
+    
+    formatDate(dateString) {
+        return new Date(dateString).toLocaleDateString();
+    },
+    
+    getLevelBadgeClass(level) {
+        const classes = {
+            'A': 'bg-green-100 text-green-800',
+            'AA': 'bg-blue-100 text-blue-800',
+            'AAA': 'bg-purple-100 text-purple-800'
+        };
+        return classes[level] || 'bg-gray-100 text-gray-800';
+    },
+    
+    getPriorityBadgeClass(priority) {
+        const classes = {
+            'critical': 'bg-red-100 text-red-800',
+            'high': 'bg-orange-100 text-orange-800',
+            'medium': 'bg-yellow-100 text-yellow-800',
+            'low': 'bg-green-100 text-green-800'
+        };
+        return classes[priority] || 'bg-gray-100 text-gray-800';
+    },
+    
+    showModal(title, content) {
+        // Use existing modal system
+        if (typeof showModal === 'function') {
+            showModal(title, content);
+        } else {
+            alert('Modal system not available');
+        }
+    }
+};
+
+// Function to show audit report interface
+function showAuditReport(sessionId) {
+    const modalContent = `
+        <div class="space-y-6">
+            <div class="border-b pb-4">
+                <h2 class="text-xl font-semibold flex items-center">
+                    <i class="fas fa-file-alt mr-3 text-blue-600"></i>
+                    Generate Audit Report
+                </h2>
+                <p class="text-gray-600 text-sm mt-1">Create comprehensive compliance documentation with PDF export</p>
+            </div>
+            
+            <!-- Report Options -->
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Report Type</label>
+                    <select id="report-type-select" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="full">Full Compliance Report</option>
+                        <option value="summary">Executive Summary</option>
+                        <option value="technical">Technical Details Only</option>
+                        <option value="compliance">Compliance Assessment</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Date Range (Optional)</label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <input type="date" id="start-date" class="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <input type="date" id="end-date" class="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                </div>
+                
+                <div class="space-y-3">
+                    <label class="block text-sm font-medium text-gray-700">Include Additional Data</label>
+                    <div class="grid grid-cols-2 gap-3">
+                        <label class="flex items-center p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
+                            <input type="checkbox" id="include-evidence" checked class="mr-3 text-blue-600 focus:ring-blue-500">
+                            <div>
+                                <div class="text-sm font-medium">Evidence Summary</div>
+                                <div class="text-xs text-gray-500">Screenshots, documents, videos</div>
+                            </div>
+                        </label>
+                        <label class="flex items-center p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
+                            <input type="checkbox" id="include-timeline" checked class="mr-3 text-blue-600 focus:ring-blue-500">
+                            <div>
+                                <div class="text-sm font-medium">Activity Timeline</div>
+                                <div class="text-xs text-gray-500">Daily activity breakdown</div>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Generate Button -->
+            <div class="flex justify-end space-x-3">
+                <button onclick="closeModal()" 
+                        class="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+                    Cancel
+                </button>
+                <button id="generate-report-btn" onclick="generateAuditReportFromModal('${sessionId}')" 
+                        class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                    <i class="fas fa-file-alt mr-2"></i>Generate Report
+                </button>
+            </div>
+            
+            <!-- Report Container -->
+            <div id="audit-report-container" class="mt-6" style="display: none;"></div>
+        </div>
+    `;
+    
+    showModal('Audit Report Generator', modalContent);
+}
+
+// Function to generate report from modal
+async function generateAuditReportFromModal(sessionId) {
+    try {
+        // Show loading
+        const button = document.getElementById('generate-report-btn');
+        const originalText = button.innerHTML;
+        button.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Generating...';
+        button.disabled = true;
+        
+        // Get options from form
+        const reportType = document.getElementById('report-type-select').value;
+        const startDate = document.getElementById('start-date').value;
+        const endDate = document.getElementById('end-date').value;
+        const includeEvidence = document.getElementById('include-evidence').checked;
+        const includeTimeline = document.getElementById('include-timeline').checked;
+        
+        const options = {
+            reportType,
+            includeEvidence,
+            includeTimeline
+        };
+        
+        if (startDate && endDate) {
+            options.dateRange = `${startDate},${endDate}`;
+        }
+        
+        // Generate report via API
+        const params = new URLSearchParams();
+        Object.entries(options).forEach(([key, value]) => {
+            if (value !== null && value !== undefined) {
+                params.append(key, value.toString());
+            }
+        });
+        
+        const response = await fetch(`/api/sessions/${sessionId}/audit-report?${params}`, {
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error('Failed to generate audit report');
+        }
+        
+        const data = await response.json();
+        const report = data.report;
+        
+        // Display the report
+        const reportContainer = document.getElementById('audit-report-container');
+        if (reportContainer) {
+            const metadata = report.metadata;
+            const summary = report.executive_summary;
+            
+            reportContainer.innerHTML = `
+                <div class="bg-white rounded-lg shadow-lg overflow-hidden">
+                    <!-- Report Header -->
+                    <div class="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <h1 class="text-3xl font-bold">Accessibility Audit Report</h1>
+                                <p class="text-blue-100 mt-2 text-lg">${metadata.projectName}</p>
+                                <p class="text-blue-200 text-sm">Session: ${metadata.sessionName}</p>
+                            </div>
+                            <div class="text-right text-blue-100">
+                                <p class="text-sm">Generated: ${new Date(metadata.generatedAt).toLocaleString()}</p>
+                                <p class="text-sm">By: ${metadata.generatedBy}</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="p-6">
+                        <!-- Executive Summary -->
+                        <div class="mb-8">
+                            <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                                <i class="fas fa-chart-line mr-3 text-blue-600"></i>
+                                Executive Summary
+                            </h2>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                <div class="bg-gradient-to-r from-blue-50 to-blue-100 p-6 rounded-lg border border-blue-200">
+                                    <h3 class="font-semibold text-blue-900 mb-2 flex items-center">
+                                        <i class="fas fa-percentage mr-2"></i>Overall Compliance
+                                    </h3>
+                                    <div class="text-4xl font-bold text-blue-700">${summary.overallCompliance}%</div>
+                                    <div class="text-sm text-blue-600 mt-1">${summary.complianceLevel}</div>
+                                </div>
+                                <div class="bg-gradient-to-r from-green-50 to-green-100 p-6 rounded-lg border border-green-200">
+                                    <h3 class="font-semibold text-green-900 mb-2 flex items-center">
+                                        <i class="fas fa-check-circle mr-2"></i>Tests Passed
+                                    </h3>
+                                    <div class="text-4xl font-bold text-green-700">${summary.passedTests}</div>
+                                    <div class="text-sm text-green-600 mt-1">of ${summary.totalTests} total</div>
+                                </div>
+                                <div class="bg-gradient-to-r from-red-50 to-red-100 p-6 rounded-lg border border-red-200">
+                                    <h3 class="font-semibold text-red-900 mb-2 flex items-center">
+                                        <i class="fas fa-exclamation-triangle mr-2"></i>Tests Failed
+                                    </h3>
+                                    <div class="text-4xl font-bold text-red-700">${summary.failedTests}</div>
+                                    <div class="text-sm text-red-600 mt-1">require attention</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Export Options -->
+                        <div class="border-t pt-6">
+                            <h3 class="text-lg font-semibold mb-4 flex items-center">
+                                <i class="fas fa-download mr-3 text-gray-600"></i>
+                                Export Options
+                            </h3>
+                            <div class="flex flex-wrap gap-3">
+                                <button onclick="exportAuditReport('json', '${sessionId}')" 
+                                        class="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors">
+                                    <i class="fas fa-code mr-2"></i>Export JSON
+                                </button>
+                                <button onclick="exportAuditReport('csv', '${sessionId}')" 
+                                        class="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors">
+                                    <i class="fas fa-file-csv mr-2"></i>Export CSV
+                                </button>
+                                <button onclick="generateAuditReportPDF('${sessionId}')" 
+                                        class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors">
+                                    <i class="fas fa-file-pdf mr-2"></i>Generate PDF
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            reportContainer.style.display = 'block';
+        }
+        
+        // Restore button
+        button.innerHTML = originalText;
+        button.disabled = false;
+        
+    } catch (error) {
+        console.error('Error generating report:', error);
+        alert('Failed to generate audit report');
+        
+        // Restore button
+        const button = document.getElementById('generate-report-btn');
+        button.innerHTML = '<i class="fas fa-file-alt mr-2"></i>Generate Report';
+        button.disabled = false;
+    }
+}
+
+// Export functions
+function exportAuditReport(format, sessionId) {
+    // Re-fetch the report data for export
+    fetch(`/api/sessions/${sessionId}/audit-report`, {
+        headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        const report = data.report;
+        let content, filename, mimeType;
+        
+        if (format === 'json') {
+            content = JSON.stringify(report, null, 2);
+            filename = `audit-report-${report.metadata.sessionId}-${Date.now()}.json`;
+            mimeType = 'application/json';
+        } else if (format === 'csv') {
+            content = generateCSVReport(report);
+            filename = `audit-report-${report.metadata.sessionId}-${Date.now()}.csv`;
+            mimeType = 'text/csv';
+        }
+        
+        // Create and download file
+        const blob = new Blob([content], { type: mimeType });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    })
+    .catch(error => {
+        console.error('Error exporting report:', error);
+        alert('Failed to export report');
+    });
+}
+
+function generateCSVReport(report) {
+    const lines = [];
+    
+    // Header
+    lines.push('Accessibility Audit Report');
+    lines.push(`Project: ${report.metadata.projectName}`);
+    lines.push(`Session: ${report.metadata.sessionName}`);
+    lines.push(`Generated: ${new Date(report.metadata.generatedAt).toLocaleString()}`);
+    lines.push('');
+    
+    // Executive Summary
+    lines.push('Executive Summary');
+    lines.push('Metric,Value');
+    lines.push(`Total Tests,${report.executive_summary.totalTests}`);
+    lines.push(`Passed Tests,${report.executive_summary.passedTests}`);
+    lines.push(`Failed Tests,${report.executive_summary.failedTests}`);
+    lines.push(`Not Applicable Tests,${report.executive_summary.notApplicableTests}`);
+    lines.push(`Pending Tests,${report.executive_summary.pendingTests}`);
+    lines.push(`Overall Compliance,${report.executive_summary.overallCompliance}%`);
+    lines.push(`Compliance Level,${report.executive_summary.complianceLevel}`);
+    
+    return lines.join('\n');
+}
+
+function generateAuditReportPDF(sessionId) {
+    // Re-fetch the report data for PDF generation
+    fetch(`/api/sessions/${sessionId}/audit-report`, {
+        headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        const report = data.report;
+        const metadata = report.metadata;
+        const summary = report.executive_summary;
+        
+        // Create a new window with the report content
+        const printWindow = window.open('', '_blank');
+        
+        const htmlContent = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Accessibility Audit Report - ${metadata.projectName}</title>
+                <style>
+                    body { font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; color: #333; }
+                    .header { border-bottom: 3px solid #2563eb; padding-bottom: 20px; margin-bottom: 30px; }
+                    .header h1 { color: #2563eb; margin: 0; font-size: 28px; }
+                    .summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin: 20px 0; }
+                    .summary-card { border: 2px solid #e5e7eb; padding: 20px; text-align: center; border-radius: 8px; }
+                    .metric-value { font-size: 32px; font-weight: bold; color: #1f2937; margin-bottom: 5px; }
+                    .metric-label { font-size: 14px; color: #6b7280; font-weight: 500; }
+                    @media print { body { margin: 20px; } }
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                    <h1>Accessibility Audit Report</h1>
+                    <h2>${metadata.projectName}</h2>
+                    <p><strong>Session:</strong> ${metadata.sessionName}</p>
+                    <p><strong>Generated:</strong> ${new Date(metadata.generatedAt).toLocaleString()} by ${metadata.generatedBy}</p>
+                </div>
+                
+                <div class="executive-summary">
+                    <h2>Executive Summary</h2>
+                    <div class="summary-grid">
+                        <div class="summary-card">
+                            <div class="metric-value">${summary.overallCompliance}%</div>
+                            <div class="metric-label">Overall Compliance</div>
+                            <div class="metric-label">${summary.complianceLevel}</div>
+                        </div>
+                        <div class="summary-card">
+                            <div class="metric-value">${summary.passedTests}</div>
+                            <div class="metric-label">Tests Passed</div>
+                        </div>
+                        <div class="summary-card">
+                            <div class="metric-value">${summary.failedTests}</div>
+                            <div class="metric-label">Tests Failed</div>
+                        </div>
+                    </div>
+                    
+                    <h3>Testing Coverage</h3>
+                    <p><strong>Pages Tested:</strong> ${summary.pagesTested} | <strong>Criteria Tested:</strong> ${summary.criteriaTested} | <strong>Not Applicable:</strong> ${summary.notApplicableTests} | <strong>Pending:</strong> ${summary.pendingTests}</p>
+                </div>
+            </body>
+            </html>
+        `;
+        
+        printWindow.document.write(htmlContent);
+        printWindow.document.close();
+        printWindow.focus();
+        
+        // Auto-trigger print dialog
+        setTimeout(() => {
+            printWindow.print();
+        }, 500);
+    })
+    .catch(error => {
+        console.error('Error generating PDF:', error);
+        alert('Failed to generate PDF');
+    });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     console.log('🎯 Dashboard Helpers Loaded');
 });
-

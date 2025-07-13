@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audit Report Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        @media print {
+            body { margin: 20px; }
+            .no-print { display: none !important; }
+        }
+        .report-section { break-inside: avoid; }
+        .priority-critical { border-left: 4px solid #dc2626; }
+        .priority-high { border-left: 4px solid #ea580c; }
+        .priority-medium { border-left: 4px solid #ca8a04; }
+        .priority-low { border-left: 4px solid #16a34a; }
+    </style>
+</head>
+<body class="bg-gray-50">
+
+<!-- Audit Report Generator Modal Template -->
+<div id="audit-report-modal-template" style="display: none;">
+    <div class="space-y-6">
+        <div class="border-b pb-4">
+            <h2 class="text-xl font-semibold flex items-center">
+                <i class="fas fa-file-alt mr-3 text-blue-600"></i>
+                Generate Audit Report
+            </h2>
+            <p class="text-gray-600 text-sm mt-1">Create comprehensive compliance documentation with PDF export</p>
+        </div>
+        
+        <!-- Report Options -->
+        <div class="space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Report Type</label>
+                <select id="report-type-select" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    <option value="full">Full Compliance Report</option>
+                    <option value="summary">Executive Summary</option>
+                    <option value="technical">Technical Details Only</option>
+                    <option value="compliance">Compliance Assessment</option>
+                </select>
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Date Range (Optional)</label>
+                <div class="grid grid-cols-2 gap-2">
+                    <input type="date" id="start-date" class="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    <input type="date" id="end-date" class="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+            </div>
+            
+            <div class="space-y-3">
+                <label class="block text-sm font-medium text-gray-700">Include Additional Data</label>
+                <div class="grid grid-cols-2 gap-3">
+                    <label class="flex items-center p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
+                        <input type="checkbox" id="include-evidence" checked class="mr-3 text-blue-600 focus:ring-blue-500">
+                        <div>
+                            <div class="text-sm font-medium">Evidence Summary</div>
+                            <div class="text-xs text-gray-500">Screenshots, documents, videos</div>
+                        </div>
+                    </label>
+                    <label class="flex items-center p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
+                        <input type="checkbox" id="include-timeline" checked class="mr-3 text-blue-600 focus:ring-blue-500">
+                        <div>
+                            <div class="text-sm font-medium">Activity Timeline</div>
+                            <div class="text-xs text-gray-500">Daily activity breakdown</div>
+                        </div>
+                    </label>
+                    <label class="flex items-center p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
+                        <input type="checkbox" id="include-recommendations" checked class="mr-3 text-blue-600 focus:ring-blue-500">
+                        <div>
+                            <div class="text-sm font-medium">Recommendations</div>
+                            <div class="text-xs text-gray-500">AI-generated action items</div>
+                        </div>
+                    </label>
+                    <label class="flex items-center p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
+                        <input type="checkbox" id="include-compliance" checked class="mr-3 text-blue-600 focus:ring-blue-500">
+                        <div>
+                            <div class="text-sm font-medium">WCAG Breakdown</div>
+                            <div class="text-xs text-gray-500">Level A/AA/AAA analysis</div>
+                        </div>
+                    </label>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Generate Button -->
+        <div class="flex justify-end space-x-3">
+            <button onclick="closeModal()" 
+                    class="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+                Cancel
+            </button>
+            <button id="generate-report-btn" onclick="generateAuditReportFromModal()" 
+                    class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                <i class="fas fa-file-alt mr-2"></i>Generate Report
+            </button>
+        </div>
+        
+        <!-- Report Container -->
+        <div id="audit-report-container" class="mt-6" style="display: none;"></div>
+    </div>
+</div>
+
+<!-- Report Display Template -->
+<div id="report-display-template" style="display: none;">
+    <div class="bg-white rounded-lg shadow-lg overflow-hidden">
+        <!-- Report Header -->
+        <div class="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6">
+            <div class="flex justify-between items-start">
+                <div>
+                    <h1 class="text-3xl font-bold">Accessibility Audit Report</h1>
+                    <p class="text-blue-100 mt-2 text-lg" id="report-project-name"></p>
+                    <p class="text-blue-200 text-sm" id="report-session-name"></p>
+                </div>
+                <div class="text-right text-blue-100">
+                    <p class="text-sm">Generated: <span id="report-generated-date"></span></p>
+                    <p class="text-sm">By: <span id="report-generated-by"></span></p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="p-6">
+            <!-- Executive Summary -->
+            <div class="mb-8 report-section">
+                <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                    <i class="fas fa-chart-line mr-3 text-blue-600"></i>
+                    Executive Summary
+                </h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6" id="executive-summary-cards">
+                    <!-- Cards will be populated by JavaScript -->
+                </div>
+            </div>
+            
+            <!-- WCAG Level Breakdown -->
+            <div class="mb-8 report-section" id="wcag-breakdown-section">
+                <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                    <i class="fas fa-layer-group mr-3 text-purple-600"></i>
+                    WCAG Level Breakdown
+                </h2>
+                <div class="grid grid-cols-3 gap-4" id="wcag-level-cards">
+                    <!-- Cards will be populated by JavaScript -->
+                </div>
+            </div>
+            
+            <!-- Testing Statistics -->
+            <div class="mb-8 report-section">
+                <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                    <i class="fas fa-chart-bar mr-3 text-green-600"></i>
+                    Testing Coverage
+                </h2>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="testing-stats-cards">
+                    <!-- Cards will be populated by JavaScript -->
+                </div>
+            </div>
+            
+            <!-- Action Buttons -->
+            <div class="mb-8 report-section no-print">
+                <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                    <i class="fas fa-tools mr-3 text-orange-600"></i>
+                    Detailed Analysis
+                </h2>
+                <div class="flex flex-wrap gap-3" id="action-buttons">
+                    <!-- Buttons will be populated by JavaScript -->
+                </div>
+            </div>
+            
+            <!-- Export Options -->
+            <div class="border-t pt-6 no-print">
+                <h3 class="text-lg font-semibold mb-4 flex items-center">
+                    <i class="fas fa-download mr-3 text-gray-600"></i>
+                    Export Options
+                </h3>
+                <div class="flex flex-wrap gap-3">
+                    <button onclick="auditReport.exportReport('json')" 
+                            class="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors">
+                        <i class="fas fa-code mr-2"></i>Export JSON
+                    </button>
+                    <button onclick="auditReport.exportReport('csv')" 
+                            class="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors">
+                        <i class="fas fa-file-csv mr-2"></i>Export CSV
+                    </button>
+                    <button onclick="auditReport.generatePDF()" 
+                            class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors">
+                        <i class="fas fa-file-pdf mr-2"></i>Generate PDF
+                    </button>
+                    <button onclick="auditReport.emailReport()" 
+                            class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                        <i class="fas fa-envelope mr-2"></i>Email Report
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Audit Report Generation System
+window.auditReport = {
+    isGenerating: false,
+    currentReport: null,
+    currentSessionId: null,
+    reportOptions: {
+        format: 'json',
+        includeEvidence: true,
+        includeTimeline: true,
+        includeRecommendations: true,
+        includeCompliance: true,
+        reportType: 'full',
+        dateRange: null
+    },
+    
+    // Initialize audit report modal
+    init(sessionId) {
+        this.currentSessionId = sessionId;
+        const modalContent = document.getElementById('audit-report-modal-template').innerHTML;
+        
+        // Update the generate button to include session ID
+        const updatedContent = modalContent.replace(
+            'onclick="generateAuditReportFromModal()"',
+            `onclick="generateAuditReportFromModal('${sessionId}')"`
+        );
+        
+        if (typeof showModal === 'function') {
+            showModal('Audit Report Generator', updatedContent);
+        } else {
+            alert('Modal system not available');
+        }
+    },
+    
+    // Generate comprehensive audit report
+    async generateReport(sessionId, options = {}) {
+        if (this.isGenerating) return;
+        
+        this.isGenerating = true;
+        this.reportOptions = { ...this.reportOptions, ...options };
+        
+        try {
+            // Build query parameters
+            const params = new URLSearchParams();
+            Object.entries(this.reportOptions).forEach(([key, value]) => {
+                if (value !== null && value !== undefined) {
+                    params.append(key, value.toString());
+                }
+            });
+            
+            const response = await fetch(`/api/sessions/${sessionId}/audit-report?${params}`, {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            if (!response.ok) {
+                throw new Error('Failed to generate audit report');
+            }
+            
+            const data = await response.json();
+            this.currentReport = data.report;
+            
+            // Update UI
+            this.updateReportDisplay();
+            
+            return data;
+            
+        } catch (error) {
+            console.error('Error generating audit report:', error);
+            throw error;
+        } finally {
+            this.isGenerating = false;
+        }
+    },
+    
+    // Update report display in UI
+    updateReportDisplay() {
+        if (!this.currentReport) return;
+        
+        const reportContainer = document.getElementById('audit-report-container');
+        if (!reportContainer) return;
+        
+        const report = this.currentReport;
+        const metadata = report.metadata;
+        const summary = report.executive_summary;
+        
+        // Clone the template
+        const template = document.getElementById('report-display-template');
+        const reportHTML = template.innerHTML;
+        reportContainer.innerHTML = reportHTML;
+        reportContainer.style.display = 'block';
+        
+        // Populate metadata
+        document.getElementById('report-project-name').textContent = metadata.projectName;
+        document.getElementById('report-session-name').textContent = `Session: ${metadata.sessionName}`;
+        document.getElementById('report-generated-date').textContent = this.formatDateTime(metadata.generatedAt);
+        document.getElementById('report-generated-by').textContent = metadata.generatedBy;
+        
+        // Populate executive summary cards
+        this.populateExecutiveSummary(summary);
+        
+        // Populate WCAG breakdown
+        if (report.wcag_breakdown) {
+            this.populateWCAGBreakdown(report.wcag_breakdown);
+        }
+        
+        // Populate testing statistics
+        this.populateTestingStats(summary);
+        
+        // Populate action buttons
+        this.populateActionButtons(report);
+    },
+    
+    populateExecutiveSummary(summary) {
+        const container = document.getElementById('executive-summary-cards');
+        container.innerHTML = `
+            <div class="bg-gradient-to-r from-blue-50 to-blue-100 p-6 rounded-lg border border-blue-200">
+                <h3 class="font-semibold text-blue-900 mb-2 flex items-center">
+                    <i class="fas fa-percentage mr-2"></i>Overall Compliance
+                </h3>
+                <div class="text-4xl font-bold text-blue-700">${summary.overallCompliance}%</div>
+                <div class="text-sm text-blue-600 mt-1">${summary.complianceLevel}</div>
+            </div>
+            <div class="bg-gradient-to-r from-green-50 to-green-100 p-6 rounded-lg border border-green-200">
+                <h3 class="font-semibold text-green-900 mb-2 flex items-center">
+                    <i class="fas fa-check-circle mr-2"></i>Tests Passed
+                </h3>
+                <div class="text-4xl font-bold text-green-700">${summary.passedTests}</div>
+                <div class="text-sm text-green-600 mt-1">of ${summary.totalTests} total</div>
+            </div>
+            <div class="bg-gradient-to-r from-red-50 to-red-100 p-6 rounded-lg border border-red-200">
+                <h3 class="font-semibold text-red-900 mb-2 flex items-center">
+                    <i class="fas fa-exclamation-triangle mr-2"></i>Tests Failed
+                </h3>
+                <div class="text-4xl font-bold text-red-700">${summary.failedTests}</div>
+                <div class="text-sm text-red-600 mt-1">require attention</div>
+            </div>
+        `;
+    },
+    
+    populateWCAGBreakdown(wcagBreakdown) {
+        const container = document.getElementById('wcag-level-cards');
+        container.innerHTML = `
+            <div class="bg-green-50 p-4 rounded-lg text-center border border-green-200">
+                <div class="text-3xl font-bold text-green-700">${wcagBreakdown.levelA}</div>
+                <div class="text-sm text-green-600 mt-1">Level A Tests</div>
+                <div class="text-xs text-gray-500 mt-1">Basic accessibility</div>
+            </div>
+            <div class="bg-blue-50 p-4 rounded-lg text-center border border-blue-200">
+                <div class="text-3xl font-bold text-blue-700">${wcagBreakdown.levelAA}</div>
+                <div class="text-sm text-blue-600 mt-1">Level AA Tests</div>
+                <div class="text-xs text-gray-500 mt-1">Standard compliance</div>
+            </div>
+            <div class="bg-purple-50 p-4 rounded-lg text-center border border-purple-200">
+                <div class="text-3xl font-bold text-purple-700">${wcagBreakdown.levelAAA}</div>
+                <div class="text-sm text-purple-600 mt-1">Level AAA Tests</div>
+                <div class="text-xs text-gray-500 mt-1">Enhanced accessibility</div>
+            </div>
+        `;
+    },
+    
+    populateTestingStats(summary) {
+        const container = document.getElementById('testing-stats-cards');
+        container.innerHTML = `
+            <div class="text-center p-4 bg-gray-50 rounded-lg border">
+                <div class="text-2xl font-bold text-gray-700">${summary.pagesTested}</div>
+                <div class="text-sm text-gray-600 mt-1">Pages Tested</div>
+            </div>
+            <div class="text-center p-4 bg-gray-50 rounded-lg border">
+                <div class="text-2xl font-bold text-gray-700">${summary.criteriaTested}</div>
+                <div class="text-sm text-gray-600 mt-1">Criteria Tested</div>
+            </div>
+            <div class="text-center p-4 bg-gray-50 rounded-lg border">
+                <div class="text-2xl font-bold text-gray-700">${summary.notApplicableTests}</div>
+                <div class="text-sm text-gray-600 mt-1">Not Applicable</div>
+            </div>
+            <div class="text-center p-4 bg-gray-50 rounded-lg border">
+                <div class="text-2xl font-bold text-gray-700">${summary.pendingTests}</div>
+                <div class="text-sm text-gray-600 mt-1">Pending</div>
+            </div>
+        `;
+    },
+    
+    populateActionButtons(report) {
+        const container = document.getElementById('action-buttons');
+        let buttons = [];
+        
+        if (report.compliance_details?.length > 0) {
+            buttons.push(`
+                <button onclick="auditReport.showComplianceDetails()" 
+                        class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                    <i class="fas fa-chart-bar mr-2"></i>View Compliance Details
+                </button>
+            `);
+        }
+        
+        if (report.recommendations?.length > 0) {
+            buttons.push(`
+                <button onclick="auditReport.showRecommendations()" 
+                        class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors">
+                    <i class="fas fa-lightbulb mr-2"></i>View Recommendations
+                </button>
+            `);
+        }
+        
+        if (report.timeline_data?.length > 0) {
+            buttons.push(`
+                <button onclick="auditReport.showTimelineData()" 
+                        class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors">
+                    <i class="fas fa-clock mr-2"></i>View Timeline
+                </button>
+            `);
+        }
+        
+        if (report.evidence_summary) {
+            buttons.push(`
+                <button onclick="auditReport.showEvidenceSummary()" 
+                        class="bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 transition-colors">
+                    <i class="fas fa-paperclip mr-2"></i>View Evidence
+                </button>
+            `);
+        }
+        
+        container.innerHTML = buttons.join('');
+    },
+    
+    // Show compliance details modal
+    showComplianceDetails() {
+        if (!this.currentReport?.compliance_details) return;
+        
+        const details = this.currentReport.compliance_details;
+        const modalContent = `
+            <div class="space-y-4">
+                <h3 class="text-lg font-semibold flex items-center">
+                    <i class="fas fa-chart-bar mr-3 text-blue-600"></i>
+                    WCAG Compliance Details
+                </h3>
+                <div class="max-h-96 overflow-y-auto">
+                    <table class="w-full text-sm">
+                        <thead class="bg-gray-50 sticky top-0">
+                            <tr>
+                                <th class="px-3 py-2 text-left">Level</th>
+                                <th class="px-3 py-2 text-left">Criterion</th>
+                                <th class="px-3 py-2 text-center">Total</th>
+                                <th class="px-3 py-2 text-center">Passed</th>
+                                <th class="px-3 py-2 text-center">Failed</th>
+                                <th class="px-3 py-2 text-center">N/A</th>
+                                <th class="px-3 py-2 text-center">Compliance %</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${details.map(detail => `
+                                <tr class="border-b hover:bg-gray-50">
+                                    <td class="px-3 py-2">
+                                        <span class="px-2 py-1 text-xs rounded ${this.getLevelBadgeClass(detail.level)}">
+                                            ${detail.level}
+                                        </span>
+                                    </td>
+                                    <td class="px-3 py-2 font-mono text-xs">${detail.criterion_id}</td>
+                                    <td class="px-3 py-2 text-center">${detail.total_tests}</td>
+                                    <td class="px-3 py-2 text-center text-green-600 font-semibold">${detail.passed}</td>
+                                    <td class="px-3 py-2 text-center text-red-600 font-semibold">${detail.failed}</td>
+                                    <td class="px-3 py-2 text-center text-gray-500">${detail.not_applicable}</td>
+                                    <td class="px-3 py-2 text-center">
+                                        <span class="font-semibold ${detail.compliance_percentage >= 80 ? 'text-green-600' : detail.compliance_percentage >= 60 ? 'text-yellow-600' : 'text-red-600'}">
+                                            ${detail.compliance_percentage || 'N/A'}%
+                                        </span>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+        
+        this.showModal('Compliance Details', modalContent);
+    },
+    
+    // Show recommendations modal
+    showRecommendations() {
+        if (!this.currentReport?.recommendations) return;
+        
+        const recommendations = this.currentReport.recommendations;
+        const modalContent = `
+            <div class="space-y-4">
+                <h3 class="text-lg font-semibold flex items-center">
+                    <i class="fas fa-lightbulb mr-3 text-green-600"></i>
+                    Recommendations
+                </h3>
+                <div class="max-h-96 overflow-y-auto space-y-4">
+                    ${recommendations.map(rec => `
+                        <div class="border rounded-lg p-4 priority-${rec.priority}">
+                            <div class="flex items-start justify-between mb-2">
+                                <h4 class="font-semibold text-gray-900">${rec.title}</h4>
+                                <span class="px-2 py-1 text-xs rounded ${this.getPriorityBadgeClass(rec.priority)}">
+                                    ${rec.priority.toUpperCase()}
+                                </span>
+                            </div>
+                            <p class="text-gray-600 text-sm mb-3">${rec.description}</p>
+                            <div class="space-y-1">
+                                <p class="text-sm font-medium text-gray-700">Action Items:</p>
+                                <ul class="list-disc list-inside text-sm text-gray-600 space-y-1">
+                                    ${rec.actionItems.map(item => `<li>${item}</li>`).join('')}
+                                </ul>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+        
+        this.showModal('Recommendations', modalContent);
+    },
+    
+    // Show timeline data modal
+    showTimelineData() {
+        if (!this.currentReport?.timeline_data) return;
+        
+        const timeline = this.currentReport.timeline_data;
+        const modalContent = `
+            <div class="space-y-4">
+                <h3 class="text-lg font-semibold flex items-center">
+                    <i class="fas fa-clock mr-3 text-purple-600"></i>
+                    Activity Timeline
+                </h3>
+                <div class="max-h-96 overflow-y-auto">
+                    <table class="w-full text-sm">
+                        <thead class="bg-gray-50 sticky top-0">
+                            <tr>
+                                <th class="px-3 py-2 text-left">Date</th>
+                                <th class="px-3 py-2 text-center">Total Activities</th>
+                                <th class="px-3 py-2 text-center">Status Changes</th>
+                                <th class="px-3 py-2 text-center">Evidence Uploads</th>
+                                <th class="px-3 py-2 text-center">Comments</th>
+                                <th class="px-3 py-2 text-center">Active Users</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${timeline.map(day => `
+                                <tr class="border-b hover:bg-gray-50">
+                                    <td class="px-3 py-2 font-medium">${this.formatDate(day.activity_date)}</td>
+                                    <td class="px-3 py-2 text-center font-semibold">${day.total_activities}</td>
+                                    <td class="px-3 py-2 text-center">${day.status_changes}</td>
+                                    <td class="px-3 py-2 text-center">${day.evidence_uploads}</td>
+                                    <td class="px-3 py-2 text-center">${day.comments_added}</td>
+                                    <td class="px-3 py-2 text-center">${day.active_users}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+        
+        this.showModal('Activity Timeline', modalContent);
+    },
+    
+    // Show evidence summary modal
+    showEvidenceSummary() {
+        if (!this.currentReport?.evidence_summary) return;
+        
+        const evidence = this.currentReport.evidence_summary;
+        const modalContent = `
+            <div class="space-y-4">
+                <h3 class="text-lg font-semibold flex items-center">
+                    <i class="fas fa-paperclip mr-3 text-orange-600"></i>
+                    Evidence Summary
+                </h3>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-blue-50 p-4 rounded-lg text-center border border-blue-200">
+                        <div class="text-3xl font-bold text-blue-700">${evidence.total_evidence}</div>
+                        <div class="text-sm text-blue-600 mt-1">Total Evidence Items</div>
+                    </div>
+                    <div class="bg-green-50 p-4 rounded-lg text-center border border-green-200">
+                        <div class="text-3xl font-bold text-green-700">${evidence.uploaded_files}</div>
+                        <div class="text-sm text-green-600 mt-1">Uploaded Files</div>
+                    </div>
+                    <div class="bg-yellow-50 p-4 rounded-lg text-center border border-yellow-200">
+                        <div class="text-3xl font-bold text-yellow-700">${evidence.screenshots}</div>
+                        <div class="text-sm text-yellow-600 mt-1">Screenshots</div>
+                    </div>
+                    <div class="bg-purple-50 p-4 rounded-lg text-center border border-purple-200">
+                        <div class="text-3xl font-bold text-purple-700">${evidence.documents}</div>
+                        <div class="text-sm text-purple-600 mt-1">Documents</div>
+                    </div>
+                </div>
+                ${evidence.videos > 0 ? `
+                    <div class="bg-red-50 p-4 rounded-lg text-center border border-red-200">
+                        <div class="text-3xl font-bold text-red-700">${evidence.videos}</div>
+                        <div class="text-sm text-red-600 mt-1">Videos</div>
+                    </div>
+                ` : ''}
+            </div>
+        `;
+        
+        this.showModal('Evidence Summary', modalContent);
+    },
+    
+    // Export report in different formats
+    async exportReport(format) {
+        if (!this.currentReport) return;
+        
+        try {
+            let content, filename, mimeType;
+            
+            if (format === 'json') {
+                content = JSON.stringify(this.currentReport, null, 2);
+                filename = `audit-report-${this.currentReport.metadata.sessionId}-${Date.now()}.json`;
+                mimeType = 'application/json';
+            } else if (format === 'csv') {
+                content = this.generateCSVReport();
+                filename = `audit-report-${this.currentReport.metadata.sessionId}-${Date.now()}.csv`;
+                mimeType = 'text/csv';
+            }
+            
+            // Create and download file
+            const blob = new Blob([content], { type: mimeType });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+        } catch (error) {
+            console.error('Error exporting report:', error);
+            alert('Failed to export report');
+        }
+    },
+    
+    // Generate CSV format report
+    generateCSVReport() {
+        const report = this.currentReport;
+        const lines = [];
+        
+        // Header
+        lines.push('Accessibility Audit Report');
+        lines.push(`Project: ${report.metadata.projectName}`);
+        lines.push(`Session: ${report.metadata.sessionName}`);
+        lines.push(`Generated: ${this.formatDateTime(report.metadata.generatedAt)}`);
+        lines.push('');
+        
+        // Executive Summary
+        lines.push('Executive Summary');
+        lines.push('Metric,Value');
+        lines.push(`Total Tests,${report.executive_summary.totalTests}`);
+        lines.push(`Passed Tests,${report.executive_summary.passedTests}`);
+        lines.push(`Failed Tests,${report.executive_summary.failedTests}`);
+        lines.push(`Not Applicable Tests,${report.executive_summary.notApplicableTests}`);
+        lines.push(`Pending Tests,${report.executive_summary.pendingTests}`);
+        lines.push(`Overall Compliance,${report.executive_summary.overallCompliance}%`);
+        lines.push(`Compliance Level,${report.executive_summary.complianceLevel}`);
+        lines.push('');
+        
+        // Compliance Details
+        if (report.compliance_details?.length > 0) {
+            lines.push('Compliance Details');
+            lines.push('Level,Criterion,Total Tests,Passed,Failed,Not Applicable,Compliance %');
+            report.compliance_details.forEach(detail => {
+                lines.push(`${detail.level},${detail.criterion_id},${detail.total_tests},${detail.passed},${detail.failed},${detail.not_applicable},${detail.compliance_percentage || 'N/A'}`);
+            });
+            lines.push('');
+        }
+        
+        return lines.join('\n');
+    },
+    
+    // Generate PDF report
+    async generatePDF() {
+        if (!this.currentReport) return;
+        
+        try {
+            // Create a new window with the report content
+            const printWindow = window.open('', '_blank');
+            const htmlContent = this.generatePrintableHTML();
+            
+            printWindow.document.write(htmlContent);
+            printWindow.document.close();
+            printWindow.focus();
+            
+            // Auto-trigger print dialog
+            setTimeout(() => {
+                printWindow.print();
+            }, 500);
+            
+        } catch (error) {
+            console.error('Error generating PDF:', error);
+            alert('Failed to generate PDF');
+        }
+    },
+    
+    // Generate printable HTML for PDF
+    generatePrintableHTML() {
+        const report = this.currentReport;
+        const metadata = report.metadata;
+        const summary = report.executive_summary;
+        
+        return `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Accessibility Audit Report - ${metadata.projectName}</title>
+                <style>
+                    body { font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; color: #333; }
+                    .header { border-bottom: 3px solid #2563eb; padding-bottom: 20px; margin-bottom: 30px; }
+                    .header h1 { color: #2563eb; margin: 0; font-size: 28px; }
+                    .header h2 { color: #1e40af; margin: 5px 0; font-size: 20px; }
+                    .summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin: 20px 0; }
+                    .summary-card { border: 2px solid #e5e7eb; padding: 20px; text-align: center; border-radius: 8px; }
+                    .metric-value { font-size: 32px; font-weight: bold; color: #1f2937; margin-bottom: 5px; }
+                    .metric-label { font-size: 14px; color: #6b7280; font-weight: 500; }
+                    .compliance-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+                    .compliance-table th, .compliance-table td { border: 1px solid #d1d5db; padding: 12px 8px; text-align: left; }
+                    .compliance-table th { background-color: #f9fafb; font-weight: 600; }
+                    .compliance-table tr:nth-child(even) { background-color: #f9fafb; }
+                    .recommendations { margin: 30px 0; }
+                    .recommendation { border: 1px solid #d1d5db; margin: 15px 0; padding: 20px; border-radius: 8px; }
+                    .priority-critical { border-left: 6px solid #dc2626; }
+                    .priority-high { border-left: 6px solid #ea580c; }
+                    .priority-medium { border-left: 6px solid #ca8a04; }
+                    .priority-low { border-left: 6px solid #16a34a; }
+                    .section-title { color: #1f2937; font-size: 20px; font-weight: 600; margin: 30px 0 15px 0; border-bottom: 2px solid #e5e7eb; padding-bottom: 5px; }
+                    @media print { 
+                        body { margin: 20px; } 
+                        .page-break { page-break-before: always; }
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                    <h1>Accessibility Audit Report</h1>
+                    <h2>${metadata.projectName}</h2>
+                    <p><strong>Session:</strong> ${metadata.sessionName}</p>
+                    <p><strong>Generated:</strong> ${this.formatDateTime(metadata.generatedAt)} by ${metadata.generatedBy}</p>
+                </div>
+                
+                <div class="executive-summary">
+                    <h2 class="section-title">Executive Summary</h2>
+                    <div class="summary-grid">
+                        <div class="summary-card">
+                            <div class="metric-value">${summary.overallCompliance}%</div>
+                            <div class="metric-label">Overall Compliance</div>
+                            <div class="metric-label">${summary.complianceLevel}</div>
+                        </div>
+                        <div class="summary-card">
+                            <div class="metric-value">${summary.passedTests}</div>
+                            <div class="metric-label">Tests Passed</div>
+                        </div>
+                        <div class="summary-card">
+                            <div class="metric-value">${summary.failedTests}</div>
+                            <div class="metric-label">Tests Failed</div>
+                        </div>
+                    </div>
+                    
+                    <h3>Testing Coverage</h3>
+                    <p><strong>Pages Tested:</strong> ${summary.pagesTested} | <strong>Criteria Tested:</strong> ${summary.criteriaTested} | <strong>Not Applicable:</strong> ${summary.notApplicableTests} | <strong>Pending:</strong> ${summary.pendingTests}</p>
+                </div>
+                
+                ${report.compliance_details?.length > 0 ? `
+                    <div class="compliance-details page-break">
+                        <h2 class="section-title">WCAG Compliance Details</h2>
+                        <table class="compliance-table">
+                            <thead>
+                                <tr>
+                                    <th>Level</th>
+                                    <th>Criterion</th>
+                                    <th>Total</th>
+                                    <th>Passed</th>
+                                    <th>Failed</th>
+                                    <th>N/A</th>
+                                    <th>Compliance %</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${report.compliance_details.map(detail => `
+                                    <tr>
+                                        <td><strong>${detail.level}</strong></td>
+                                        <td>${detail.criterion_id}</td>
+                                        <td>${detail.total_tests}</td>
+                                        <td>${detail.passed}</td>
+                                        <td>${detail.failed}</td>
+                                        <td>${detail.not_applicable}</td>
+                                        <td><strong>${detail.compliance_percentage || 'N/A'}%</strong></td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                ` : ''}
+                
+                ${report.recommendations?.length > 0 ? `
+                    <div class="recommendations page-break">
+                        <h2 class="section-title">Recommendations</h2>
+                        ${report.recommendations.map(rec => `
+                            <div class="recommendation priority-${rec.priority}">
+                                <h3>${rec.title} <span style="font-size: 12px; background: #f3f4f6; padding: 2px 8px; border-radius: 4px;">${rec.priority.toUpperCase()}</span></h3>
+                                <p>${rec.description}</p>
+                                <h4>Action Items:</h4>
+                                <ul>
+                                    ${rec.actionItems.map(item => `<li>${item}</li>`).join('')}
+                                </ul>
+                            </div>
+                        `).join('')}
+                    </div>
+                ` : ''}
+                
+                <div class="footer" style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #e5e7eb; text-align: center; color: #6b7280; font-size: 12px;">
+                    <p>This report was generated by the Accessibility Testing Platform on ${this.formatDateTime(metadata.generatedAt)}</p>
+                </div>
+            </body>
+            </html>
+        `;
+    },
+    
+    // Email report functionality
+    async emailReport() {
+        if (!this.currentReport) return;
+        
+        const emailContent = `
+            Subject: Accessibility Audit Report - ${this.currentReport.metadata.projectName}
+            
+            Hello,
+            
+            Please find the accessibility audit report for ${this.currentReport.metadata.projectName} attached.
+            
+            Summary:
+            - Overall Compliance: ${this.currentReport.executive_summary.overallCompliance}%
+            - Tests Passed: ${this.currentReport.executive_summary.passedTests}
+            - Tests Failed: ${this.currentReport.executive_summary.failedTests}
+            - Compliance Level: ${this.currentReport.executive_summary.complianceLevel}
+            
+            Generated on: ${this.formatDateTime(this.currentReport.metadata.generatedAt)}
+            
+            Best regards,
+            Accessibility Testing Platform
+        `;
+        
+        // Create mailto link
+        const mailto = `mailto:?subject=Accessibility Audit Report - ${encodeURIComponent(this.currentReport.metadata.projectName)}&body=${encodeURIComponent(emailContent)}`;
+        window.location.href = mailto;
+    },
+    
+    // Utility functions
+    formatDateTime(dateString) {
+        return new Date(dateString).toLocaleString();
+    },
+    
+    formatDate(dateString) {
+        return new Date(dateString).toLocaleDateString();
+    },
+    
+    getLevelBadgeClass(level) {
+        const classes = {
+            'A': 'bg-green-100 text-green-800',
+            'AA': 'bg-blue-100 text-blue-800',
+            'AAA': 'bg-purple-100 text-purple-800'
+        };
+        return classes[level] || 'bg-gray-100 text-gray-800';
+    },
+    
+    getPriorityBadgeClass(priority) {
+        const classes = {
+            'critical': 'bg-red-100 text-red-800',
+            'high': 'bg-orange-100 text-orange-800',
+            'medium': 'bg-yellow-100 text-yellow-800',
+            'low': 'bg-green-100 text-green-800'
+        };
+        return classes[priority] || 'bg-gray-100 text-gray-800';
+    },
+    
+    showModal(title, content) {
+        // Use existing modal system
+        if (typeof showModal === 'function') {
+            showModal(title, content);
+        } else {
+            alert('Modal system not available');
+        }
+    }
+};
+
+// Function to show audit report interface
+function showAuditReport(sessionId) {
+    auditReport.init(sessionId);
+}
+
+// Function to generate report from modal
+async function generateAuditReportFromModal(sessionId) {
+    try {
+        // Show loading
+        const button = document.getElementById('generate-report-btn');
+        const originalText = button.innerHTML;
+        button.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Generating...';
+        button.disabled = true;
+        
+        // Get options from form
+        const reportType = document.getElementById('report-type-select').value;
+        const startDate = document.getElementById('start-date').value;
+        const endDate = document.getElementById('end-date').value;
+        const includeEvidence = document.getElementById('include-evidence').checked;
+        const includeTimeline = document.getElementById('include-timeline').checked;
+        const includeRecommendations = document.getElementById('include-recommendations').checked;
+        const includeCompliance = document.getElementById('include-compliance').checked;
+        
+        const options = {
+            reportType,
+            includeEvidence,
+            includeTimeline,
+            includeRecommendations,
+            includeCompliance
+        };
+        
+        if (startDate && endDate) {
+            options.dateRange = `${startDate},${endDate}`;
+        }
+        
+        // Generate report
+        await auditReport.generateReport(sessionId, options);
+        
+        // Restore button
+        button.innerHTML = originalText;
+        button.disabled = false;
+        
+    } catch (error) {
+        console.error('Error generating report:', error);
+        alert('Failed to generate audit report');
+        
+        // Restore button
+        const button = document.getElementById('generate-report-btn');
+        button.innerHTML = '<i class="fas fa-file-alt mr-2"></i>Generate Report';
+        button.disabled = false;
+    }
+}
+</script>
+
+</body>
+</html> 

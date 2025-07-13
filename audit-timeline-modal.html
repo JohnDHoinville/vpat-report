@@ -1,0 +1,293 @@
+<!-- Audit Timeline Modal -->
+<div id="auditTimelineModal" 
+     x-show="auditTimeline.sessionId" 
+     x-transition:enter="transition ease-out duration-300"
+     x-transition:enter-start="opacity-0"
+     x-transition:enter-end="opacity-100"
+     x-transition:leave="transition ease-in duration-200"
+     x-transition:leave-start="opacity-100"
+     x-transition:leave-end="opacity-0"
+     class="fixed inset-0 bg-black bg-opacity-50 z-70 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-hidden">
+        <div class="flex flex-col h-full">
+            <!-- Modal Header -->
+            <div class="flex items-center justify-between p-6 border-b border-gray-200">
+                <div class="flex items-center">
+                    <div class="p-2 bg-blue-100 rounded-lg mr-4">
+                        <i class="fas fa-history text-blue-600 text-xl"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-xl font-semibold text-gray-900">Audit Timeline</h3>
+                        <p class="text-sm text-gray-600" x-text="auditTimeline.sessionName"></p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-3">
+                    <!-- View Mode Toggle -->
+                    <div class="flex bg-gray-100 rounded-lg p-1">
+                        <button @click="auditTimeline.viewMode = 'timeline'" 
+                                :class="auditTimeline.viewMode === 'timeline' ? 'bg-white shadow-sm' : ''"
+                                class="px-3 py-1 text-sm rounded-md transition-colors">
+                            <i class="fas fa-stream mr-1"></i>Timeline
+                        </button>
+                        <button @click="auditTimeline.viewMode = 'table'" 
+                                :class="auditTimeline.viewMode === 'table' ? 'bg-white shadow-sm' : ''"
+                                class="px-3 py-1 text-sm rounded-md transition-colors">
+                            <i class="fas fa-table mr-1"></i>Table
+                        </button>
+                    </div>
+                    
+                    <!-- Export Button -->
+                    <div class="relative" x-data="{ open: false }">
+                        <button @click="open = !open" 
+                                class="px-3 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors">
+                            <i class="fas fa-download mr-1"></i>Export
+                        </button>
+                        <div x-show="open" @click.away="open = false"
+                             x-transition:enter="transition ease-out duration-100"
+                             x-transition:enter-start="transform opacity-0 scale-95"
+                             x-transition:enter-end="transform opacity-100 scale-100"
+                             x-transition:leave="transition ease-in duration-75"
+                             x-transition:leave-start="transform opacity-100 scale-100"
+                             x-transition:leave-end="transform opacity-0 scale-95"
+                             class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10">
+                            <button @click="exportAuditTimeline('csv'); open = false" 
+                                    class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                <i class="fas fa-file-csv mr-2"></i>Export as CSV
+                            </button>
+                            <button @click="exportAuditTimeline('json'); open = false" 
+                                    class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                <i class="fas fa-file-code mr-2"></i>Export as JSON
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <button @click="closeAuditTimeline()" 
+                            class="text-gray-400 hover:text-gray-600 transition-colors">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Filters -->
+            <div class="p-4 bg-gray-50 border-b border-gray-200">
+                <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700 mb-1">Start Date</label>
+                        <input type="datetime-local" 
+                               x-model="auditTimeline.filters.start_date"
+                               class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700 mb-1">End Date</label>
+                        <input type="datetime-local" 
+                               x-model="auditTimeline.filters.end_date"
+                               class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700 mb-1">Action Type</label>
+                        <select x-model="auditTimeline.filters.action_type"
+                                class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="">All Actions</option>
+                            <option value="created">Created</option>
+                            <option value="assignment">Assignment</option>
+                            <option value="status_change">Status Change</option>
+                            <option value="note_updated">Notes Updated</option>
+                            <option value="evidence_uploaded">Evidence Added</option>
+                            <option value="review_requested">Review Requested</option>
+                            <option value="reviewed">Reviewed</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700 mb-1">User</label>
+                        <input type="text" 
+                               x-model="auditTimeline.filters.user_id"
+                               placeholder="User ID or name"
+                               class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div class="flex items-end space-x-2">
+                        <button @click="applyAuditTimelineFilters()" 
+                                class="px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors">
+                            <i class="fas fa-filter mr-1"></i>Apply
+                        </button>
+                        <button @click="resetAuditTimelineFilters(); loadAuditTimeline()" 
+                                class="px-4 py-2 bg-gray-600 text-white text-sm rounded-md hover:bg-gray-700 transition-colors">
+                            <i class="fas fa-times mr-1"></i>Clear
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Statistics Summary -->
+            <div x-show="auditTimeline.statistics" class="p-4 bg-blue-50 border-b border-gray-200">
+                <div class="grid grid-cols-2 md:grid-cols-6 gap-4 text-center">
+                    <div>
+                        <div class="text-2xl font-bold text-blue-600" x-text="auditTimeline.statistics?.total_actions || 0"></div>
+                        <div class="text-xs text-gray-600">Total Actions</div>
+                    </div>
+                    <div>
+                        <div class="text-2xl font-bold text-purple-600" x-text="auditTimeline.statistics?.unique_users || 0"></div>
+                        <div class="text-xs text-gray-600">Active Users</div>
+                    </div>
+                    <div>
+                        <div class="text-2xl font-bold text-green-600" x-text="auditTimeline.statistics?.tests_affected || 0"></div>
+                        <div class="text-xs text-gray-600">Tests Affected</div>
+                    </div>
+                    <div>
+                        <div class="text-2xl font-bold text-orange-600" x-text="auditTimeline.statistics?.active_days || 0"></div>
+                        <div class="text-xs text-gray-600">Active Days</div>
+                    </div>
+                    <div>
+                        <div class="text-2xl font-bold text-red-600" x-text="auditTimeline.statistics?.status_changes || 0"></div>
+                        <div class="text-xs text-gray-600">Status Changes</div>
+                    </div>
+                    <div>
+                        <div class="text-2xl font-bold text-indigo-600" x-text="auditTimeline.statistics?.evidence_uploads || 0"></div>
+                        <div class="text-xs text-gray-600">Evidence Uploads</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Timeline Content -->
+            <div class="flex-1 overflow-y-auto p-6">
+                <!-- Loading State -->
+                <div x-show="auditTimeline.loading" class="flex items-center justify-center py-12">
+                    <div class="flex items-center space-x-3">
+                        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                        <span class="text-gray-600">Loading audit timeline...</span>
+                    </div>
+                </div>
+
+                <!-- Error State -->
+                <div x-show="auditTimeline.error" class="text-center py-12">
+                    <div class="text-red-600 mb-4">
+                        <i class="fas fa-exclamation-triangle text-4xl mb-2"></i>
+                        <p class="text-lg font-medium">Error Loading Timeline</p>
+                        <p class="text-sm" x-text="auditTimeline.error"></p>
+                    </div>
+                    <button @click="loadAuditTimeline()" 
+                            class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
+                        <i class="fas fa-redo mr-2"></i>Retry
+                    </button>
+                </div>
+
+                <!-- Empty State -->
+                <div x-show="!auditTimeline.loading && !auditTimeline.error && auditTimeline.timeline.length === 0" 
+                     class="text-center py-12">
+                    <div class="text-gray-400 mb-4">
+                        <i class="fas fa-history text-4xl mb-2"></i>
+                        <p class="text-lg font-medium">No Timeline Data</p>
+                        <p class="text-sm">No audit activities found for the selected filters.</p>
+                    </div>
+                </div>
+
+                <!-- Timeline View -->
+                <div x-show="auditTimeline.viewMode === 'timeline' && auditTimeline.timeline.length > 0">
+                    <template x-for="(group, date) in getGroupedTimeline()" :key="date">
+                        <div class="mb-8">
+                            <!-- Date Header -->
+                            <div class="flex items-center mb-4">
+                                <div class="bg-gray-200 text-gray-700 px-3 py-1 rounded-full text-sm font-medium">
+                                    <span x-text="formatGroupHeader(date)"></span>
+                                </div>
+                                <div class="flex-1 h-px bg-gray-200 ml-4"></div>
+                            </div>
+
+                            <!-- Timeline Items -->
+                            <div class="space-y-4">
+                                <template x-for="item in group" :key="item.audit_id">
+                                    <div class="flex items-start space-x-4">
+                                        <!-- Timeline Icon -->
+                                        <div class="flex-shrink-0">
+                                            <div :class="getActionTypeColorClass(item.action_type)" 
+                                                 class="w-10 h-10 rounded-full flex items-center justify-center text-sm">
+                                                <span x-text="getActionTypeIcon(item.action_type)"></span>
+                                            </div>
+                                        </div>
+
+                                        <!-- Timeline Content -->
+                                        <div class="flex-1 min-w-0">
+                                            <div class="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                                                <!-- Header -->
+                                                <div class="flex items-center justify-between mb-2">
+                                                    <div class="flex items-center space-x-2">
+                                                        <span class="font-medium text-gray-900" x-text="getActionTypeDisplayText(item.action_type)"></span>
+                                                        <span class="text-sm text-gray-500">by</span>
+                                                        <span class="text-sm font-medium text-blue-600" x-text="item.username || 'System'"></span>
+                                                    </div>
+                                                    <div class="flex items-center space-x-2">
+                                                        <span class="text-xs text-gray-500" x-text="formatRelativeTime(item.timestamp)"></span>
+                                                        <button @click="toggleTimelineItem(item.audit_id)" 
+                                                                class="text-gray-400 hover:text-gray-600">
+                                                            <i :class="isTimelineItemExpanded(item.audit_id) ? 'fas fa-chevron-up' : 'fas fa-chevron-down'"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
+
+                                                <!-- Description -->
+                                                <p class="text-sm text-gray-700 mb-2" x-text="item.change_description"></p>
+
+                                                <!-- Test Context -->
+                                                <div class="flex items-center space-x-4 text-xs text-gray-500">
+                                                    <span x-show="item.criterion_number">
+                                                        <i class="fas fa-check-circle mr-1"></i>
+                                                        <span x-text="item.criterion_number"></span>
+                                                    </span>
+                                                    <span x-show="item.page_url">
+                                                        <i class="fas fa-link mr-1"></i>
+                                                        <span x-text="item.page_url.length > 40 ? item.page_url.substring(0, 40) + '...' : item.page_url"></span>
+                                                    </span>
+                                                </div>
+
+                                                <!-- Expanded Details -->
+                                                <div x-show="isTimelineItemExpanded(item.audit_id)" 
+                                                     x-transition:enter="transition ease-out duration-200"
+                                                     x-transition:enter-start="opacity-0 transform scale-95"
+                                                     x-transition:enter-end="opacity-100 transform scale-100"
+                                                     class="mt-3 pt-3 border-t border-gray-100">
+                                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                                                        <div x-show="item.old_value">
+                                                            <label class="block font-medium text-gray-700 mb-1">Previous Value:</label>
+                                                            <pre class="bg-red-50 p-2 rounded border text-red-800 overflow-x-auto" x-text="JSON.stringify(item.old_value, null, 2)"></pre>
+                                                        </div>
+                                                        <div x-show="item.new_value">
+                                                            <label class="block font-medium text-gray-700 mb-1">New Value:</label>
+                                                            <pre class="bg-green-50 p-2 rounded border text-green-800 overflow-x-auto" x-text="JSON.stringify(item.new_value, null, 2)"></pre>
+                                                        </div>
+                                                    </div>
+                                                    <div class="mt-3 flex items-center justify-between">
+                                                        <div class="text-xs text-gray-500">
+                                                            <span>IP: </span><span x-text="item.ip_address || 'N/A'"></span>
+                                                        </div>
+                                                        <button @click="viewTimelineItemDetails(item)" 
+                                                                class="text-blue-600 hover:text-blue-800 text-xs">
+                                                            View Full Details
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+
+                <!-- Load More Button -->
+                <div x-show="auditTimeline.pagination.has_more && auditTimeline.timeline.length > 0" 
+                     class="mt-6 text-center">
+                    <button @click="loadMoreTimelineItems()" 
+                            :disabled="auditTimeline.loading"
+                            class="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:bg-gray-400">
+                        <span x-show="!auditTimeline.loading">
+                            <i class="fas fa-chevron-down mr-2"></i>Load More
+                        </span>
+                        <span x-show="auditTimeline.loading">
+                            <i class="fas fa-spinner fa-spin mr-2"></i>Loading...
+                        </span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div> 

@@ -1,0 +1,190 @@
+<!-- Activity Feed Panel -->
+<div x-show="activityFeed.isOpen" 
+     x-transition:enter="transition ease-out duration-300 transform"
+     x-transition:enter-start="translate-x-full"
+     x-transition:enter-end="translate-x-0"
+     x-transition:leave="transition ease-in duration-200 transform"
+     x-transition:leave-start="translate-x-0"
+     x-transition:leave-end="translate-x-full"
+     class="fixed right-0 top-0 h-full w-96 bg-white shadow-xl z-50 flex flex-col border-l border-gray-200">
+    
+    <!-- Header -->
+    <div class="flex items-center justify-between p-4 border-b border-gray-200 bg-gray-50">
+        <div class="flex items-center">
+            <div class="p-2 bg-blue-100 rounded-lg mr-3">
+                <i class="fas fa-stream text-blue-600"></i>
+            </div>
+            <div>
+                <h3 class="font-semibold text-gray-900">Activity Feed</h3>
+                <p class="text-xs text-gray-600" x-text="activityFeed.sessionName"></p>
+            </div>
+        </div>
+        <div class="flex items-center space-x-2">
+            <!-- Auto-refresh toggle -->
+            <button @click="toggleActivityFeedAutoRefresh()"
+                    :class="activityFeed.autoRefresh ? 'text-green-600' : 'text-gray-400'"
+                    class="p-1 hover:bg-gray-200 rounded"
+                    :title="activityFeed.autoRefresh ? 'Auto-refresh enabled' : 'Auto-refresh disabled'">
+                <i class="fas fa-sync-alt text-sm"></i>
+            </button>
+            
+            <!-- Close button -->
+            <button @click="closeActivityFeed()" 
+                    class="text-gray-400 hover:text-gray-600 p-1">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Summary Stats -->
+    <div x-show="activityFeed.summary" class="p-3 bg-blue-50 border-b border-gray-200">
+        <div class="grid grid-cols-3 gap-2 text-center">
+            <div>
+                <div class="text-lg font-bold text-blue-600" x-text="activityFeed.summary?.total_activities_today || 0"></div>
+                <div class="text-xs text-gray-600">Today</div>
+            </div>
+            <div>
+                <div class="text-lg font-bold text-purple-600" x-text="activityFeed.summary?.active_users_today || 0"></div>
+                <div class="text-xs text-gray-600">Users</div>
+            </div>
+            <div>
+                <div class="text-lg font-bold text-green-600" x-text="activityFeed.summary?.tests_updated_today || 0"></div>
+                <div class="text-xs text-gray-600">Tests</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="p-3 border-b border-gray-200 bg-gray-50">
+        <div class="flex items-center space-x-2">
+            <label class="flex items-center text-xs">
+                <input type="checkbox" 
+                       x-model="activityFeed.filters.include_system"
+                       @change="applyActivityFeedFilters()"
+                       class="mr-1 rounded">
+                <span>System</span>
+            </label>
+            <button @click="resetActivityFeedFilters()" 
+                    class="text-xs text-blue-600 hover:text-blue-800">
+                Reset
+            </button>
+        </div>
+    </div>
+
+    <!-- Activity List -->
+    <div class="flex-1 overflow-y-auto">
+        <!-- Loading State -->
+        <div x-show="activityFeed.loading && activityFeed.activities.length === 0" 
+             class="flex items-center justify-center py-8">
+            <div class="flex items-center space-x-2">
+                <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                <span class="text-sm text-gray-600">Loading activities...</span>
+            </div>
+        </div>
+
+        <!-- Error State -->
+        <div x-show="activityFeed.error" class="p-4 text-center">
+            <div class="text-red-600 mb-2">
+                <i class="fas fa-exclamation-triangle text-2xl mb-2"></i>
+                <p class="text-sm font-medium">Error Loading Activities</p>
+                <p class="text-xs" x-text="activityFeed.error"></p>
+            </div>
+            <button @click="loadActivityFeed()" 
+                    class="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700">
+                <i class="fas fa-redo mr-1"></i>Retry
+            </button>
+        </div>
+
+        <!-- Empty State -->
+        <div x-show="!activityFeed.loading && !activityFeed.error && activityFeed.activities.length === 0" 
+             class="p-4 text-center">
+            <div class="text-gray-400">
+                <i class="fas fa-stream text-3xl mb-2"></i>
+                <p class="text-sm font-medium">No Activities</p>
+                <p class="text-xs">No recent activities found.</p>
+            </div>
+        </div>
+
+        <!-- Activities List -->
+        <div x-show="activityFeed.activities.length > 0" class="divide-y divide-gray-100">
+            <template x-for="activity in activityFeed.activities" :key="activity.activity_id">
+                <div class="p-3 hover:bg-gray-50 cursor-pointer transition-colors"
+                     @click="navigateToTestFromActivity(activity)">
+                    <div class="flex items-start space-x-3">
+                        <!-- Activity Icon -->
+                        <div class="flex-shrink-0 mt-1">
+                            <i :class="getActivityIconClass(activity.action_type)" class="text-sm"></i>
+                        </div>
+
+                        <!-- Activity Content -->
+                        <div class="flex-1 min-w-0">
+                            <!-- Description -->
+                            <p class="text-sm text-gray-900 mb-1" x-text="getActivityDescription(activity)"></p>
+                            
+                            <!-- Test Context -->
+                            <div class="flex items-center space-x-2 text-xs text-gray-500 mb-1">
+                                <span x-show="activity.criterion_number">
+                                    <i class="fas fa-check-circle mr-1"></i>
+                                    <span x-text="activity.criterion_number"></span>
+                                </span>
+                                <span x-show="activity.page_url" class="truncate max-w-32">
+                                    <i class="fas fa-link mr-1"></i>
+                                    <span x-text="activity.page_url.length > 20 ? activity.page_url.substring(0, 20) + '...' : activity.page_url"></span>
+                                </span>
+                            </div>
+
+                            <!-- Timestamp -->
+                            <div class="text-xs text-gray-400" x-text="formatActivityTime(activity.timestamp)"></div>
+                        </div>
+
+                        <!-- Grouped indicator -->
+                        <div x-show="activity.is_grouped_activity" 
+                             class="flex-shrink-0 w-2 h-2 bg-blue-400 rounded-full mt-2"></div>
+                    </div>
+                </div>
+            </template>
+        </div>
+
+        <!-- Load More Button -->
+        <div x-show="activityFeed.pagination.has_more" class="p-3 border-t border-gray-100">
+            <button @click="loadMoreActivities()" 
+                    :disabled="activityFeed.loading"
+                    class="w-full py-2 text-sm text-blue-600 hover:text-blue-800 disabled:text-gray-400">
+                <span x-show="!activityFeed.loading">
+                    <i class="fas fa-chevron-down mr-1"></i>Load More
+                </span>
+                <span x-show="activityFeed.loading">
+                    <i class="fas fa-spinner fa-spin mr-1"></i>Loading...
+                </span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="p-3 border-t border-gray-200 bg-gray-50">
+        <div class="flex items-center justify-between text-xs text-gray-500">
+            <span x-show="activityFeed.lastUpdate">
+                Last updated: <span x-text="formatActivityTime(activityFeed.lastUpdate)"></span>
+            </span>
+            <span x-show="activityFeed.autoRefresh" class="flex items-center">
+                <i class="fas fa-sync-alt mr-1 text-green-500"></i>
+                Auto-refresh: 30s
+            </span>
+        </div>
+    </div>
+</div>
+
+<!-- Activity Feed Toggle Button (Floating) -->
+<div x-show="activityFeed.sessionId && !activityFeed.isOpen" 
+     class="fixed right-4 top-20 z-40">
+    <button @click="toggleActivityFeed()" 
+            class="relative bg-blue-600 text-white p-3 rounded-full shadow-lg hover:bg-blue-700 transition-colors">
+        <i class="fas fa-stream"></i>
+        
+        <!-- Unread Badge -->
+        <div x-show="activityFeed.unreadCount > 0" 
+             class="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full min-w-[20px] h-5 flex items-center justify-center px-1">
+            <span x-text="getActivityFeedBadgeCount()"></span>
+        </div>
+    </button>
+</div> 
