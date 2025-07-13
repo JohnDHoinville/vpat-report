@@ -196,6 +196,7 @@ function dashboard() {
         // Authentication Management Data
         authConfigs: [],
         projectAuthConfigs: [], // Filtered auth configs for selected project
+        projectRoles: [], // Available roles for selected project
         showSetupAuth: false,
         showEditAuth: false,
         editingConfig: null,
@@ -257,6 +258,9 @@ function dashboard() {
             name: '',
             description: '',
             testType: 'full',
+            auth_config_id: null,
+            auth_role: null,
+            auth_description: '',
             scope: {
                 testTypes: ['axe', 'pa11y', 'lighthouse'],
                 includeManualTesting: true,
@@ -1316,6 +1320,9 @@ function dashboard() {
                 name: '',
                 description: '',
                 testType: 'full',
+                auth_config_id: null,
+                auth_role: null,
+                auth_description: '',
                 scope: {
                     testTypes: ['axe', 'pa11y', 'lighthouse'],
                     includeManualTesting: true,
@@ -1845,17 +1852,60 @@ function dashboard() {
         },
 
         async loadProjectAuthConfigs() {
-            if (!this.selectedProject) {
-                this.projectAuthConfigs = [];
-                return;
-            }
+            if (!this.selectedProject) return;
             
-            // Load all auth configs if not already loaded
-            if (this.authConfigs.length === 0) {
-                await this.loadAuthConfigs();
+            try {
+                const data = await this.apiCall(`/projects/${this.selectedProject.id}/auth-configs`);
+                if (data.success) {
+                    this.projectAuthConfigs = data.data.auth_configs || [];
+                    console.log(`📋 Loaded ${this.projectAuthConfigs.length} auth configs for project`);
+                } else {
+                    console.error('Failed to load project auth configs:', data.error);
+                    this.projectAuthConfigs = [];
+                }
+            } catch (error) {
+                console.error('Error loading project auth configs:', error);
+                this.projectAuthConfigs = [];
+            }
+        },
+
+        async loadProjectRoles() {
+            if (!this.selectedProject) return;
+            
+            try {
+                const data = await this.apiCall(`/projects/${this.selectedProject.id}/roles`);
+                if (data.success) {
+                    this.projectRoles = data.data || [];
+                    console.log(`📋 Loaded ${this.projectRoles.length} roles for project`);
+                } else {
+                    console.error('Failed to load project roles:', data.error);
+                    this.projectRoles = [];
+                }
+            } catch (error) {
+                console.error('Error loading project roles:', error);
+                this.projectRoles = [];
+            }
+        },
+
+        getAvailableAuthConfigs() {
+            return this.projectAuthConfigs.filter(config => config.auth_config_id);
+        },
+
+        getAuthConfigDisplayName(config) {
+            if (!config) return 'No Authentication';
+            return `${config.auth_config_name} (${config.auth_role})`;
+        },
+
+        async selectAuthConfig(configId) {
+            const config = this.projectAuthConfigs.find(c => c.auth_config_id === configId);
+            if (config) {
+                this.newSession.auth_config_id = config.auth_config_id;
+                this.newSession.auth_role = config.auth_role;
+                this.newSession.auth_description = config.auth_description;
             } else {
-                // Filter existing configs for the project
-                this.filterAuthConfigsForProject();
+                this.newSession.auth_config_id = null;
+                this.newSession.auth_role = null;
+                this.newSession.auth_description = '';
             }
         },
 

@@ -41,11 +41,11 @@ class SimpleTestingService {
             
             const project = projectCheck.rows[0];
             
-            // Create test session
+            // Create test session with authentication configuration
             const sessionResult = await client.query(
                 `INSERT INTO test_sessions 
-                 (project_id, name, description, conformance_level, scope, status, test_type, progress_summary, created_by)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                 (project_id, name, description, conformance_level, scope, status, test_type, progress_summary, created_by, auth_config_id, auth_role, auth_description)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
                  RETURNING *`,
                 [
                     projectId,
@@ -63,7 +63,10 @@ class SimpleTestingService {
                         automatedViolations: 0,
                         manualViolations: 0
                     }),
-                    sessionData.created_by || '46088230-6133-45e3-8a04-06feea298094' // Default admin user
+                    sessionData.created_by || '46088230-6133-45e3-8a04-06feea298094', // Default admin user
+                    sessionData.auth_config_id || null,
+                    sessionData.auth_role || null,
+                    sessionData.auth_description || null
                 ]
             );
             
@@ -176,23 +179,56 @@ class SimpleTestingService {
             // Get project ID for WebSocket broadcasting
             const projectId = await this.getProjectIdFromSession(sessionId);
             
-            // Create test runner
-            const runner = new ComprehensiveTestRunner({
+            // Get authentication configuration if specified
+            let authConfig = null;
+            if (options.auth_config_id) {
+                const authResult = await this.pool.query(
+                    'SELECT * FROM auth_configs WHERE id = $1 AND status = $2',
+                    [options.auth_config_id, 'active']
+                );
+                
+                if (authResult.rows.length > 0) {
+                    authConfig = authResult.rows[0];
+                    console.log(`🔐 Using authentication configuration: ${authConfig.name} (${authConfig.auth_role})`);
+                }
+            }
+            
+            // Create test runner with authentication
+            const runnerOptions = {
                 testTypes: testTypes.map(type => `a11y:${type}`),
                 headless: true,
                 timeout: 30000
-            });
+            };
+            
+            // Add authentication configuration if available
+            if (authConfig) {
+                runnerOptions.useAuth = true;
+                runnerOptions.authConfig = {
+                    loginUrl: authConfig.login_page,
+                    username: authConfig.username,
+                    password: authConfig.password,
+                    successUrl: authConfig.success_url,
+                    usernameSelector: authConfig.username_selector || 'input[name="email"], input[name="username"]',
+                    passwordSelector: authConfig.password_selector || 'input[name="password"]',
+                    submitSelector: authConfig.submit_selector || 'button[type="submit"]'
+                };
+            }
+            
+            const runner = new ComprehensiveTestRunner(runnerOptions);
             
             for (const page of pages) {
                 for (const toolName of testTypes) {
                     try {
-                        console.log(`Running ${toolName} test for: ${page.url}`);
+                        console.log(`Running ${toolName} test for: ${page.url} ${authConfig ? `(as ${authConfig.auth_role})` : ''}`);
                         
                         // Run single test
                         const result = await runner.runSingleTest(page.url, `a11y:${toolName}`);
                         
-                        // Store result in database
-                        await this.storeAutomatedTestResult(sessionId, page.id, toolName, result);
+                        // Store result in database with authentication info
+                        await this.storeAutomatedTestResult(sessionId, page.id, toolName, result, {
+                            auth_config_id: options.auth_config_id,
+                            auth_role: options.auth_role
+                        });
                         
                         completedTests++;
                         const progress = Math.round((completedTests / totalTests) * 100);
@@ -208,7 +244,8 @@ class SimpleTestingService {
                             status: 'running', 
                             progress,
                             currentPage: page.url,
-                            currentTool: toolName
+                            currentTool: toolName,
+                            authRole: options.auth_role
                         });
                         
                         // Emit real-time progress via WebSocket
@@ -304,8 +341,9 @@ class SimpleTestingService {
      * @param {string} pageId - Page UUID
      * @param {string} toolName - Tool name (axe, pa11y, lighthouse)
      * @param {Object} result - Test result data
+     * @param {Object} authInfo - Authentication information (auth_config_id, auth_role)
      */
-    async storeAutomatedTestResult(sessionId, pageId, toolName, result) {
+    async storeAutomatedTestResult(sessionId, pageId, toolName, result, authInfo = {}) {
         const client = await this.pool.connect();
         
         try {
@@ -318,14 +356,14 @@ class SimpleTestingService {
             const passesCount = testData.passes || 0;
             const duration = result.duration || testData.duration || 0;
 
-            console.log(`📊 Storing test result - Tool: ${toolName}, Violations: ${violationsCount}, Warnings: ${warningsCount}, Passes: ${passesCount}`);
+            console.log(`📊 Storing test result - Tool: ${toolName}, Violations: ${violationsCount}, Warnings: ${warningsCount}, Passes: ${passesCount}${authInfo.auth_role ? ` (as ${authInfo.auth_role})` : ''}`);
 
-            // Store main test result
+            // Store main test result with authentication info
             const testResult = await client.query(
                 `INSERT INTO automated_test_results 
                  (test_session_id, page_id, tool_name, tool_version, raw_results, 
-                  violations_count, warnings_count, passes_count, test_duration_ms)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                  violations_count, warnings_count, passes_count, test_duration_ms, auth_config_id, auth_role)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
                  ON CONFLICT (test_session_id, page_id, tool_name) DO UPDATE SET
                  raw_results = EXCLUDED.raw_results,
                  violations_count = EXCLUDED.violations_count,
@@ -342,7 +380,9 @@ class SimpleTestingService {
                     violationsCount,
                     warningsCount,
                     passesCount,
-                    duration
+                    duration,
+                    authInfo.auth_config_id,
+                    authInfo.auth_role
                 ]
             );
             

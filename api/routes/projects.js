@@ -896,7 +896,10 @@ router.post('/:id/test-sessions', authenticateToken, async (req, res) => {
             name,
             description,
             testTypes = ['axe', 'pa11y'],
-            maxPages = 50
+            maxPages = 50,
+            auth_config_id,
+            auth_role,
+            auth_description
         } = req.body;
 
         // Get WebSocket service from app
@@ -905,17 +908,22 @@ router.post('/:id/test-sessions', authenticateToken, async (req, res) => {
         // Initialize testing service with WebSocket
         const testingService = new SimpleTestingService(wsService);
 
-        // Create test session
+        // Create test session with authentication configuration
         const session = await testingService.createTestSession(projectId, {
             name: name || `Automated Test - ${new Date().toLocaleDateString()}`,
             description,
-            session_type: 'automated'
+            session_type: 'automated',
+            auth_config_id,
+            auth_role,
+            auth_description
         });
 
-        // Start automated testing
+        // Start automated testing with authentication
         await testingService.startAutomatedTesting(session.id, {
             testTypes,
-            maxPages
+            maxPages,
+            auth_config_id,
+            auth_role
         });
 
         res.status(201).json({
@@ -927,6 +935,162 @@ router.post('/:id/test-sessions', authenticateToken, async (req, res) => {
         console.error('Error starting automated testing:', error);
         res.status(500).json({
             error: 'Failed to start automated testing',
+            message: error.message
+        });
+    }
+});
+
+/**
+ * GET /api/projects/:id/auth-configs
+ * Get available authentication configurations for a project
+ */
+router.get('/:id/auth-configs', authenticateToken, async (req, res) => {
+    try {
+        const { id: projectId } = req.params;
+
+        // Get project authentication configurations using the database function
+        const result = await db.query(`
+            SELECT * FROM get_project_auth_configs($1)
+        `, [projectId]);
+
+        const authConfigs = result.rows;
+
+        // Group by domain for better organization
+        const configsByDomain = authConfigs.reduce((acc, config) => {
+            if (!acc[config.domain]) {
+                acc[config.domain] = [];
+            }
+            acc[config.domain].push({
+                id: config.auth_config_id,
+                name: config.auth_config_name,
+                type: config.auth_type,
+                domain: config.domain,
+                auth_role: config.auth_role,
+                auth_description: config.auth_description,
+                priority: config.priority,
+                is_default: config.is_default,
+                username: config.username,
+                auth_url: config.auth_url,
+                project_role: {
+                    name: config.project_role_name,
+                    description: config.project_role_description,
+                    type: config.role_type,
+                    testing_scope: config.testing_scope
+                }
+            });
+            return acc;
+        }, {});
+
+        res.json({
+            success: true,
+            data: {
+                project_id: projectId,
+                auth_configs: authConfigs,
+                configs_by_domain: configsByDomain,
+                total_configs: authConfigs.length
+            }
+        });
+
+    } catch (error) {
+        console.error('Error fetching project auth configs:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch authentication configurations',
+            message: error.message
+        });
+    }
+});
+
+/**
+ * POST /api/projects/:id/roles
+ * Create or update project roles
+ */
+router.post('/:id/roles', authenticateToken, async (req, res) => {
+    try {
+        const { id: projectId } = req.params;
+        const {
+            role_name,
+            role_description,
+            role_type = 'user',
+            priority = 1,
+            is_default = false,
+            testing_scope = { automated: true, manual: true }
+        } = req.body;
+
+        // Validate required fields
+        if (!role_name) {
+            return res.status(400).json({
+                success: false,
+                error: 'Role name is required'
+            });
+        }
+
+        // Check if project exists
+        const projectExists = await db.query('SELECT id FROM projects WHERE id = $1', [projectId]);
+        if (projectExists.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Project not found'
+            });
+        }
+
+        // Insert or update project role
+        const result = await db.query(`
+            INSERT INTO project_roles (
+                project_id, role_name, role_description, role_type, 
+                priority, is_default, testing_scope
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+            ON CONFLICT (project_id, role_name) 
+            DO UPDATE SET
+                role_description = EXCLUDED.role_description,
+                role_type = EXCLUDED.role_type,
+                priority = EXCLUDED.priority,
+                is_default = EXCLUDED.is_default,
+                testing_scope = EXCLUDED.testing_scope,
+                updated_at = CURRENT_TIMESTAMP
+            RETURNING *
+        `, [projectId, role_name, role_description, role_type, priority, is_default, JSON.stringify(testing_scope)]);
+
+        res.status(201).json({
+            success: true,
+            message: 'Project role created/updated successfully',
+            data: result.rows[0]
+        });
+
+    } catch (error) {
+        console.error('Error creating/updating project role:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to create/update project role',
+            message: error.message
+        });
+    }
+});
+
+/**
+ * GET /api/projects/:id/roles
+ * Get all roles for a project
+ */
+router.get('/:id/roles', authenticateToken, async (req, res) => {
+    try {
+        const { id: projectId } = req.params;
+
+        const result = await db.query(`
+            SELECT * FROM project_roles 
+            WHERE project_id = $1 
+            ORDER BY priority ASC, is_default DESC, role_name ASC
+        `, [projectId]);
+
+        res.json({
+            success: true,
+            data: result.rows
+        });
+
+    } catch (error) {
+        console.error('Error fetching project roles:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch project roles',
             message: error.message
         });
     }

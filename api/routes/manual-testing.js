@@ -447,7 +447,10 @@ router.post('/session/:sessionId/result', authenticateToken, async (req, res) =>
             images = [],
             evidence,
             tester_name,
-            tested_at
+            tested_at,
+            auth_config_id,
+            auth_role,
+            tested_as_role
         } = req.body;
         
         // Validate required fields
@@ -481,7 +484,7 @@ router.post('/session/:sessionId/result', authenticateToken, async (req, res) =>
             let resultId;
             
             if (existingResult.rows.length > 0) {
-                // Update existing result
+                // Update existing result with authentication info
                 const updateResult = await client.query(`
                     UPDATE manual_test_results 
                     SET 
@@ -491,10 +494,13 @@ router.post('/session/:sessionId/result', authenticateToken, async (req, res) =>
                         evidence = $7,
                         tester_name = $8,
                         retested_at = CURRENT_TIMESTAMP,
-                        tested_at = COALESCE($9::timestamp, tested_at)
+                        tested_at = COALESCE($9::timestamp, tested_at),
+                        auth_config_id = $10,
+                        auth_role = $11,
+                        tested_as_role = $12
                     WHERE test_session_id = $1 AND page_id = $2 AND requirement_id = $3
                     RETURNING id
-                `, [sessionId, page_id, requirement_id, result, confidence_level, notes, JSON.stringify(evidence || {}), tester_name, tested_at]);
+                `, [sessionId, page_id, requirement_id, result, confidence_level, notes, JSON.stringify(evidence || {}), tester_name, tested_at, auth_config_id, auth_role, tested_as_role]);
                 
                 resultId = updateResult.rows[0].id;
                 
@@ -503,10 +509,11 @@ router.post('/session/:sessionId/result', authenticateToken, async (req, res) =>
                 const insertResult = await client.query(`
                     INSERT INTO manual_test_results (
                         test_session_id, page_id, requirement_id, requirement_type,
-                        result, confidence_level, notes, evidence, tester_name, tested_at
-                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, COALESCE($10::timestamp, CURRENT_TIMESTAMP))
+                        result, confidence_level, notes, evidence, tester_name, tested_at,
+                        auth_config_id, auth_role, tested_as_role
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, COALESCE($10::timestamp, CURRENT_TIMESTAMP), $11, $12, $13)
                     RETURNING id
-                `, [sessionId, page_id, requirement_id, requirement_type, result, confidence_level, notes, JSON.stringify(evidence || {}), tester_name, tested_at]);
+                `, [sessionId, page_id, requirement_id, requirement_type, result, confidence_level, notes, JSON.stringify(evidence || {}), tester_name, tested_at, auth_config_id, auth_role, tested_as_role]);
                 
                 resultId = insertResult.rows[0].id;
             }

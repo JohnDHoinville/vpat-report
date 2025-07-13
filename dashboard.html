@@ -3885,6 +3885,35 @@
                             <option value="AAA">Level AAA</option>
                         </select>
                     </div>
+                    
+                    <!-- Authentication Role Selection -->
+                    <div x-show="getAvailableAuthConfigs().length > 0">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            Authentication Role
+                            <span class="text-xs text-gray-500">(optional)</span>
+                        </label>
+                        <select x-model="newSession.auth_config_id" 
+                                @change="selectAuthConfig(newSession.auth_config_id)"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500">
+                            <option value="">No Authentication (Public Access)</option>
+                            <template x-for="config in getAvailableAuthConfigs()" :key="config.auth_config_id">
+                                <option :value="config.auth_config_id" x-text="getAuthConfigDisplayName(config)"></option>
+                            </template>
+                        </select>
+                        <p class="text-xs text-gray-600 mt-1" x-show="newSession.auth_config_id">
+                            <i class="fas fa-info-circle mr-1"></i>
+                            Testing will be performed using the selected authentication role to access protected pages.
+                        </p>
+                    </div>
+                    
+                    <!-- Authentication Role Description -->
+                    <div x-show="newSession.auth_config_id && newSession.auth_description">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Role Description</label>
+                        <div class="p-3 bg-blue-50 border border-blue-200 rounded-md">
+                            <p class="text-sm text-blue-800" x-text="newSession.auth_description"></p>
+                        </div>
+                    </div>
+                    
                     <div class="flex justify-end space-x-3 pt-4">
                         <button type="button" @click="showCreateSession = false" 
                                 class="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 transition-colors">
