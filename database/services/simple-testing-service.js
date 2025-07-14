@@ -115,11 +115,17 @@ class SimpleTestingService {
             
             const session = sessionResult.rows[0];
             
-            // Get discovered pages for this project
+            // Get discovered pages for this project - filter out non-HTML content
             const pagesResult = await client.query(
                 `SELECT dp.* FROM discovered_pages dp
                  JOIN site_discovery sd ON dp.discovery_id = sd.id
                  WHERE sd.project_id = $1 AND sd.status = 'completed'
+                 AND dp.page_type IN ('homepage', 'content', 'form', 'navigation', 'application')
+                 AND NOT (dp.url ~ '\\.(pdf|doc|docx|xls|xlsx|ppt|pptx|zip|tar|gz|rar|exe|dmg|pkg|deb|rpm)$')
+                 AND NOT (dp.url ~ '\\.(jpg|jpeg|png|gif|svg|webp|ico|bmp|tiff?)$')
+                 AND NOT (dp.url ~ '\\.(mp3|mp4|wav|avi|mov|wmv|flv|webm|ogg)$')
+                 AND NOT (dp.url ~ '\\.(json|xml|rss|atom|txt|csv|log)$')
+                 AND NOT (dp.url ~ '\\.(css|js|map)$')
                  ORDER BY dp.discovered_at
                  LIMIT $2`,
                 [session.project_id, options.maxPages || 50]

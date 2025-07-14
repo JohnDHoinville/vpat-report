@@ -680,6 +680,53 @@ router.put('/:id', authenticateToken, async (req, res) => {
 });
 
 /**
+ * GET /api/test-instances/:id/status
+ * Get current status of a test instance
+ */
+router.get('/:id/status', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const query = `
+            SELECT 
+                id,
+                status,
+                confidence_level,
+                notes,
+                assigned_tester,
+                started_at,
+                completed_at,
+                created_at,
+                updated_at
+            FROM test_instances 
+            WHERE id = $1
+        `;
+        
+        const result = await pool.query(query, [id]);
+        
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Test instance not found'
+            });
+        }
+
+        res.json({
+            success: true,
+            data: result.rows[0]
+        });
+        
+    } catch (error) {
+        console.error('Error fetching test instance status:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch test instance status',
+            details: error.message
+        });
+    }
+});
+
+/**
  * PUT /api/test-instances/:id/status
  * Dedicated endpoint for status management with enhanced workflow validation
  */

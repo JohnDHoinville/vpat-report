@@ -900,7 +900,10 @@ router.post('/:id/test-sessions', authenticateToken, async (req, res) => {
             maxPages = 50,
             auth_config_id,
             auth_role,
-            auth_description
+            auth_description,
+            session_id,
+            target_requirements,
+            scope
         } = req.body;
 
         // Get WebSocket service from app
@@ -914,6 +917,7 @@ router.post('/:id/test-sessions', authenticateToken, async (req, res) => {
             name: name || `Automated Test - ${new Date().toLocaleDateString()}`,
             description,
             session_type: 'automated',
+            scope: scope || { testType: 'automated', tools: testTypes || ['axe', 'pa11y'] },
             auth_config_id,
             auth_role,
             auth_description
