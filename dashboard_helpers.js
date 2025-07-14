@@ -7097,50 +7097,334 @@ function dashboard() {
         },
 
         getMockWCAGRequirements() {
+            // Real WCAG 2.2 requirements with actual automated testing capabilities
             return [
-                { criterion_number: '1.1.1', title: 'Non-text Content', description: 'All non-text content has a text alternative', level: 'A' },
-                { criterion_number: '1.3.1', title: 'Info and Relationships', description: 'Information structure and relationships can be programmatically determined', level: 'A' },
-                { criterion_number: '1.4.3', title: 'Contrast (Minimum)', description: 'Text and background have sufficient contrast ratio', level: 'AA' },
-                { criterion_number: '2.1.1', title: 'Keyboard', description: 'All functionality available from keyboard', level: 'A' },
-                { criterion_number: '2.4.1', title: 'Bypass Blocks', description: 'Mechanism to skip repetitive content', level: 'A' },
-                { criterion_number: '2.4.3', title: 'Focus Order', description: 'Components receive focus in logical order', level: 'A' },
-                { criterion_number: '3.1.1', title: 'Language of Page', description: 'Default human language can be programmatically determined', level: 'A' },
-                { criterion_number: '4.1.1', title: 'Parsing', description: 'Content can be parsed unambiguously', level: 'A' },
-                { criterion_number: '4.1.2', title: 'Name, Role, Value', description: 'Name and role can be programmatically determined', level: 'A' }
+                {
+                    criterion_number: '1.1.1',
+                    title: 'Non-text Content',
+                    description: 'All non-text content has a text alternative that serves the equivalent purpose',
+                    level: 'A',
+                    test_method: 'both', // Automated: axe, pa11y, lighthouse can detect missing alt text. Manual: context appropriateness
+                    automated_tools: ['axe-core', 'pa11y', 'lighthouse'],
+                    automated_rules: ['image-alt', 'area-alt', 'input-image-alt', 'object-alt', 'svg-img-alt'],
+                    automation_confidence: 'high',
+                    manual_verification_needed: 'Alt text appropriateness and context'
+                },
+                {
+                    criterion_number: '1.3.1',
+                    title: 'Info and Relationships',
+                    description: 'Information, structure, and relationships conveyed through presentation can be programmatically determined',
+                    level: 'A',
+                    test_method: 'both', // Automated: semantic structure detection. Manual: visual relationships verification
+                    automated_tools: ['axe-core', 'pa11y', 'lighthouse'],
+                    automated_rules: ['list', 'listitem', 'definition-list', 'dlitem', 'aria-required-children', 'aria-required-parent'],
+                    automation_confidence: 'medium',
+                    manual_verification_needed: 'Visual relationship accuracy and complex structures'
+                },
+                {
+                    criterion_number: '1.4.3',
+                    title: 'Contrast (Minimum)',
+                    description: 'Text and images of text have a contrast ratio of at least 4.5:1',
+                    level: 'AA',
+                    test_method: 'automated', // Fully automated: contrast ratio calculation
+                    automated_tools: ['axe-core', 'pa11y', 'lighthouse', 'contrast-analyzer'],
+                    automated_rules: ['color-contrast'],
+                    automation_confidence: 'high',
+                    manual_verification_needed: null
+                },
+                {
+                    criterion_number: '1.4.10',
+                    title: 'Reflow',
+                    description: 'Content can be presented without loss of information at 320 CSS pixels width',
+                    level: 'AA',
+                    test_method: 'both', // Automated: viewport testing. Manual: content usability verification
+                    automated_tools: ['playwright'],
+                    automated_rules: ['reflow-testing', 'zoom-testing'],
+                    automation_confidence: 'medium',
+                    manual_verification_needed: 'Content usability and information loss assessment'
+                },
+                {
+                    criterion_number: '1.4.11',
+                    title: 'Non-text Contrast',
+                    description: 'Visual presentation of UI components and graphical objects have a contrast ratio of at least 3:1',
+                    level: 'AA',
+                    test_method: 'both', // Automated: detectable UI elements. Manual: complex graphics and states
+                    automated_tools: ['contrast-analyzer'],
+                    automated_rules: ['non-text-contrast'],
+                    automation_confidence: 'medium',
+                    manual_verification_needed: 'Complex graphics, logos, and interactive states'
+                },
+                {
+                    criterion_number: '1.4.12',
+                    title: 'Text Spacing',
+                    description: 'No loss of content or functionality when text spacing is increased',
+                    level: 'AA',
+                    test_method: 'both', // Automated: CSS testing. Manual: readability verification
+                    automated_tools: ['playwright'],
+                    automated_rules: ['text-spacing-testing'],
+                    automation_confidence: 'medium',
+                    manual_verification_needed: 'Readability and content overlap assessment'
+                },
+                {
+                    criterion_number: '1.4.13',
+                    title: 'Content on Hover or Focus',
+                    description: 'Additional content that appears on hover or focus is dismissible, hoverable, and persistent',
+                    level: 'AA',
+                    test_method: 'both', // Automated: tooltip detection. Manual: interaction behavior verification
+                    automated_tools: ['playwright'],
+                    automated_rules: ['hover-content-detection', 'focus-content-detection'],
+                    automation_confidence: 'medium',
+                    manual_verification_needed: 'Complex interaction patterns and dismissibility verification'
+                },
+                {
+                    criterion_number: '2.1.1',
+                    title: 'Keyboard',
+                    description: 'All functionality of the content is operable through a keyboard interface',
+                    level: 'A',
+                    test_method: 'both', // Automated: focusable element detection. Manual: complex interactions
+                    automated_tools: ['axe-core', 'playwright'],
+                    automated_rules: ['keyboard-navigation', 'tabindex', 'focus-management'],
+                    automation_confidence: 'medium',
+                    manual_verification_needed: 'Complex interactions, custom controls, and keyboard traps'
+                },
+                {
+                    criterion_number: '2.1.2',
+                    title: 'No Keyboard Trap',
+                    description: 'Keyboard focus can be moved away from any component',
+                    level: 'A',
+                    test_method: 'both', // Automated: focus trap detection. Manual: complex modal patterns
+                    automated_tools: ['axe-core', 'playwright'],
+                    automated_rules: ['no-keyboard-trap', 'focus-management'],
+                    automation_confidence: 'medium',
+                    manual_verification_needed: 'Complex modal dialogs and custom focus management'
+                },
+                {
+                    criterion_number: '2.4.1',
+                    title: 'Bypass Blocks',
+                    description: 'A mechanism is available to bypass blocks of content',
+                    level: 'A',
+                    test_method: 'both', // Automated: skip link detection. Manual: functionality verification
+                    automated_tools: ['axe-core', 'pa11y', 'lighthouse'],
+                    automated_rules: ['bypass', 'skip-link'],
+                    automation_confidence: 'high',
+                    manual_verification_needed: 'Skip link functionality and target verification'
+                },
+                {
+                    criterion_number: '2.4.2',
+                    title: 'Page Titled',
+                    description: 'Web pages have titles that describe topic or purpose',
+                    level: 'A',
+                    test_method: 'automated', // Fully automated: title presence and descriptiveness
+                    automated_tools: ['axe-core', 'pa11y', 'lighthouse'],
+                    automated_rules: ['document-title'],
+                    automation_confidence: 'high',
+                    manual_verification_needed: null
+                },
+                {
+                    criterion_number: '2.4.3',
+                    title: 'Focus Order',
+                    description: 'If a page can be navigated sequentially, components receive focus in an order that preserves meaning',
+                    level: 'A',
+                    test_method: 'manual', // Manual only: logical order assessment requires human judgment
+                    automated_tools: [],
+                    automated_rules: [],
+                    automation_confidence: null,
+                    manual_verification_needed: 'Complete focus order evaluation and meaning preservation'
+                },
+                {
+                    criterion_number: '2.4.4',
+                    title: 'Link Purpose (In Context)',
+                    description: 'The purpose of each link can be determined from the link text alone or together with its context',
+                    level: 'A',
+                    test_method: 'both', // Automated: empty links. Manual: purpose clarity
+                    automated_tools: ['axe-core', 'lighthouse'],
+                    automated_rules: ['link-name'],
+                    automation_confidence: 'medium',
+                    manual_verification_needed: 'Link purpose clarity and context appropriateness'
+                },
+                {
+                    criterion_number: '2.4.6',
+                    title: 'Headings and Labels',
+                    description: 'Headings and labels describe topic or purpose',
+                    level: 'AA',
+                    test_method: 'both', // Automated: heading structure. Manual: descriptiveness
+                    automated_tools: ['axe-core', 'lighthouse'],
+                    automated_rules: ['heading-order', 'page-has-heading-one'],
+                    automation_confidence: 'medium',
+                    manual_verification_needed: 'Heading and label descriptiveness evaluation'
+                },
+                {
+                    criterion_number: '2.4.7',
+                    title: 'Focus Visible',
+                    description: 'Any keyboard operable user interface has a mode of operation where the keyboard focus indicator is visible',
+                    level: 'AA',
+                    test_method: 'both', // Automated: focus indicator detection. Manual: visibility assessment
+                    automated_tools: ['axe-core', 'playwright'],
+                    automated_rules: ['focus-visible', 'focus-visible-testing'],
+                    automation_confidence: 'high',
+                    manual_verification_needed: 'Focus indicator visibility in all contexts'
+                },
+                {
+                    criterion_number: '3.1.1',
+                    title: 'Language of Page',
+                    description: 'The default human language of each Web page can be programmatically determined',
+                    level: 'A',
+                    test_method: 'automated', // Fully automated: lang attribute detection
+                    automated_tools: ['axe-core', 'pa11y', 'lighthouse'],
+                    automated_rules: ['html-has-lang', 'html-lang-valid'],
+                    automation_confidence: 'high',
+                    manual_verification_needed: null
+                },
+                {
+                    criterion_number: '3.1.2',
+                    title: 'Language of Parts',
+                    description: 'The human language of each passage or phrase can be programmatically determined',
+                    level: 'AA',
+                    test_method: 'both', // Automated: lang attribute validation. Manual: language change identification
+                    automated_tools: ['axe-core'],
+                    automated_rules: ['valid-lang'],
+                    automation_confidence: 'medium',
+                    manual_verification_needed: 'Language change identification and appropriateness'
+                },
+                {
+                    criterion_number: '3.2.1',
+                    title: 'On Focus',
+                    description: 'When any component receives focus, it does not initiate a change of context',
+                    level: 'A',
+                    test_method: 'both', // Automated: focus event detection. Manual: context change assessment
+                    automated_tools: ['axe-core', 'playwright'],
+                    automated_rules: ['no-onchange', 'focus-management'],
+                    automation_confidence: 'medium',
+                    manual_verification_needed: 'Context change evaluation and unexpected behavior'
+                },
+                {
+                    criterion_number: '3.2.2',
+                    title: 'On Input',
+                    description: 'Changing the setting of any user interface component does not automatically cause a change of context',
+                    level: 'A',
+                    test_method: 'both', // Automated: input event detection. Manual: context change assessment
+                    automated_tools: ['axe-core', 'playwright'],
+                    automated_rules: ['no-auto-refresh'],
+                    automation_confidence: 'medium',
+                    manual_verification_needed: 'Input-triggered context changes and user expectation'
+                },
+                {
+                    criterion_number: '3.3.1',
+                    title: 'Error Identification',
+                    description: 'If an input error is automatically detected, the item that is in error is identified',
+                    level: 'A',
+                    test_method: 'both', // Automated: error message presence. Manual: identification clarity
+                    automated_tools: ['axe-core'],
+                    automated_rules: ['aria-describedby-id-refs'],
+                    automation_confidence: 'medium',
+                    manual_verification_needed: 'Error message clarity and identification effectiveness'
+                },
+                {
+                    criterion_number: '3.3.2',
+                    title: 'Labels or Instructions',
+                    description: 'Labels or instructions are provided when content requires user input',
+                    level: 'A',
+                    test_method: 'both', // Automated: label association. Manual: instruction adequacy
+                    automated_tools: ['axe-core', 'pa11y', 'lighthouse'],
+                    automated_rules: ['label', 'form-field-multiple-labels'],
+                    automation_confidence: 'high',
+                    manual_verification_needed: 'Label and instruction clarity and adequacy'
+                },
+                {
+                    criterion_number: '4.1.1',
+                    title: 'Parsing',
+                    description: 'In content implemented using markup languages, elements have complete start and end tags',
+                    level: 'A',
+                    test_method: 'automated', // Fully automated: HTML validation
+                    automated_tools: ['axe-core', 'pa11y'],
+                    automated_rules: ['duplicate-id'],
+                    automation_confidence: 'high',
+                    manual_verification_needed: null
+                },
+                {
+                    criterion_number: '4.1.2',
+                    title: 'Name, Role, Value',
+                    description: 'For all user interface components, the name and role can be programmatically determined',
+                    level: 'A',
+                    test_method: 'both', // Automated: ARIA validation. Manual: semantic appropriateness
+                    automated_tools: ['axe-core', 'pa11y', 'lighthouse'],
+                    automated_rules: ['aria-roles', 'aria-valid-attr', 'button-name', 'select-name', 'aria-required-attr'],
+                    automation_confidence: 'high',
+                    manual_verification_needed: 'Semantic appropriateness and complex component behavior'
+                },
+                {
+                    criterion_number: '4.1.3',
+                    title: 'Status Messages',
+                    description: 'Status messages can be programmatically determined through role or properties',
+                    level: 'AA',
+                    test_method: 'both', // Automated: ARIA live region detection. Manual: message appropriateness
+                    automated_tools: ['axe-core', 'playwright'],
+                    automated_rules: ['aria-live-regions'],
+                    automation_confidence: 'medium',
+                    manual_verification_needed: 'Status message timing, appropriateness, and user experience'
+                }
             ];
         },
 
         async enhanceRequirementsWithTestData(requirements, sessionId) {
             try {
-                // Get automated test results
-                const automatedResponse = await this.apiCall(`/results/automated-test-results?session_id=${sessionId}`);
-                const automatedResults = automatedResponse.data || [];
+                console.log(`📊 Enhancing ${requirements.length} requirements with test data for session ${sessionId}`);
                 
-                // Get manual test instances  
-                const manualResponse = await this.apiCall(`/test-instances?session_id=${sessionId}`);
-                const manualTests = manualResponse.data || [];
+                // Get automated test results with error handling
+                let automatedResults = [];
+                try {
+                    const automatedResponse = await this.apiCall(`/results/automated-test-results?session_id=${sessionId}`);
+                    automatedResults = Array.isArray(automatedResponse.data) ? automatedResponse.data : [];
+                } catch (error) {
+                    console.warn('Failed to load automated test results:', error);
+                    automatedResults = [];
+                }
+                
+                console.log(`🤖 Found ${automatedResults.length} automated test results`);
+                
+                // Get manual test instances with error handling  
+                let manualTests = [];
+                try {
+                    const manualResponse = await this.apiCall(`/test-instances?session_id=${sessionId}`);
+                    manualTests = Array.isArray(manualResponse.data) ? manualResponse.data : [];
+                } catch (error) {
+                    console.warn('Failed to load manual test instances:', error);
+                    manualTests = [];
+                }
+                
+                console.log(`👤 Found ${manualTests.length} manual test instances`);
                 
                 // Group results by requirement
                 const automatedByRequirement = {};
                 const manualByRequirement = {};
                 
-                automatedResults.forEach(result => {
-                    const reqId = result.wcag_criterion;
-                    if (!automatedByRequirement[reqId]) {
-                        automatedByRequirement[reqId] = [];
-                    }
-                    automatedByRequirement[reqId].push(result);
-                });
+                // Safely process automated results
+                if (Array.isArray(automatedResults)) {
+                    automatedResults.forEach(result => {
+                        const reqId = result.wcag_criterion || result.requirement_id;
+                        if (reqId) {
+                            if (!automatedByRequirement[reqId]) {
+                                automatedByRequirement[reqId] = [];
+                            }
+                            automatedByRequirement[reqId].push(result);
+                        }
+                    });
+                }
                 
-                manualTests.forEach(test => {
-                    const reqId = test.requirement_id;
-                    if (!manualByRequirement[reqId]) {
-                        manualByRequirement[reqId] = [];
-                    }
-                    manualByRequirement[reqId].push(test);
-                });
+                // Safely process manual tests
+                if (Array.isArray(manualTests)) {
+                    manualTests.forEach(test => {
+                        const reqId = test.requirement_id || test.criterion_number;
+                        if (reqId) {
+                            if (!manualByRequirement[reqId]) {
+                                manualByRequirement[reqId] = [];
+                            }
+                            manualByRequirement[reqId].push(test);
+                        }
+                    });
+                }
                 
-                // Enhance each requirement
+                // Enhance each requirement with proper arrays
                 return requirements.map(req => {
                     const automated = automatedByRequirement[req.criterion_number] || [];
                     const manual = manualByRequirement[req.criterion_number] || [];
@@ -7157,6 +7441,7 @@ function dashboard() {
                 
             } catch (error) {
                 console.error('Error enhancing requirements with test data:', error);
+                // Ensure all requirements have proper default arrays
                 return requirements.map(req => ({
                     ...req,
                     automated_tests: [],
@@ -7165,6 +7450,95 @@ function dashboard() {
                     manual_status: 'not_tested',
                     overall_status: 'not_tested'
                 }));
+            }
+        },
+
+        // NEW: Start automated testing for specific requirements
+        async startAutomatedTestingForRequirements(sessionId, requirements = null) {
+            try {
+                this.loading = true;
+                
+                if (!this.selectedProject) {
+                    throw new Error('No project selected');
+                }
+                
+                // Get session details to determine project
+                const session = this.currentSessionDetails;
+                if (!session) {
+                    throw new Error('No session selected');
+                }
+                
+                console.log(`🚀 Starting automated testing for session: ${session.name}`);
+                
+                // Start comprehensive automated testing
+                const response = await this.apiCall(`/projects/${this.selectedProject.id}/test-sessions`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        name: `Automated Tests - ${session.name}`,
+                        description: `Automated accessibility testing for compliance session`,
+                        testTypes: ['axe', 'pa11y', 'lighthouse'],
+                        maxPages: 50,
+                        session_id: sessionId,
+                        target_requirements: requirements
+                    })
+                });
+                
+                this.showNotification('Automated testing started successfully!', 'success');
+                
+                // Refresh requirements data after starting tests
+                setTimeout(() => {
+                    this.loadSessionRequirements(sessionId);
+                }, 2000);
+                
+                return response;
+                
+            } catch (error) {
+                console.error('❌ Error starting automated testing:', error);
+                this.showNotification(`Failed to start automated testing: ${error.message}`, 'error');
+                throw error;
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        // NEW: Run automated tests for a specific requirement
+        async runAutomatedTestForRequirement(requirement) {
+            try {
+                console.log(`🎯 Running automated test for requirement: ${requirement.criterion_number}`);
+                
+                this.loading = true;
+                
+                await this.startAutomatedTestingForRequirements(
+                    this.currentSessionDetails.id, 
+                    [requirement.criterion_number]
+                );
+                
+                this.showNotification(`Started automated testing for ${requirement.criterion_number}`, 'success');
+                
+            } catch (error) {
+                console.error(`❌ Error running automated test for ${requirement.criterion_number}:`, error);
+                this.showNotification(`Failed to start test for ${requirement.criterion_number}`, 'error');
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        // NEW: Run automated tests for all requirements
+        async runAutomatedTestsForAllRequirements() {
+            try {
+                console.log('🚀 Running automated tests for all requirements');
+                
+                this.loading = true;
+                
+                await this.startAutomatedTestingForRequirements(this.currentSessionDetails.id, null);
+                
+                this.showNotification('Started comprehensive automated testing', 'success');
+                
+            } catch (error) {
+                console.error('❌ Error running automated tests for all requirements:', error);
+                this.showNotification('Failed to start comprehensive testing', 'error');
+            } finally {
+                this.loading = false;
             }
         },
 
@@ -7193,7 +7567,22 @@ function dashboard() {
             return 'not_tested';
         },
 
-        getRequirementOverallStatus(automatedTests, manualTests) {
+        getRequirementOverallStatus(requirement) {
+            // Handle both direct calls with separate parameters and requirement objects
+            if (typeof requirement === 'object' && requirement.automated_tests !== undefined) {
+                // Called with requirement object - extract the test arrays
+                const automatedTests = Array.isArray(requirement.automated_tests) ? requirement.automated_tests : [];
+                const manualTests = Array.isArray(requirement.manual_tests) ? requirement.manual_tests : [];
+                return this.getRequirementOverallStatusFromTests(automatedTests, manualTests);
+            } else {
+                // Called with separate parameters (legacy support)
+                const automatedTests = Array.isArray(requirement) ? requirement : [];
+                const manualTests = Array.isArray(arguments[1]) ? arguments[1] : [];
+                return this.getRequirementOverallStatusFromTests(automatedTests, manualTests);
+            }
+        },
+
+        getRequirementOverallStatusFromTests(automatedTests, manualTests) {
             const automatedStatus = this.getAutomatedTestStatus(automatedTests);
             const manualStatus = this.getManualTestStatus(manualTests);
             

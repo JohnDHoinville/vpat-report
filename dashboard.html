@@ -1640,10 +1640,44 @@
         <!-- Requirements Grid -->
         <div class="bg-white rounded-lg shadow-md border border-gray-200">
             <div class="px-6 py-4 border-b border-gray-200">
-                <h5 class="text-lg font-medium text-gray-900">
-                    Requirements Analysis 
-                    <span class="text-sm text-gray-500">(<span x-text="filteredRequirements.length"></span> of <span x-text="sessionRequirements.length"></span>)</span>
-                </h5>
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h5 class="text-lg font-medium text-gray-900">
+                            Requirements Analysis 
+                            <span class="text-sm text-gray-500">(<span x-text="filteredRequirements.length"></span> of <span x-text="sessionRequirements.length"></span>)</span>
+                        </h5>
+                    </div>
+                    
+                    <!-- Automated Testing Controls -->
+                    <div class="flex space-x-2">
+                        <button @click="runAutomatedTestsForAllRequirements()" 
+                                :disabled="loading || !currentSessionDetails"
+                                class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center">
+                            <i class="fas fa-robot mr-2"></i>
+                            <span x-show="!loading">Run All Automated Tests</span>
+                            <span x-show="loading">
+                                <i class="fas fa-spinner fa-spin mr-2"></i>Starting Tests...
+                            </span>
+                        </button>
+                        
+                        <button @click="loadSessionRequirements(currentSessionDetails?.id)" 
+                                :disabled="loading || !currentSessionDetails"
+                                class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed">
+                            <i class="fas fa-sync-alt mr-2"></i>Refresh
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Test Progress Indicator -->
+                <div x-show="loading" class="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <div class="flex items-center">
+                        <i class="fas fa-spinner fa-spin text-blue-600 mr-3"></i>
+                        <div>
+                            <div class="text-sm font-medium text-blue-800">Automated Testing in Progress</div>
+                            <div class="text-xs text-blue-600 mt-1">Running accessibility tests with axe, pa11y, and lighthouse tools...</div>
+                        </div>
+                    </div>
+                </div>
             </div>
             
             <div class="overflow-x-auto">
@@ -5760,6 +5794,11 @@
         // Aggressive cache busting for development
         const timestamp = new Date().getTime();
         const randomId = Math.random().toString(36).substring(2);
+        
+        // Load Real WCAG Requirements Service first
+        document.write(`<script src="scripts/real-wcag-requirements-service.js?v=${timestamp}&r=${randomId}&bust=true"><\/script>`);
+        
+        // Then load dashboard helpers
         document.write(`<script src="dashboard_helpers.js?v=${timestamp}&r=${randomId}&bust=true"><\/script>`);
         console.log('🎯 Dashboard helpers loaded with aggressive cache busting');
     </script>

@@ -56,7 +56,7 @@ class SimpleTestingService {
                     sessionData.name || `Test Session - ${new Date().toISOString().split('T')[0]}`,
                     sessionData.description || 'Accessibility testing session',
                     sessionData.conformance_level || 'AA', // Default to WCAG AA
-                    sessionData.scope || 'all',  // Use string instead of JSON
+                    JSON.stringify(sessionData.scope || { testType: 'all', tools: 'all' }),  // Convert to proper JSON
                     'planning',
                     sessionData.testType || 'full',
                     testingApproach,
