@@ -150,20 +150,32 @@ router.get('/automated-test-results', async (req, res) => {
             SELECT 
                 atr.id,
                 atr.tool_name,
-                atr.result_type,
-                atr.wcag_criterion,
-                atr.page_url,
+                atr.test_session_id,
+                atr.page_id,
                 atr.violations_count,
+                atr.warnings_count,
                 atr.passes_count,
+                atr.test_duration_ms,
                 atr.executed_at,
+                atr.raw_results,
+                dp.url as page_url,
+                dp.title as page_title,
+                dp.page_type,
                 CASE 
                     WHEN atr.violations_count > 0 THEN 'fail'
                     WHEN atr.passes_count > 0 THEN 'pass'
                     ELSE 'unknown'
-                END as result
+                END as result_status,
+                -- Extract WCAG criterion from raw_results if available
+                COALESCE(
+                    atr.raw_results->>'wcag_criterion',
+                    atr.raw_results->'violations'->0->>'criterion',
+                    'unknown'
+                ) as wcag_criterion
             FROM automated_test_results atr
+            JOIN discovered_pages dp ON atr.page_id = dp.id
             WHERE atr.test_session_id = $1
-            ORDER BY atr.wcag_criterion, atr.tool_name, atr.executed_at DESC
+            ORDER BY atr.tool_name, dp.url, atr.executed_at DESC
         `;
 
         const result = await db.query(query, [session_id]);

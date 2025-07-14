@@ -415,7 +415,7 @@
                                         <td class="px-6 py-4 whitespace-nowrap">
                                             <div class="flex items-center">
                                                 <i :class="getAuthTypeIcon(config.type)" class="mr-2"></i>
-                                                <span class="text-sm text-gray-900" x-text="config.type.toUpperCase()"></span>
+                                                <span class="text-sm text-gray-900" x-text="config.type ? config.type.toUpperCase() : 'Unknown'"></span>
                                             </div>
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap">
