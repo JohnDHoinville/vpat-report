@@ -45,28 +45,17 @@ class RequirementTestMappingService {
                     'document-title': { wcag: ['2.4.2'], confidence: 'high' },
                     'duplicate-id': { wcag: ['4.1.1'], confidence: 'high' },
                     'form-field-multiple-labels': { wcag: ['3.3.2'], confidence: 'high' },
-                    'frame-title': { wcag: ['2.4.2'], confidence: 'high' },
+                    'frame-title': { wcag: ['2.4.1'], confidence: 'high' },
                     'html-has-lang': { wcag: ['3.1.1'], confidence: 'high' },
                     'html-lang-valid': { wcag: ['3.1.1'], confidence: 'high' },
-                    'html-xml-lang-mismatch': { wcag: ['3.1.1'], confidence: 'high' },
                     'image-alt': { wcag: ['1.1.1'], confidence: 'high' },
-                    'input-button-name': { wcag: ['4.1.2'], confidence: 'high' },
                     'input-image-alt': { wcag: ['1.1.1'], confidence: 'high' },
-                    'label': { wcag: ['3.3.2'], confidence: 'high' },
-                    'landmark-banner-is-top-level': { wcag: ['1.3.1'], confidence: 'medium' },
-                    'landmark-complementary-is-top-level': { wcag: ['1.3.1'], confidence: 'medium' },
-                    'landmark-contentinfo-is-top-level': { wcag: ['1.3.1'], confidence: 'medium' },
-                    'landmark-main-is-top-level': { wcag: ['1.3.1'], confidence: 'medium' },
-                    'landmark-no-duplicate-banner': { wcag: ['1.3.1'], confidence: 'medium' },
-                    'landmark-no-duplicate-contentinfo': { wcag: ['1.3.1'], confidence: 'medium' },
-                    'landmark-no-duplicate-main': { wcag: ['1.3.1'], confidence: 'medium' },
-                    'landmark-one-main': { wcag: ['1.3.1'], confidence: 'medium' },
-                    'landmark-unique': { wcag: ['1.3.1'], confidence: 'medium' },
-                    'link-name': { wcag: ['2.4.4'], confidence: 'high' },
+                    'label': { wcag: ['1.1.1', '1.3.1', '4.1.2'], confidence: 'high' },
+                    'link-name': { wcag: ['2.4.4', '4.1.2'], confidence: 'high' },
                     'list': { wcag: ['1.3.1'], confidence: 'high' },
                     'listitem': { wcag: ['1.3.1'], confidence: 'high' },
-                    'meta-refresh': { wcag: ['2.2.1'], confidence: 'high' },
-                    'meta-viewport': { wcag: ['1.4.4'], confidence: 'high' },
+                    'meta-refresh': { wcag: ['2.2.1', '2.2.4'], confidence: 'high' },
+                    'meta-viewport': { wcag: ['1.4.4'], confidence: 'medium' },
                     'object-alt': { wcag: ['1.1.1'], confidence: 'high' },
                     'role-img-alt': { wcag: ['1.1.1'], confidence: 'high' },
                     'select-name': { wcag: ['4.1.2'], confidence: 'high' },
@@ -74,7 +63,9 @@ class RequirementTestMappingService {
                     'svg-img-alt': { wcag: ['1.1.1'], confidence: 'high' },
                     'td-headers-attr': { wcag: ['1.3.1'], confidence: 'high' },
                     'th-has-data-cells': { wcag: ['1.3.1'], confidence: 'high' },
-                    'valid-lang': { wcag: ['3.1.2'], confidence: 'high' }
+                    'valid-lang': { wcag: ['3.1.2'], confidence: 'high' },
+                    // Add hover/focus automated detection rules
+                    'aria-describedby-hover': { wcag: ['1.4.13'], confidence: 'medium' }
                 }
             },
             'pa11y': {
@@ -96,15 +87,21 @@ class RequirementTestMappingService {
                 coverage: 'medium',
                 reliability: 'good',
                 rules: {
-                    'accesskeys': { wcag: ['2.1.1'], confidence: 'medium' },
+                    'accesskeys': { wcag: ['2.4.1'], confidence: 'medium' },
                     'aria-allowed-attr': { wcag: ['4.1.2'], confidence: 'high' },
+                    'aria-command-name': { wcag: ['4.1.2'], confidence: 'high' },
                     'aria-hidden-body': { wcag: ['4.1.2'], confidence: 'high' },
                     'aria-hidden-focus': { wcag: ['4.1.2'], confidence: 'high' },
                     'aria-input-field-name': { wcag: ['4.1.2'], confidence: 'high' },
+                    'aria-meter-name': { wcag: ['1.1.1'], confidence: 'high' },
+                    'aria-progressbar-name': { wcag: ['1.1.1'], confidence: 'high' },
                     'aria-required-attr': { wcag: ['4.1.2'], confidence: 'high' },
                     'aria-required-children': { wcag: ['1.3.1'], confidence: 'high' },
                     'aria-required-parent': { wcag: ['1.3.1'], confidence: 'high' },
                     'aria-roles': { wcag: ['4.1.2'], confidence: 'high' },
+                    'aria-toggle-field-name': { wcag: ['4.1.2'], confidence: 'high' },
+                    'aria-tooltip-name': { wcag: ['4.1.2'], confidence: 'high' },
+                    'aria-treeitem-name': { wcag: ['4.1.2'], confidence: 'high' },
                     'aria-valid-attr-value': { wcag: ['4.1.2'], confidence: 'high' },
                     'aria-valid-attr': { wcag: ['4.1.2'], confidence: 'high' },
                     'button-name': { wcag: ['4.1.2'], confidence: 'high' },
@@ -113,10 +110,11 @@ class RequirementTestMappingService {
                     'definition-list': { wcag: ['1.3.1'], confidence: 'high' },
                     'dlitem': { wcag: ['1.3.1'], confidence: 'high' },
                     'document-title': { wcag: ['2.4.2'], confidence: 'high' },
-                    'duplicate-id-aria': { wcag: ['4.1.1'], confidence: 'high' },
                     'duplicate-id-active': { wcag: ['4.1.1'], confidence: 'high' },
+                    'duplicate-id-aria': { wcag: ['4.1.1'], confidence: 'high' },
                     'form-field-multiple-labels': { wcag: ['3.3.2'], confidence: 'high' },
-                    'frame-title': { wcag: ['2.4.2'], confidence: 'high' },
+                    'frame-title': { wcag: ['2.4.1'], confidence: 'high' },
+                    'heading-order': { wcag: ['1.3.1'], confidence: 'medium' },
                     'html-has-lang': { wcag: ['3.1.1'], confidence: 'high' },
                     'html-lang-valid': { wcag: ['3.1.1'], confidence: 'high' },
                     'image-alt': { wcag: ['1.1.1'], confidence: 'high' },
@@ -134,6 +132,29 @@ class RequirementTestMappingService {
                     'td-headers-attr': { wcag: ['1.3.1'], confidence: 'high' },
                     'th-has-data-cells': { wcag: ['1.3.1'], confidence: 'high' },
                     'valid-lang': { wcag: ['3.1.2'], confidence: 'high' }
+                }
+            },
+            'playwright': {
+                coverage: 'high',
+                reliability: 'excellent',
+                rules: {
+                    // Standard accessibility testing
+                    'axe-integration': { wcag: ['1.1.1', '1.3.1', '1.4.3', '2.1.1', '2.4.1', '2.4.2', '3.1.1', '4.1.1', '4.1.2'], confidence: 'high' },
+                    'keyboard-navigation': { wcag: ['2.1.1', '2.1.2', '2.4.3'], confidence: 'high' },
+                    'focus-management': { wcag: ['2.4.3', '2.4.7'], confidence: 'high' },
+                    'aria-live-regions': { wcag: ['4.1.3'], confidence: 'medium' },
+                    
+                    // Enhanced hover/focus content detection for 1.4.13
+                    'hover-content-detection': { wcag: ['1.4.13'], confidence: 'medium' },
+                    'focus-content-detection': { wcag: ['1.4.13'], confidence: 'medium' },
+                    'tooltip-detection': { wcag: ['1.4.13'], confidence: 'low' },
+                    'css-hover-analysis': { wcag: ['1.4.13'], confidence: 'low' },
+                    
+                    // Responsive and visual testing
+                    'reflow-testing': { wcag: ['1.4.10'], confidence: 'high' },
+                    'text-spacing-testing': { wcag: ['1.4.12'], confidence: 'high' },
+                    'focus-visible-testing': { wcag: ['2.4.7'], confidence: 'high' },
+                    'zoom-testing': { wcag: ['1.4.4'], confidence: 'high' }
                 }
             },
             'contrast-analyzer': {
@@ -235,6 +256,23 @@ class RequirementTestMappingService {
                 ],
                 toolsNeeded: ['contrast_analyzer', 'color_picker'],
                 estimatedTime: 15
+            },
+            '1.4.13': {
+                title: 'Content on Hover or Focus',
+                testMethod: 'hybrid',
+                automatedCoverage: 'medium',
+                manualSteps: [
+                    'Identify all hover-triggered content (tooltips, dropdowns, custom content)',
+                    'Test that hover content can be dismissed using Escape key',
+                    'Verify hover content stays visible when mouse moves to the triggered content',
+                    'Check that focus-triggered content persists until user dismisses or removes trigger',
+                    'Test that additional content doesn\'t interfere with page content',
+                    'Ensure hover/focus content doesn\'t disappear on slight mouse movement',
+                    'Verify ARIA attributes properly describe the relationship (aria-describedby, aria-expanded)',
+                    'Test keyboard accessibility of dismiss mechanisms'
+                ],
+                toolsNeeded: ['keyboard_only', 'mouse', 'screen_reader'],
+                estimatedTime: 30
             },
             '2.1.1': {
                 title: 'Keyboard',
@@ -430,6 +468,7 @@ class RequirementTestMappingService {
             '1.3.1': { level: 'A', principle: 'Perceivable', guideline: '1.3' },
             '1.4.1': { level: 'A', principle: 'Perceivable', guideline: '1.4' },
             '1.4.3': { level: 'AA', principle: 'Perceivable', guideline: '1.4' },
+            '1.4.13': { level: 'AA', principle: 'Perceivable', guideline: '1.4' },
             '2.1.1': { level: 'A', principle: 'Operable', guideline: '2.1' },
             '2.1.2': { level: 'A', principle: 'Operable', guideline: '2.1' },
             '2.4.1': { level: 'A', principle: 'Operable', guideline: '2.4' },

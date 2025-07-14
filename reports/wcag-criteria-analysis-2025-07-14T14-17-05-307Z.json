@@ -1,0 +1,1384 @@
+{
+  "timestamp": "2025-07-14T14:17:05.236Z",
+  "analysis": {
+    "1.1.1": {
+      "criterion": "1.1.1",
+      "title": "Non-text Content",
+      "currentMethod": "both",
+      "recommendedMethod": "both",
+      "wcagDefinition": {
+        "title": "Non-text Content",
+        "level": "A",
+        "principle": "Perceivable",
+        "automatable": "high",
+        "reasoning": "Alt text presence and quality can be detected programmatically",
+        "manualNeeded": "Quality assessment of alt text relevance"
+      },
+      "automatedTools": [
+        {
+          "tool": "axe-core",
+          "rules": [
+            "area-alt",
+            "image-alt",
+            "input-image-alt",
+            "object-alt",
+            "svg-img-alt"
+          ],
+          "ruleCount": 5
+        },
+        {
+          "tool": "pa11y",
+          "rules": [
+            "H37",
+            "H24"
+          ],
+          "ruleCount": 2
+        },
+        {
+          "tool": "lighthouse",
+          "rules": [
+            "image-alt",
+            "input-image-alt",
+            "object-alt"
+          ],
+          "ruleCount": 3
+        }
+      ],
+      "hasAutomatedCapability": true,
+      "isInconsistent": false,
+      "reasoning": "Alt text presence and quality can be detected programmatically. Automated tools are available for detection. Manual testing needed for: Quality assessment of alt text relevance.",
+      "testingInstructions": "Use automated tools to detect missing alt attributes"
+    },
+    "1.2.1": {
+      "criterion": "1.2.1",
+      "title": "Audio-only and Video-only (Prerecorded)",
+      "currentMethod": "manual",
+      "recommendedMethod": "manual",
+      "wcagDefinition": {
+        "title": "Audio-only and Video-only (Prerecorded)",
+        "level": "A",
+        "principle": "Perceivable",
+        "automatable": "low",
+        "reasoning": "Requires human assessment of media content and alternatives",
+        "manualNeeded": "Content analysis and alternative evaluation"
+      },
+      "automatedTools": [],
+      "hasAutomatedCapability": false,
+      "isInconsistent": false,
+      "reasoning": "Requires human assessment of media content and alternatives. No automated tools currently configured. Manual testing needed for: Content analysis and alternative evaluation.",
+      "testingInstructions": "Check that prerecorded audio-only content has text transcripts and video-only content has audio descriptions or text alternatives."
+    },
+    "1.2.2": {
+      "criterion": "1.2.2",
+      "title": "Captions (Prerecorded)",
+      "currentMethod": "manual",
+      "recommendedMethod": "manual",
+      "wcagDefinition": {
+        "title": "Captions (Prerecorded)",
+        "level": "A",
+        "principle": "Perceivable",
+        "automatable": "low",
+        "reasoning": "Caption presence can be detected, quality requires human review",
+        "manualNeeded": "Caption accuracy and synchronization assessment"
+      },
+      "automatedTools": [],
+      "hasAutomatedCapability": false,
+      "isInconsistent": false,
+      "reasoning": "Caption presence can be detected, quality requires human review. No automated tools currently configured. Manual testing needed for: Caption accuracy and synchronization assessment.",
+      "testingInstructions": "Verify that all prerecorded videos with audio have accurate"
+    },
+    "1.3.1": {
+      "criterion": "1.3.1",
+      "title": "Info and Relationships",
+      "currentMethod": "both",
+      "recommendedMethod": "both",
+      "wcagDefinition": {
+        "title": "Info and Relationships",
+        "level": "A",
+        "principle": "Perceivable",
+        "automatable": "medium",
+        "reasoning": "Semantic markup can be detected, relationships need verification",
+        "manualNeeded": "Relationship accuracy and completeness"
+      },
+      "automatedTools": [
+        {
+          "tool": "axe-core",
+          "rules": [
+            "definition-list",
+            "dlitem",
+            "list",
+            "listitem",
+            "aria-required-children",
+            "aria-required-parent"
+          ],
+          "ruleCount": 6
+        },
+        {
+          "tool": "pa11y",
+          "rules": [
+            "H43",
+            "H63"
+          ],
+          "ruleCount": 2
+        },
+        {
+          "tool": "lighthouse",
+          "rules": [
+            "definition-list",
+            "dlitem",
+            "list",
+            "listitem"
+          ],
+          "ruleCount": 4
+        }
+      ],
+      "hasAutomatedCapability": true,
+      "isInconsistent": false,
+      "reasoning": "Semantic markup can be detected, relationships need verification. Automated tools are available for detection. Manual testing needed for: Relationship accuracy and completeness.",
+      "testingInstructions": "Test that semantic markup conveys meaning. Check headings"
+    },
+    "1.3.2": {
+      "criterion": "1.3.2",
+      "title": "Meaningful Sequence",
+      "currentMethod": "automated",
+      "recommendedMethod": "manual",
+      "wcagDefinition": {
+        "title": "Meaningful Sequence",
+        "level": "A",
+        "principle": "Perceivable",
+        "automatable": "medium",
+        "reasoning": "Reading order can be determined programmatically",
+        "manualNeeded": "Sequence meaningfulness verification"
+      },
+      "automatedTools": [],
+      "hasAutomatedCapability": false,
+      "isInconsistent": true,
+      "reasoning": "Reading order can be determined programmatically. No automated tools currently configured. Manual testing needed for: Sequence meaningfulness verification.",
+      "testingInstructions": "Verify that content order in DOM matches visual presentation and logical reading order."
+    },
+    "1.3.3": {
+      "criterion": "1.3.3",
+      "title": "Sensory Characteristics",
+      "currentMethod": "manual",
+      "recommendedMethod": "manual",
+      "wcagDefinition": {
+        "title": "Sensory Characteristics",
+        "level": "A",
+        "principle": "Perceivable",
+        "automatable": "low",
+        "reasoning": "Requires human interpretation of instructions and references",
+        "manualNeeded": "Instruction clarity and alternative cues"
+      },
+      "automatedTools": [],
+      "hasAutomatedCapability": false,
+      "isInconsistent": false,
+      "reasoning": "Requires human interpretation of instructions and references. No automated tools currently configured. Manual testing needed for: Instruction clarity and alternative cues.",
+      "testingInstructions": "Check that instructions don't rely only on shape"
+    },
+    "1.4.1": {
+      "criterion": "1.4.1",
+      "title": "Use of Color",
+      "currentMethod": "both",
+      "recommendedMethod": "manual",
+      "wcagDefinition": {
+        "title": "Use of Color",
+        "level": "A",
+        "principle": "Perceivable",
+        "automatable": "medium",
+        "reasoning": "Color usage patterns can be detected, meaning requires review",
+        "manualNeeded": "Alternative indicators for color-conveyed information"
+      },
+      "automatedTools": [],
+      "hasAutomatedCapability": false,
+      "isInconsistent": true,
+      "reasoning": "Color usage patterns can be detected, meaning requires review. No automated tools currently configured. Manual testing needed for: Alternative indicators for color-conveyed information.",
+      "testingInstructions": "Verify that color is not the only way to convey information. Check links"
+    },
+    "1.4.10": {
+      "criterion": "1.4.10",
+      "title": "Reflow",
+      "currentMethod": "automated",
+      "recommendedMethod": "both",
+      "wcagDefinition": {
+        "title": "Reflow",
+        "level": "AA",
+        "principle": "Perceivable",
+        "automatable": "high",
+        "reasoning": "Responsive behavior can be tested across viewports",
+        "manualNeeded": "Content loss and horizontal scrolling edge cases"
+      },
+      "automatedTools": [
+        {
+          "tool": "playwright",
+          "rules": [
+            "reflow-testing"
+          ],
+          "ruleCount": 1
+        }
+      ],
+      "hasAutomatedCapability": true,
+      "isInconsistent": true,
+      "reasoning": "Responsive behavior can be tested across viewports. Automated tools are available for detection. Manual testing needed for: Content loss and horizontal scrolling edge cases.",
+      "testingInstructions": "Test page at 320px width (horizontal reflow) and 256px height (vertical reflow) to ensure no two-dimensional scrolling is required."
+    },
+    "1.4.11": {
+      "criterion": "1.4.11",
+      "title": "Non-text Contrast",
+      "currentMethod": "automated",
+      "recommendedMethod": "manual",
+      "wcagDefinition": {
+        "title": "Non-text Contrast",
+        "level": "AA",
+        "principle": "Perceivable",
+        "automatable": "medium",
+        "reasoning": "UI component contrast can be calculated",
+        "manualNeeded": "Component identification and context assessment"
+      },
+      "automatedTools": [],
+      "hasAutomatedCapability": false,
+      "isInconsistent": true,
+      "reasoning": "UI component contrast can be calculated. No automated tools currently configured. Manual testing needed for: Component identification and context assessment.",
+      "testingInstructions": "Test contrast of UI components"
+    },
+    "1.4.12": {
+      "criterion": "1.4.12",
+      "title": "Text Spacing",
+      "currentMethod": "automated",
+      "recommendedMethod": "both",
+      "wcagDefinition": {
+        "title": "Text Spacing",
+        "level": "AA",
+        "principle": "Perceivable",
+        "automatable": "high",
+        "reasoning": "CSS override effects can be tested programmatically",
+        "manualNeeded": "Content overlap and readability verification"
+      },
+      "automatedTools": [
+        {
+          "tool": "playwright",
+          "rules": [
+            "text-spacing-testing"
+          ],
+          "ruleCount": 1
+        }
+      ],
+      "hasAutomatedCapability": true,
+      "isInconsistent": true,
+      "reasoning": "CSS override effects can be tested programmatically. Automated tools are available for detection. Manual testing needed for: Content overlap and readability verification.",
+      "testingInstructions": "Inject CSS to increase line-height to 1.5x"
+    },
+    "1.4.13": {
+      "criterion": "1.4.13",
+      "title": "Content on Hover or Focus",
+      "currentMethod": "both",
+      "recommendedMethod": "both",
+      "wcagDefinition": {
+        "title": "Content on Hover or Focus",
+        "level": "AA",
+        "principle": "Perceivable",
+        "automatable": "medium",
+        "reasoning": "Hover/focus triggers can be detected, behavior needs verification",
+        "manualNeeded": "Dismissibility, persistence, and hover behavior"
+      },
+      "automatedTools": [
+        {
+          "tool": "playwright",
+          "rules": [
+            "hover-content-detection",
+            "focus-content-detection"
+          ],
+          "ruleCount": 2
+        }
+      ],
+      "hasAutomatedCapability": true,
+      "isInconsistent": false,
+      "reasoning": "Hover/focus triggers can be detected, behavior needs verification. Automated tools are available for detection. Manual testing needed for: Dismissibility, persistence, and hover behavior.",
+      "testingInstructions": "AUTOMATED: Run scripts to detect hover/focus triggered content"
+    },
+    "1.4.3": {
+      "criterion": "1.4.3",
+      "title": "Contrast (Minimum)",
+      "currentMethod": "both",
+      "recommendedMethod": "both",
+      "wcagDefinition": {
+        "title": "Contrast (Minimum)",
+        "level": "AA",
+        "principle": "Perceivable",
+        "automatable": "high",
+        "reasoning": "Contrast ratios can be calculated programmatically",
+        "manualNeeded": "Edge cases and complex backgrounds"
+      },
+      "automatedTools": [
+        {
+          "tool": "axe-core",
+          "rules": [
+            "color-contrast"
+          ],
+          "ruleCount": 1
+        },
+        {
+          "tool": "pa11y",
+          "rules": [
+            "G18",
+            "G145"
+          ],
+          "ruleCount": 2
+        },
+        {
+          "tool": "lighthouse",
+          "rules": [
+            "color-contrast"
+          ],
+          "ruleCount": 1
+        }
+      ],
+      "hasAutomatedCapability": true,
+      "isInconsistent": false,
+      "reasoning": "Contrast ratios can be calculated programmatically. Automated tools are available for detection. Manual testing needed for: Edge cases and complex backgrounds.",
+      "testingInstructions": "Run automated contrast checking tools"
+    },
+    "1.4.4": {
+      "criterion": "1.4.4",
+      "title": "Resize Text",
+      "currentMethod": "automated",
+      "recommendedMethod": "automated",
+      "wcagDefinition": {
+        "title": "Resize Text",
+        "level": "AA",
+        "principle": "Perceivable",
+        "automatable": "high",
+        "reasoning": "Text scaling behavior can be tested programmatically",
+        "manualNeeded": "Usability at different zoom levels"
+      },
+      "automatedTools": [],
+      "hasAutomatedCapability": false,
+      "isInconsistent": false,
+      "reasoning": "Text scaling behavior can be tested programmatically. No automated tools currently configured. Manual testing needed for: Usability at different zoom levels.",
+      "testingInstructions": "Test that text can be zoomed to 200% without horizontal scrolling or content loss."
+    },
+    "2.1.1": {
+      "criterion": "2.1.1",
+      "title": "Keyboard",
+      "currentMethod": "manual",
+      "recommendedMethod": "both",
+      "wcagDefinition": {
+        "title": "Keyboard",
+        "level": "A",
+        "principle": "Operable",
+        "automatable": "medium",
+        "reasoning": "Basic keyboard navigation can be tested programmatically",
+        "manualNeeded": "Complex interactions and workflow completion"
+      },
+      "automatedTools": [
+        {
+          "tool": "axe-core",
+          "rules": [
+            "accesskeys"
+          ],
+          "ruleCount": 1
+        },
+        {
+          "tool": "playwright",
+          "rules": [
+            "keyboard-navigation"
+          ],
+          "ruleCount": 1
+        }
+      ],
+      "hasAutomatedCapability": true,
+      "isInconsistent": true,
+      "reasoning": "Basic keyboard navigation can be tested programmatically. Automated tools are available for detection. Manual testing needed for: Complex interactions and workflow completion.",
+      "testingInstructions": "Navigate entire page using only keyboard. Verify all functionality is accessible and no keyboard traps exist."
+    },
+    "2.1.2": {
+      "criterion": "2.1.2",
+      "title": "No Keyboard Trap",
+      "currentMethod": "automated",
+      "recommendedMethod": "both",
+      "wcagDefinition": {
+        "title": "No Keyboard Trap",
+        "level": "A",
+        "principle": "Operable",
+        "automatable": "high",
+        "reasoning": "Focus traps can be detected through navigation testing",
+        "manualNeeded": "Complex modal and widget behaviors"
+      },
+      "automatedTools": [
+        {
+          "tool": "axe-core",
+          "rules": [
+            "no-keyboard-trap"
+          ],
+          "ruleCount": 1
+        },
+        {
+          "tool": "playwright",
+          "rules": [
+            "keyboard-trap-detection"
+          ],
+          "ruleCount": 1
+        }
+      ],
+      "hasAutomatedCapability": true,
+      "isInconsistent": true,
+      "reasoning": "Focus traps can be detected through navigation testing. Automated tools are available for detection. Manual testing needed for: Complex modal and widget behaviors.",
+      "testingInstructions": "Test that keyboard focus can always move away from any component without getting stuck."
+    },
+    "2.1.4": {
+      "criterion": "2.1.4",
+      "title": "Character Key Shortcuts",
+      "currentMethod": "manual",
+      "recommendedMethod": "manual",
+      "wcagDefinition": {
+        "title": "Character Key Shortcuts",
+        "level": "A",
+        "principle": "Operable",
+        "automatable": "low",
+        "reasoning": "Requires testing of actual key combinations and conflicts",
+        "manualNeeded": "Shortcut discovery and conflict assessment"
+      },
+      "automatedTools": [],
+      "hasAutomatedCapability": false,
+      "isInconsistent": false,
+      "reasoning": "Requires testing of actual key combinations and conflicts. No automated tools currently configured. Manual testing needed for: Shortcut discovery and conflict assessment.",
+      "testingInstructions": "Check that single character keyboard shortcuts can be disabled or modified."
+    },
+    "2.4.1": {
+      "criterion": "2.4.1",
+      "title": "Bypass Blocks",
+      "currentMethod": "both",
+      "recommendedMethod": "both",
+      "wcagDefinition": {
+        "title": "Bypass Blocks",
+        "level": "A",
+        "principle": "Operable",
+        "automatable": "high",
+        "reasoning": "Skip links and landmarks can be detected",
+        "manualNeeded": "Functionality and target verification"
+      },
+      "automatedTools": [
+        {
+          "tool": "axe-core",
+          "rules": [
+            "bypass",
+            "skip-link"
+          ],
+          "ruleCount": 2
+        },
+        {
+          "tool": "pa11y",
+          "rules": [
+            "H64"
+          ],
+          "ruleCount": 1
+        },
+        {
+          "tool": "lighthouse",
+          "rules": [
+            "bypass"
+          ],
+          "ruleCount": 1
+        }
+      ],
+      "hasAutomatedCapability": true,
+      "isInconsistent": false,
+      "reasoning": "Skip links and landmarks can be detected. Automated tools are available for detection. Manual testing needed for: Functionality and target verification.",
+      "testingInstructions": "Test for skip links or other mechanisms to bypass repeated navigation and content blocks."
+    },
+    "2.4.2": {
+      "criterion": "2.4.2",
+      "title": "Page Titled",
+      "currentMethod": "automated",
+      "recommendedMethod": "both",
+      "wcagDefinition": {
+        "title": "Page Titled",
+        "level": "A",
+        "principle": "Operable",
+        "automatable": "high",
+        "reasoning": "Page title presence and structure can be verified",
+        "manualNeeded": "Title descriptiveness and accuracy"
+      },
+      "automatedTools": [
+        {
+          "tool": "axe-core",
+          "rules": [
+            "document-title"
+          ],
+          "ruleCount": 1
+        },
+        {
+          "tool": "pa11y",
+          "rules": [
+            "H25"
+          ],
+          "ruleCount": 1
+        },
+        {
+          "tool": "lighthouse",
+          "rules": [
+            "document-title"
+          ],
+          "ruleCount": 1
+        }
+      ],
+      "hasAutomatedCapability": true,
+      "isInconsistent": true,
+      "reasoning": "Page title presence and structure can be verified. Automated tools are available for detection. Manual testing needed for: Title descriptiveness and accuracy.",
+      "testingInstructions": "Verify that all pages have descriptive and unique titles."
+    },
+    "2.4.3": {
+      "criterion": "2.4.3",
+      "title": "Focus Order",
+      "currentMethod": "automated",
+      "recommendedMethod": "both",
+      "wcagDefinition": {
+        "title": "Focus Order",
+        "level": "A",
+        "principle": "Operable",
+        "automatable": "high",
+        "reasoning": "Tab order can be programmatically determined",
+        "manualNeeded": "Logical order and visual flow verification"
+      },
+      "automatedTools": [
+        {
+          "tool": "axe-core",
+          "rules": [
+            "tabindex"
+          ],
+          "ruleCount": 1
+        },
+        {
+          "tool": "playwright",
+          "rules": [
+            "focus-management"
+          ],
+          "ruleCount": 1
+        }
+      ],
+      "hasAutomatedCapability": true,
+      "isInconsistent": true,
+      "reasoning": "Tab order can be programmatically determined. Automated tools are available for detection. Manual testing needed for: Logical order and visual flow verification.",
+      "testingInstructions": "Test that tab order follows logical sequence and preserves meaning."
+    },
+    "2.4.4": {
+      "criterion": "2.4.4",
+      "title": "Link Purpose (In Context)",
+      "currentMethod": "both",
+      "recommendedMethod": "both",
+      "wcagDefinition": {
+        "title": "Link Purpose (In Context)",
+        "level": "A",
+        "principle": "Operable",
+        "automatable": "medium",
+        "reasoning": "Link text can be analyzed, context requires interpretation",
+        "manualNeeded": "Purpose clarity and context sufficiency"
+      },
+      "automatedTools": [
+        {
+          "tool": "axe-core",
+          "rules": [
+            "link-name"
+          ],
+          "ruleCount": 1
+        }
+      ],
+      "hasAutomatedCapability": true,
+      "isInconsistent": false,
+      "reasoning": "Link text can be analyzed, context requires interpretation. Automated tools are available for detection. Manual testing needed for: Purpose clarity and context sufficiency.",
+      "testingInstructions": "Test that link purposes are clear from link text or surrounding context."
+    },
+    "2.4.6": {
+      "criterion": "2.4.6",
+      "title": "Headings and Labels",
+      "currentMethod": "both",
+      "recommendedMethod": "manual",
+      "wcagDefinition": {
+        "title": "Headings and Labels",
+        "level": "AA",
+        "principle": "Operable",
+        "automatable": "medium",
+        "reasoning": "Heading structure can be detected, descriptiveness needs review",
+        "manualNeeded": "Heading and label clarity and descriptiveness"
+      },
+      "automatedTools": [],
+      "hasAutomatedCapability": false,
+      "isInconsistent": true,
+      "reasoning": "Heading structure can be detected, descriptiveness needs review. No automated tools currently configured. Manual testing needed for: Heading and label clarity and descriptiveness.",
+      "testingInstructions": "Test that headings and labels are descriptive and informative."
+    },
+    "2.4.7": {
+      "criterion": "2.4.7",
+      "title": "Focus Visible",
+      "currentMethod": "automated",
+      "recommendedMethod": "both",
+      "wcagDefinition": {
+        "title": "Focus Visible",
+        "level": "AA",
+        "principle": "Operable",
+        "automatable": "high",
+        "reasoning": "Focus indicators can be detected and measured",
+        "manualNeeded": "Visibility in various contexts and backgrounds"
+      },
+      "automatedTools": [
+        {
+          "tool": "axe-core",
+          "rules": [
+            "focus-visible"
+          ],
+          "ruleCount": 1
+        },
+        {
+          "tool": "playwright",
+          "rules": [
+            "focus-visible-testing"
+          ],
+          "ruleCount": 1
+        }
+      ],
+      "hasAutomatedCapability": true,
+      "isInconsistent": true,
+      "reasoning": "Focus indicators can be detected and measured. Automated tools are available for detection. Manual testing needed for: Visibility in various contexts and backgrounds.",
+      "testingInstructions": "Programmatically focus each interactive element and verify focus indicator has sufficient contrast and is visible."
+    },
+    "3.1.1": {
+      "criterion": "3.1.1",
+      "title": "Language of Page",
+      "currentMethod": "automated",
+      "recommendedMethod": "both",
+      "wcagDefinition": {
+        "title": "Language of Page",
+        "level": "A",
+        "principle": "Understandable",
+        "automatable": "high",
+        "reasoning": "HTML lang attribute can be verified programmatically",
+        "manualNeeded": "Language accuracy verification"
+      },
+      "automatedTools": [
+        {
+          "tool": "axe-core",
+          "rules": [
+            "html-has-lang",
+            "html-lang-valid"
+          ],
+          "ruleCount": 2
+        },
+        {
+          "tool": "pa11y",
+          "rules": [
+            "H57"
+          ],
+          "ruleCount": 1
+        },
+        {
+          "tool": "lighthouse",
+          "rules": [
+            "html-has-lang",
+            "html-lang-valid"
+          ],
+          "ruleCount": 2
+        }
+      ],
+      "hasAutomatedCapability": true,
+      "isInconsistent": true,
+      "reasoning": "HTML lang attribute can be verified programmatically. Automated tools are available for detection. Manual testing needed for: Language accuracy verification.",
+      "testingInstructions": "Test that pages have lang attribute declaring the primary language."
+    },
+    "3.1.2": {
+      "criterion": "3.1.2",
+      "title": "Language of Parts",
+      "currentMethod": "manual",
+      "recommendedMethod": "both",
+      "wcagDefinition": {
+        "title": "Language of Parts",
+        "level": "AA",
+        "principle": "Understandable",
+        "automatable": "medium",
+        "reasoning": "Lang attributes can be detected, accuracy needs verification",
+        "manualNeeded": "Language change identification and accuracy"
+      },
+      "automatedTools": [
+        {
+          "tool": "axe-core",
+          "rules": [
+            "valid-lang"
+          ],
+          "ruleCount": 1
+        }
+      ],
+      "hasAutomatedCapability": true,
+      "isInconsistent": true,
+      "reasoning": "Lang attributes can be detected, accuracy needs verification. Automated tools are available for detection. Manual testing needed for: Language change identification and accuracy.",
+      "testingInstructions": "Test that content in different languages is properly marked."
+    },
+    "3.2.1": {
+      "criterion": "3.2.1",
+      "title": "On Focus",
+      "currentMethod": "automated",
+      "recommendedMethod": "both",
+      "wcagDefinition": {
+        "title": "On Focus",
+        "level": "A",
+        "principle": "Understandable",
+        "automatable": "high",
+        "reasoning": "Focus events and context changes can be monitored",
+        "manualNeeded": "Unexpected changes and user experience"
+      },
+      "automatedTools": [
+        {
+          "tool": "axe-core",
+          "rules": [
+            "no-onchange"
+          ],
+          "ruleCount": 1
+        }
+      ],
+      "hasAutomatedCapability": true,
+      "isInconsistent": true,
+      "reasoning": "Focus events and context changes can be monitored. Automated tools are available for detection. Manual testing needed for: Unexpected changes and user experience.",
+      "testingInstructions": "Test that focusing on elements doesn't cause unexpected context changes."
+    },
+    "3.2.2": {
+      "criterion": "3.2.2",
+      "title": "On Input",
+      "currentMethod": "automated",
+      "recommendedMethod": "both",
+      "wcagDefinition": {
+        "title": "On Input",
+        "level": "A",
+        "principle": "Understandable",
+        "automatable": "high",
+        "reasoning": "Input events and changes can be monitored",
+        "manualNeeded": "Unexpected changes and user experience"
+      },
+      "automatedTools": [
+        {
+          "tool": "axe-core",
+          "rules": [
+            "no-auto-refresh"
+          ],
+          "ruleCount": 1
+        }
+      ],
+      "hasAutomatedCapability": true,
+      "isInconsistent": true,
+      "reasoning": "Input events and changes can be monitored. Automated tools are available for detection. Manual testing needed for: Unexpected changes and user experience.",
+      "testingInstructions": "Test that changing form controls doesn't cause unexpected context changes."
+    },
+    "3.3.1": {
+      "criterion": "3.3.1",
+      "title": "Error Identification",
+      "currentMethod": "both",
+      "recommendedMethod": "both",
+      "wcagDefinition": {
+        "title": "Error Identification",
+        "level": "A",
+        "principle": "Understandable",
+        "automatable": "medium",
+        "reasoning": "Error markup can be detected, identification needs review",
+        "manualNeeded": "Error clarity and identification completeness"
+      },
+      "automatedTools": [
+        {
+          "tool": "axe-core",
+          "rules": [
+            "aria-describedby-id-refs"
+          ],
+          "ruleCount": 1
+        }
+      ],
+      "hasAutomatedCapability": true,
+      "isInconsistent": false,
+      "reasoning": "Error markup can be detected, identification needs review. Automated tools are available for detection. Manual testing needed for: Error clarity and identification completeness.",
+      "testingInstructions": "Test that form validation errors are clearly identified and described."
+    },
+    "3.3.2": {
+      "criterion": "3.3.2",
+      "title": "Labels or Instructions",
+      "currentMethod": "both",
+      "recommendedMethod": "both",
+      "wcagDefinition": {
+        "title": "Labels or Instructions",
+        "level": "A",
+        "principle": "Understandable",
+        "automatable": "medium",
+        "reasoning": "Labels can be detected, sufficiency needs assessment",
+        "manualNeeded": "Label clarity and instruction adequacy"
+      },
+      "automatedTools": [
+        {
+          "tool": "axe-core",
+          "rules": [
+            "label"
+          ],
+          "ruleCount": 1
+        }
+      ],
+      "hasAutomatedCapability": true,
+      "isInconsistent": false,
+      "reasoning": "Labels can be detected, sufficiency needs assessment. Automated tools are available for detection. Manual testing needed for: Label clarity and instruction adequacy.",
+      "testingInstructions": "Test that form fields have proper labels or instructions."
+    },
+    "4.1.1": {
+      "criterion": "4.1.1",
+      "title": "Parsing",
+      "currentMethod": "automated",
+      "recommendedMethod": "both",
+      "wcagDefinition": {
+        "title": "Parsing",
+        "level": "A",
+        "principle": "Robust",
+        "automatable": "high",
+        "reasoning": "HTML validation can be performed programmatically",
+        "manualNeeded": "Impact assessment of parsing errors"
+      },
+      "automatedTools": [
+        {
+          "tool": "axe-core",
+          "rules": [
+            "duplicate-id"
+          ],
+          "ruleCount": 1
+        },
+        {
+          "tool": "pa11y",
+          "rules": [
+            "F77"
+          ],
+          "ruleCount": 1
+        },
+        {
+          "tool": "lighthouse",
+          "rules": [
+            "duplicate-id-aria",
+            "duplicate-id-active"
+          ],
+          "ruleCount": 2
+        }
+      ],
+      "hasAutomatedCapability": true,
+      "isInconsistent": true,
+      "reasoning": "HTML validation can be performed programmatically. Automated tools are available for detection. Manual testing needed for: Impact assessment of parsing errors.",
+      "testingInstructions": "Test that HTML markup is valid and properly structured."
+    },
+    "4.1.2": {
+      "criterion": "4.1.2",
+      "title": "Name",
+      "currentMethod": " Role",
+      "recommendedMethod": "both",
+      "wcagDefinition": {
+        "title": "Name, Role, Value",
+        "level": "A",
+        "principle": "Robust",
+        "automatable": "high",
+        "reasoning": "ARIA properties and roles can be verified",
+        "manualNeeded": "Accuracy and completeness of accessible names"
+      },
+      "automatedTools": [
+        {
+          "tool": "axe-core",
+          "rules": [
+            "aria-roles",
+            "aria-valid-attr",
+            "button-name",
+            "select-name"
+          ],
+          "ruleCount": 4
+        },
+        {
+          "tool": "pa11y",
+          "rules": [
+            "H91"
+          ],
+          "ruleCount": 1
+        },
+        {
+          "tool": "lighthouse",
+          "rules": [
+            "aria-allowed-attr",
+            "aria-roles",
+            "button-name"
+          ],
+          "ruleCount": 3
+        }
+      ],
+      "hasAutomatedCapability": true,
+      "isInconsistent": true,
+      "reasoning": "ARIA properties and roles can be verified. Automated tools are available for detection. Manual testing needed for: Accuracy and completeness of accessible names.",
+      "testingInstructions": "both"
+    },
+    "4.1.3": {
+      "criterion": "4.1.3",
+      "title": "Status Messages",
+      "currentMethod": "automated",
+      "recommendedMethod": "both",
+      "wcagDefinition": {
+        "title": "Status Messages",
+        "level": "AA",
+        "principle": "Robust",
+        "automatable": "medium",
+        "reasoning": "Live regions can be detected, messaging needs verification",
+        "manualNeeded": "Message appropriateness and timing"
+      },
+      "automatedTools": [
+        {
+          "tool": "axe-core",
+          "rules": [
+            "aria-live-regions"
+          ],
+          "ruleCount": 1
+        }
+      ],
+      "hasAutomatedCapability": true,
+      "isInconsistent": true,
+      "reasoning": "Live regions can be detected, messaging needs verification. Automated tools are available for detection. Manual testing needed for: Message appropriateness and timing.",
+      "testingInstructions": "Test that status messages are announced to screen readers using ARIA live regions."
+    }
+  },
+  "inconsistencies": [
+    {
+      "criterion": "1.2.3",
+      "type": "missing_definition",
+      "message": "No WCAG definition found for criterion 1.2.3",
+      "severity": "warning"
+    },
+    {
+      "criterion": "1.2.4",
+      "type": "missing_definition",
+      "message": "No WCAG definition found for criterion 1.2.4",
+      "severity": "warning"
+    },
+    {
+      "criterion": "1.2.5",
+      "type": "missing_definition",
+      "message": "No WCAG definition found for criterion 1.2.5",
+      "severity": "warning"
+    },
+    {
+      "criterion": "1.3.2",
+      "type": "method_mismatch",
+      "current": "automated",
+      "recommended": "manual",
+      "severity": "high",
+      "reasoning": "Reading order can be determined programmatically. No automated tools currently configured. Manual testing needed for: Sequence meaningfulness verification."
+    },
+    {
+      "criterion": "1.3.4",
+      "type": "missing_definition",
+      "message": "No WCAG definition found for criterion 1.3.4",
+      "severity": "warning"
+    },
+    {
+      "criterion": "1.3.5",
+      "type": "missing_definition",
+      "message": "No WCAG definition found for criterion 1.3.5",
+      "severity": "warning"
+    },
+    {
+      "criterion": "1.4.1",
+      "type": "method_mismatch",
+      "current": "both",
+      "recommended": "manual",
+      "severity": "high",
+      "reasoning": "Color usage patterns can be detected, meaning requires review. No automated tools currently configured. Manual testing needed for: Alternative indicators for color-conveyed information."
+    },
+    {
+      "criterion": "1.4.10",
+      "type": "method_mismatch",
+      "current": "automated",
+      "recommended": "both",
+      "severity": "high",
+      "reasoning": "Responsive behavior can be tested across viewports. Automated tools are available for detection. Manual testing needed for: Content loss and horizontal scrolling edge cases."
+    },
+    {
+      "criterion": "1.4.11",
+      "type": "method_mismatch",
+      "current": "automated",
+      "recommended": "manual",
+      "severity": "high",
+      "reasoning": "UI component contrast can be calculated. No automated tools currently configured. Manual testing needed for: Component identification and context assessment."
+    },
+    {
+      "criterion": "1.4.12",
+      "type": "method_mismatch",
+      "current": "automated",
+      "recommended": "both",
+      "severity": "high",
+      "reasoning": "CSS override effects can be tested programmatically. Automated tools are available for detection. Manual testing needed for: Content overlap and readability verification."
+    },
+    {
+      "criterion": "1.4.2",
+      "type": "missing_definition",
+      "message": "No WCAG definition found for criterion 1.4.2",
+      "severity": "warning"
+    },
+    {
+      "criterion": "1.4.5",
+      "type": "missing_definition",
+      "message": "No WCAG definition found for criterion 1.4.5",
+      "severity": "warning"
+    },
+    {
+      "criterion": "2.1.1",
+      "type": "method_mismatch",
+      "current": "manual",
+      "recommended": "both",
+      "severity": "high",
+      "reasoning": "Basic keyboard navigation can be tested programmatically. Automated tools are available for detection. Manual testing needed for: Complex interactions and workflow completion."
+    },
+    {
+      "criterion": "2.1.2",
+      "type": "method_mismatch",
+      "current": "automated",
+      "recommended": "both",
+      "severity": "high",
+      "reasoning": "Focus traps can be detected through navigation testing. Automated tools are available for detection. Manual testing needed for: Complex modal and widget behaviors."
+    },
+    {
+      "criterion": "2.2.1",
+      "type": "missing_definition",
+      "message": "No WCAG definition found for criterion 2.2.1",
+      "severity": "warning"
+    },
+    {
+      "criterion": "2.2.2",
+      "type": "missing_definition",
+      "message": "No WCAG definition found for criterion 2.2.2",
+      "severity": "warning"
+    },
+    {
+      "criterion": "2.3.1",
+      "type": "missing_definition",
+      "message": "No WCAG definition found for criterion 2.3.1",
+      "severity": "warning"
+    },
+    {
+      "criterion": "2.4.2",
+      "type": "method_mismatch",
+      "current": "automated",
+      "recommended": "both",
+      "severity": "high",
+      "reasoning": "Page title presence and structure can be verified. Automated tools are available for detection. Manual testing needed for: Title descriptiveness and accuracy."
+    },
+    {
+      "criterion": "2.4.3",
+      "type": "method_mismatch",
+      "current": "automated",
+      "recommended": "both",
+      "severity": "high",
+      "reasoning": "Tab order can be programmatically determined. Automated tools are available for detection. Manual testing needed for: Logical order and visual flow verification."
+    },
+    {
+      "criterion": "2.4.5",
+      "type": "missing_definition",
+      "message": "No WCAG definition found for criterion 2.4.5",
+      "severity": "warning"
+    },
+    {
+      "criterion": "2.4.6",
+      "type": "method_mismatch",
+      "current": "both",
+      "recommended": "manual",
+      "severity": "high",
+      "reasoning": "Heading structure can be detected, descriptiveness needs review. No automated tools currently configured. Manual testing needed for: Heading and label clarity and descriptiveness."
+    },
+    {
+      "criterion": "2.4.7",
+      "type": "method_mismatch",
+      "current": "automated",
+      "recommended": "both",
+      "severity": "high",
+      "reasoning": "Focus indicators can be detected and measured. Automated tools are available for detection. Manual testing needed for: Visibility in various contexts and backgrounds."
+    },
+    {
+      "criterion": "2.5.1",
+      "type": "missing_definition",
+      "message": "No WCAG definition found for criterion 2.5.1",
+      "severity": "warning"
+    },
+    {
+      "criterion": "2.5.2",
+      "type": "missing_definition",
+      "message": "No WCAG definition found for criterion 2.5.2",
+      "severity": "warning"
+    },
+    {
+      "criterion": "2.5.3",
+      "type": "missing_definition",
+      "message": "No WCAG definition found for criterion 2.5.3",
+      "severity": "warning"
+    },
+    {
+      "criterion": "2.5.4",
+      "type": "missing_definition",
+      "message": "No WCAG definition found for criterion 2.5.4",
+      "severity": "warning"
+    },
+    {
+      "criterion": "3.1.1",
+      "type": "method_mismatch",
+      "current": "automated",
+      "recommended": "both",
+      "severity": "high",
+      "reasoning": "HTML lang attribute can be verified programmatically. Automated tools are available for detection. Manual testing needed for: Language accuracy verification."
+    },
+    {
+      "criterion": "3.1.2",
+      "type": "method_mismatch",
+      "current": "manual",
+      "recommended": "both",
+      "severity": "high",
+      "reasoning": "Lang attributes can be detected, accuracy needs verification. Automated tools are available for detection. Manual testing needed for: Language change identification and accuracy."
+    },
+    {
+      "criterion": "3.2.1",
+      "type": "method_mismatch",
+      "current": "automated",
+      "recommended": "both",
+      "severity": "high",
+      "reasoning": "Focus events and context changes can be monitored. Automated tools are available for detection. Manual testing needed for: Unexpected changes and user experience."
+    },
+    {
+      "criterion": "3.2.2",
+      "type": "method_mismatch",
+      "current": "automated",
+      "recommended": "both",
+      "severity": "high",
+      "reasoning": "Input events and changes can be monitored. Automated tools are available for detection. Manual testing needed for: Unexpected changes and user experience."
+    },
+    {
+      "criterion": "3.2.3",
+      "type": "missing_definition",
+      "message": "No WCAG definition found for criterion 3.2.3",
+      "severity": "warning"
+    },
+    {
+      "criterion": "3.2.4",
+      "type": "missing_definition",
+      "message": "No WCAG definition found for criterion 3.2.4",
+      "severity": "warning"
+    },
+    {
+      "criterion": "3.3.3",
+      "type": "missing_definition",
+      "message": "No WCAG definition found for criterion 3.3.3",
+      "severity": "warning"
+    },
+    {
+      "criterion": "3.3.4",
+      "type": "missing_definition",
+      "message": "No WCAG definition found for criterion 3.3.4",
+      "severity": "warning"
+    },
+    {
+      "criterion": "4.1.1",
+      "type": "method_mismatch",
+      "current": "automated",
+      "recommended": "both",
+      "severity": "high",
+      "reasoning": "HTML validation can be performed programmatically. Automated tools are available for detection. Manual testing needed for: Impact assessment of parsing errors."
+    },
+    {
+      "criterion": "4.1.2",
+      "type": "method_mismatch",
+      "current": " Role",
+      "recommended": "both",
+      "severity": "high",
+      "reasoning": "ARIA properties and roles can be verified. Automated tools are available for detection. Manual testing needed for: Accuracy and completeness of accessible names."
+    },
+    {
+      "criterion": "4.1.3",
+      "type": "method_mismatch",
+      "current": "automated",
+      "recommended": "both",
+      "severity": "high",
+      "reasoning": "Live regions can be detected, messaging needs verification. Automated tools are available for detection. Manual testing needed for: Message appropriateness and timing."
+    }
+  ],
+  "recommendations": [
+    {
+      "category": "method_alignment",
+      "priority": "high",
+      "title": "Fix Test Method Inconsistencies",
+      "description": "18 criteria have misaligned test methods",
+      "criteria": [
+        "1.3.2",
+        "1.4.1",
+        "1.4.10",
+        "1.4.11",
+        "1.4.12",
+        "2.1.1",
+        "2.1.2",
+        "2.4.2",
+        "2.4.3",
+        "2.4.6",
+        "2.4.7",
+        "3.1.1",
+        "3.1.2",
+        "3.2.1",
+        "3.2.2",
+        "4.1.1",
+        "4.1.2",
+        "4.1.3"
+      ],
+      "action": "Update database test_method values to match automated capabilities",
+      "sql_script": "-- WCAG Criteria Test Method Alignment\n-- Generated: 2025-07-14T14:17:05.305Z\n\n-- 1.3.2: automated → manual\nUPDATE test_requirements SET test_method = 'manual' WHERE criterion_number = '1.3.2';\n\n-- 1.4.1: both → manual\nUPDATE test_requirements SET test_method = 'manual' WHERE criterion_number = '1.4.1';\n\n-- 1.4.10: automated → both\nUPDATE test_requirements SET test_method = 'both' WHERE criterion_number = '1.4.10';\n\n-- 1.4.11: automated → manual\nUPDATE test_requirements SET test_method = 'manual' WHERE criterion_number = '1.4.11';\n\n-- 1.4.12: automated → both\nUPDATE test_requirements SET test_method = 'both' WHERE criterion_number = '1.4.12';\n\n-- 2.1.1: manual → both\nUPDATE test_requirements SET test_method = 'both' WHERE criterion_number = '2.1.1';\n\n-- 2.1.2: automated → both\nUPDATE test_requirements SET test_method = 'both' WHERE criterion_number = '2.1.2';\n\n-- 2.4.2: automated → both\nUPDATE test_requirements SET test_method = 'both' WHERE criterion_number = '2.4.2';\n\n-- 2.4.3: automated → both\nUPDATE test_requirements SET test_method = 'both' WHERE criterion_number = '2.4.3';\n\n-- 2.4.6: both → manual\nUPDATE test_requirements SET test_method = 'manual' WHERE criterion_number = '2.4.6';\n\n-- 2.4.7: automated → both\nUPDATE test_requirements SET test_method = 'both' WHERE criterion_number = '2.4.7';\n\n-- 3.1.1: automated → both\nUPDATE test_requirements SET test_method = 'both' WHERE criterion_number = '3.1.1';\n\n-- 3.1.2: manual → both\nUPDATE test_requirements SET test_method = 'both' WHERE criterion_number = '3.1.2';\n\n-- 3.2.1: automated → both\nUPDATE test_requirements SET test_method = 'both' WHERE criterion_number = '3.2.1';\n\n-- 3.2.2: automated → both\nUPDATE test_requirements SET test_method = 'both' WHERE criterion_number = '3.2.2';\n\n-- 4.1.1: automated → both\nUPDATE test_requirements SET test_method = 'both' WHERE criterion_number = '4.1.1';\n\n-- 4.1.2:  Role → both\nUPDATE test_requirements SET test_method = 'both' WHERE criterion_number = '4.1.2';\n\n-- 4.1.3: automated → both\nUPDATE test_requirements SET test_method = 'both' WHERE criterion_number = '4.1.3';\n\n-- Verification query\nSELECT criterion_number, title, test_method FROM test_requirements WHERE requirement_type = 'wcag' ORDER BY criterion_number;\n"
+    },
+    {
+      "category": "automation_enhancement",
+      "priority": "medium",
+      "title": "Add Automated Testing Capabilities",
+      "description": "4 criteria could benefit from automated testing",
+      "criteria": [
+        "1.3.2",
+        "1.4.1",
+        "1.4.11",
+        "2.4.6"
+      ],
+      "action": "Implement automated test rules for these criteria"
+    },
+    {
+      "category": "template_standardization",
+      "priority": "medium",
+      "title": "Standardize Testing Templates",
+      "description": "Create standardized templates for consistent testing across projects",
+      "action": "Apply generated templates to seed data and testing procedures"
+    }
+  ],
+  "templates": {
+    "automated": {
+      "type": "automated",
+      "description": "Automated testing template for WCAG criteria with high automation confidence",
+      "criteria_count": 1,
+      "criteria": [
+        "1.4.4"
+      ],
+      "tools": [
+        "axe-core",
+        "pa11y",
+        "lighthouse",
+        "playwright"
+      ],
+      "configuration": {
+        "confidence_threshold": "medium",
+        "require_manual_verification": false,
+        "automated_only": true
+      },
+      "testing_procedure": [
+        "Run automated accessibility scanning tools",
+        "Validate results against WCAG criteria",
+        "Generate violation reports",
+        "Mark as pass/fail based on automated results"
+      ],
+      "sql_template": "-- AUTOMATED Testing Template\n-- Generated: 2025-07-14T14:17:05.306Z\n\nUPDATE test_requirements SET \n    test_method = 'automated',\n    testing_instructions = 'AUTOMATED: Use accessibility scanning tools to detect violations. Text scaling behavior can be tested programmatically'\nWHERE criterion_number = '1.4.4';\n\n"
+    },
+    "manual": {
+      "type": "manual",
+      "description": "Manual testing template for WCAG criteria requiring human assessment",
+      "criteria_count": 8,
+      "criteria": [
+        "1.2.1",
+        "1.2.2",
+        "1.3.2",
+        "1.3.3",
+        "1.4.1",
+        "1.4.11",
+        "2.1.4",
+        "2.4.6"
+      ],
+      "tools": [
+        "screen_reader",
+        "keyboard_navigation",
+        "visual_inspection"
+      ],
+      "configuration": {
+        "require_tester_assignment": true,
+        "require_evidence": true,
+        "manual_only": true
+      },
+      "testing_procedure": [
+        "Assign qualified tester",
+        "Follow manual testing procedures",
+        "Document findings with evidence",
+        "Provide remediation guidance",
+        "Mark with confidence level and notes"
+      ],
+      "sql_template": "-- MANUAL Testing Template\n-- Generated: 2025-07-14T14:17:05.306Z\n\nUPDATE test_requirements SET \n    test_method = 'manual',\n    testing_instructions = 'MANUAL: Content analysis and alternative evaluation. Requires human assessment of media content and alternatives'\nWHERE criterion_number = '1.2.1';\n\nUPDATE test_requirements SET \n    test_method = 'manual',\n    testing_instructions = 'MANUAL: Caption accuracy and synchronization assessment. Caption presence can be detected, quality requires human review'\nWHERE criterion_number = '1.2.2';\n\nUPDATE test_requirements SET \n    test_method = 'manual',\n    testing_instructions = 'MANUAL: Sequence meaningfulness verification. Reading order can be determined programmatically'\nWHERE criterion_number = '1.3.2';\n\nUPDATE test_requirements SET \n    test_method = 'manual',\n    testing_instructions = 'MANUAL: Instruction clarity and alternative cues. Requires human interpretation of instructions and references'\nWHERE criterion_number = '1.3.3';\n\nUPDATE test_requirements SET \n    test_method = 'manual',\n    testing_instructions = 'MANUAL: Alternative indicators for color-conveyed information. Color usage patterns can be detected, meaning requires review'\nWHERE criterion_number = '1.4.1';\n\nUPDATE test_requirements SET \n    test_method = 'manual',\n    testing_instructions = 'MANUAL: Component identification and context assessment. UI component contrast can be calculated'\nWHERE criterion_number = '1.4.11';\n\nUPDATE test_requirements SET \n    test_method = 'manual',\n    testing_instructions = 'MANUAL: Shortcut discovery and conflict assessment. Requires testing of actual key combinations and conflicts'\nWHERE criterion_number = '2.1.4';\n\nUPDATE test_requirements SET \n    test_method = 'manual',\n    testing_instructions = 'MANUAL: Heading and label clarity and descriptiveness. Heading structure can be detected, descriptiveness needs review'\nWHERE criterion_number = '2.4.6';\n\n"
+    },
+    "hybrid": {
+      "type": "both",
+      "description": "Hybrid testing template combining automated detection with manual verification",
+      "criteria_count": 22,
+      "criteria": [
+        "1.1.1",
+        "1.3.1",
+        "1.4.10",
+        "1.4.12",
+        "1.4.13",
+        "1.4.3",
+        "2.1.1",
+        "2.1.2",
+        "2.4.1",
+        "2.4.2",
+        "2.4.3",
+        "2.4.4",
+        "2.4.7",
+        "3.1.1",
+        "3.1.2",
+        "3.2.1",
+        "3.2.2",
+        "3.3.1",
+        "3.3.2",
+        "4.1.1",
+        "4.1.2",
+        "4.1.3"
+      ],
+      "tools": [
+        "axe-core",
+        "pa11y",
+        "lighthouse",
+        "playwright",
+        "manual_verification"
+      ],
+      "configuration": {
+        "start_with_automation": true,
+        "require_manual_verification": true,
+        "confidence_escalation": true
+      },
+      "testing_procedure": [
+        "Run automated accessibility scanning",
+        "Identify potential violations and passes",
+        "Assign manual verification for edge cases",
+        "Combine automated and manual results",
+        "Provide comprehensive assessment"
+      ],
+      "sql_template": "-- BOTH Testing Template\n-- Generated: 2025-07-14T14:17:05.306Z\n\nUPDATE test_requirements SET \n    test_method = 'both',\n    testing_instructions = 'HYBRID: Start with automated scanning for baseline detection. Manual verification required for Quality assessment of alt text relevance. Alt text presence and quality can be detected programmatically Tools available: axe-core, pa11y, lighthouse.'\nWHERE criterion_number = '1.1.1';\n\nUPDATE test_requirements SET \n    test_method = 'both',\n    testing_instructions = 'HYBRID: Start with automated scanning for baseline detection. Manual verification required for Relationship accuracy and completeness. Semantic markup can be detected, relationships need verification Tools available: axe-core, pa11y, lighthouse.'\nWHERE criterion_number = '1.3.1';\n\nUPDATE test_requirements SET \n    test_method = 'both',\n    testing_instructions = 'HYBRID: Start with automated scanning for baseline detection. Manual verification required for Content loss and horizontal scrolling edge cases. Responsive behavior can be tested across viewports Tools available: playwright.'\nWHERE criterion_number = '1.4.10';\n\nUPDATE test_requirements SET \n    test_method = 'both',\n    testing_instructions = 'HYBRID: Start with automated scanning for baseline detection. Manual verification required for Content overlap and readability verification. CSS override effects can be tested programmatically Tools available: playwright.'\nWHERE criterion_number = '1.4.12';\n\nUPDATE test_requirements SET \n    test_method = 'both',\n    testing_instructions = 'HYBRID: Start with automated scanning for baseline detection. Manual verification required for Dismissibility, persistence, and hover behavior. Hover/focus triggers can be detected, behavior needs verification Tools available: playwright.'\nWHERE criterion_number = '1.4.13';\n\nUPDATE test_requirements SET \n    test_method = 'both',\n    testing_instructions = 'HYBRID: Start with automated scanning for baseline detection. Manual verification required for Edge cases and complex backgrounds. Contrast ratios can be calculated programmatically Tools available: axe-core, pa11y, lighthouse.'\nWHERE criterion_number = '1.4.3';\n\nUPDATE test_requirements SET \n    test_method = 'both',\n    testing_instructions = 'HYBRID: Start with automated scanning for baseline detection. Manual verification required for Complex interactions and workflow completion. Basic keyboard navigation can be tested programmatically Tools available: axe-core, playwright.'\nWHERE criterion_number = '2.1.1';\n\nUPDATE test_requirements SET \n    test_method = 'both',\n    testing_instructions = 'HYBRID: Start with automated scanning for baseline detection. Manual verification required for Complex modal and widget behaviors. Focus traps can be detected through navigation testing Tools available: axe-core, playwright.'\nWHERE criterion_number = '2.1.2';\n\nUPDATE test_requirements SET \n    test_method = 'both',\n    testing_instructions = 'HYBRID: Start with automated scanning for baseline detection. Manual verification required for Functionality and target verification. Skip links and landmarks can be detected Tools available: axe-core, pa11y, lighthouse.'\nWHERE criterion_number = '2.4.1';\n\nUPDATE test_requirements SET \n    test_method = 'both',\n    testing_instructions = 'HYBRID: Start with automated scanning for baseline detection. Manual verification required for Title descriptiveness and accuracy. Page title presence and structure can be verified Tools available: axe-core, pa11y, lighthouse.'\nWHERE criterion_number = '2.4.2';\n\nUPDATE test_requirements SET \n    test_method = 'both',\n    testing_instructions = 'HYBRID: Start with automated scanning for baseline detection. Manual verification required for Logical order and visual flow verification. Tab order can be programmatically determined Tools available: axe-core, playwright.'\nWHERE criterion_number = '2.4.3';\n\nUPDATE test_requirements SET \n    test_method = 'both',\n    testing_instructions = 'HYBRID: Start with automated scanning for baseline detection. Manual verification required for Purpose clarity and context sufficiency. Link text can be analyzed, context requires interpretation Tools available: axe-core.'\nWHERE criterion_number = '2.4.4';\n\nUPDATE test_requirements SET \n    test_method = 'both',\n    testing_instructions = 'HYBRID: Start with automated scanning for baseline detection. Manual verification required for Visibility in various contexts and backgrounds. Focus indicators can be detected and measured Tools available: axe-core, playwright.'\nWHERE criterion_number = '2.4.7';\n\nUPDATE test_requirements SET \n    test_method = 'both',\n    testing_instructions = 'HYBRID: Start with automated scanning for baseline detection. Manual verification required for Language accuracy verification. HTML lang attribute can be verified programmatically Tools available: axe-core, pa11y, lighthouse.'\nWHERE criterion_number = '3.1.1';\n\nUPDATE test_requirements SET \n    test_method = 'both',\n    testing_instructions = 'HYBRID: Start with automated scanning for baseline detection. Manual verification required for Language change identification and accuracy. Lang attributes can be detected, accuracy needs verification Tools available: axe-core.'\nWHERE criterion_number = '3.1.2';\n\nUPDATE test_requirements SET \n    test_method = 'both',\n    testing_instructions = 'HYBRID: Start with automated scanning for baseline detection. Manual verification required for Unexpected changes and user experience. Focus events and context changes can be monitored Tools available: axe-core.'\nWHERE criterion_number = '3.2.1';\n\nUPDATE test_requirements SET \n    test_method = 'both',\n    testing_instructions = 'HYBRID: Start with automated scanning for baseline detection. Manual verification required for Unexpected changes and user experience. Input events and changes can be monitored Tools available: axe-core.'\nWHERE criterion_number = '3.2.2';\n\nUPDATE test_requirements SET \n    test_method = 'both',\n    testing_instructions = 'HYBRID: Start with automated scanning for baseline detection. Manual verification required for Error clarity and identification completeness. Error markup can be detected, identification needs review Tools available: axe-core.'\nWHERE criterion_number = '3.3.1';\n\nUPDATE test_requirements SET \n    test_method = 'both',\n    testing_instructions = 'HYBRID: Start with automated scanning for baseline detection. Manual verification required for Label clarity and instruction adequacy. Labels can be detected, sufficiency needs assessment Tools available: axe-core.'\nWHERE criterion_number = '3.3.2';\n\nUPDATE test_requirements SET \n    test_method = 'both',\n    testing_instructions = 'HYBRID: Start with automated scanning for baseline detection. Manual verification required for Impact assessment of parsing errors. HTML validation can be performed programmatically Tools available: axe-core, pa11y, lighthouse.'\nWHERE criterion_number = '4.1.1';\n\nUPDATE test_requirements SET \n    test_method = 'both',\n    testing_instructions = 'HYBRID: Start with automated scanning for baseline detection. Manual verification required for Accuracy and completeness of accessible names. ARIA properties and roles can be verified Tools available: axe-core, pa11y, lighthouse.'\nWHERE criterion_number = '4.1.2';\n\nUPDATE test_requirements SET \n    test_method = 'both',\n    testing_instructions = 'HYBRID: Start with automated scanning for baseline detection. Manual verification required for Message appropriateness and timing. Live regions can be detected, messaging needs verification Tools available: axe-core.'\nWHERE criterion_number = '4.1.3';\n\n"
+    }
+  },
+  "summary": {
+    "totalCriteria": 31,
+    "automatedCriteria": 1,
+    "manualCriteria": 8,
+    "hybridCriteria": 22,
+    "inconsistentCriteria": 37,
+    "misalignedCriteria": [
+      "1.3.2",
+      "1.4.1",
+      "1.4.10",
+      "1.4.11",
+      "1.4.12",
+      "2.1.1",
+      "2.1.2",
+      "2.4.2",
+      "2.4.3",
+      "2.4.6",
+      "2.4.7",
+      "3.1.1",
+      "3.1.2",
+      "3.2.1",
+      "3.2.2",
+      "4.1.1",
+      "4.1.2",
+      "4.1.3"
+    ]
+  }
+}

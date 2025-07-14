@@ -1,0 +1,35 @@
+WCAG Criteria Analysis Summary
+Generated: 2025-07-14T14:17:05.236Z
+==================================================
+
+📊 OVERVIEW:
+  Total WCAG Criteria: 31
+  Automated: 1 (3%)
+  Manual: 8 (26%)
+  Hybrid: 22 (71%)
+  Inconsistent: 37
+
+❌ MISALIGNED CRITERIA:
+  1.3.2: automated → manual
+  1.4.1: both → manual
+  1.4.10: automated → both
+  1.4.11: automated → manual
+  1.4.12: automated → both
+  2.1.1: manual → both
+  2.1.2: automated → both
+  2.4.2: automated → both
+  2.4.3: automated → both
+  2.4.6: both → manual
+  2.4.7: automated → both
+  3.1.1: automated → both
+  3.1.2: manual → both
+  3.2.1: automated → both
+  3.2.2: automated → both
+  4.1.1: automated → both
+  4.1.2:  Role → both
+  4.1.3: automated → both
+
+✅ RECOMMENDATIONS:
+  Fix Test Method Inconsistencies (high): 18 criteria have misaligned test methods
+  Add Automated Testing Capabilities (medium): 4 criteria could benefit from automated testing
+  Standardize Testing Templates (medium): Create standardized templates for consistent testing across projects

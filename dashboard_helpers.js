@@ -115,8 +115,38 @@ function dashboard() {
             direction: 'asc'
         },
         
+        // Requirements Dashboard Data (Test Instance Management Enhancement)
+        testInstanceView: 'instances', // 'instances' or 'requirements'
+        sessionRequirements: [],
+        filteredRequirements: [],
+        paginatedRequirements: [],
+        
+        // Requirements Dashboard Filters
+        requirementFilters: {
+            testStatus: '', // '', 'passed', 'failed', 'not_tested', 'manual_pending'
+            wcagLevel: '', // '', 'A', 'AA', 'AAA'
+            testMethod: '', // '', 'automated', 'manual'
+            searchTerm: ''
+        },
+        
+        // Requirements Dashboard Statistics
+        requirementStats: {
+            total: 0,
+            automated_passed: 0,
+            automated_failed: 0,
+            manual_completed: 0,
+            manual_pending: 0,
+            not_tested: 0
+        },
+        
+        // Requirements Dashboard Pagination
+        requirementCurrentPage: 1,
+        requirementPageSize: 20,
+        requirementTotalPages: 1,
+        
         // Test Instance Detail Modal (Task 2.1.2)
         showTestInstanceModal: false,
+        showTestConfigurationModal: false,
         currentTestInstance: null,
         testInstanceStatus: '',
         testInstanceConfidenceLevel: '',
@@ -299,6 +329,42 @@ function dashboard() {
         // Initialization
         async init() {
             console.log('🚀 Initializing Accessibility Testing Dashboard...');
+            
+            // AGGRESSIVE modal reset to prevent stuck modals
+            this.showTestConfigurationModal = false;
+            this.showTestInstanceModal = false;
+            this.showViolationInspector = false;
+            this.showLogin = false;
+            
+            // NUCLEAR OPTION: Override modal opening functions temporarily for 30 seconds
+            const originalOpenTestConfigModal = this.openTestConfigurationModal;
+            this.openTestConfigurationModal = function(session) {
+                console.log('🚫 Modal opening PERMANENTLY BLOCKED - Session:', session?.name || 'unknown');
+                console.log('🚫 To manually open modal later, use: window.dashboardHelpers.manualOpenTestConfigurationModal(session)');
+                return Promise.resolve();
+            };
+            
+            // Create a manual function for when user wants to open modal
+            this.manualOpenTestConfigurationModal = originalOpenTestConfigModal;
+            
+            // Block for 30 seconds instead of 5
+            setTimeout(() => {
+                this.openTestConfigurationModal = originalOpenTestConfigModal;
+                console.log('✅ Modal functions restored after 30-second cooldown');
+            }, 30000);
+            
+            // Force close any potentially stuck modals multiple times
+            for (let i = 0; i < 5; i++) {
+                setTimeout(() => {
+                    this.showTestConfigurationModal = false;
+                    this.showTestInstanceModal = false;
+                    this.showViolationInspector = false;
+                    console.log(`🔒 Force-closed all modals (attempt ${i + 1})`);
+                }, i * 200);
+            }
+            
+            console.log('✅ Modal states reset during initialization');
+            
             await this.checkAPIConnection();
             await this.checkExistingAuth();
             if (this.apiConnected) {
@@ -4386,6 +4452,29 @@ function dashboard() {
             return classes[method] || 'bg-gray-100 text-gray-800';
         },
 
+        // Get explanation for why certain criteria require both automated and manual testing
+        getTestMethodExplanation(criterionNumber, testMethod) {
+            if (testMethod !== 'both') return null;
+            
+            const explanations = {
+                '1.1.1': 'Automated tools can detect missing alt text, but human judgment is needed to verify alt text quality and contextual appropriateness.',
+                '1.3.1': 'Automated tools identify structural markup issues, but manual review ensures logical content flow and proper heading hierarchy.',
+                '1.4.10': 'Automated tools check viewport scaling capabilities, but manual testing verifies content usability at different zoom levels.',
+                '1.4.12': 'Automated tools detect spacing modifications, but manual testing ensures text remains readable and functional with custom spacing.',
+                '1.4.13': 'Automated tools can detect hover/focus content, but manual testing verifies dismissibility, persistence, and keyboard interactions.',
+                '2.1.1': 'Automated tools identify missing keyboard handlers, but manual testing ensures complete keyboard navigation and functionality.',
+                '2.4.1': 'Automated tools detect skip links, but manual testing verifies they work correctly and provide meaningful navigation.',
+                '2.4.2': 'Automated tools check for title elements, but manual review ensures titles are descriptive and context-appropriate.',
+                '2.4.6': 'Automated tools identify headings and labels, but manual review ensures they clearly describe content and purpose.',
+                '4.1.1': 'Automated tools validate HTML syntax, but manual review ensures semantic correctness in complex structures.',
+                '4.1.2': 'Automated tools detect missing ARIA attributes, but manual testing verifies correct implementation and screen reader compatibility.',
+                '4.1.3': 'Automated tools identify status elements, but manual testing verifies proper announcement and user comprehension.'
+            };
+            
+            return explanations[criterionNumber] || 
+                   'This criterion requires both automated detection of technical issues and manual verification of user experience quality.';
+        },
+
         getConformanceLevelBadgeClass(level) {
             const classes = {
                 'A': 'bg-green-100 text-green-800',
@@ -4821,22 +4910,6 @@ function dashboard() {
             return classes[status] || 'bg-gray-100 text-gray-800';
         },
 
-        // Test Instance Detail Modal (Task 2.1.2)
-        showTestInstanceModal: false,
-        currentTestInstance: null,
-        testInstanceStatus: '',
-        testInstanceConfidenceLevel: '',
-        testInstanceNotes: '',
-        testInstanceRemediationNotes: '',
-        testInstanceEvidence: [],
-        testInstanceAssignedTester: '',
-        
-        // Test Assignment Interface (Task 2.1.3)
-        showTestAssignmentPanel: false,
-        draggedTest: null,
-        dragOverTester: null,
-        bulkAssignmentTester: '',
-        
         // Enhanced pagination for test grid
         paginatedTestInstances: [],
 
@@ -4943,9 +5016,14 @@ function dashboard() {
                             `Validation failed: ${statusResponse.validationErrors.join(', ')}`, 
                             'error'
                         );
+                        console.error('❌ Validation failed for test instance:', statusResponse.validationErrors);
+                        this.isSavingTestInstance = false;
                         return;
                     }
-                    throw new Error(statusResponse.error || 'Failed to update status');
+                    console.error('❌ Status update failed:', statusResponse.error);
+                    this.showNotification(statusResponse.error || 'Failed to update status', 'error');
+                    this.isSavingTestInstance = false;
+                    return;
                 }
 
                 // Update assignment if changed
@@ -4994,11 +5072,6 @@ function dashboard() {
             } finally {
                 this.isSavingTestInstance = false;
             }
-        },
-
-        // Alias for modal compatibility
-        async saveTestInstance() {
-            return await this.saveTestInstanceUpdate();
         },
 
         // Evidence handling functions for test instance modal
@@ -6989,6 +7062,300 @@ function dashboard() {
                 return 0;
             }
             return Math.round((request.approvals_received / request.required_approvers) * 100);
+        },
+
+        // Requirements Dashboard Methods (Test Instance Management Enhancement)
+        toggleTestInstanceView(view) {
+            this.testInstanceView = view;
+            if (view === 'requirements' && this.currentSessionDetails?.id) {
+                this.loadSessionRequirements(this.currentSessionDetails.id);
+            }
+        },
+
+        async loadSessionRequirements(sessionId) {
+            if (!sessionId) return;
+            
+            try {
+                console.log(`🔍 Loading requirements for session ${sessionId}`);
+                
+                // For now, use a mock set of WCAG requirements since the backend doesn't have this endpoint yet
+                const mockRequirements = this.getMockWCAGRequirements();
+                
+                console.log(`📋 Loaded ${mockRequirements.length} requirements`);
+                
+                // Enhance requirements with test data
+                this.sessionRequirements = await this.enhanceRequirementsWithTestData(mockRequirements, sessionId);
+                
+                // Apply initial filtering and pagination
+                this.filterRequirements();
+                this.calculateRequirementStats();
+                
+            } catch (error) {
+                console.error('Error loading session requirements:', error);
+                this.showNotification('Failed to load requirements', 'error');
+            }
+        },
+
+        getMockWCAGRequirements() {
+            return [
+                { criterion_number: '1.1.1', title: 'Non-text Content', description: 'All non-text content has a text alternative', level: 'A' },
+                { criterion_number: '1.3.1', title: 'Info and Relationships', description: 'Information structure and relationships can be programmatically determined', level: 'A' },
+                { criterion_number: '1.4.3', title: 'Contrast (Minimum)', description: 'Text and background have sufficient contrast ratio', level: 'AA' },
+                { criterion_number: '2.1.1', title: 'Keyboard', description: 'All functionality available from keyboard', level: 'A' },
+                { criterion_number: '2.4.1', title: 'Bypass Blocks', description: 'Mechanism to skip repetitive content', level: 'A' },
+                { criterion_number: '2.4.3', title: 'Focus Order', description: 'Components receive focus in logical order', level: 'A' },
+                { criterion_number: '3.1.1', title: 'Language of Page', description: 'Default human language can be programmatically determined', level: 'A' },
+                { criterion_number: '4.1.1', title: 'Parsing', description: 'Content can be parsed unambiguously', level: 'A' },
+                { criterion_number: '4.1.2', title: 'Name, Role, Value', description: 'Name and role can be programmatically determined', level: 'A' }
+            ];
+        },
+
+        async enhanceRequirementsWithTestData(requirements, sessionId) {
+            try {
+                // Get automated test results
+                const automatedResponse = await this.apiCall(`/results/automated-test-results?session_id=${sessionId}`);
+                const automatedResults = automatedResponse.data || [];
+                
+                // Get manual test instances  
+                const manualResponse = await this.apiCall(`/test-instances?session_id=${sessionId}`);
+                const manualTests = manualResponse.data || [];
+                
+                // Group results by requirement
+                const automatedByRequirement = {};
+                const manualByRequirement = {};
+                
+                automatedResults.forEach(result => {
+                    const reqId = result.wcag_criterion;
+                    if (!automatedByRequirement[reqId]) {
+                        automatedByRequirement[reqId] = [];
+                    }
+                    automatedByRequirement[reqId].push(result);
+                });
+                
+                manualTests.forEach(test => {
+                    const reqId = test.requirement_id;
+                    if (!manualByRequirement[reqId]) {
+                        manualByRequirement[reqId] = [];
+                    }
+                    manualByRequirement[reqId].push(test);
+                });
+                
+                // Enhance each requirement
+                return requirements.map(req => {
+                    const automated = automatedByRequirement[req.criterion_number] || [];
+                    const manual = manualByRequirement[req.criterion_number] || [];
+                    
+                    return {
+                        ...req,
+                        automated_tests: automated,
+                        manual_tests: manual,
+                        automated_status: this.getAutomatedTestStatus(automated),
+                        manual_status: this.getManualTestStatus(manual),
+                        overall_status: this.getRequirementOverallStatus(automated, manual)
+                    };
+                });
+                
+            } catch (error) {
+                console.error('Error enhancing requirements with test data:', error);
+                return requirements.map(req => ({
+                    ...req,
+                    automated_tests: [],
+                    manual_tests: [],
+                    automated_status: 'not_tested',
+                    manual_status: 'not_tested',
+                    overall_status: 'not_tested'
+                }));
+            }
+        },
+
+        getAutomatedTestStatus(automatedTests) {
+            if (!automatedTests || automatedTests.length === 0) return 'not_tested';
+            
+            const hasFailure = automatedTests.some(t => t.result === 'fail');
+            if (hasFailure) return 'failed';
+            
+            const allPassed = automatedTests.every(t => t.result === 'pass');
+            if (allPassed) return 'passed';
+            
+            return 'mixed';
+        },
+
+        getManualTestStatus(manualTests) {
+            if (!manualTests || manualTests.length === 0) return 'not_tested';
+            
+            const completedTests = manualTests.filter(t => t.status === 'completed');
+            const pendingTests = manualTests.filter(t => ['pending', 'in_progress'].includes(t.status));
+            
+            if (completedTests.length === 0 && pendingTests.length > 0) return 'pending';
+            if (completedTests.length > 0 && pendingTests.length === 0) return 'completed';
+            if (completedTests.length > 0 && pendingTests.length > 0) return 'partial';
+            
+            return 'not_tested';
+        },
+
+        getRequirementOverallStatus(automatedTests, manualTests) {
+            const automatedStatus = this.getAutomatedTestStatus(automatedTests);
+            const manualStatus = this.getManualTestStatus(manualTests);
+            
+            // If automated failed, overall is failed
+            if (automatedStatus === 'failed') return 'failed';
+            
+            // If automated passed and manual completed, overall is passed
+            if (automatedStatus === 'passed' && manualStatus === 'completed') return 'passed';
+            
+            // If either has tests but not complete, overall is in progress
+            if (automatedStatus !== 'not_tested' || manualStatus !== 'not_tested') return 'in_progress';
+            
+            return 'not_tested';
+        },
+
+        filterRequirements() {
+            let filtered = [...this.sessionRequirements];
+            
+            // Filter by test status
+            if (this.requirementFilters.testStatus) {
+                filtered = filtered.filter(req => {
+                    switch (this.requirementFilters.testStatus) {
+                        case 'passed':
+                            return req.overall_status === 'passed';
+                        case 'failed':
+                            return req.overall_status === 'failed';
+                        case 'in_progress':
+                            return req.overall_status === 'in_progress';
+                        case 'not_tested':
+                            return req.overall_status === 'not_tested';
+                        default:
+                            return true;
+                    }
+                });
+            }
+            
+            // Filter by WCAG level
+            if (this.requirementFilters.wcagLevel) {
+                filtered = filtered.filter(req => req.level === this.requirementFilters.wcagLevel);
+            }
+            
+            // Filter by test method
+            if (this.requirementFilters.testMethod) {
+                filtered = filtered.filter(req => {
+                    if (this.requirementFilters.testMethod === 'automated') {
+                        return req.automated_tests && req.automated_tests.length > 0;
+                    } else if (this.requirementFilters.testMethod === 'manual') {
+                        return req.manual_tests && req.manual_tests.length > 0;
+                    }
+                    return true;
+                });
+            }
+            
+            // Filter by search term
+            if (this.requirementFilters.searchTerm) {
+                const searchTerm = this.requirementFilters.searchTerm.toLowerCase();
+                filtered = filtered.filter(req => 
+                    req.criterion_number.toLowerCase().includes(searchTerm) ||
+                    req.title.toLowerCase().includes(searchTerm) ||
+                    req.description.toLowerCase().includes(searchTerm)
+                );
+            }
+            
+            this.filteredRequirements = filtered;
+            this.updateRequirementsPagination();
+        },
+
+        updateRequirementsPagination() {
+            const total = this.filteredRequirements.length;
+            this.requirementTotalPages = Math.max(1, Math.ceil(total / this.requirementPageSize));
+            
+            // Ensure current page is valid
+            if (this.requirementCurrentPage > this.requirementTotalPages) {
+                this.requirementCurrentPage = 1;
+            }
+            
+            // Calculate paginated results
+            const start = (this.requirementCurrentPage - 1) * this.requirementPageSize;
+            const end = start + this.requirementPageSize;
+            this.paginatedRequirements = this.filteredRequirements.slice(start, end);
+        },
+
+        changeRequirementPage(page) {
+            if (page >= 1 && page <= this.requirementTotalPages) {
+                this.requirementCurrentPage = page;
+                this.updateRequirementsPagination();
+            }
+        },
+
+        calculateRequirementStats() {
+            const stats = {
+                total: this.sessionRequirements.length,
+                automated_passed: 0,
+                automated_failed: 0,
+                manual_completed: 0,
+                manual_pending: 0,
+                not_tested: 0
+            };
+            
+            this.sessionRequirements.forEach(req => {
+                // Count automated results
+                if (req.automated_status === 'passed') stats.automated_passed++;
+                if (req.automated_status === 'failed') stats.automated_failed++;
+                
+                // Count manual results
+                if (req.manual_status === 'completed') stats.manual_completed++;
+                if (req.manual_status === 'pending' || req.manual_status === 'partial') stats.manual_pending++;
+                
+                // Count not tested
+                if (req.overall_status === 'not_tested') stats.not_tested++;
+            });
+            
+            this.requirementStats = stats;
+        },
+
+        resetRequirementFilters() {
+            this.requirementFilters = {
+                testStatus: '',
+                wcagLevel: '',
+                testMethod: '',
+                searchTerm: ''
+            };
+            this.requirementCurrentPage = 1;
+            this.filterRequirements();
+        },
+
+        getRequirementOverallStatusClass(requirement) {
+            const status = requirement.overall_status;
+            switch (status) {
+                case 'passed':
+                    return 'bg-green-100 text-green-800';
+                case 'failed':
+                    return 'bg-red-100 text-red-800';
+                case 'in_progress':
+                    return 'bg-yellow-100 text-yellow-800';
+                case 'not_tested':
+                    return 'bg-gray-100 text-gray-800';
+                default:
+                    return 'bg-gray-100 text-gray-800';
+            }
+        },
+
+        getRequirementOverallStatusText(requirement) {
+            const status = requirement.overall_status;
+            switch (status) {
+                case 'passed':
+                    return 'Passed';
+                case 'failed':
+                    return 'Failed';
+                case 'in_progress':
+                    return 'In Progress';
+                case 'not_tested':
+                    return 'Not Tested';
+                default:
+                    return 'Unknown';
+            }
+        },
+
+        viewRequirementDetails(requirement) {
+            console.log('Viewing requirement details:', requirement);
+            // TODO: Implement requirement details modal
+            this.showNotification(`Viewing details for ${requirement.criterion_number}: ${requirement.title}`, 'info');
         }
     };
 }
@@ -7979,4 +8346,10 @@ function generateAuditReportPDF(sessionId) {
 
 document.addEventListener('DOMContentLoaded', () => {
     console.log('🎯 Dashboard Helpers Loaded');
+    
+    // Expose dashboard helper for modal access
+    if (typeof window !== 'undefined') {
+        window.dashboardHelpers = dashboard();
+        console.log('🎯 Dashboard helpers exposed on window');
+    }
 });

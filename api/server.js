@@ -30,6 +30,7 @@ const violationRoutes = require('./routes/violations');
 const manualTestingRoutes = require('./routes/manual-testing');
 const usersRoutes = require('./routes/users');
 const unifiedTestResultsRoutes = require('./routes/unified-test-results');
+const unifiedRequirementsRoutes = require('./routes/unified-requirements');
 
 // Import services
 const WebSocketService = require('./services/websocket-service');
@@ -183,6 +184,7 @@ app.use('/api/sessions', sessionRoutes);
 app.use('/api/requirements', requirementsRoutes);
 app.use('/api/requirement-mappings', requirementMappingsRoutes);
 app.use('/api/unified-results', unifiedResultsRoutes);
+app.use('/api/unified-requirements', unifiedRequirementsRoutes);
 app.use('/api/automated-workflow', automatedWorkflowRoutes);
 app.use('/api/test-instances', testInstancesRoutes);
 app.use('/api/pages', pageRoutes);
@@ -191,6 +193,7 @@ app.use('/api/violations', violationRoutes);
 app.use('/api/manual-testing', manualTestingRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/unified-test-results', unifiedTestResultsRoutes);
+app.use('/api/unified-requirements', unifiedRequirementsRoutes);
 
 // API info endpoint
 app.get('/api', (req, res) => {

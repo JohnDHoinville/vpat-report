@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Method Explanation Test</title>
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <script src="dashboard_helpers.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-case { margin: 10px 0; padding: 10px; border: 1px solid #ccc; border-radius: 5px; }
+        .explanation { background: #fffbf0; padding: 10px; border-left: 4px solid #f59e0b; margin-top: 10px; }
+    </style>
+</head>
+<body x-data="dashboard()">
+    <h1>Test Method Explanation Function Test</h1>
+    
+    <h2>Testing "Both" Test Method Explanations</h2>
+    
+    <div class="test-case">
+        <h3>WCAG 1.4.13 (Content on Hover or Focus)</h3>
+        <strong>Test Method:</strong> Both
+        <div class="explanation" x-text="getTestMethodExplanation('1.4.13', 'both')"></div>
+    </div>
+    
+    <div class="test-case">
+        <h3>WCAG 4.1.3 (Status Messages)</h3>
+        <strong>Test Method:</strong> Both
+        <div class="explanation" x-text="getTestMethodExplanation('4.1.3', 'both')"></div>
+    </div>
+    
+    <div class="test-case">
+        <h3>WCAG 2.1.1 (Keyboard)</h3>
+        <strong>Test Method:</strong> Both
+        <div class="explanation" x-text="getTestMethodExplanation('2.1.1', 'both')"></div>
+    </div>
+    
+    <div class="test-case">
+        <h3>WCAG 1.1.1 (Non-text Content)</h3>
+        <strong>Test Method:</strong> Both
+        <div class="explanation" x-text="getTestMethodExplanation('1.1.1', 'both')"></div>
+    </div>
+    
+    <h2>Testing Non-"Both" Methods (Should Return null)</h2>
+    
+    <div class="test-case">
+        <h3>WCAG 1.4.13 with "Manual" Method</h3>
+        <strong>Test Method:</strong> Manual
+        <div class="explanation">
+            Result: <span x-text="getTestMethodExplanation('1.4.13', 'manual') || 'null (as expected)'"></span>
+        </div>
+    </div>
+    
+    <div class="test-case">
+        <h3>Unknown Criterion with "Both" Method</h3>
+        <strong>Test Method:</strong> Both
+        <div class="explanation" x-text="getTestMethodExplanation('9.9.9', 'both')"></div>
+    </div>
+    
+    <script>
+        // Initialize Alpine.js data
+        window.addEventListener('alpine:init', () => {
+            console.log('Test page loaded successfully');
+        });
+    </script>
+</body>
+</html> 

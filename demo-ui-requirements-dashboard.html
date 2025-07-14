@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced Compliance Session - Requirements Dashboard Demo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto p-6" x-data="requirementsDashboard()">
+        
+        <!-- Header -->
+        <div class="bg-white rounded-lg shadow-md border border-gray-200 p-6 mb-6">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-900">Enhanced Compliance Session</h1>
+                    <p class="text-gray-600 mt-1">
+                        Session: <span class="font-medium">ToeTheLine.Life WCAG AA Assessment</span>
+                        (<span class="font-medium">AA</span>)
+                    </p>
+                </div>
+                <div class="flex space-x-2">
+                    <!-- View Toggle Buttons -->
+                    <div class="bg-gray-100 p-1 rounded-lg inline-flex">
+                        <button @click="currentView = 'requirements'" 
+                                :class="currentView === 'requirements' ? 'bg-white shadow text-blue-600' : 'text-gray-600 hover:text-gray-800'"
+                                class="px-3 py-2 text-sm font-medium rounded-md transition-colors">
+                            <i class="fas fa-list mr-1"></i>Requirements
+                        </button>
+                        <button @click="currentView = 'instances'" 
+                                :class="currentView === 'instances' ? 'bg-white shadow text-blue-600' : 'text-gray-600 hover:text-gray-800'"
+                                class="px-3 py-2 text-sm font-medium rounded-md transition-colors">
+                            <i class="fas fa-tasks mr-1"></i>Test Instances
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Requirements Dashboard View -->
+        <div x-show="currentView === 'requirements'" class="space-y-6">
+            
+            <!-- Requirements Filters -->
+            <div class="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+                <h4 class="text-lg font-semibold text-gray-900 mb-4">Requirements Dashboard</h4>
+                
+                <!-- Filter Controls -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Test Status</label>
+                        <select x-model="filters.testStatus" @change="filterRequirements()"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="">All Statuses</option>
+                            <option value="completed">Completed</option>
+                            <option value="automated_passed">Automated Passed</option>
+                            <option value="automated_failed">Automated Failed</option>
+                            <option value="manual_pending">Manual Pending</option>
+                            <option value="not_tested">Not Tested</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">WCAG Level</label>
+                        <select x-model="filters.wcagLevel" @change="filterRequirements()"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="">All Levels</option>
+                            <option value="A">Level A</option>
+                            <option value="AA">Level AA</option>
+                            <option value="AAA">Level AAA</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Test Method</label>
+                        <select x-model="filters.testMethod" @change="filterRequirements()"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="">All Methods</option>
+                            <option value="automated">Automated Only</option>
+                            <option value="manual">Manual Only</option>
+                            <option value="both">Both (Hybrid)</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Search</label>
+                        <input type="text" x-model="filters.searchTerm" @input="filterRequirements()"
+                               placeholder="Search requirements..."
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                </div>
+                
+                <!-- Summary Stats -->
+                <div class="grid grid-cols-2 md:grid-cols-6 gap-4 text-center">
+                    <div class="bg-blue-50 p-3 rounded-lg">
+                        <div class="text-2xl font-bold text-blue-600" x-text="stats.total"></div>
+                        <div class="text-sm text-blue-700">Total Requirements</div>
+                    </div>
+                    <div class="bg-green-50 p-3 rounded-lg">
+                        <div class="text-2xl font-bold text-green-600" x-text="stats.automated_passed"></div>
+                        <div class="text-sm text-green-700">Automated Passed</div>
+                    </div>
+                    <div class="bg-red-50 p-3 rounded-lg">
+                        <div class="text-2xl font-bold text-red-600" x-text="stats.automated_failed"></div>
+                        <div class="text-sm text-red-700">Automated Failed</div>
+                    </div>
+                    <div class="bg-yellow-50 p-3 rounded-lg">
+                        <div class="text-2xl font-bold text-yellow-600" x-text="stats.manual_completed"></div>
+                        <div class="text-sm text-yellow-700">Manual Completed</div>
+                    </div>
+                    <div class="bg-purple-50 p-3 rounded-lg">
+                        <div class="text-2xl font-bold text-purple-600" x-text="stats.manual_pending"></div>
+                        <div class="text-sm text-purple-700">Manual Pending</div>
+                    </div>
+                    <div class="bg-gray-50 p-3 rounded-lg">
+                        <div class="text-2xl font-bold text-gray-600" x-text="stats.not_tested"></div>
+                        <div class="text-sm text-gray-700">Not Tested</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Requirements Grid -->
+            <div class="bg-white rounded-lg shadow-md border border-gray-200">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <h5 class="text-lg font-medium text-gray-900">
+                        Requirements Analysis 
+                        <span class="text-sm text-gray-500">(<span x-text="filteredRequirements.length"></span> of <span x-text="requirements.length"></span>)</span>
+                    </h5>
+                </div>
+                
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Requirement</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Level</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Test Method</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Automated Results</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Manual Results</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Overall Status</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            <template x-for="requirement in filteredRequirements" :key="requirement.id">
+                                <tr class="hover:bg-gray-50">
+                                    <!-- Requirement Info -->
+                                    <td class="px-6 py-4">
+                                        <div class="flex items-start space-x-3">
+                                            <div class="flex-shrink-0">
+                                                <span class="inline-block w-8 h-8 bg-blue-100 text-blue-600 rounded-full text-xs font-medium flex items-center justify-center"
+                                                      x-text="requirement.criterion_number?.split('.')[0] || '?'"></span>
+                                            </div>
+                                            <div class="flex-1 min-w-0">
+                                                <div class="font-medium text-gray-900">
+                                                    <span x-text="requirement.criterion_number" class="font-mono text-sm"></span>
+                                                    <span x-text="requirement.title" class="ml-2"></span>
+                                                </div>
+                                                <div class="text-sm text-gray-500 mt-1" x-text="requirement.description.substring(0, 120) + '...'"></div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    
+                                    <!-- WCAG Level -->
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span :class="getLevelBadgeClass(requirement.level)" 
+                                              class="px-2 py-1 text-xs font-medium rounded-full"
+                                              x-text="requirement.level?.toUpperCase()"></span>
+                                    </td>
+                                    
+                                    <!-- Test Method -->
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span :class="getTestMethodBadgeClass(requirement.test_method)" 
+                                              class="px-2 py-1 text-xs font-medium rounded-full"
+                                              x-text="requirement.test_method.charAt(0).toUpperCase() + requirement.test_method.slice(1)"></span>
+                                    </td>
+                                    
+                                    <!-- Automated Results -->
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div x-show="requirement.automated_tests?.length > 0" class="space-y-1">
+                                            <template x-for="autoTest in requirement.automated_tests.slice(0, 3)" :key="autoTest.tool">
+                                                <div class="flex items-center space-x-2">
+                                                    <span :class="autoTest.status === 'passed' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'" 
+                                                          class="px-2 py-1 text-xs font-medium rounded">
+                                                        <span x-text="autoTest.tool"></span>
+                                                        <i :class="autoTest.status === 'passed' ? 'fas fa-check ml-1' : 'fas fa-times ml-1'"></i>
+                                                    </span>
+                                                </div>
+                                            </template>
+                                            <div x-show="requirement.automated_tests?.length > 3" class="text-xs text-gray-500">
+                                                +<span x-text="requirement.automated_tests.length - 3"></span> more
+                                            </div>
+                                        </div>
+                                        <div x-show="!requirement.automated_tests?.length" class="text-sm text-gray-400 italic">
+                                            No automated tests
+                                        </div>
+                                    </td>
+                                    
+                                    <!-- Manual Results -->
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div x-show="requirement.manual_tests?.length > 0" class="space-y-1">
+                                            <template x-for="manualTest in requirement.manual_tests.slice(0, 2)" :key="manualTest.id">
+                                                <div class="flex items-center space-x-2">
+                                                    <span :class="getStatusBadgeClass(manualTest.status)" 
+                                                          class="px-2 py-1 text-xs font-medium rounded"
+                                                          x-text="manualTest.status"></span>
+                                                    <span x-show="manualTest.tester" class="text-xs text-gray-500" 
+                                                          x-text="manualTest.tester"></span>
+                                                </div>
+                                            </template>
+                                            <div x-show="requirement.manual_tests?.length > 2" class="text-xs text-gray-500">
+                                                +<span x-text="requirement.manual_tests.length - 2"></span> more
+                                            </div>
+                                        </div>
+                                        <div x-show="!requirement.manual_tests?.length" class="text-sm text-gray-400 italic">
+                                            No manual tests
+                                        </div>
+                                    </td>
+                                    
+                                    <!-- Overall Status -->
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span :class="getOverallStatusClass(requirement.overall_status)" 
+                                              class="px-2 py-1 text-xs font-medium rounded-full"
+                                              x-text="requirement.overall_status"></span>
+                                    </td>
+                                    
+                                    <!-- Actions -->
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm space-x-2">
+                                        <button class="text-blue-600 hover:text-blue-800">
+                                            <i class="fas fa-eye mr-1"></i>View
+                                        </button>
+                                        <button x-show="requirement.manual_tests?.some(t => t.status === 'pending')" 
+                                                class="text-green-600 hover:text-green-800">
+                                            <i class="fas fa-play mr-1"></i>Test
+                                        </button>
+                                        <button x-show="requirement.automated_tests?.some(t => t.status === 'failed')" 
+                                                class="text-red-600 hover:text-red-800">
+                                            <i class="fas fa-bug mr-1"></i>Review
+                                        </button>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Test Instances View (Traditional) -->
+        <div x-show="currentView === 'instances'" class="space-y-6">
+            <div class="bg-white rounded-lg shadow-md border border-gray-200 p-8 text-center">
+                <i class="fas fa-tasks text-gray-400 text-6xl mb-4"></i>
+                <h3 class="text-xl font-medium text-gray-900 mb-2">Traditional Test Instances View</h3>
+                <p class="text-gray-600">This would show the original test instances table view</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function requirementsDashboard() {
+            return {
+                currentView: 'requirements',
+                filters: {
+                    testStatus: '',
+                    wcagLevel: '',
+                    testMethod: '',
+                    searchTerm: ''
+                },
+                requirements: [
+                    {
+                        id: 1,
+                        criterion_number: '1.1.1',
+                        title: 'Non-text Content',
+                        description: 'All non-text content that is presented to the user has a text alternative that serves the equivalent purpose.',
+                        level: 'A',
+                        test_method: 'both',
+                        automated_tests: [
+                            { tool: 'axe', status: 'passed' },
+                            { tool: 'lighthouse', status: 'failed' }
+                        ],
+                        manual_tests: [
+                            { id: 1, status: 'pending', tester: 'John' }
+                        ],
+                        overall_status: 'Failed'
+                    },
+                    {
+                        id: 2,
+                        criterion_number: '1.3.1',
+                        title: 'Info and Relationships',
+                        description: 'Information, structure, and relationships conveyed through presentation can be programmatically determined.',
+                        level: 'A',
+                        test_method: 'automated',
+                        automated_tests: [
+                            { tool: 'axe', status: 'passed' },
+                            { tool: 'pa11y', status: 'passed' }
+                        ],
+                        manual_tests: [],
+                        overall_status: 'Passed'
+                    },
+                    {
+                        id: 3,
+                        criterion_number: '1.4.3',
+                        title: 'Contrast (Minimum)',
+                        description: 'The visual presentation of text and images of text has a contrast ratio of at least 4.5:1.',
+                        level: 'AA',
+                        test_method: 'both',
+                        automated_tests: [
+                            { tool: 'axe', status: 'failed' },
+                            { tool: 'lighthouse', status: 'failed' }
+                        ],
+                        manual_tests: [
+                            { id: 2, status: 'failed', tester: 'Sarah' }
+                        ],
+                        overall_status: 'Failed'
+                    },
+                    {
+                        id: 4,
+                        criterion_number: '2.1.1',
+                        title: 'Keyboard',
+                        description: 'All functionality of the content is operable through a keyboard interface.',
+                        level: 'A',
+                        test_method: 'manual',
+                        automated_tests: [],
+                        manual_tests: [
+                            { id: 3, status: 'passed', tester: 'Mike' }
+                        ],
+                        overall_status: 'Passed'
+                    },
+                    {
+                        id: 5,
+                        criterion_number: '4.1.2',
+                        title: 'Name, Role, Value',
+                        description: 'For all user interface components, the name and role can be programmatically determined.',
+                        level: 'A',
+                        test_method: 'both',
+                        automated_tests: [
+                            { tool: 'axe', status: 'passed' }
+                        ],
+                        manual_tests: [
+                            { id: 4, status: 'pending', tester: null }
+                        ],
+                        overall_status: 'In Progress'
+                    }
+                ],
+                filteredRequirements: [],
+                stats: {},
+                
+                init() {
+                    this.filteredRequirements = [...this.requirements];
+                    this.calculateStats();
+                },
+                
+                filterRequirements() {
+                    let filtered = [...this.requirements];
+                    
+                    if (this.filters.testStatus) {
+                        if (this.filters.testStatus === 'automated_passed') {
+                            filtered = filtered.filter(req => req.automated_tests.some(t => t.status === 'passed'));
+                        } else if (this.filters.testStatus === 'automated_failed') {
+                            filtered = filtered.filter(req => req.automated_tests.some(t => t.status === 'failed'));
+                        } else if (this.filters.testStatus === 'manual_pending') {
+                            filtered = filtered.filter(req => req.manual_tests.some(t => t.status === 'pending'));
+                        } else {
+                            filtered = filtered.filter(req => req.overall_status.toLowerCase().includes(this.filters.testStatus.toLowerCase()));
+                        }
+                    }
+                    
+                    if (this.filters.wcagLevel) {
+                        filtered = filtered.filter(req => req.level === this.filters.wcagLevel);
+                    }
+                    
+                    if (this.filters.testMethod) {
+                        filtered = filtered.filter(req => req.test_method === this.filters.testMethod);
+                    }
+                    
+                    if (this.filters.searchTerm) {
+                        const term = this.filters.searchTerm.toLowerCase();
+                        filtered = filtered.filter(req => 
+                            req.criterion_number.toLowerCase().includes(term) ||
+                            req.title.toLowerCase().includes(term) ||
+                            req.description.toLowerCase().includes(term)
+                        );
+                    }
+                    
+                    this.filteredRequirements = filtered;
+                    this.calculateStats();
+                },
+                
+                calculateStats() {
+                    this.stats = {
+                        total: this.requirements.length,
+                        automated_passed: this.requirements.filter(req => req.automated_tests.some(t => t.status === 'passed')).length,
+                        automated_failed: this.requirements.filter(req => req.automated_tests.some(t => t.status === 'failed')).length,
+                        manual_completed: this.requirements.filter(req => req.manual_tests.some(t => ['passed', 'failed'].includes(t.status))).length,
+                        manual_pending: this.requirements.filter(req => req.manual_tests.some(t => t.status === 'pending')).length,
+                        not_tested: this.requirements.filter(req => req.automated_tests.length === 0 && req.manual_tests.length === 0).length
+                    };
+                },
+                
+                getLevelBadgeClass(level) {
+                    return {
+                        'A': 'bg-green-100 text-green-800',
+                        'AA': 'bg-blue-100 text-blue-800',
+                        'AAA': 'bg-purple-100 text-purple-800'
+                    }[level] || 'bg-gray-100 text-gray-800';
+                },
+                
+                getTestMethodBadgeClass(method) {
+                    return {
+                        'automated': 'bg-green-100 text-green-800',
+                        'manual': 'bg-yellow-100 text-yellow-800',
+                        'both': 'bg-blue-100 text-blue-800'
+                    }[method] || 'bg-gray-100 text-gray-800';
+                },
+                
+                getStatusBadgeClass(status) {
+                    return {
+                        'passed': 'bg-green-100 text-green-800',
+                        'failed': 'bg-red-100 text-red-800',
+                        'pending': 'bg-yellow-100 text-yellow-800'
+                    }[status] || 'bg-gray-100 text-gray-800';
+                },
+                
+                getOverallStatusClass(status) {
+                    return {
+                        'Passed': 'bg-green-100 text-green-800',
+                        'Failed': 'bg-red-100 text-red-800',
+                        'In Progress': 'bg-yellow-100 text-yellow-800',
+                        'Tested': 'bg-blue-100 text-blue-800',
+                        'Not Tested': 'bg-gray-100 text-gray-800'
+                    }[status] || 'bg-gray-100 text-gray-800';
+                }
+            }
+        }
+    </script>
+</body>
+</html> 

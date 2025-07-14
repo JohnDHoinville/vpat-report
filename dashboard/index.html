@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Accessibility Testing Platform</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        /* Custom scrollbar styles */
+        .scrollbar-thin::-webkit-scrollbar {
+            width: 6px;
+        }
+        .scrollbar-thin::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 3px;
+        }
+        .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
+        }
+        
+        /* Animation for progress bars */
+        @keyframes progress {
+            0% { width: 0%; }
+        }
+        .progress-bar {
+            animation: progress 2s ease-in-out;
+        }
+        
+        /* Custom Alpine.js transition classes */
+        .fade-enter-active, .fade-leave-active {
+            transition: opacity 0.5s;
+        }
+        .fade-enter, .fade-leave-to {
+            opacity: 0;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen" x-data="dashboard()">
+    <div class="min-h-screen flex flex-col">
+        
+        <!-- Include Header Component -->
+        <div id="header-component"></div>
+        
+        <!-- Include Navigation Component -->
+        <div id="navigation-component"></div>
+        
+        <!-- Main Content Area -->
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1">
+            
+            <!-- Notification Area -->
+            <div x-show="notification.show" 
+                 x-transition:enter="transition ease-out duration-300"
+                 x-transition:enter-start="opacity-0 transform translate-y-2"
+                 x-transition:enter-end="opacity-100 transform translate-y-0"
+                 x-transition:leave="transition ease-in duration-200"
+                 x-transition:leave-start="opacity-100 transform translate-y-0"
+                 x-transition:leave-end="opacity-0 transform translate-y-2"
+                 class="fixed top-4 right-4 z-50 max-w-sm w-full">
+                <div :class="notification.type === 'error' ? 'bg-red-50 border-red-200 text-red-800' : 
+                            notification.type === 'success' ? 'bg-green-50 border-green-200 text-green-800' : 
+                            notification.type === 'warning' ? 'bg-yellow-50 border-yellow-200 text-yellow-800' : 
+                            'bg-blue-50 border-blue-200 text-blue-800'"
+                     class="border rounded-lg p-4 shadow-lg">
+                    <div class="flex items-start">
+                        <div class="flex-shrink-0">
+                            <i :class="notification.type === 'error' ? 'fas fa-exclamation-circle text-red-400' : 
+                                      notification.type === 'success' ? 'fas fa-check-circle text-green-400' : 
+                                      notification.type === 'warning' ? 'fas fa-exclamation-triangle text-yellow-400' : 
+                                      'fas fa-info-circle text-blue-400'"></i>
+                        </div>
+                        <div class="ml-3 flex-1">
+                            <p class="text-sm font-medium" x-text="notification.title"></p>
+                            <p class="mt-1 text-sm" x-text="notification.message"></p>
+                        </div>
+                        <div class="ml-4 flex-shrink-0">
+                            <button @click="hideNotification()" class="inline-flex rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2">
+                                <i class="fas fa-times text-gray-400 hover:text-gray-600"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Dynamic Content Views -->
+            <div id="view-content">
+                <!-- Views will be loaded here dynamically -->
+                <div x-show="activeTab === 'projects'" x-transition>
+                    <div class="text-center py-12">
+                        <i class="fas fa-folder text-6xl text-gray-300 mb-4"></i>
+                        <h3 class="text-lg font-medium text-gray-900 mb-2">Projects View</h3>
+                        <p class="text-gray-600">Project management functionality will be loaded here.</p>
+                    </div>
+                </div>
+                
+                <div x-show="activeTab === 'authentication'" x-transition>
+                    <div class="text-center py-12">
+                        <i class="fas fa-shield-alt text-6xl text-gray-300 mb-4"></i>
+                        <h3 class="text-lg font-medium text-gray-900 mb-2">Authentication View</h3>
+                        <p class="text-gray-600">Authentication configuration will be loaded here.</p>
+                    </div>
+                </div>
+                
+                <div x-show="activeTab === 'discovery'" x-transition>
+                    <div class="text-center py-12">
+                        <i class="fas fa-search text-6xl text-gray-300 mb-4"></i>
+                        <h3 class="text-lg font-medium text-gray-900 mb-2">Site Discovery View</h3>
+                        <p class="text-gray-600">Site discovery functionality will be loaded here.</p>
+                    </div>
+                </div>
+                
+                <div x-show="activeTab === 'testing-sessions'" x-transition>
+                    <div class="text-center py-12">
+                        <i class="fas fa-tasks text-6xl text-gray-300 mb-4"></i>
+                        <h3 class="text-lg font-medium text-gray-900 mb-2">Compliance Sessions View</h3>
+                        <p class="text-gray-600">Testing sessions management will be loaded here.</p>
+                    </div>
+                </div>
+                
+                <div x-show="activeTab === 'testing'" x-transition>
+                    <div class="text-center py-12">
+                        <i class="fas fa-robot text-6xl text-gray-300 mb-4"></i>
+                        <h3 class="text-lg font-medium text-gray-900 mb-2">Automated Testing View</h3>
+                        <p class="text-gray-600">Automated testing functionality will be loaded here.</p>
+                    </div>
+                </div>
+                
+                <div x-show="activeTab === 'manual-testing'" x-transition>
+                    <div class="text-center py-12">
+                        <i class="fas fa-hand-paper text-6xl text-gray-300 mb-4"></i>
+                        <h3 class="text-lg font-medium text-gray-900 mb-2">Manual Testing View</h3>
+                        <p class="text-gray-600">Manual testing functionality will be loaded here.</p>
+                    </div>
+                </div>
+                
+                <div x-show="activeTab === 'results'" x-transition>
+                    <div class="text-center py-12">
+                        <i class="fas fa-chart-bar text-6xl text-gray-300 mb-4"></i>
+                        <h3 class="text-lg font-medium text-gray-900 mb-2">Results View</h3>
+                        <p class="text-gray-600">Test results and reports will be loaded here.</p>
+                    </div>
+                </div>
+                
+                <div x-show="activeTab === 'analytics'" x-transition>
+                    <div class="text-center py-12">
+                        <i class="fas fa-analytics text-6xl text-gray-300 mb-4"></i>
+                        <h3 class="text-lg font-medium text-gray-900 mb-2">Analytics View</h3>
+                        <p class="text-gray-600">Analytics and reporting will be loaded here.</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+        
+        <!-- Include Modal Components -->
+        <div id="auth-modals-component"></div>
+        <div id="project-modals-component"></div>
+        
+        <!-- Footer -->
+        <footer class="bg-white border-t mt-auto">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+                <div class="flex justify-between items-center text-sm text-gray-600">
+                    <div>
+                        <span>© 2025 Accessibility Testing Platform</span>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <span>Version 1.0.0</span>
+                        <span>•</span>
+                        <a href="#" class="hover:text-gray-900">Documentation</a>
+                        <span>•</span>
+                        <a href="#" class="hover:text-gray-900">Support</a>
+                    </div>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Scripts -->
+    <script src="../dashboard_helpers.js"></script>
+    <script src="js/dashboard.js"></script>
+    
+    <script>
+        // Load components dynamically
+        async function loadComponent(componentId, filePath) {
+            try {
+                const response = await fetch(filePath);
+                const html = await response.text();
+                document.getElementById(componentId).innerHTML = html;
+            } catch (error) {
+                console.error(`Failed to load component ${componentId}:`, error);
+            }
+        }
+        
+        // Load all components when page loads
+        document.addEventListener('DOMContentLoaded', async () => {
+            await Promise.all([
+                loadComponent('header-component', 'components/header.html'),
+                loadComponent('navigation-component', 'components/navigation.html'),
+                loadComponent('auth-modals-component', 'components/auth-modals.html'),
+                loadComponent('project-modals-component', 'components/project-modals.html')
+            ]);
+            
+            // Initialize Alpine.js data after components are loaded
+            if (window.Alpine) {
+                window.Alpine.initTree(document.body);
+            }
+        });
+    </script>
+</body>
+</html> 

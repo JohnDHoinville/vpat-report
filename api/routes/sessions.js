@@ -228,19 +228,21 @@ router.get('/:id', async (req, res) => {
                     ti.confidence_level,
                     ti.test_method_used,
                     ti.updated_at,
-                    tr.criterion_number,
-                    tr.title as requirement_title,
+                    COALESCE(wr.criterion_number, tr.criterion_number) as criterion_number,
+                    COALESCE(wr.title, tr.title) as requirement_title,
                     tr.requirement_type,
-                    tr.level as requirement_level,
+                    COALESCE(wr.level, tr.level) as requirement_level,
+                    COALESCE(wr.test_method, tr.test_method) as requirement_test_method,
                     dp.url as page_url,
                     dp.title as page_title,
                     au.username as tester_username
                 FROM test_instances ti
                 JOIN test_requirements tr ON ti.requirement_id = tr.id
+                LEFT JOIN wcag_requirements wr ON tr.criterion_number = wr.criterion_number AND tr.requirement_type = 'wcag'
                 LEFT JOIN discovered_pages dp ON ti.page_id = dp.id
                 LEFT JOIN users au ON ti.assigned_tester = au.id
                 WHERE ti.session_id = $1
-                ORDER BY tr.criterion_number, dp.url
+                ORDER BY COALESCE(wr.criterion_number, tr.criterion_number), dp.url
             `;
 
             const testsResult = await pool.query(testsQuery, [id]);

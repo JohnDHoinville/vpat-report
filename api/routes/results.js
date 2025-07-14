@@ -133,6 +133,57 @@ router.get('/', async (req, res) => {
 });
 
 /**
+ * GET /api/results/automated-test-results
+ * List automated test results for requirements dashboard
+ */
+router.get('/automated-test-results', async (req, res) => {
+    try {
+        const { session_id } = req.query;
+        
+        if (!session_id) {
+            return res.status(400).json({ 
+                error: 'session_id is required' 
+            });
+        }
+
+        const query = `
+            SELECT 
+                atr.id,
+                atr.tool_name,
+                atr.result_type,
+                atr.wcag_criterion,
+                atr.page_url,
+                atr.violations_count,
+                atr.passes_count,
+                atr.executed_at,
+                CASE 
+                    WHEN atr.violations_count > 0 THEN 'fail'
+                    WHEN atr.passes_count > 0 THEN 'pass'
+                    ELSE 'unknown'
+                END as result
+            FROM automated_test_results atr
+            WHERE atr.test_session_id = $1
+            ORDER BY atr.wcag_criterion, atr.tool_name, atr.executed_at DESC
+        `;
+
+        const result = await db.query(query, [session_id]);
+        
+        res.json({
+            data: result.rows,
+            total: result.rows.length,
+            session_id: session_id
+        });
+
+    } catch (error) {
+        console.error('Error fetching automated test results:', error);
+        res.status(500).json({ 
+            error: 'Failed to fetch automated test results',
+            details: error.message 
+        });
+    }
+});
+
+/**
  * GET /api/results/statistics
  * Get overall statistics about test results
  */

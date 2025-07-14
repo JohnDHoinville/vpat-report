@@ -423,6 +423,23 @@ class SimpleTestingService {
                 console.log(`ℹ️  No detailed violations found for ${toolName} (violations count: ${violationsCount})`);
             }
             
+            // ===========================
+            // CREATE TEST INSTANCES
+            // ===========================
+            
+            console.log(`🔗 Creating test instances for ${toolName} automated results...`);
+            
+            // Map automated test results to WCAG requirements and create test instances
+            await this.createTestInstancesFromAutomatedResult(
+                client, 
+                sessionId, 
+                pageId, 
+                testResultId, 
+                toolName, 
+                result,
+                violationsCount
+            );
+            
             await client.query('COMMIT');
             
         } catch (error) {
@@ -431,6 +448,272 @@ class SimpleTestingService {
         } finally {
             client.release();
         }
+    }
+
+    /**
+     * Create test instances from automated test results
+     * Maps tool results to WCAG requirements and creates test instances
+     * @private
+     */
+    async createTestInstancesFromAutomatedResult(client, sessionId, pageId, testResultId, toolName, result, violationsCount) {
+        try {
+            // Extract violations and passes from result
+            const testData = result.result || result;
+            const violations = testData.detailedViolations || result.detailedViolations || [];
+            const passes = testData.detailedPasses || result.detailedPasses || [];
+            
+            // Get tool-to-WCAG mapping
+            const wcagMappings = this.getToolWCAGMappings(toolName);
+            
+            // Track which requirements we've processed to avoid duplicates
+            const processedRequirements = new Set();
+            
+            // Process violations (failed tests)
+            for (const violation of violations) {
+                const wcagCriteria = this.extractWCAGCriteriaFromViolation(violation);
+                
+                for (const criterion of wcagCriteria) {
+                    const requirementKey = `${criterion}-${pageId}`;
+                    if (processedRequirements.has(requirementKey)) continue;
+                    
+                    await this.createTestInstanceForRequirement(
+                        client,
+                        sessionId,
+                        pageId,
+                        criterion,
+                        'failed',
+                        toolName,
+                        testResultId,
+                        violation
+                    );
+                    
+                    processedRequirements.add(requirementKey);
+                }
+            }
+            
+            // Process passes (successful tests) for criteria that weren't violated
+            const testedCriteria = this.getTestedCriteriaForTool(toolName, result);
+            
+            for (const criterion of testedCriteria) {
+                const requirementKey = `${criterion}-${pageId}`;
+                if (processedRequirements.has(requirementKey)) continue;
+                
+                // Only create passed test instance if this criterion wasn't violated
+                const hasViolation = violations.some(v => 
+                    this.extractWCAGCriteriaFromViolation(v).includes(criterion)
+                );
+                
+                if (!hasViolation) {
+                    await this.createTestInstanceForRequirement(
+                        client,
+                        sessionId,
+                        pageId,
+                        criterion,
+                        'passed',
+                        toolName,
+                        testResultId,
+                        null
+                    );
+                    
+                    processedRequirements.add(requirementKey);
+                }
+            }
+            
+            console.log(`✅ Created test instances for ${processedRequirements.size} requirements from ${toolName} results`);
+            
+        } catch (error) {
+            console.error(`❌ Error creating test instances from automated result:`, error);
+            throw error;
+        }
+    }
+
+    /**
+     * Create a test instance for a specific requirement
+     * @private
+     */
+    async createTestInstanceForRequirement(client, sessionId, pageId, wcagCriterion, status, toolName, testResultId, violationData) {
+        try {
+            // Find the requirement ID for this WCAG criterion
+            const requirementQuery = await client.query(
+                `SELECT id FROM test_requirements 
+                 WHERE requirement_type = 'wcag' AND criterion_number = $1 AND is_active = true`,
+                [wcagCriterion]
+            );
+            
+            if (requirementQuery.rows.length === 0) {
+                console.log(`⚠️  No requirement found for WCAG ${wcagCriterion}, skipping test instance creation`);
+                return;
+            }
+            
+            const requirementId = requirementQuery.rows[0].id;
+            
+            // Create evidence object
+            const evidence = violationData ? [{
+                type: 'automated_violation',
+                tool: toolName,
+                violation_id: violationData.id,
+                description: violationData.description || violationData.help,
+                help_url: violationData.helpUrl,
+                impact: violationData.impact,
+                nodes: violationData.nodes || [],
+                created_at: new Date().toISOString()
+            }] : [{
+                type: 'automated_pass',
+                tool: toolName,
+                description: `${toolName} automated test passed for WCAG ${wcagCriterion}`,
+                created_at: new Date().toISOString()
+            }];
+            
+            // Create or update test instance
+            await client.query(
+                `INSERT INTO test_instances (
+                    session_id, requirement_id, page_id, status,
+                    test_method_used, tool_used, confidence_level,
+                    notes, evidence, automated_result_id,
+                    started_at, completed_at, created_at, updated_at
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+                ON CONFLICT (session_id, requirement_id, page_id) DO UPDATE SET
+                    status = CASE 
+                        WHEN EXCLUDED.status = 'failed' THEN 'failed'
+                        WHEN test_instances.status = 'failed' THEN 'failed'
+                        ELSE EXCLUDED.status
+                    END,
+                    test_method_used = COALESCE(EXCLUDED.test_method_used, test_instances.test_method_used),
+                    tool_used = COALESCE(EXCLUDED.tool_used, test_instances.tool_used),
+                    confidence_level = EXCLUDED.confidence_level,
+                    notes = COALESCE(EXCLUDED.notes, test_instances.notes),
+                    evidence = EXCLUDED.evidence,
+                    automated_result_id = COALESCE(EXCLUDED.automated_result_id, test_instances.automated_result_id),
+                    completed_at = EXCLUDED.completed_at,
+                    updated_at = EXCLUDED.updated_at`,
+                [
+                    sessionId,
+                    requirementId,
+                    pageId,
+                    status,
+                    'automated',
+                    toolName,
+                    'high', // Automated tests have high confidence
+                    violationData ? 
+                        `Automated ${status} detected by ${toolName}: ${violationData.description || violationData.help}` :
+                        `Automated test passed by ${toolName} for WCAG ${wcagCriterion}`,
+                    JSON.stringify(evidence),
+                    testResultId,
+                    new Date(), // started_at
+                    new Date(), // completed_at
+                    new Date(), // created_at
+                    new Date()  // updated_at
+                ]
+            );
+            
+        } catch (error) {
+            console.error(`❌ Error creating test instance for ${wcagCriterion}:`, error);
+            // Don't throw - continue processing other requirements
+        }
+    }
+
+    /**
+     * Get WCAG criteria mappings for automated tools
+     * @private
+     */
+    getToolWCAGMappings(toolName) {
+        const mappings = {
+            'axe': [
+                '1.1.1', '1.3.1', '1.3.2', '1.3.3', '1.4.1', '1.4.3', '1.4.4', '1.4.6', '1.4.12',
+                '2.1.1', '2.1.2', '2.1.4', '2.4.1', '2.4.2', '2.4.3', '2.4.4', '2.4.6', '2.4.7',
+                '3.1.1', '3.1.2', '3.2.1', '3.2.2', '3.3.1', '3.3.2', '3.3.3', '3.3.4',
+                '4.1.1', '4.1.2', '4.1.3'
+            ],
+            'pa11y': [
+                '1.1.1', '1.3.1', '1.4.1', '1.4.3', '2.1.1', '2.4.1', '2.4.2', '2.4.4', '2.4.6',
+                '3.1.1', '3.3.1', '3.3.2', '4.1.1', '4.1.2'
+            ],
+            'lighthouse': [
+                '1.1.1', '1.3.1', '1.4.1', '1.4.3', '1.4.6', '2.1.1', '2.4.1', '2.4.2', '2.4.3',
+                '2.4.4', '2.4.6', '2.4.7', '3.1.1', '3.3.2', '4.1.1', '4.1.2'
+            ]
+        };
+        
+        return mappings[toolName] || [];
+    }
+
+    /**
+     * Extract WCAG criteria from violation data
+     * @private
+     */
+    extractWCAGCriteriaFromViolation(violation) {
+        const criteria = [];
+        
+        // Try different ways to extract WCAG criteria
+        if (violation.wcagCriteria && Array.isArray(violation.wcagCriteria)) {
+            criteria.push(...violation.wcagCriteria);
+        }
+        
+        if (violation.tags && Array.isArray(violation.tags)) {
+            // Look for WCAG criteria in tags (format: wcag21aa, wcag111, etc.)
+            violation.tags.forEach(tag => {
+                const wcagMatch = tag.match(/wcag(\d)(\d)(\d)/);
+                if (wcagMatch) {
+                    criteria.push(`${wcagMatch[1]}.${wcagMatch[2]}.${wcagMatch[3]}`);
+                }
+            });
+        }
+        
+        // Try to extract from rule ID (common patterns)
+        if (violation.id) {
+            const ruleMappings = this.getRuleToWCAGMappings();
+            if (ruleMappings[violation.id]) {
+                criteria.push(...ruleMappings[violation.id]);
+            }
+        }
+        
+        return [...new Set(criteria)]; // Remove duplicates
+    }
+
+    /**
+     * Get which WCAG criteria a tool tests for
+     * @private
+     */
+    getTestedCriteriaForTool(toolName, result) {
+        // Return the criteria this tool is capable of testing
+        // This ensures we create "passed" test instances for criteria that weren't violated
+        return this.getToolWCAGMappings(toolName);
+    }
+
+    /**
+     * Get mapping from tool rule IDs to WCAG criteria
+     * @private
+     */
+    getRuleToWCAGMappings() {
+        return {
+            // Common axe-core rules
+            'color-contrast': ['1.4.3', '1.4.6'],
+            'image-alt': ['1.1.1'],
+            'label': ['1.3.1', '3.3.2'],
+            'link-name': ['2.4.4'],
+            'list': ['1.3.1'],
+            'heading-order': ['1.3.1'],
+            'page-has-heading-one': ['2.4.6'],
+            'region': ['1.3.1'],
+            'skip-link': ['2.4.1'],
+            'html-has-lang': ['3.1.1'],
+            'lang': ['3.1.2'],
+            'document-title': ['2.4.2'],
+            'focus-order-semantics': ['2.4.3'],
+            'tabindex': ['2.1.1'],
+            'button-name': ['4.1.2'],
+            'form-field-multiple-labels': ['3.3.2'],
+            
+            // Common pa11y rules
+            'WCAG2AA.Principle1.Guideline1_1.1_1_1.H37': ['1.1.1'],
+            'WCAG2AA.Principle1.Guideline1_3.1_3_1.H42': ['1.3.1'],
+            'WCAG2AA.Principle1.Guideline1_4.1_4_3.G18': ['1.4.3'],
+            'WCAG2AA.Principle2.Guideline2_1.2_1_1.G202': ['2.1.1'],
+            'WCAG2AA.Principle2.Guideline2_4.2_4_1.H64.1': ['2.4.1'],
+            'WCAG2AA.Principle2.Guideline2_4.2_4_2.H25.1.NoTitleEl': ['2.4.2'],
+            'WCAG2AA.Principle3.Guideline3_1.3_1_1.H57.2': ['3.1.1'],
+            'WCAG2AA.Principle4.Guideline4_1.4_1_2.H91': ['4.1.2']
+        };
     }
 
     /**
