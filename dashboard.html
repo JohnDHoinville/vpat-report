@@ -1003,7 +1003,13 @@
                                 <button @click="manualTesting(session)" class="bg-purple-600 text-white px-3 py-2 rounded text-sm hover:bg-purple-700 transition-colors">
                                     <i class="fas fa-user-check mr-1"></i>Manual Testing
                                 </button>
-                                <button @click="deleteSession(session)" class="bg-red-600 text-white px-3 py-2 rounded text-sm hover:bg-red-700 transition-colors">
+                                <button @click="startPlaywrightTesting(session)" 
+                                        class="bg-red-600 text-white px-3 py-2 rounded text-sm hover:bg-red-700 transition-colors"
+                                        :disabled="loading || session.status === 'running'"
+                                        :title="session.status === 'running' ? 'Session is currently running' : 'Start Playwright frontend testing'">
+                                    <i class="fas fa-theater-masks mr-1"></i>Playwright
+                                </button>
+                                <button @click="deleteSession(session)" class="bg-gray-600 text-white px-3 py-2 rounded text-sm hover:bg-gray-700 transition-colors">
                                     <i class="fas fa-trash mr-1"></i>Delete
                                 </button>
                             </div>

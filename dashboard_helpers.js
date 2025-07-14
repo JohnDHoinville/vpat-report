@@ -4450,6 +4450,230 @@ function dashboard() {
             }
         },
 
+        async loadTestConfiguration(sessionId) {
+            try {
+                this.loading = true;
+                console.log('🔧 Loading test configuration for session:', sessionId);
+                
+                const response = await this.apiCall(`/sessions/${sessionId}/test-configuration`);
+                
+                if (response.success) {
+                    this.testConfiguration = response.data;
+                    console.log('✅ Test configuration loaded:', response.data);
+                    return response.data;
+                } else {
+                    console.error('Failed to load test configuration:', response.error);
+                    this.showNotification('Failed to load test configuration', 'error');
+                    return null;
+                }
+            } catch (error) {
+                console.error('Error loading test configuration:', error);
+                this.showNotification('Error loading test configuration', 'error');
+                return null;
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        async openTestConfigurationModal(session) {
+            this.selectedTestingSession = session;
+            this.showTestConfigurationModal = true;
+            
+            // Load comprehensive test configuration
+            await this.loadTestConfiguration(session.id);
+        },
+
+        closeTestConfigurationModal() {
+            this.showTestConfigurationModal = false;
+            this.selectedTestingSession = null;
+            this.testConfiguration = null;
+            this.automatedTestConfig = this.getDefaultAutomatedTestConfig();
+        },
+
+        getDefaultAutomatedTestConfig() {
+            return {
+                playwright: {
+                    enabled: true,
+                    testTypes: ['basic', 'keyboard', 'screen-reader'],
+                    browsers: ['chromium'],
+                    viewports: ['desktop', 'tablet', 'mobile']
+                },
+                backend: {
+                    enabled: true,
+                    tools: ['axe', 'pa11y', 'lighthouse']
+                },
+                scope: {
+                    maxPages: 25,
+                    pageTypes: ['all']
+                }
+            };
+        },
+
+        toggleAutomatedTool(tool) {
+            if (tool === 'playwright') {
+                this.automatedTestConfig.playwright.enabled = !this.automatedTestConfig.playwright.enabled;
+            } else {
+                const tools = this.automatedTestConfig.backend.tools;
+                const index = tools.indexOf(tool);
+                if (index > -1) {
+                    tools.splice(index, 1);
+                } else {
+                    tools.push(tool);
+                }
+            }
+        },
+
+        togglePlaywrightTestType(testType) {
+            const testTypes = this.automatedTestConfig.playwright.testTypes;
+            const index = testTypes.indexOf(testType);
+            if (index > -1) {
+                testTypes.splice(index, 1);
+            } else {
+                testTypes.push(testType);
+            }
+        },
+
+        togglePlaywrightBrowser(browser) {
+            const browsers = this.automatedTestConfig.playwright.browsers;
+            const index = browsers.indexOf(browser);
+            if (index > -1) {
+                browsers.splice(index, 1);
+            } else {
+                browsers.push(browser);
+            }
+        },
+
+        togglePlaywrightViewport(viewport) {
+            const viewports = this.automatedTestConfig.playwright.viewports;
+            const index = viewports.indexOf(viewport);
+            if (index > -1) {
+                viewports.splice(index, 1);
+            } else {
+                viewports.push(viewport);
+            }
+        },
+
+        getEstimatedTestTime() {
+            if (!this.testConfiguration) return '0 minutes';
+            
+            const config = this.automatedTestConfig;
+            let totalMinutes = 0;
+            
+            if (config.playwright.enabled && config.playwright.testTypes.length > 0) {
+                totalMinutes += this.testConfiguration.testConfiguration.estimates.playwright.estimatedMinutes * 
+                    (config.playwright.testTypes.length / 6) * config.playwright.browsers.length;
+            }
+            
+            if (config.backend.enabled && config.backend.tools.length > 0) {
+                totalMinutes += this.testConfiguration.testConfiguration.estimates.backend.estimatedMinutes * 
+                    (config.backend.tools.length / 3);
+            }
+            
+            const hours = Math.floor(totalMinutes / 60);
+            const minutes = Math.round(totalMinutes % 60);
+            
+            if (hours > 0) {
+                return `${hours}h ${minutes}m`;
+            } else {
+                return `${minutes} minutes`;
+            }
+        },
+
+        getTestCoverageCount() {
+            if (!this.testConfiguration) return 0;
+            
+            const requirements = this.testConfiguration.requirements.details;
+            const config = this.automatedTestConfig;
+            
+            let coveredCount = 0;
+            requirements.forEach(req => {
+                const isAutomated = req.testMethod === 'automated' || req.testMethod === 'hybrid';
+                const isManual = req.testMethod === 'manual' || req.testMethod === 'hybrid';
+                
+                if (isAutomated && (config.playwright.enabled || config.backend.enabled)) {
+                    coveredCount++;
+                } else if (isManual) {
+                    coveredCount++; // Manual tests will be available regardless
+                }
+            });
+            
+            return coveredCount;
+        },
+
+        async startAutomatedTestingFromConfig() {
+            if (!this.selectedTestingSession || !this.testConfiguration) {
+                this.showNotification('No session or configuration selected', 'error');
+                return;
+            }
+
+            try {
+                this.loading = true;
+                
+                const config = this.automatedTestConfig;
+                const sessionId = this.selectedTestingSession.id;
+                
+                // Start comprehensive testing with user configuration
+                const response = await this.apiCall(`/projects/${this.selectedProject.id}/comprehensive-testing`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        sessionName: this.selectedTestingSession.name,
+                        description: `Automated testing initiated from compliance session`,
+                        testingApproach: 'hybrid',
+                        includeFrontend: config.playwright.enabled,
+                        includeBackend: config.backend.enabled,
+                        includeManual: false,
+                        testTypes: config.playwright.testTypes,
+                        browsers: config.playwright.browsers,
+                        backendTools: config.backend.tools,
+                        maxPages: config.scope.maxPages,
+                        viewports: config.playwright.viewports
+                    })
+                });
+
+                if (response.success) {
+                    this.showNotification('Automated testing started successfully!', 'success');
+                    this.closeTestConfigurationModal();
+                    
+                    // Start monitoring progress
+                    this.startTestingProgressMonitoring(sessionId);
+                    
+                    // Refresh sessions to show updated status
+                    await this.loadTestingSessions();
+                } else {
+                    this.showNotification(`Failed to start testing: ${response.error}`, 'error');
+                }
+            } catch (error) {
+                console.error('Error starting automated testing:', error);
+                this.showNotification('Error starting automated testing', 'error');
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        startTestingProgressMonitoring(sessionId) {
+            // Reset progress tracking
+            this.testingProgress = {
+                active: true,
+                sessionId: sessionId,
+                percentage: 0,
+                completedTests: 0,
+                totalTests: 0,
+                currentPage: '',
+                currentTool: '',
+                message: 'Starting automated testing...',
+                stage: 'preparing',
+                estimatedTimeRemaining: null,
+                startTime: Date.now(),
+                errors: [],
+                violationsFound: 0,
+                passesFound: 0,
+                warningsFound: 0
+            };
+
+            // WebSocket will handle real-time updates
+            // This is just initialization
+        },
+
         async createTestingSession() {
             if (!this.selectedProject || !this.newTestingSession.name.trim() || !this.newTestingSession.conformance_level) {
                 this.showNotification('Please fill in all required fields', 'error');

@@ -29,6 +29,7 @@ const resultRoutes = require('./routes/results');
 const violationRoutes = require('./routes/violations');
 const manualTestingRoutes = require('./routes/manual-testing');
 const usersRoutes = require('./routes/users');
+const unifiedTestResultsRoutes = require('./routes/unified-test-results');
 
 // Import services
 const WebSocketService = require('./services/websocket-service');
@@ -189,6 +190,7 @@ app.use('/api/results', resultRoutes);
 app.use('/api/violations', violationRoutes);
 app.use('/api/manual-testing', manualTestingRoutes);
 app.use('/api/users', usersRoutes);
+app.use('/api/unified-test-results', unifiedTestResultsRoutes);
 
 // API info endpoint
 app.get('/api', (req, res) => {

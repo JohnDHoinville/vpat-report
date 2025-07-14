@@ -7,7 +7,10 @@
 const express = require('express');
 const router = express.Router();
 const { pool } = require('../../database/config');
+const { authenticateToken, optionalAuth } = require('../middleware/auth');
 const AuditLogger = require('../middleware/audit-logger');
+const { orchestrator } = require('../../scripts/unified-test-orchestrator');
+const PlaywrightIntegrationService = require('../../database/services/playwright-integration-service');
 
 // Apply audit logging middleware to all routes
 router.use(AuditLogger.auditMiddleware());
@@ -2852,6 +2855,500 @@ router.get('/:sessionId/approval-statistics', async (req, res) => {
     } catch (error) {
         console.error('Error fetching approval statistics:', error);
         res.status(500).json({ error: 'Failed to fetch approval statistics' });
+    }
+});
+
+/**
+ * POST /api/sessions/:sessionId/start-playwright
+ * Start Playwright testing for an existing compliance session
+ */
+router.post('/:sessionId/start-playwright', authenticateToken, async (req, res) => {
+    try {
+        const { sessionId } = req.params;
+        const {
+            testTypes = ['basic', 'keyboard', 'screen-reader', 'form'],
+            browsers = ['chromium'],
+            viewports = ['desktop'],
+            authConfigId
+        } = req.body;
+
+        // Verify session exists
+        const sessionQuery = await pool.query(`
+            SELECT ts.*, p.name as project_name, p.primary_url, p.id as project_id
+            FROM test_sessions ts
+            JOIN projects p ON ts.project_id = p.id
+            WHERE ts.id = $1
+        `, [sessionId]);
+
+        if (sessionQuery.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Test session not found'
+            });
+        }
+
+        const session = sessionQuery.rows[0];
+
+        console.log(`🎭 Starting Playwright tests for session: ${session.name}`);
+
+        // Initialize PlaywrightIntegrationService
+        const integrationService = new PlaywrightIntegrationService();
+
+        // Create frontend test run
+        const testRun = await integrationService.createFrontendTestRun(sessionId, {
+            runName: `Playwright Test Run - ${new Date().toISOString()}`,
+            testSuite: 'playwright',
+            testEnvironment: process.env.NODE_ENV || 'development',
+            browsers,
+            viewports,
+            testTypes,
+            initiatedBy: req.user?.username || 'api-user',
+            metadata: {
+                triggeredViaApi: true,
+                authConfigId,
+                startedAt: new Date().toISOString()
+            }
+        });
+
+        // Set environment variables for Playwright execution
+        process.env.TEST_SESSION_ID = sessionId;
+        process.env.TEST_PROJECT_ID = session.project_id;
+        if (authConfigId) {
+            process.env.TEST_AUTH_CONFIG_ID = authConfigId;
+        }
+
+        // Start Playwright tests asynchronously
+        const playwrightPromise = integrationService.runPlaywrightTests({
+            sessionId,
+            testRunId: testRun.id,
+            testTypes,
+            browsers,
+            viewports,
+            baseUrl: session.primary_url
+        });
+
+        res.status(202).json({
+            success: true,
+            message: 'Playwright testing initiated successfully',
+            session: {
+                id: sessionId,
+                name: session.name,
+                project: session.project_name
+            },
+            testRun: {
+                id: testRun.id,
+                name: testRun.run_name,
+                status: testRun.status
+            },
+            configuration: {
+                testTypes,
+                browsers,
+                viewports
+            },
+            status: 'initiated',
+            instructions: 'Monitor progress via WebSocket or GET /api/sessions/:sessionId/test-progress'
+        });
+
+        // Handle completion in background
+        playwrightPromise.then(result => {
+            console.log(`✅ Playwright testing completed for session ${sessionId}:`, result);
+        }).catch(error => {
+            console.error(`❌ Playwright testing failed for session ${sessionId}:`, error);
+        });
+
+    } catch (error) {
+        console.error('Error starting Playwright testing for session:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to start Playwright testing',
+            message: error.message
+        });
+    }
+});
+
+/**
+ * GET /api/sessions/:sessionId/test-progress
+ * Get real-time progress of automated testing for a session
+ */
+router.get('/:sessionId/test-progress', async (req, res) => {
+    try {
+        const { sessionId } = req.params;
+
+        // Get session info
+        const sessionQuery = await pool.query(`
+            SELECT ts.*, p.name as project_name
+            FROM test_sessions ts
+            JOIN projects p ON ts.project_id = p.id
+            WHERE ts.id = $1
+        `, [sessionId]);
+
+        if (sessionQuery.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Test session not found'
+            });
+        }
+
+        const session = sessionQuery.rows[0];
+
+        // Get frontend test runs progress
+        const frontendRunsQuery = await pool.query(`
+            SELECT 
+                id, run_name, status, test_suite, test_environment,
+                started_at, completed_at, execution_duration_ms,
+                total_tests_executed, tests_passed, tests_failed,
+                total_violations_found, browsers_tested, viewports_tested,
+                created_at
+            FROM frontend_test_runs 
+            WHERE test_session_id = $1 
+            ORDER BY created_at DESC
+        `, [sessionId]);
+
+        // Get automated test results summary
+        const automatedResultsQuery = await pool.query(`
+            SELECT 
+                COUNT(*) as total_tests,
+                COUNT(*) FILTER (WHERE violations_count = 0) as passed_tests,
+                COUNT(*) FILTER (WHERE violations_count > 0) as failed_tests,
+                SUM(violations_count) as total_violations,
+                COUNT(DISTINCT tool_name) as tools_used,
+                COUNT(DISTINCT page_url) as pages_tested,
+                MIN(executed_at) as first_test,
+                MAX(executed_at) as last_test
+            FROM automated_test_results 
+            WHERE test_session_id = $1
+        `, [sessionId]);
+
+        // Get overall unified results if available
+        const unifiedResultsQuery = await pool.query(`
+            SELECT * FROM compliance_session_test_results 
+            WHERE session_id = $1
+        `, [sessionId]);
+
+        const response = {
+            success: true,
+            session: {
+                id: sessionId,
+                name: session.name,
+                project: session.project_name,
+                status: session.status,
+                testingApproach: session.testing_approach
+            },
+            frontendTestRuns: frontendRunsQuery.rows,
+            automatedTestsSummary: automatedResultsQuery.rows[0] || {
+                total_tests: 0,
+                passed_tests: 0,
+                failed_tests: 0,
+                total_violations: 0,
+                tools_used: 0,
+                pages_tested: 0
+            },
+            overallProgress: unifiedResultsQuery.rows[0] || null,
+            lastUpdated: new Date().toISOString()
+        };
+
+        res.json(response);
+
+    } catch (error) {
+        console.error('Error getting test progress:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to retrieve test progress',
+            message: error.message
+        });
+    }
+});
+
+/**
+ * GET /api/sessions/:sessionId/playwright-results
+ * Get Playwright-specific test results for a session
+ */
+router.get('/:sessionId/playwright-results', async (req, res) => {
+    try {
+        const { sessionId } = req.params;
+        const { testRunId, browser, includeDetails = 'true' } = req.query;
+
+        // Get session info
+        const sessionQuery = await pool.query(`
+            SELECT ts.*, p.name as project_name
+            FROM test_sessions ts
+            JOIN projects p ON ts.project_id = p.id
+            WHERE ts.id = $1
+        `, [sessionId]);
+
+        if (sessionQuery.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Test session not found'
+            });
+        }
+
+        // Build query for Playwright results
+        let resultsQuery = `
+            SELECT 
+                atr.id, atr.tool_name, atr.test_url as page_url, atr.executed_at,
+                atr.violations_count, atr.warnings_count, atr.passes_count,
+                atr.browser_name, atr.viewport_width, atr.viewport_height,
+                atr.test_environment, atr.frontend_test_metadata,
+                ftr.run_name, ftr.test_suite, ftr.status as run_status
+            FROM automated_test_results atr
+            LEFT JOIN frontend_test_runs ftr ON atr.frontend_test_run_id = ftr.id
+            WHERE atr.test_session_id = $1 
+            AND atr.tool_name LIKE 'playwright%'
+        `;
+        
+        const queryParams = [sessionId];
+        let paramIndex = 2;
+
+        if (testRunId) {
+            resultsQuery += ` AND atr.frontend_test_run_id = $${paramIndex}`;
+            queryParams.push(testRunId);
+            paramIndex++;
+        }
+
+        if (browser) {
+            resultsQuery += ` AND atr.browser_name = $${paramIndex}`;
+            queryParams.push(browser);
+            paramIndex++;
+        }
+
+        resultsQuery += ` ORDER BY atr.executed_at DESC`;
+
+        const results = await pool.query(resultsQuery, queryParams);
+
+        // Get violations if details requested
+        let violations = [];
+        if (includeDetails === 'true' && results.rows.length > 0) {
+            const resultIds = results.rows.map(r => r.id);
+            const violationsQuery = await pool.query(`
+                SELECT 
+                    v.*, atr.page_url, atr.browser_name, atr.tool_name
+                FROM violations v
+                JOIN automated_test_results atr ON v.automated_result_id = atr.id
+                WHERE v.automated_result_id = ANY($1)
+                ORDER BY v.severity DESC, v.wcag_criterion
+            `, [resultIds]);
+            violations = violationsQuery.rows;
+        }
+
+        // Calculate summary statistics
+        const summary = {
+            totalTests: results.rows.length,
+            passedTests: results.rows.filter(r => r.violations_count === 0).length,
+            failedTests: results.rows.filter(r => r.violations_count > 0).length,
+            totalViolations: results.rows.reduce((sum, r) => sum + (r.violations_count || 0), 0),
+            browsersUsed: [...new Set(results.rows.map(r => r.browser_name))],
+            pagesTestedCount: [...new Set(results.rows.map(r => r.page_url))].length
+        };
+
+        res.json({
+            success: true,
+            sessionId,
+            summary,
+            results: results.rows,
+            violations: includeDetails === 'true' ? violations : null,
+            resultCount: results.rows.length,
+            generatedAt: new Date().toISOString()
+        });
+
+    } catch (error) {
+        console.error('Error getting Playwright results:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to retrieve Playwright results',
+            message: error.message
+        });
+    }
+});
+
+/**
+ * GET /api/sessions/:sessionId/test-configuration
+ * Get comprehensive test configuration and requirements mapping for a compliance session
+ */
+router.get('/:sessionId/test-configuration', authenticateToken, async (req, res) => {
+    try {
+        const { sessionId } = req.params;
+
+        // Get session details
+        const sessionQuery = await pool.query(`
+            SELECT ts.*, p.name as project_name, p.primary_url, p.id as project_id
+            FROM test_sessions ts
+            JOIN projects p ON ts.project_id = p.id
+            WHERE ts.id = $1
+        `, [sessionId]);
+
+        if (sessionQuery.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Test session not found'
+            });
+        }
+
+        const session = sessionQuery.rows[0];
+
+        // Get available pages for testing
+        const pagesQuery = await pool.query(`
+            SELECT dp.id, dp.url, dp.title, dp.page_type, dp.content_type, 
+                   sd.id as discovery_id, sd.status as discovery_status
+            FROM discovered_pages dp
+            JOIN site_discovery sd ON dp.discovery_id = sd.id
+            WHERE sd.project_id = $1 AND sd.status = 'completed'
+            ORDER BY dp.url
+            LIMIT 50
+        `, [session.project_id]);
+
+        // Get WCAG requirements based on conformance level
+        const conformanceLevel = session.conformance_level || 'wcag_aa';
+        const includeLevels = conformanceLevel === 'wcag_aaa' ? ['A', 'AA', 'AAA'] : 
+                             conformanceLevel === 'wcag_aa' ? ['A', 'AA'] : ['A'];
+
+        const requirementsQuery = await pool.query(`
+            SELECT 
+                wr.id,
+                wr.criterion_number,
+                wr.title,
+                wr.description,
+                wr.level,
+                wr.wcag_version,
+                wr.tool_mappings,
+                wr.manual_test_procedure,
+                wr.understanding_url,
+                wr.applies_to_page_types
+            FROM wcag_requirements wr
+            WHERE wr.level = ANY($1) AND wr.wcag_version = '2.1'
+            ORDER BY wr.criterion_number
+        `, [includeLevels]);
+
+        // Get automated tool configurations
+        const automatedToolConfigs = {
+            playwright: {
+                name: 'Playwright Frontend Testing',
+                description: 'End-to-end accessibility testing with real browser automation',
+                testTypes: [
+                    { id: 'basic', name: 'Basic Accessibility', description: 'Core axe-core rule violations' },
+                    { id: 'keyboard', name: 'Keyboard Navigation', description: 'Tab order, focus management, keyboard traps' },
+                    { id: 'screen-reader', name: 'Screen Reader Compatibility', description: 'ARIA attributes, semantic structure' },
+                    { id: 'form', name: 'Form Accessibility', description: 'Labels, validation, error messages' },
+                    { id: 'mobile', name: 'Mobile Accessibility', description: 'Touch targets, responsive design' },
+                    { id: 'dynamic', name: 'Dynamic Content', description: 'Live regions, dynamic updates' }
+                ],
+                browsers: [
+                    { id: 'chromium', name: 'Chromium', default: true },
+                    { id: 'firefox', name: 'Firefox', default: false },
+                    { id: 'webkit', name: 'WebKit (Safari)', default: false }
+                ],
+                viewports: [
+                    { id: 'desktop', name: 'Desktop (1920x1080)', default: true },
+                    { id: 'tablet', name: 'Tablet (768x1024)', default: true },
+                    { id: 'mobile', name: 'Mobile (375x667)', default: true }
+                ],
+                estimatedTime: '15-30 minutes per page'
+            },
+            axe: {
+                name: 'axe-core Backend Testing',
+                description: 'Fast automated accessibility rule checking',
+                coverage: 'Covers ~40% of WCAG 2.1 issues automatically',
+                testScope: 'Page structure, ARIA usage, color contrast, semantic HTML',
+                estimatedTime: '2-3 minutes per page'
+            },
+            pa11y: {
+                name: 'Pa11y Backend Testing', 
+                description: 'Command-line accessibility testing with multiple engines',
+                coverage: 'Complementary rules to axe-core, HTML validation',
+                testScope: 'Alternative perspective on accessibility violations',
+                estimatedTime: '2-3 minutes per page'
+            },
+            lighthouse: {
+                name: 'Lighthouse Performance & Accessibility',
+                description: 'Google Lighthouse accessibility audit',
+                coverage: 'Performance impact on accessibility, best practices',
+                testScope: 'Core Web Vitals affecting accessibility users',
+                estimatedTime: '3-5 minutes per page'
+            }
+        };
+
+        // Map requirements to testing methods
+        const requirementMappings = [];
+        requirementsQuery.rows.forEach(req => {
+            const toolMappings = req.tool_mappings || {};
+            const hasAutomatedCoverage = Object.keys(toolMappings).length > 0;
+            const hasManualProcedure = req.manual_test_procedure && req.manual_test_procedure.trim() !== '';
+
+            let testMethod = 'manual';
+            if (hasAutomatedCoverage && hasManualProcedure) {
+                testMethod = 'hybrid';
+            } else if (hasAutomatedCoverage) {
+                testMethod = 'automated';
+            }
+
+            requirementMappings.push({
+                requirement: req,
+                testMethod,
+                automatedCoverage: hasAutomatedCoverage ? Object.keys(toolMappings) : [],
+                manualRequired: hasManualProcedure,
+                estimatedAutomatedTime: hasAutomatedCoverage ? '2-5 minutes' : null,
+                estimatedManualTime: hasManualProcedure ? '5-15 minutes' : null
+            });
+        });
+
+        // Calculate test estimates
+        const pageCount = pagesQuery.rows.length;
+        const testEstimates = {
+            playwright: {
+                totalTests: pageCount * 6, // 6 test types per page
+                estimatedMinutes: pageCount * 20,
+                coverage: requirementMappings.filter(r => r.testMethod === 'automated' || r.testMethod === 'hybrid').length
+            },
+            backend: {
+                totalTests: pageCount * 3, // axe, pa11y, lighthouse per page
+                estimatedMinutes: pageCount * 8,
+                coverage: requirementMappings.filter(r => r.automatedCoverage.length > 0).length
+            },
+            manual: {
+                totalTests: requirementMappings.filter(r => r.manualRequired).length * pageCount,
+                estimatedMinutes: requirementMappings.filter(r => r.manualRequired).length * pageCount * 10,
+                coverage: requirementMappings.filter(r => r.manualRequired).length
+            }
+        };
+
+        res.json({
+            success: true,
+            data: {
+                session: {
+                    id: session.id,
+                    name: session.name,
+                    project_name: session.project_name,
+                    conformance_level: session.conformance_level,
+                    status: session.status
+                },
+                scope: {
+                    pages: pagesQuery.rows,
+                    pageCount: pageCount,
+                    conformanceLevels: includeLevels
+                },
+                testConfiguration: {
+                    automatedTools: automatedToolConfigs,
+                    estimates: testEstimates
+                },
+                requirements: {
+                    total: requirementMappings.length,
+                    byMethod: {
+                        automated: requirementMappings.filter(r => r.testMethod === 'automated').length,
+                        manual: requirementMappings.filter(r => r.testMethod === 'manual').length,
+                        hybrid: requirementMappings.filter(r => r.testMethod === 'hybrid').length
+                    },
+                    details: requirementMappings
+                }
+            }
+        });
+
+    } catch (error) {
+        console.error('Error getting test configuration:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to get test configuration',
+            message: error.message
+        });
     }
 });
 

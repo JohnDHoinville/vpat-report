@@ -4,6 +4,7 @@ const { v4: uuidv4 } = require('uuid');
 const { authenticateToken, requireRole, optionalAuth } = require('../middleware/auth');
 const SiteDiscoveryService = require('../../database/services/site-discovery-service');
 const SimpleTestingService = require('../../database/services/simple-testing-service');
+const { orchestrator } = require('../../scripts/unified-test-orchestrator');
 
 const router = express.Router();
 
@@ -935,6 +936,184 @@ router.post('/:id/test-sessions', authenticateToken, async (req, res) => {
         console.error('Error starting automated testing:', error);
         res.status(500).json({
             error: 'Failed to start automated testing',
+            message: error.message
+        });
+    }
+});
+
+/**
+ * POST /api/projects/:id/comprehensive-testing
+ * Start comprehensive testing (frontend + backend) for a project using UnifiedTestOrchestrator
+ */
+router.post('/:id/comprehensive-testing', authenticateToken, async (req, res) => {
+    try {
+        const { id: projectId } = req.params;
+        const {
+            sessionName,
+            description,
+            testingApproach = 'hybrid',
+            includeFrontend = true,
+            includeBackend = true,
+            includeManual = false,
+            testTypes = ['basic', 'keyboard', 'screen-reader', 'form', 'mobile'],
+            browsers = ['chromium', 'firefox', 'webkit'],
+            backendTools = ['axe', 'pa11y', 'lighthouse'],
+            maxPages = 50,
+            viewports = ['desktop', 'tablet', 'mobile'],
+            authConfigId
+        } = req.body;
+
+        // Verify project exists
+        const projectExists = await db.query('SELECT id, name, primary_url FROM projects WHERE id = $1', [projectId]);
+        if (projectExists.rows.length === 0) {
+            return res.status(404).json({
+                error: 'Project not found',
+                id: projectId
+            });
+        }
+
+        const project = projectExists.rows[0];
+
+        console.log(`🚀 Starting comprehensive testing for project: ${project.name}`);
+
+        // Configure orchestration
+        const testConfig = {
+            sessionName: sessionName || `Comprehensive Test - ${project.name} - ${new Date().toLocaleDateString()}`,
+            description: description || `Automated frontend and backend accessibility testing for ${project.name}`,
+            testingApproach,
+            includeFrontend,
+            includeBackend,
+            includeManual,
+            testTypes,
+            browsers,
+            backendTools,
+            maxPages,
+            viewports,
+            projectId,
+            initiatedBy: req.user?.username || 'api-user',
+            authConfigId
+        };
+
+        // Start comprehensive testing orchestration
+        const orchestrationPromise = orchestrator.orchestrateComplianceTest(projectId, testConfig);
+
+        // Don't wait for completion - return immediate response
+        res.status(202).json({
+            success: true,
+            message: 'Comprehensive testing initiated successfully',
+            project: {
+                id: projectId,
+                name: project.name,
+                primary_url: project.primary_url
+            },
+            testConfiguration: {
+                approach: testingApproach,
+                includeFrontend,
+                includeBackend,
+                includeManual,
+                frontendTests: includeFrontend ? { testTypes, browsers, viewports } : null,
+                backendTests: includeBackend ? { tools: backendTools, maxPages } : null
+            },
+            status: 'initiated',
+            message_details: 'Testing orchestration started. Monitor progress via WebSocket or session endpoints.'
+        });
+
+        // Handle orchestration completion in background
+        orchestrationPromise.then(result => {
+            console.log(`✅ Comprehensive testing completed for project ${projectId}:`, result.summary);
+        }).catch(error => {
+            console.error(`❌ Comprehensive testing failed for project ${projectId}:`, error);
+        });
+
+    } catch (error) {
+        console.error('Error starting comprehensive testing:', error);
+        res.status(500).json({
+            error: 'Failed to start comprehensive testing',
+            message: error.message,
+            details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        });
+    }
+});
+
+/**
+ * POST /api/projects/:id/playwright-testing
+ * Start Playwright-only testing for a project
+ */
+router.post('/:id/playwright-testing', authenticateToken, async (req, res) => {
+    try {
+        const { id: projectId } = req.params;
+        const {
+            sessionName,
+            description,
+            testTypes = ['basic', 'keyboard', 'screen-reader', 'form'],
+            browsers = ['chromium'],
+            viewports = ['desktop'],
+            maxPages = 25,
+            authConfigId
+        } = req.body;
+
+        // Verify project exists
+        const projectExists = await db.query('SELECT id, name, primary_url FROM projects WHERE id = $1', [projectId]);
+        if (projectExists.rows.length === 0) {
+            return res.status(404).json({
+                error: 'Project not found',
+                id: projectId
+            });
+        }
+
+        const project = projectExists.rows[0];
+
+        console.log(`🎭 Starting Playwright testing for project: ${project.name}`);
+
+        // Configure Playwright-only testing
+        const testConfig = {
+            sessionName: sessionName || `Playwright Test - ${project.name} - ${new Date().toLocaleDateString()}`,
+            description: description || `Frontend accessibility testing with Playwright for ${project.name}`,
+            testingApproach: 'automated_only',
+            includeFrontend: true,
+            includeBackend: false,
+            includeManual: false,
+            testTypes,
+            browsers,
+            viewports,
+            maxPages,
+            projectId,
+            initiatedBy: req.user?.username || 'api-user',
+            authConfigId
+        };
+
+        // Start Playwright testing orchestration
+        const orchestrationPromise = orchestrator.orchestrateComplianceTest(projectId, testConfig);
+
+        res.status(202).json({
+            success: true,
+            message: 'Playwright testing initiated successfully',
+            project: {
+                id: projectId,
+                name: project.name,
+                primary_url: project.primary_url
+            },
+            testConfiguration: {
+                testTypes,
+                browsers,
+                viewports,
+                maxPages
+            },
+            status: 'initiated',
+            message_details: 'Playwright tests started. Monitor progress via WebSocket or session endpoints.'
+        });
+
+        // Handle completion in background
+        orchestrationPromise.then(result => {
+            console.log(`✅ Playwright testing completed for project ${projectId}:`, result.summary);
+        }).catch(error => {
+            console.error(`❌ Playwright testing failed for project ${projectId}:`, error);
+        });
+
+    } catch (error) {
+        console.error('Error starting Playwright testing:', error);
+        res.status(500).json({
+            error: 'Failed to start Playwright testing',
             message: error.message
         });
     }

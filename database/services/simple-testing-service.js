@@ -41,11 +41,15 @@ class SimpleTestingService {
             
             const project = projectCheck.rows[0];
             
-            // Create test session with authentication configuration
+            // Determine testing approach based on session type
+            const testingApproach = this.determineTestingApproach(sessionData);
+            const approachDetails = this.getApproachDetails(testingApproach);
+
+            // Create test session with authentication configuration and testing approach
             const sessionResult = await client.query(
                 `INSERT INTO test_sessions 
-                 (project_id, name, description, conformance_level, scope, status, test_type, progress_summary, created_by, auth_config_id, auth_role, auth_description)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+                 (project_id, name, description, conformance_level, scope, status, test_type, testing_approach, approach_details, progress_summary, created_by, auth_config_id, auth_role, auth_description)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
                  RETURNING *`,
                 [
                     projectId,
@@ -55,6 +59,8 @@ class SimpleTestingService {
                     sessionData.scope || 'all',  // Use string instead of JSON
                     'planning',
                     sessionData.testType || 'full',
+                    testingApproach,
+                    JSON.stringify(approachDetails),
                     JSON.stringify({
                         pagesDiscovered: 0,
                         automatedTestsCompleted: 0,
@@ -959,6 +965,145 @@ class SimpleTestingService {
      */
     setWebSocketService(wsService) {
         this.wsService = wsService;
+    }
+
+    /**
+     * Determine testing approach based on session data
+     * @param {Object} sessionData - Session configuration data
+     * @returns {string} Testing approach
+     */
+    determineTestingApproach(sessionData) {
+        // If explicitly specified, use that approach
+        if (sessionData.testing_approach) {
+            return sessionData.testing_approach;
+        }
+
+        // Map session types to testing approaches
+        if (sessionData.session_type === 'automated') {
+            return 'automated_only';
+        }
+        if (sessionData.session_type === 'manual') {
+            return 'manual_only';
+        }
+
+        // Map test types to approaches for backward compatibility
+        switch (sessionData.testType) {
+            case 'automated_only':
+                return 'automated_only';
+            case 'manual_only':
+                return 'manual_only';
+            case 'followup':
+                return 'manual_only';
+            case 'full':
+            default:
+                return 'hybrid';
+        }
+    }
+
+    /**
+     * Get detailed configuration for a testing approach
+     * @param {string} approach - Testing approach type
+     * @returns {Object} Approach details configuration
+     */
+    getApproachDetails(approach) {
+        const approachConfigs = {
+            automated_only: {
+                automated_tools: ['axe', 'pa11y', 'lighthouse'],
+                manual_techniques: [],
+                coverage_target: 'wcag_aa',
+                time_estimate_hours: 2,
+                priority_criteria: ['automated_testable'],
+                skip_automation_for: [],
+                require_manual_for: [],
+                description: 'Pure automated testing using accessibility tools'
+            },
+            manual_only: {
+                automated_tools: [],
+                manual_techniques: ['keyboard_navigation', 'screen_reader', 'color_contrast', 'focus_management', 'cognitive_assessment'],
+                coverage_target: 'wcag_aa',
+                time_estimate_hours: 8,
+                priority_criteria: ['manual_only', 'complex_interactions', 'cognitive_requirements'],
+                skip_automation_for: ['all'],
+                require_manual_for: ['all_applicable'],
+                description: 'Human-driven accessibility testing with comprehensive evaluation'
+            },
+            hybrid: {
+                automated_tools: ['axe', 'pa11y'],
+                manual_techniques: ['keyboard_navigation', 'screen_reader', 'color_contrast'],
+                coverage_target: 'wcag_aa',
+                time_estimate_hours: 4,
+                priority_criteria: ['balanced_coverage'],
+                skip_automation_for: [],
+                require_manual_for: ['manual_only_criteria'],
+                description: 'Balanced automated + manual approach for comprehensive coverage'
+            },
+            rapid_automated: {
+                automated_tools: ['axe'],
+                manual_techniques: [],
+                coverage_target: 'critical_issues',
+                time_estimate_hours: 1,
+                priority_criteria: ['critical_violations', 'blocking_issues'],
+                skip_automation_for: [],
+                require_manual_for: [],
+                description: 'Quick automated scan focusing on critical blocking issues'
+            },
+            comprehensive_manual: {
+                automated_tools: ['axe', 'pa11y', 'lighthouse'],
+                manual_techniques: ['keyboard_navigation', 'screen_reader', 'color_contrast', 'focus_management', 'cognitive_assessment', 'usability_testing'],
+                coverage_target: 'wcag_aaa',
+                time_estimate_hours: 16,
+                priority_criteria: ['comprehensive_coverage', 'edge_cases', 'user_experience'],
+                skip_automation_for: [],
+                require_manual_for: ['all_criteria', 'edge_cases', 'user_workflows'],
+                description: 'Exhaustive manual testing with automated baseline for certification-level compliance'
+            }
+        };
+
+        return approachConfigs[approach] || approachConfigs.hybrid;
+    }
+
+    /**
+     * Update testing approach for an existing session
+     * @param {string} sessionId - Session UUID
+     * @param {string} approach - New testing approach
+     * @param {Object} customDetails - Custom approach details (optional)
+     */
+    async updateTestingApproach(sessionId, approach, customDetails = null) {
+        const client = await this.pool.connect();
+        
+        try {
+            const approachDetails = customDetails || this.getApproachDetails(approach);
+            
+            const result = await client.query(
+                `UPDATE test_sessions 
+                 SET testing_approach = $1, 
+                     approach_details = $2, 
+                     updated_at = CURRENT_TIMESTAMP
+                 WHERE id = $3
+                 RETURNING *`,
+                [approach, JSON.stringify(approachDetails), sessionId]
+            );
+
+            if (result.rows.length === 0) {
+                throw new Error(`Session not found: ${sessionId}`);
+            }
+
+            // Emit WebSocket update if available
+            if (this.wsService) {
+                const projectId = await this.getProjectIdFromSession(sessionId);
+                this.wsService.emitSessionProgress(sessionId, projectId, {
+                    type: 'approach_updated',
+                    approach: approach,
+                    details: approachDetails,
+                    message: `Testing approach updated to ${approach.replace('_', ' ')}`
+                });
+            }
+
+            return result.rows[0];
+            
+        } finally {
+            client.release();
+        }
     }
 }
 
