@@ -5019,19 +5019,27 @@ function dashboard() {
         async handleTestDrop(event, testerId) {
             event.preventDefault();
             
-            if (!this.draggedTest) return;
+            if (!this.draggedTest || !this.draggedTest.id) {
+                console.warn('⚠️ No valid dragged test found');
+                return;
+            }
+            
+            // Store local reference to prevent race conditions
+            const draggedTestRef = this.draggedTest;
             
             try {
                 // Update test assignment
                 const response = await this.apiCall(
-                    `/test-instances/${this.draggedTest.id}/assign`,
+                    `/test-instances/${draggedTestRef.id}/assign`,
                     'PUT',
                     { assigned_tester: testerId }
                 );
 
                 if (response.success) {
-                    // Update local data
-                    const testIndex = this.testInstances.findIndex(t => t && t.id === this.draggedTest.id);
+                    // Update local data - filter out null/undefined values and ensure both test and draggedTest have valid ids
+                    const testIndex = this.testInstances.findIndex(t => 
+                        t && t.id && draggedTestRef && draggedTestRef.id && t.id === draggedTestRef.id
+                    );
                     if (testIndex !== -1) {
                         this.testInstances[testIndex].assigned_tester = testerId;
                         this.testInstances[testIndex].assigned_tester_name = testerId ? 
@@ -5052,6 +5060,8 @@ function dashboard() {
                 this.showNotification('Failed to update assignment', 'error');
             }
             
+            // Reset drag state
+            this.draggedTest = null;
             this.dragOverTester = null;
         },
 
