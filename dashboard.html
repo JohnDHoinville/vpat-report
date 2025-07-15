@@ -897,9 +897,94 @@
                                     <h3 class="text-lg font-semibold text-gray-900" x-text="session.name"></h3>
                                     <p class="text-gray-600 text-sm" x-text="session.description"></p>
                                 </div>
-                                <span :class="getStatusBadgeClass(session.status)" 
-                                      class="px-2 py-1 text-xs font-medium rounded-full" 
-                                      x-text="session.status"></span>
+                                <div class="flex items-center space-x-2">
+                                    <span :class="getStatusBadgeClass(session.status)" 
+                                          class="px-2 py-1 text-xs font-medium rounded-full" 
+                                          x-text="session.status"></span>
+                                    <button @click="expandSessionDetails(session.id)" 
+                                            class="text-blue-600 hover:text-blue-800 p-1"
+                                            :title="session.expanded ? 'Hide Details' : 'Show Details'">
+                                        <i :class="session.expanded ? 'fas fa-chevron-up' : 'fas fa-chevron-down'"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <!-- Comprehensive Session Summary -->
+                            <div x-show="session.expanded && session.comprehensiveSummary" class="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                                <div class="flex items-center justify-between mb-3">
+                                    <h4 class="text-sm font-semibold text-blue-800">
+                                        <i class="fas fa-chart-bar mr-1"></i>
+                                        Compliance Summary
+                                    </h4>
+                                </div>
+                                
+                                <!-- Requirements Summary -->
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                                    <div class="bg-white p-3 rounded border">
+                                        <div class="text-xs text-gray-600 font-medium mb-1">WCAG Requirements</div>
+                                        <div class="text-lg font-bold text-gray-900" x-text="session.comprehensiveSummary?.requirements?.total || 0"></div>
+                                        <div class="flex space-x-3 mt-1 text-xs">
+                                            <span class="text-green-600">✓ <span x-text="session.comprehensiveSummary?.requirements?.passed || 0"></span></span>
+                                            <span class="text-red-600">✗ <span x-text="session.comprehensiveSummary?.requirements?.failed || 0"></span></span>
+                                            <span class="text-gray-500">- <span x-text="session.comprehensiveSummary?.requirements?.not_applicable || 0"></span></span>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="bg-white p-3 rounded border">
+                                        <div class="text-xs text-gray-600 font-medium mb-1">Pages Tested</div>
+                                        <div class="text-lg font-bold text-gray-900" x-text="session.comprehensiveSummary?.pages?.total || 0"></div>
+                                        <div class="flex space-x-3 mt-1 text-xs">
+                                            <span class="text-green-600">✓ <span x-text="session.comprehensiveSummary?.pages?.with_passes || 0"></span></span>
+                                            <span class="text-red-600">✗ <span x-text="session.comprehensiveSummary?.pages?.with_failures || 0"></span></span>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="bg-white p-3 rounded border">
+                                        <div class="text-xs text-gray-600 font-medium mb-1">Total Tests</div>
+                                        <div class="text-lg font-bold text-gray-900" x-text="session.comprehensiveSummary?.test_instances?.total || 0"></div>
+                                        <div class="flex space-x-3 mt-1 text-xs">
+                                            <span class="text-green-600">✓ <span x-text="session.comprehensiveSummary?.test_instances?.passed || 0"></span></span>
+                                            <span class="text-red-600">✗ <span x-text="session.comprehensiveSummary?.test_instances?.failed || 0"></span></span>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Requirement + Page Combinations -->
+                                <div class="bg-white p-3 rounded border mb-3">
+                                    <div class="text-xs text-gray-600 font-medium mb-1">Requirement + Page Combinations</div>
+                                    <div class="flex justify-between items-center">
+                                        <div class="text-lg font-bold text-gray-900" x-text="session.comprehensiveSummary?.requirement_page_combinations?.total || 0"></div>
+                                        <div class="flex space-x-4 text-xs">
+                                            <span class="text-green-600">✓ <span x-text="session.comprehensiveSummary?.requirement_page_combinations?.passed || 0"></span> passed</span>
+                                            <span class="text-red-600">✗ <span x-text="session.comprehensiveSummary?.requirement_page_combinations?.failed || 0"></span> failed</span>
+                                            <span class="text-yellow-600">⧖ <span x-text="session.comprehensiveSummary?.requirement_page_combinations?.in_progress || 0"></span> in progress</span>
+                                            <span class="text-gray-500">- <span x-text="session.comprehensiveSummary?.requirement_page_combinations?.not_applicable || 0"></span> N/A</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Automated Testing Summary -->
+                                <div x-show="session.comprehensiveSummary?.automated_testing" class="bg-white p-3 rounded border">
+                                    <div class="text-xs text-gray-600 font-medium mb-1">Automated Testing</div>
+                                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                                        <div class="text-center">
+                                            <div class="font-bold text-blue-600" x-text="session.comprehensiveSummary?.automated_testing?.total_results || 0"></div>
+                                            <div class="text-gray-600">Results</div>
+                                        </div>
+                                        <div class="text-center">
+                                            <div class="font-bold text-red-600" x-text="session.comprehensiveSummary?.automated_testing?.total_violations || 0"></div>
+                                            <div class="text-gray-600">Violations</div>
+                                        </div>
+                                        <div class="text-center">
+                                            <div class="font-bold text-green-600" x-text="session.comprehensiveSummary?.automated_testing?.total_passes || 0"></div>
+                                            <div class="text-gray-600">Passes</div>
+                                        </div>
+                                        <div class="text-center">
+                                            <div class="font-bold text-purple-600" x-text="session.comprehensiveSummary?.automated_testing?.tools_used || 0"></div>
+                                            <div class="text-gray-600">Tools</div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                             
                             <!-- Session Scope Info -->

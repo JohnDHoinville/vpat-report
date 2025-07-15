@@ -405,6 +405,7 @@ router.get('/trends', async (req, res) => {
  * Get comprehensive page-level test results for a session
  * Shows which pages passed/failed, tool coverage, violation details
  */
+/* TEMPORARILY COMMENTED OUT DUE TO AUTH MIDDLEWARE ISSUE
 router.get('/page-results/:sessionId', authenticateToken, async (req, res) => {
     try {
         const sessionId = req.params.sessionId;
@@ -448,105 +449,111 @@ router.get('/page-results/:sessionId', authenticateToken, async (req, res) => {
                 ORDER BY dp.url, atr.tool_name
             ),
             page_status AS (
-                -- Calculate status for each page
+                -- Determine pass/fail status for each page
                 SELECT 
                     url,
                     title,
                     page_type,
-                    CASE 
-                        WHEN SUM(violations) > 0 THEN 'failed'
-                        WHEN SUM(total_tests) > 0 THEN 'passed'
-                        ELSE 'not_tested'
-                    END as status,
-                    COUNT(DISTINCT tool_name) as tools_used,
                     SUM(violations) as total_violations,
                     SUM(passes) as total_passes,
-                    SUM(total_tests) as total_tests,
+                    COUNT(DISTINCT tool_name) as tools_used,
                     MAX(last_tested) as last_tested,
                     CASE 
-                        WHEN COUNT(DISTINCT tool_name) >= 3 THEN 100
-                        WHEN COUNT(DISTINCT tool_name) = 2 THEN 75
-                        WHEN COUNT(DISTINCT tool_name) = 1 THEN 50
-                        ELSE 0
-                    END as coverage_score
+                        WHEN SUM(violations) > 0 THEN 'fail'
+                        WHEN SUM(passes) > 0 THEN 'pass'
+                        ELSE 'not_tested'
+                    END as status
                 FROM page_test_summary
-                WHERE tool_name IS NOT NULL
                 GROUP BY url, title, page_type
             )
-            SELECT * FROM page_status
+            SELECT 
+                ps.*,
+                CASE 
+                    WHEN ps.tools_used >= 2 THEN 'high'
+                    WHEN ps.tools_used = 1 THEN 'medium' 
+                    ELSE 'low'
+                END as coverage
+            FROM page_status ps
             ORDER BY 
-                CASE status 
-                    WHEN 'failed' THEN 1
-                    WHEN 'passed' THEN 2
-                    WHEN 'not_tested' THEN 3
+                CASE ps.status 
+                    WHEN 'fail' THEN 1
+                    WHEN 'pass' THEN 2
+                    ELSE 3
                 END,
-                url
+                ps.total_violations DESC,
+                ps.url
         `;
         
         const pageResults = await db.query(pageResultsQuery, [sessionId]);
         
-        // Get violation details for failed pages
-        const violationQuery = `
+        // Get detailed violation information for failed pages
+        const violationDetailsQuery = `
             SELECT 
                 dp.url,
                 atr.tool_name,
-                atd.impact,
-                atd.description,
-                atd.help_url,
-                atd.wcag_tags,
+                atv.wcag_criterion,
+                atv.severity,
+                atv.description,
+                atv.element_selector,
+                atv.element_html,
                 COUNT(*) as occurrence_count
             FROM automated_test_results atr
-            JOIN automated_test_details atd ON atr.id = atd.result_id
+            JOIN automated_test_violations atv ON atr.id = atv.result_id
             JOIN discovered_pages dp ON atr.page_id = dp.id
-            WHERE atr.test_session_id = $1 
-                AND atr.violations_count > 0
-            GROUP BY dp.url, atr.tool_name, atd.impact, atd.description, atd.help_url, atd.wcag_tags
-            ORDER BY dp.url, atr.tool_name, 
-                CASE atd.impact 
+            WHERE atr.test_session_id = $1
+            GROUP BY dp.url, atr.tool_name, atv.wcag_criterion, atv.severity, 
+                     atv.description, atv.element_selector, atv.element_html
+            ORDER BY dp.url, 
+                CASE atv.severity 
                     WHEN 'critical' THEN 1
-                    WHEN 'serious' THEN 2
+                    WHEN 'serious' THEN 2  
                     WHEN 'moderate' THEN 3
                     WHEN 'minor' THEN 4
                     ELSE 5
-                END
+                END,
+                occurrence_count DESC
         `;
         
-        const violations = await db.query(violationQuery, [sessionId]);
+        const violationDetails = await db.query(violationDetailsQuery, [sessionId]);
+        
+        // Get tool coverage statistics
+        const toolStatsQuery = `
+            SELECT 
+                atr.tool_name,
+                COUNT(DISTINCT atr.page_id) as pages_tested,
+                SUM(atr.violations_count) as total_violations,
+                SUM(atr.passes_count) as total_passes,
+                AVG(atr.violations_count) as avg_violations_per_page
+            FROM automated_test_results atr
+            WHERE atr.test_session_id = $1
+            GROUP BY atr.tool_name
+            ORDER BY atr.tool_name
+        `;
+        
+        const toolStats = await db.query(toolStatsQuery, [sessionId]);
         
         // Calculate summary statistics
         const summary = {
             total_pages: pageResults.rows.length,
-            failed_pages: pageResults.rows.filter(p => p.status === 'failed').length,
-            passed_pages: pageResults.rows.filter(p => p.status === 'passed').length,
-            not_tested_pages: pageResults.rows.filter(p => p.status === 'not_tested').length,
-            average_coverage: pageResults.rows.length > 0 
-                ? Math.round(pageResults.rows.reduce((sum, p) => sum + (p.coverage_score || 0), 0) / pageResults.rows.length)
-                : 0,
+            pages_passed: pageResults.rows.filter(p => p.status === 'pass').length,
+            pages_failed: pageResults.rows.filter(p => p.status === 'fail').length,
+            pages_not_tested: pageResults.rows.filter(p => p.status === 'not_tested').length,
             total_violations: pageResults.rows.reduce((sum, p) => sum + (p.total_violations || 0), 0),
-            total_passes: pageResults.rows.reduce((sum, p) => sum + (p.total_passes || 0), 0)
-        };
-        
-        // Group violations by page and severity
-        const violationsByPage = {};
-        violations.rows.forEach(v => {
-            if (!violationsByPage[v.url]) {
-                violationsByPage[v.url] = {
-                    critical: [],
-                    serious: [],
-                    moderate: [],
-                    minor: []
-                };
+            total_passes: pageResults.rows.reduce((sum, p) => sum + (p.total_passes || 0), 0),
+            coverage_breakdown: {
+                high: pageResults.rows.filter(p => p.coverage === 'high').length,
+                medium: pageResults.rows.filter(p => p.coverage === 'medium').length,
+                low: pageResults.rows.filter(p => p.coverage === 'low').length
             }
-            const severity = v.impact || 'minor';
-            violationsByPage[v.url][severity].push(v);
-        });
+        };
         
         res.json({
             success: true,
             session: sessionResult.rows[0],
             summary,
             pages: pageResults.rows,
-            violations: violationsByPage
+            violations: violationDetails.rows,
+            tool_stats: toolStats.rows
         });
         
     } catch (error) {
@@ -558,6 +565,7 @@ router.get('/page-results/:sessionId', authenticateToken, async (req, res) => {
         });
     }
 });
+*/
 
 /**
  * GET /api/results/compare

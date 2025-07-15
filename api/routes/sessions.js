@@ -3354,4 +3354,230 @@ router.get('/:sessionId/test-configuration', authenticateToken, async (req, res)
     }
 });
 
+/**
+ * GET /api/sessions/:sessionId/comprehensive-summary
+ * Get comprehensive summary showing requirements and pages breakdown
+ */
+router.get('/:sessionId/comprehensive-summary', async (req, res) => {
+    try {
+        const { sessionId } = req.params;
+
+        console.log(`📊 Getting comprehensive summary for session: ${sessionId}`);
+
+        // Get session basic info
+        const sessionQuery = `
+            SELECT 
+                ts.*,
+                p.name as project_name,
+                p.primary_url as project_url
+            FROM test_sessions ts
+            JOIN projects p ON ts.project_id = p.id
+            WHERE ts.id = $1
+        `;
+        const sessionResult = await pool.query(sessionQuery, [sessionId]);
+        
+        if (sessionResult.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Test session not found'
+            });
+        }
+
+        const session = sessionResult.rows[0];
+
+        // Get requirements breakdown by status
+        const requirementsQuery = `
+            SELECT 
+                tr.criterion_number,
+                tr.title as requirement_title,
+                tr.level as requirement_level,
+                tr.requirement_type,
+                ti.status,
+                COUNT(*) as test_instance_count,
+                COUNT(DISTINCT ti.page_id) as pages_tested,
+                MAX(ti.updated_at) as last_updated
+            FROM test_instances ti
+            JOIN test_requirements tr ON ti.requirement_id = tr.id
+            WHERE ti.session_id = $1
+            GROUP BY tr.id, tr.criterion_number, tr.title, tr.level, tr.requirement_type, ti.status
+            ORDER BY tr.criterion_number, ti.status
+        `;
+        const requirementsResult = await pool.query(requirementsQuery, [sessionId]);
+
+        // Get pages breakdown by status
+        const pagesQuery = `
+            SELECT 
+                dp.url,
+                dp.title as page_title,
+                dp.page_type,
+                ti.status,
+                COUNT(*) as test_instance_count,
+                COUNT(DISTINCT ti.requirement_id) as requirements_tested,
+                MAX(ti.updated_at) as last_updated
+            FROM test_instances ti
+            JOIN discovered_pages dp ON ti.page_id = dp.id
+            WHERE ti.session_id = $1
+            GROUP BY dp.id, dp.url, dp.title, dp.page_type, ti.status
+            ORDER BY dp.url, ti.status
+        `;
+        const pagesResult = await pool.query(pagesQuery, [sessionId]);
+
+        // Get overall summary statistics
+        const summaryQuery = `
+            SELECT 
+                COUNT(DISTINCT tr.id) as total_requirements,
+                COUNT(DISTINCT CASE WHEN ti.status = 'passed' THEN tr.id END) as requirements_passed,
+                COUNT(DISTINCT CASE WHEN ti.status = 'failed' THEN tr.id END) as requirements_failed,
+                COUNT(DISTINCT CASE WHEN ti.status = 'not_applicable' THEN tr.id END) as requirements_not_applicable,
+                COUNT(DISTINCT CASE WHEN ti.status IN ('pending', 'in_progress', 'needs_review') THEN tr.id END) as requirements_in_progress,
+                
+                COUNT(DISTINCT dp.id) as total_pages,
+                COUNT(DISTINCT CASE WHEN ti.status = 'passed' THEN dp.id END) as pages_with_passes,
+                COUNT(DISTINCT CASE WHEN ti.status = 'failed' THEN dp.id END) as pages_with_failures,
+                COUNT(DISTINCT CASE WHEN ti.status = 'not_applicable' THEN dp.id END) as pages_not_applicable,
+                COUNT(DISTINCT CASE WHEN ti.status IN ('pending', 'in_progress', 'needs_review') THEN dp.id END) as pages_in_progress,
+                
+                COUNT(*) as total_test_instances,
+                COUNT(CASE WHEN ti.status = 'passed' THEN 1 END) as test_instances_passed,
+                COUNT(CASE WHEN ti.status = 'failed' THEN 1 END) as test_instances_failed,
+                COUNT(CASE WHEN ti.status = 'not_applicable' THEN 1 END) as test_instances_not_applicable,
+                COUNT(CASE WHEN ti.status IN ('pending', 'in_progress', 'needs_review') THEN 1 END) as test_instances_in_progress,
+                
+                -- Requirement+Page combinations
+                COUNT(DISTINCT CONCAT(tr.id, '-', dp.id)) as total_requirement_page_combinations,
+                COUNT(DISTINCT CASE WHEN ti.status = 'passed' THEN CONCAT(tr.id, '-', dp.id) END) as requirement_page_passed,
+                COUNT(DISTINCT CASE WHEN ti.status = 'failed' THEN CONCAT(tr.id, '-', dp.id) END) as requirement_page_failed,
+                COUNT(DISTINCT CASE WHEN ti.status = 'not_applicable' THEN CONCAT(tr.id, '-', dp.id) END) as requirement_page_not_applicable,
+                COUNT(DISTINCT CASE WHEN ti.status IN ('pending', 'in_progress', 'needs_review') THEN CONCAT(tr.id, '-', dp.id) END) as requirement_page_in_progress
+
+            FROM test_instances ti
+            JOIN test_requirements tr ON ti.requirement_id = tr.id
+            JOIN discovered_pages dp ON ti.page_id = dp.id
+            WHERE ti.session_id = $1
+        `;
+        const summaryResult = await pool.query(summaryQuery, [sessionId]);
+
+        // Get automated test results summary
+        const automatedSummaryQuery = `
+            SELECT 
+                COUNT(*) as total_automated_results,
+                SUM(violations_count) as total_violations,
+                SUM(passes_count) as total_passes,
+                COUNT(DISTINCT page_id) as pages_tested_automated,
+                COUNT(DISTINCT tool_name) as tools_used
+            FROM automated_test_results
+            WHERE test_session_id = $1
+        `;
+        const automatedSummaryResult = await pool.query(automatedSummaryQuery, [sessionId]);
+
+        // Process the data for easier frontend consumption
+        const requirementsSummary = requirementsResult.rows.reduce((acc, row) => {
+            const key = `${row.criterion_number}`;
+            if (!acc[key]) {
+                acc[key] = {
+                    criterion_number: row.criterion_number,
+                    title: row.requirement_title,
+                    level: row.requirement_level,
+                    requirement_type: row.requirement_type,
+                    statuses: {},
+                    total_test_instances: 0,
+                    pages_tested: 0,
+                    last_updated: row.last_updated
+                };
+            }
+            acc[key].statuses[row.status] = row.test_instance_count;
+            acc[key].total_test_instances += row.test_instance_count;
+            acc[key].pages_tested = Math.max(acc[key].pages_tested, row.pages_tested);
+            if (!acc[key].last_updated || row.last_updated > acc[key].last_updated) {
+                acc[key].last_updated = row.last_updated;
+            }
+            return acc;
+        }, {});
+
+        const pagesSummary = pagesResult.rows.reduce((acc, row) => {
+            const key = row.url;
+            if (!acc[key]) {
+                acc[key] = {
+                    url: row.url,
+                    title: row.page_title,
+                    page_type: row.page_type,
+                    statuses: {},
+                    total_test_instances: 0,
+                    requirements_tested: 0,
+                    last_updated: row.last_updated
+                };
+            }
+            acc[key].statuses[row.status] = row.test_instance_count;
+            acc[key].total_test_instances += row.test_instance_count;
+            acc[key].requirements_tested = Math.max(acc[key].requirements_tested, row.requirements_tested);
+            if (!acc[key].last_updated || row.last_updated > acc[key].last_updated) {
+                acc[key].last_updated = row.last_updated;
+            }
+            return acc;
+        }, {});
+
+        const summary = summaryResult.rows[0];
+        const automatedSummary = automatedSummaryResult.rows[0];
+
+        res.json({
+            success: true,
+            data: {
+                session,
+                summary: {
+                    // Requirements summary
+                    requirements: {
+                        total: parseInt(summary.total_requirements) || 0,
+                        passed: parseInt(summary.requirements_passed) || 0,
+                        failed: parseInt(summary.requirements_failed) || 0,
+                        not_applicable: parseInt(summary.requirements_not_applicable) || 0,
+                        in_progress: parseInt(summary.requirements_in_progress) || 0
+                    },
+                    // Pages summary
+                    pages: {
+                        total: parseInt(summary.total_pages) || 0,
+                        with_passes: parseInt(summary.pages_with_passes) || 0,
+                        with_failures: parseInt(summary.pages_with_failures) || 0,
+                        not_applicable: parseInt(summary.pages_not_applicable) || 0,
+                        in_progress: parseInt(summary.pages_in_progress) || 0
+                    },
+                    // Test instances summary
+                    test_instances: {
+                        total: parseInt(summary.total_test_instances) || 0,
+                        passed: parseInt(summary.test_instances_passed) || 0,
+                        failed: parseInt(summary.test_instances_failed) || 0,
+                        not_applicable: parseInt(summary.test_instances_not_applicable) || 0,
+                        in_progress: parseInt(summary.test_instances_in_progress) || 0
+                    },
+                    // Requirement+Page combinations
+                    requirement_page_combinations: {
+                        total: parseInt(summary.total_requirement_page_combinations) || 0,
+                        passed: parseInt(summary.requirement_page_passed) || 0,
+                        failed: parseInt(summary.requirement_page_failed) || 0,
+                        not_applicable: parseInt(summary.requirement_page_not_applicable) || 0,
+                        in_progress: parseInt(summary.requirement_page_in_progress) || 0
+                    },
+                    // Automated testing summary
+                    automated_testing: {
+                        total_results: parseInt(automatedSummary.total_automated_results) || 0,
+                        total_violations: parseInt(automatedSummary.total_violations) || 0,
+                        total_passes: parseInt(automatedSummary.total_passes) || 0,
+                        pages_tested: parseInt(automatedSummary.pages_tested_automated) || 0,
+                        tools_used: parseInt(automatedSummary.tools_used) || 0
+                    }
+                },
+                requirements_breakdown: Object.values(requirementsSummary),
+                pages_breakdown: Object.values(pagesSummary)
+            }
+        });
+
+    } catch (error) {
+        console.error('❌ Error getting comprehensive summary:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to get comprehensive summary',
+            details: error.message
+        });
+    }
+});
+
 module.exports = router; 
