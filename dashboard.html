@@ -5889,8 +5889,10 @@
         </div>
     </div>
 
-    <!-- Load dashboard helpers synchronously with cache busting -->
+    <!-- Load dashboard helpers synchronously BEFORE Alpine.js initialization -->
     <script>
+        console.log('🎯 Loading dashboard helpers synchronously...');
+        
         // Aggressive cache busting for development
         const timestamp = new Date().getTime();
         const randomId = Math.random().toString(36).substring(2);
@@ -5900,12 +5902,35 @@
         
         // Then load dashboard helpers
         document.write(`<script src="dashboard_helpers.js?v=${timestamp}&r=${randomId}&bust=true"><\/script>`);
-        console.log('🎯 Dashboard helpers loaded with aggressive cache busting');
     </script>
+    
+    <!-- Ensure dashboard function is available -->
     <script>
-        // Initialize dashboard when Alpine.js is ready
-        document.addEventListener('alpine:init', () => {
-            console.log('🎯 Alpine.js initialized, starting dashboard...');
+        // Wait for dashboard function to be loaded before proceeding
+        function waitForDashboard() {
+            return new Promise((resolve) => {
+                if (window.dashboard && typeof window.dashboard === 'function') {
+                    console.log('✅ Dashboard function is available');
+                    resolve();
+                } else {
+                    console.log('⏳ Waiting for dashboard function...');
+                    setTimeout(() => waitForDashboard().then(resolve), 10);
+                }
+            });
+        }
+        
+        // Register dashboard component with Alpine.js
+        waitForDashboard().then(() => {
+            console.log('🎯 Registering dashboard component with Alpine.js...');
+            
+            // Register the component immediately
+            document.addEventListener('alpine:init', () => {
+                console.log('🎯 Alpine.js initializing with dashboard function available');
+                Alpine.data('dashboard', window.dashboard);
+                console.log('✅ Dashboard component registered successfully');
+            });
+            
+            console.log('✅ Dashboard registration setup complete');
         });
     </script>
 </body>
