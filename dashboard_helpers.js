@@ -4954,6 +4954,10 @@ function dashboard() {
                 
                 if (response.success) {
                     this.testInstanceDetails = response.data;
+                    // Merge detailed information into currentTestInstance for template access
+                    if (this.currentTestInstance) {
+                        this.currentTestInstance = { ...this.currentTestInstance, ...response.data };
+                    }
                     console.log('Test instance details loaded:', this.testInstanceDetails);
                 } else {
                     console.error('Failed to load test instance details:', response.error);
@@ -7545,13 +7549,16 @@ function dashboard() {
         getAutomatedTestStatus(automatedTests) {
             if (!automatedTests || automatedTests.length === 0) return 'not_tested';
             
-            const hasFailure = automatedTests.some(t => t.result === 'fail');
+            // Check for failures based on violations_count
+            const hasFailure = automatedTests.some(t => t.violations_count > 0);
             if (hasFailure) return 'failed';
             
-            const allPassed = automatedTests.every(t => t.result === 'pass');
-            if (allPassed) return 'passed';
+            // Check for passes based on passes_count
+            const hasPasses = automatedTests.some(t => t.passes_count > 0);
+            if (hasPasses) return 'passed';
             
-            return 'mixed';
+            // If no violations and no passes, it's unknown
+            return 'unknown';
         },
 
         getManualTestStatus(manualTests) {

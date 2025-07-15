@@ -42,12 +42,59 @@ router.get('/automated-test-results', async (req, res) => {
                     WHEN atr.passes_count > 0 THEN 'pass'
                     ELSE 'unknown'
                 END as result_status,
-                -- Extract WCAG criterion from raw_results if available
-                COALESCE(
-                    atr.raw_results->>'wcag_criterion',
-                    atr.raw_results->'violations'->0->>'criterion',
-                    'unknown'
-                ) as wcag_criterion
+                -- Extract WCAG criteria from violations in raw_results
+                CASE 
+                    WHEN atr.tool_name = 'lighthouse' THEN
+                        COALESCE(
+                            (SELECT DISTINCT v.wcag_criterion 
+                             FROM violations v 
+                             WHERE v.automated_result_id = atr.id 
+                             AND v.wcag_criterion IS NOT NULL 
+                             AND v.wcag_criterion != '' 
+                             AND v.wcag_criterion ~ '^[0-9]+\\.[0-9]+\\.[0-9]+$'
+                             LIMIT 1),
+                            'general_lighthouse'
+                        )
+                    WHEN atr.tool_name = 'axe' THEN
+                        COALESCE(
+                            -- Try to extract from violations first
+                            (SELECT DISTINCT 
+                                CASE 
+                                    WHEN wcag_tag = 'wcag111' THEN '1.1.1'
+                                    WHEN wcag_tag = 'wcag143' THEN '1.4.3'
+                                    WHEN wcag_tag = 'wcag211' THEN '2.1.1'
+                                    WHEN wcag_tag = 'wcag213' THEN '2.1.3'
+                                    WHEN wcag_tag = 'wcag241' THEN '2.4.1'
+                                    WHEN wcag_tag = 'wcag242' THEN '2.4.2'
+                                    WHEN wcag_tag = 'wcag311' THEN '3.1.1'
+                                    WHEN wcag_tag = 'wcag332' THEN '3.3.2'
+                                    WHEN wcag_tag = 'wcag411' THEN '4.1.1'
+                                    WHEN wcag_tag = 'wcag412' THEN '4.1.2'
+                                    ELSE wcag_tag
+                                END
+                             FROM (
+                                 SELECT jsonb_array_elements_text(
+                                     violation_item->'wcagCriteria'
+                                 ) as wcag_tag
+                                 FROM jsonb_array_elements(
+                                     COALESCE(atr.raw_results->'result'->'detailedViolations', '[]'::jsonb)
+                                 ) as violation_item
+                                 WHERE jsonb_array_length(violation_item->'wcagCriteria') > 0
+                             ) wcag_extraction
+                             WHERE wcag_tag ~ '^wcag[0-9]+$'
+                             LIMIT 1),
+                            -- Fallback to violations table
+                            (SELECT DISTINCT v.wcag_criterion 
+                             FROM violations v 
+                             WHERE v.automated_result_id = atr.id 
+                             AND v.wcag_criterion IS NOT NULL 
+                             AND v.wcag_criterion != '' 
+                             AND v.wcag_criterion ~ '^[0-9]+\\.[0-9]+\\.[0-9]+$'
+                             LIMIT 1),
+                            'general_axe'
+                        )
+                    ELSE 'general_automated'
+                END as wcag_criterion
             FROM automated_test_results atr
             JOIN discovered_pages dp ON atr.page_id = dp.id
             WHERE atr.test_session_id = $1
@@ -64,9 +111,9 @@ router.get('/automated-test-results', async (req, res) => {
 
     } catch (error) {
         console.error('Error fetching automated test results:', error);
-        res.status(500).json({ 
+        res.status(500).json({
             error: 'Failed to fetch automated test results',
-            details: error.message 
+            details: error.message
         });
     }
 });
