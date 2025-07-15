@@ -1,5 +1,6 @@
 const express = require('express');
 const { db } = require('../../database/config');
+const auth = require('../middleware/auth'); // Added auth middleware
 
 const router = express.Router();
 
@@ -394,6 +395,214 @@ router.get('/trends', async (req, res) => {
         console.error('Error fetching trends:', error);
         res.status(500).json({
             error: 'Failed to fetch trends',
+            message: error.message
+        });
+    }
+});
+
+/**
+ * GET /api/results/page-results/:sessionId
+ * Get comprehensive page-level test results for a session
+ * Shows which pages passed/failed, tool coverage, violation details
+ */
+router.get('/page-results/:sessionId', auth, async (req, res) => {
+    try {
+        const sessionId = req.params.sessionId;
+        
+        // Get session info
+        const sessionQuery = `
+            SELECT ts.*, p.name as project_name, p.primary_url as project_url
+            FROM test_sessions ts
+            JOIN projects p ON ts.project_id = p.id
+            WHERE ts.id = $1
+        `;
+        const sessionResult = await db.query(sessionQuery, [sessionId]);
+        
+        if (sessionResult.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Test session not found'
+            });
+        }
+        
+        // Get comprehensive page test results
+        const pageResultsQuery = `
+            WITH page_test_summary AS (
+                SELECT 
+                    dp.id as page_id,
+                    dp.url,
+                    dp.title,
+                    dp.page_type,
+                    dp.http_status,
+                    sd.primary_url as site_primary_url,
+                    
+                    -- Automated test results aggregation
+                    COUNT(atr.id) as total_automated_tests,
+                    COUNT(DISTINCT atr.tool_name) as tools_used_count,
+                    ARRAY_AGG(DISTINCT atr.tool_name) FILTER (WHERE atr.tool_name IS NOT NULL) as tools_used,
+                    SUM(atr.violations_count) as total_violations,
+                    SUM(atr.passes_count) as total_passes,
+                    SUM(atr.warnings_count) as total_warnings,
+                    
+                    -- Tool-specific results
+                    MAX(CASE WHEN atr.tool_name = 'axe' THEN atr.violations_count ELSE 0 END) as axe_violations,
+                    MAX(CASE WHEN atr.tool_name = 'axe' THEN atr.passes_count ELSE 0 END) as axe_passes,
+                    MAX(CASE WHEN atr.tool_name = 'pa11y' THEN atr.violations_count ELSE 0 END) as pa11y_violations,
+                    MAX(CASE WHEN atr.tool_name = 'pa11y' THEN atr.passes_count ELSE 0 END) as pa11y_passes,
+                    MAX(CASE WHEN atr.tool_name = 'lighthouse' THEN atr.violations_count ELSE 0 END) as lighthouse_violations,
+                    MAX(CASE WHEN atr.tool_name = 'lighthouse' THEN atr.passes_count ELSE 0 END) as lighthouse_passes,
+                    
+                    -- Test execution times
+                    MIN(atr.executed_at) as first_test_time,
+                    MAX(atr.executed_at) as last_test_time,
+                    
+                    -- Manual test results
+                    COUNT(ti.id) as manual_tests_count,
+                    SUM(CASE WHEN ti.status = 'passed' THEN 1 ELSE 0 END) as manual_passed,
+                    SUM(CASE WHEN ti.status = 'failed' THEN 1 ELSE 0 END) as manual_failed,
+                    SUM(CASE WHEN ti.status = 'pending' THEN 1 ELSE 0 END) as manual_pending,
+                    SUM(CASE WHEN ti.status = 'not_applicable' THEN 1 ELSE 0 END) as manual_not_applicable
+                    
+                FROM discovered_pages dp
+                JOIN site_discovery sd ON dp.discovery_id = sd.id
+                JOIN projects p ON sd.project_id = p.id
+                LEFT JOIN automated_test_results atr ON dp.id = atr.page_id AND atr.test_session_id = $1
+                LEFT JOIN test_instances ti ON dp.id = ti.page_id AND ti.session_id = $1
+                WHERE p.id = (SELECT project_id FROM test_sessions WHERE id = $1)
+                GROUP BY dp.id, dp.url, dp.title, dp.page_type, dp.http_status, sd.primary_url
+            ),
+            
+            page_status AS (
+                SELECT 
+                    *,
+                    -- Overall page test status
+                    CASE 
+                        WHEN total_automated_tests = 0 AND manual_tests_count = 0 THEN 'not_tested'
+                        WHEN total_violations > 0 OR manual_failed > 0 THEN 'failed'
+                        WHEN total_passes > 0 OR manual_passed > 0 THEN 'passed'
+                        WHEN total_automated_tests > 0 OR manual_tests_count > 0 THEN 'incomplete'
+                        ELSE 'not_tested'
+                    END as overall_status,
+                    
+                    -- Test coverage score (0-100)
+                    CASE 
+                        WHEN tools_used_count >= 3 THEN 100
+                        WHEN tools_used_count = 2 THEN 75
+                        WHEN tools_used_count = 1 THEN 50
+                        WHEN manual_tests_count > 0 THEN 25
+                        ELSE 0
+                    END as coverage_score
+                    
+                FROM page_test_summary
+            )
+            
+            SELECT * FROM page_status
+            ORDER BY 
+                CASE overall_status 
+                    WHEN 'failed' THEN 1
+                    WHEN 'incomplete' THEN 2  
+                    WHEN 'passed' THEN 3
+                    WHEN 'not_tested' THEN 4
+                END,
+                total_violations DESC,
+                url
+        `;
+        
+        const pagesResult = await db.query(pageResultsQuery, [sessionId]);
+        
+        // Get detailed violation breakdown by page
+        const violationsQuery = `
+            SELECT 
+                atr.page_id,
+                atr.tool_name,
+                v.wcag_criterion,
+                v.rule_id,
+                v.impact_level,
+                v.description,
+                v.selector,
+                COUNT(*) as violation_count
+            FROM automated_test_results atr
+            JOIN violations v ON atr.id = v.test_result_id
+            WHERE atr.test_session_id = $1
+            GROUP BY atr.page_id, atr.tool_name, v.wcag_criterion, v.rule_id, v.impact_level, v.description, v.selector
+            ORDER BY 
+                CASE v.impact_level 
+                    WHEN 'critical' THEN 1
+                    WHEN 'serious' THEN 2
+                    WHEN 'moderate' THEN 3
+                    WHEN 'minor' THEN 4
+                    ELSE 5
+                END,
+                violation_count DESC
+        `;
+        
+        const violationsResult = await db.query(violationsQuery, [sessionId]);
+        
+        // Group violations by page
+        const violationsByPage = {};
+        violationsResult.rows.forEach(violation => {
+            if (!violationsByPage[violation.page_id]) {
+                violationsByPage[violation.page_id] = [];
+            }
+            violationsByPage[violation.page_id].push(violation);
+        });
+        
+        // Calculate summary statistics
+        const totalPages = pagesResult.rows.length;
+        const testedPages = pagesResult.rows.filter(p => p.overall_status !== 'not_tested').length;
+        const passedPages = pagesResult.rows.filter(p => p.overall_status === 'passed').length;
+        const failedPages = pagesResult.rows.filter(p => p.overall_status === 'failed').length;
+        const incompletePages = pagesResult.rows.filter(p => p.overall_status === 'incomplete').length;
+        
+        const totalViolations = pagesResult.rows.reduce((sum, p) => sum + (p.total_violations || 0), 0);
+        const totalPasses = pagesResult.rows.reduce((sum, p) => sum + (p.total_passes || 0), 0);
+        const averageCoverage = pagesResult.rows.reduce((sum, p) => sum + (p.coverage_score || 0), 0) / totalPages;
+        
+        // Add violation details to each page
+        const pagesWithViolations = pagesResult.rows.map(page => ({
+            ...page,
+            violations: violationsByPage[page.page_id] || [],
+            violation_summary: {
+                critical: violationsByPage[page.page_id]?.filter(v => v.impact_level === 'critical').length || 0,
+                serious: violationsByPage[page.page_id]?.filter(v => v.impact_level === 'serious').length || 0,
+                moderate: violationsByPage[page.page_id]?.filter(v => v.impact_level === 'moderate').length || 0,
+                minor: violationsByPage[page.page_id]?.filter(v => v.impact_level === 'minor').length || 0
+            }
+        }));
+        
+        res.json({
+            success: true,
+            data: {
+                session: sessionResult.rows[0],
+                pages: pagesWithViolations,
+                summary: {
+                    total_pages: totalPages,
+                    tested_pages: testedPages,
+                    passed_pages: passedPages,
+                    failed_pages: failedPages,
+                    incomplete_pages: incompletePages,
+                    not_tested_pages: totalPages - testedPages,
+                    
+                    total_violations: totalViolations,
+                    total_passes: totalPasses,
+                    average_coverage: Math.round(averageCoverage),
+                    
+                    coverage_breakdown: {
+                        full_coverage: pagesResult.rows.filter(p => p.coverage_score === 100).length,
+                        good_coverage: pagesResult.rows.filter(p => p.coverage_score >= 75 && p.coverage_score < 100).length,
+                        partial_coverage: pagesResult.rows.filter(p => p.coverage_score >= 25 && p.coverage_score < 75).length,
+                        minimal_coverage: pagesResult.rows.filter(p => p.coverage_score > 0 && p.coverage_score < 25).length,
+                        no_coverage: pagesResult.rows.filter(p => p.coverage_score === 0).length
+                    }
+                }
+            }
+        });
+        
+    } catch (error) {
+        console.error('Error fetching page results:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch page results',
             message: error.message
         });
     }
