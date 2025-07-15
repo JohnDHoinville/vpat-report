@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Page Test Results</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .status-failed { @apply bg-red-50 border-red-200 text-red-800; }
+        .status-passed { @apply bg-green-50 border-green-200 text-green-800; }
+        .status-incomplete { @apply bg-yellow-50 border-yellow-200 text-yellow-800; }
+        .status-not-tested { @apply bg-gray-50 border-gray-200 text-gray-800; }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div class="min-h-screen" x-data="pageResults()">
+        <!-- Header -->
+        <header class="bg-white shadow-sm border-b border-gray-200">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between items-center py-6">
+                    <div>
+                        <h1 class="text-3xl font-bold text-gray-900">Page Test Results</h1>
+                        <p class="text-gray-600 mt-1" x-text="sessionInfo?.name"></p>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <div x-show="sessionInfo" class="text-sm text-gray-500">
+                            Project: <span x-text="sessionInfo?.project_name" class="font-medium"></span>
+                        </div>
+                        <button onclick="window.close()" class="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors">
+                            <i class="fas fa-times mr-2"></i>Close
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Loading State -->
+        <div x-show="loading" class="flex justify-center items-center min-h-96">
+            <div class="text-center">
+                <i class="fas fa-spinner fa-spin text-4xl text-blue-600 mb-4"></i>
+                <p class="text-gray-600">Loading page results...</p>
+            </div>
+        </div>
+
+        <!-- Error State -->
+        <div x-show="error && !loading" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+            <div class="bg-red-50 border border-red-200 rounded-lg p-6">
+                <div class="flex">
+                    <i class="fas fa-exclamation-triangle text-red-400 text-xl mr-3"></i>
+                    <div>
+                        <h3 class="text-lg font-medium text-red-800">Error Loading Results</h3>
+                        <p class="text-red-700 mt-1" x-text="error"></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <main x-show="!loading && !error" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <!-- Summary Statistics -->
+            <div x-show="summary" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-file-alt text-blue-600 text-2xl"></i>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm font-medium text-gray-500">Total Pages</p>
+                            <p class="text-2xl font-bold text-gray-900" x-text="summary?.total_pages || 0"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-check-circle text-green-600 text-2xl"></i>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm font-medium text-gray-500">Passed Pages</p>
+                            <p class="text-2xl font-bold text-green-600" x-text="summary?.passed_pages || 0"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-times-circle text-red-600 text-2xl"></i>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm font-medium text-gray-500">Failed Pages</p>
+                            <p class="text-2xl font-bold text-red-600" x-text="summary?.failed_pages || 0"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-chart-line text-purple-600 text-2xl"></i>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm font-medium text-gray-500">Average Coverage</p>
+                            <p class="text-2xl font-bold text-purple-600" x-text="summary?.average_coverage || '0%'"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Page Results Table -->
+            <div class="bg-white shadow overflow-hidden sm:rounded-md">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <h3 class="text-lg leading-6 font-medium text-gray-900">Page-by-Page Results</h3>
+                    <p class="mt-1 text-sm text-gray-500">Detailed testing results for each page</p>
+                </div>
+                
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Page</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Coverage</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tools</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Violations</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Tested</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            <template x-for="page in pageResults" :key="page.url">
+                                <tr class="hover:bg-gray-50">
+                                    <td class="px-6 py-4">
+                                        <div class="flex items-center">
+                                            <div>
+                                                <div class="text-sm font-medium text-gray-900" x-text="page.title || 'Untitled'"></div>
+                                                <div class="text-sm text-blue-600 hover:text-blue-800">
+                                                    <a :href="page.url" target="_blank" x-text="page.url"></a>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span :class="getStatusClass(page.status)" class="inline-flex px-2 py-1 text-xs font-semibold rounded-full">
+                                            <i :class="getStatusIcon(page.status)" class="mr-1"></i>
+                                            <span x-text="page.status"></span>
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="flex items-center">
+                                            <div class="flex-1">
+                                                <div class="w-16 bg-gray-200 rounded-full h-2">
+                                                    <div :style="`width: ${page.coverage_percentage || 0}%`" 
+                                                         :class="getCoverageColor(page.coverage_percentage)"
+                                                         class="h-2 rounded-full transition-all duration-300"></div>
+                                                </div>
+                                            </div>
+                                            <div class="ml-3 text-sm text-gray-600" x-text="`${page.coverage_percentage || 0}%`"></div>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="flex space-x-1">
+                                            <span x-show="page.tools_used?.includes('axe')" class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">axe</span>
+                                            <span x-show="page.tools_used?.includes('pa11y')" class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded">pa11y</span>
+                                            <span x-show="page.tools_used?.includes('lighthouse')" class="bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded">lighthouse</span>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="flex items-center space-x-2">
+                                            <span x-show="page.critical_violations > 0" class="bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full">
+                                                <i class="fas fa-exclamation-triangle mr-1"></i>
+                                                <span x-text="page.critical_violations"></span> Critical
+                                            </span>
+                                            <span x-show="page.serious_violations > 0" class="bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded-full">
+                                                <span x-text="page.serious_violations"></span> Serious
+                                            </span>
+                                            <span x-show="page.moderate_violations > 0" class="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded-full">
+                                                <span x-text="page.moderate_violations"></span> Moderate
+                                            </span>
+                                            <span x-show="page.total_violations === 0" class="text-green-600 text-xs">
+                                                <i class="fas fa-check mr-1"></i>No violations
+                                            </span>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                        <span x-text="formatDate(page.last_tested)"></span>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Empty State -->
+                <div x-show="pageResults && pageResults.length === 0" class="px-6 py-12 text-center">
+                    <i class="fas fa-file-alt text-gray-400 text-4xl mb-4"></i>
+                    <h3 class="text-lg font-medium text-gray-900 mb-2">No Page Results Found</h3>
+                    <p class="text-gray-500">This session has no page-level test results yet.</p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Alpine.js -->
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script>
+        function pageResults() {
+            return {
+                loading: true,
+                error: null,
+                sessionInfo: null,
+                summary: null,
+                pageResults: [],
+
+                async init() {
+                    // Get session ID from URL parameters
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const sessionId = urlParams.get('session') || urlParams.get('sessionId');
+                    
+                    if (!sessionId) {
+                        this.error = 'No session ID provided';
+                        this.loading = false;
+                        return;
+                    }
+
+                    await this.loadPageResults(sessionId);
+                },
+
+                async loadPageResults(sessionId) {
+                    try {
+                        this.loading = true;
+                        this.error = null;
+
+                        // Get token from localStorage (or from URL parameter)
+                        const urlParams = new URLSearchParams(window.location.search);
+                        const token = localStorage.getItem('token') || urlParams.get('token');
+                        
+                        if (!token) {
+                            this.error = 'Authentication required. Please log in to view page results.';
+                            this.loading = false;
+                            return;
+                        }
+
+                        const apiBaseUrl = 'http://localhost:3001/api';
+                        const response = await fetch(`${apiBaseUrl}/results/page-results/${sessionId}`, {
+                            headers: {
+                                'Authorization': `Bearer ${token}`,
+                                'Content-Type': 'application/json'
+                            }
+                        });
+
+                        if (!response.ok) {
+                            if (response.status === 401) {
+                                throw new Error('Authentication failed. Please log in again.');
+                            } else if (response.status === 404) {
+                                throw new Error('Session not found or no results available.');
+                            } else {
+                                throw new Error(`Failed to load page results (${response.status})`);
+                            }
+                        }
+
+                        const data = await response.json();
+                        
+                        this.sessionInfo = data.session_info;
+                        this.summary = data.summary;
+                        this.pageResults = data.page_results || [];
+
+                        console.log('Page results loaded:', data);
+
+                    } catch (error) {
+                        console.error('Error loading page results:', error);
+                        this.error = error.message;
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+
+                getStatusClass(status) {
+                    switch (status?.toLowerCase()) {
+                        case 'failed': return 'bg-red-100 text-red-800';
+                        case 'passed': return 'bg-green-100 text-green-800';
+                        case 'incomplete': return 'bg-yellow-100 text-yellow-800';
+                        case 'not_tested': 
+                        default: return 'bg-gray-100 text-gray-800';
+                    }
+                },
+
+                getStatusIcon(status) {
+                    switch (status?.toLowerCase()) {
+                        case 'failed': return 'fas fa-times-circle';
+                        case 'passed': return 'fas fa-check-circle';
+                        case 'incomplete': return 'fas fa-clock';
+                        case 'not_tested': 
+                        default: return 'fas fa-question-circle';
+                    }
+                },
+
+                getCoverageColor(percentage) {
+                    if (percentage >= 75) return 'bg-green-600';
+                    if (percentage >= 50) return 'bg-yellow-500';
+                    if (percentage >= 25) return 'bg-orange-500';
+                    return 'bg-red-500';
+                },
+
+                formatDate(dateString) {
+                    if (!dateString) return 'Never';
+                    
+                    try {
+                        const date = new Date(dateString);
+                        return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                    } catch (error) {
+                        return 'Invalid date';
+                    }
+                }
+            }
+        }
+    </script>
+</body>
+</html> 

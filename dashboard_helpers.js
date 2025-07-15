@@ -1756,6 +1756,23 @@ function dashboard() {
             this.loadSessionResultsTab(session);
         },
 
+        viewPageResults(session) {
+            // Open page results in a new window using the page-results.html file
+            if (!this.token) {
+                this.addNotification('Error', 'Please log in to view page results', 'error');
+                return;
+            }
+            
+            const pageResultsUrl = `./page-results.html?sessionId=${session.id}&token=${this.token}`;
+            const newWindow = window.open(pageResultsUrl, '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes');
+            
+            if (newWindow) {
+                this.addNotification('Success', `Opening page results for ${session.name}`, 'success');
+            } else {
+                this.addNotification('Error', 'Failed to open page results. Please check your popup blocker.', 'error');
+            }
+        },
+
         manualTesting(session) {
             this.showNotification('Manual testing interface coming soon!', 'info');
         },
