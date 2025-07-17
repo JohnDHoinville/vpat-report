@@ -4045,18 +4045,57 @@ function dashboard() {
         async loadTestInstances(sessionId) {
             try {
                 this.loading = true;
-                const response = await this.apiCall(`/sessions/${sessionId}/tests?limit=1000&page=1&sort_by=updated_at&sort_order=DESC`);
                 
-                if (response.success) {
-                    this.testInstances = response.data || [];
-                    this.applyTestFilters();
-                    // Load progress data
-                    await this.loadSessionProgressMetrics(sessionId);
-                    console.log('Test instances loaded:', this.testInstances.length);
-                } else {
-                    console.error('Failed to load test instances:', response.error);
-                    this.showNotification('Failed to load test instances', 'error');
+                // Load all test instances using pagination to get complete dataset
+                let allTestInstances = [];
+                let currentPage = 1;
+                let hasMorePages = true;
+                const pageSize = 100; // Max allowed by API
+                
+                console.log(`📊 Loading all test instances for session ${sessionId}...`);
+                
+                while (hasMorePages) {
+                    const response = await this.apiCall(`/sessions/${sessionId}/tests?limit=${pageSize}&page=${currentPage}&sort_by=updated_at&sort_order=DESC`);
+                    
+                    if (response.success && response.data) {
+                        allTestInstances = allTestInstances.concat(response.data);
+                        
+                        // Check if we have more pages
+                        if (response.pagination) {
+                            hasMorePages = response.pagination.has_next;
+                            currentPage++;
+                            console.log(`📄 Loaded page ${currentPage - 1}, total so far: ${allTestInstances.length}`);
+                        } else {
+                            // If no pagination info, assume we got all data if we got less than pageSize
+                            hasMorePages = response.data.length === pageSize;
+                            currentPage++;
+                        }
+                        
+                        // Safety check to prevent infinite loops
+                        if (currentPage > 50) {
+                            console.warn('⚠️ Reached maximum page limit (50), stopping pagination');
+                            break;
+                        }
+                    } else {
+                        console.error('Failed to load test instances page:', currentPage, response.error);
+                        hasMorePages = false;
+                    }
                 }
+                
+                this.testInstances = allTestInstances;
+                this.applyTestFilters();
+                
+                // Load progress data
+                await this.loadSessionProgressMetrics(sessionId);
+                
+                console.log(`✅ Total test instances loaded: ${this.testInstances.length}`);
+                
+                // Show notification if there's a significant discrepancy
+                if (this.currentSessionDetails?.total_tests_count && 
+                    Math.abs(this.testInstances.length - this.currentSessionDetails.total_tests_count) > 10) {
+                    console.warn(`⚠️ Test instance count mismatch: Dashboard=${this.testInstances.length}, Session=${this.currentSessionDetails.total_tests_count}`);
+                }
+                
             } catch (error) {
                 console.error('Error loading test instances:', error);
                 this.showNotification('Error loading test instances', 'error');
