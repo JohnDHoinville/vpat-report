@@ -163,10 +163,6 @@ function dashboard() {
         currentRequirement: null,
         isLoadingRequirement: false,
         
-        // Database Maintenance Modal
-        showMaintenance: false,
-        maintenanceStats: null,
-        
         // Test Assignment Interface (Task 2.1.3)
         showTestAssignmentPanel: false,
         draggedTest: null,
@@ -1477,45 +1473,29 @@ function dashboard() {
         async confirmDeleteProject() {
             if (!this.projectToDelete) return;
             
-            const confirmed = confirm(`⚠️ PROJECT DELETION WARNING ⚠️\n\nAre you absolutely sure you want to PERMANENTLY DELETE the project "${this.projectToDelete.name}"?\n\nThis will delete:\n• ALL test sessions and results\n• ALL audit trails and evidence\n• ALL site discoveries and pages\n• ALL violations and findings\n• Cannot be undone\n\nType "DELETE" below to confirm:`);
-            
-            if (confirmed !== 'DELETE') {
-                this.showNotification('Project deletion cancelled - confirmation text did not match', 'info');
-                this.showDeleteProject = false;
-                this.projectToDelete = null;
-                return;
-            }
-            
             try {
                 this.loading = true;
-                console.log('🗑️ PERMANENT DELETE PROJECT:', this.projectToDelete.name);
-                
-                const response = await this.apiCall(`/projects/${this.projectToDelete.id}?confirm_permanent=true`, {
+                await this.apiCall(`/projects/${this.projectToDelete.id}`, {
                     method: 'DELETE'
                 });
                 
-                if (response.deleted_data) {
-                    // Remove from projects list
-                    this.projects = this.projects.filter(p => p.id !== this.projectToDelete.id);
-                    
-                    // Clear selection if the deleted project was selected
-                    if (this.selectedProject && this.selectedProject.id === this.projectToDelete.id) {
-                        this.selectedProject = null;
-                        this.discoveries = [];
-                        this.testSessions = [];
-                    }
-                    
-                    this.showNotification(`Project "${this.projectToDelete.name}" permanently deleted!\n• ${response.deleted_data.sessions_deleted} sessions\n• ${response.deleted_data.test_instances_deleted} test instances\n• ${response.deleted_data.discovered_pages_deleted} discovered pages`, 'success');
-                } else {
-                    throw new Error(response.error || 'Unknown error');
+                // Remove from projects list
+                this.projects = this.projects.filter(p => p.id !== this.projectToDelete.id);
+                
+                // Clear selection if the deleted project was selected
+                if (this.selectedProject && this.selectedProject.id === this.projectToDelete.id) {
+                    this.selectedProject = null;
+                    this.discoveries = [];
+                    this.testSessions = [];
                 }
                 
                 this.showDeleteProject = false;
                 this.projectToDelete = null;
+                this.showNotification('Project deleted successfully!', 'success');
                 
             } catch (error) {
                 console.error('Failed to delete project:', error);
-                this.showNotification('Failed to delete project: ' + (error.message || 'Unknown error'), 'error');
+                this.showNotification('Failed to delete project. Please try again.', 'error');
             } finally {
                 this.loading = false;
             }
@@ -1815,7 +1795,6 @@ function dashboard() {
                 console.log('🗑️ Deleting test session:', this.sessionToDelete.name, this.sessionToDelete.id);
                 this.loading = true;
                 
-                // Default to soft delete (archive)
                 const response = await this.apiCall(`/sessions/${this.sessionToDelete.id}`, {
                     method: 'DELETE'
                 });
@@ -1823,7 +1802,7 @@ function dashboard() {
                 console.log('🗑️ Delete response:', response);
                 
                 if (response.success) {
-                    this.showNotification(`Session "${this.sessionToDelete.name}" archived successfully!`, 'success');
+                    this.showNotification(`Session "${this.sessionToDelete.name}" deleted successfully!`, 'success');
                     
                     // Refresh all session-related data
                     await Promise.all([
@@ -1832,58 +1811,18 @@ function dashboard() {
                         this.loadAnalytics()
                     ]);
                     
-                    console.log('✅ Session archived and data refreshed');
+                    console.log('✅ Session deleted and data refreshed');
                 } else {
-                    console.error('❌ Failed to archive session:', response.error);
-                    this.showNotification(response.error || 'Failed to archive session', 'error');
+                    console.error('❌ Failed to delete session:', response.error);
+                    this.showNotification(response.error || 'Failed to delete session', 'error');
                 }
                 
                 this.showDeleteSession = false;
                 this.sessionToDelete = null;
                 
             } catch (error) {
-                console.error('❌ Failed to archive test session:', error);
-                this.showNotification('Failed to archive test session: ' + (error.message || 'Unknown error'), 'error');
-            } finally {
-                this.loading = false;
-            }
-        },
-
-        async permanentDeleteSession(session) {
-            const confirmed = confirm(`⚠️ PERMANENT DELETION WARNING ⚠️\n\nAre you absolutely sure you want to PERMANENTLY DELETE the session "${session.name}"?\n\nThis will:\n• Delete ALL test results and audit trail\n• Remove ALL evidence and review data\n• Delete ALL violations and findings\n• Cannot be undone\n\nType "DELETE" below to confirm:`);
-            
-            if (confirmed !== 'DELETE') {
-                this.showNotification('Permanent deletion cancelled - confirmation text did not match', 'info');
-                return;
-            }
-            
-            try {
-                this.loading = true;
-                console.log('🗑️ PERMANENT DELETE:', session.name, session.id);
-                
-                const response = await this.apiCall(`/sessions/${session.id}?permanent=true&confirm_permanent=true`, {
-                    method: 'DELETE'
-                });
-                
-                if (response.success) {
-                    this.showNotification(`Session "${session.name}" permanently deleted!`, 'success');
-                    
-                    // Refresh all session-related data
-                    await Promise.all([
-                        this.loadProjectTestSessions(),
-                        this.loadTestingSessions(),
-                        this.loadAnalytics()
-                    ]);
-                    
-                    console.log('✅ Session permanently deleted and data refreshed');
-                } else {
-                    console.error('❌ Failed to permanently delete session:', response.error);
-                    this.showNotification(response.error || 'Failed to permanently delete session', 'error');
-                }
-                
-            } catch (error) {
-                console.error('❌ Failed to permanently delete session:', error);
-                this.showNotification('Failed to permanently delete session: ' + (error.message || 'Unknown error'), 'error');
+                console.error('❌ Failed to delete test session:', error);
+                this.showNotification('Failed to delete test session: ' + (error.message || 'Unknown error'), 'error');
             } finally {
                 this.loading = false;
             }
@@ -8384,144 +8323,8 @@ window.auditReport = {
         } else {
             alert('Modal system not available');
         }
-    },
-
-    // Database Maintenance and Cleanup Functions
-    async showMaintenanceModal() {
-            this.showMaintenance = true;
-            await this.loadMaintenanceStats();
-        },
-
-        async loadMaintenanceStats() {
-            try {
-                // Get stats about the database for cleanup decisions
-                const sessionsResponse = await this.apiCall('/sessions?include_archived=true&limit=1000');
-                if (sessionsResponse.success) {
-                    this.maintenanceStats = {
-                        sessions: {
-                            total: sessionsResponse.data.length,
-                            active: sessionsResponse.data.filter(s => s.status !== 'archived').length,
-                            archived: sessionsResponse.data.filter(s => s.status === 'archived').length,
-                            failed: sessionsResponse.data.filter(s => s.status === 'failed').length,
-                            planning: sessionsResponse.data.filter(s => s.status === 'planning').length
-                        }
-                    };
-                }
-            } catch (error) {
-                console.error('Failed to load maintenance stats:', error);
-            }
-        },
-
-        async bulkCleanupFailedSessions() {
-            if (!this.maintenanceStats?.sessions?.failed) {
-                this.showNotification('No failed sessions to clean up', 'info');
-                return;
-            }
-
-            const confirmed = confirm(`Clean up ${this.maintenanceStats.sessions.failed} failed sessions?\n\nThis will PERMANENTLY DELETE:\n• All failed test sessions\n• All their test results and audit trails\n• All associated evidence and review data\n\nType "DELETE" to confirm:`);
-            
-            if (confirmed !== 'DELETE') {
-                this.showNotification('Bulk cleanup cancelled', 'info');
-                return;
-            }
-
-            try {
-                this.loading = true;
-                
-                // Get all failed session IDs
-                const sessionsResponse = await this.apiCall('/sessions?status=failed&limit=1000');
-                if (!sessionsResponse.success || !sessionsResponse.data.length) {
-                    this.showNotification('No failed sessions found', 'info');
-                    return;
-                }
-
-                const failedSessionIds = sessionsResponse.data.map(s => s.id);
-                
-                const response = await this.apiCall('/sessions/bulk', {
-                    method: 'DELETE',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        session_ids: failedSessionIds,
-                        permanent: true,
-                        confirm_permanent: true
-                    })
-                });
-
-                if (response.success) {
-                    this.showNotification(`Bulk cleanup completed!\n• Deleted: ${response.results.deleted_count} sessions\n• Errors: ${response.results.error_count}`, 'success');
-                    await this.loadMaintenanceStats();
-                    await this.loadTestingSessions();
-                } else {
-                    throw new Error(response.message || 'Bulk cleanup failed');
-                }
-
-            } catch (error) {
-                console.error('Failed bulk cleanup:', error);
-                this.showNotification('Failed to perform bulk cleanup: ' + error.message, 'error');
-            } finally {
-                this.loading = false;
-            }
-        },
-
-        async bulkArchiveOldSessions() {
-            const confirmed = confirm('Archive all old sessions (older than 30 days)?\n\nThis will set them to "archived" status but not delete the data.');
-            
-            if (!confirmed) return;
-
-            try {
-                this.loading = true;
-                
-                // Get sessions older than 30 days that aren't already archived
-                const cutoffDate = new Date();
-                cutoffDate.setDate(cutoffDate.getDate() - 30);
-                
-                const sessionsResponse = await this.apiCall('/sessions?limit=1000');
-                if (!sessionsResponse.success) {
-                    throw new Error('Failed to fetch sessions');
-                }
-
-                const oldSessions = sessionsResponse.data.filter(s => 
-                    s.status !== 'archived' && 
-                    new Date(s.created_at) < cutoffDate
-                );
-
-                if (!oldSessions.length) {
-                    this.showNotification('No old sessions found to archive', 'info');
-                    return;
-                }
-
-                const oldSessionIds = oldSessions.map(s => s.id);
-                
-                const response = await this.apiCall('/sessions/bulk', {
-                    method: 'DELETE',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        session_ids: oldSessionIds,
-                        permanent: false // Archive only
-                    })
-                });
-
-                if (response.success) {
-                    this.showNotification(`Archived ${response.archived_count} old sessions`, 'success');
-                    await this.loadMaintenanceStats();
-                    await this.loadTestingSessions();
-                } else {
-                    throw new Error(response.message || 'Bulk archive failed');
-                }
-
-            } catch (error) {
-                console.error('Failed bulk archive:', error);
-                this.showNotification('Failed to archive old sessions: ' + error.message, 'error');
-            } finally {
-                this.loading = false;
-            }
-        }
     }
-}
+};
 
 // Function to show audit report interface
 function showAuditReport(sessionId) {
