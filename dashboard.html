@@ -1344,11 +1344,13 @@
                             <div class="bg-gray-50 px-6 py-4 border-b border-gray-200 rounded-t-lg">
                                 <div class="flex justify-between items-center">
                                     <div>
-                                        <h4 class="font-medium text-gray-900" x-text="pageGroup.page_title || 'Untitled Page'"></h4>
+                                        <a :href="pageGroup.page_url" target="_blank" 
+                                           class="font-medium text-blue-600 hover:text-blue-800"
+                                           :title="pageGroup.page_url">
+                                            <span x-text="pageGroup.page_url"></span>
+                                            <i class="fas fa-external-link-alt ml-1 text-xs"></i>
+                                        </a>
                                         <div class="text-sm text-gray-500 mt-1">
-                                            <a :href="pageGroup.page_url" target="_blank" 
-                                               class="text-blue-600 hover:text-blue-800" x-text="pageGroup.page_url"></a>
-                                            <span class="mx-2">•</span>
                                             <span x-text="pageGroup.page_type"></span>
                                         </div>
                                     </div>
@@ -2285,8 +2287,9 @@
                             <td class="px-6 py-4 text-sm">
                                 <div class="max-w-xs">
                                     <a x-show="test.page_url" :href="test.page_url" target="_blank" 
-                                       class="text-blue-600 hover:text-blue-800 hover:underline truncate block">
-                                        <span x-text="test.page_title || test.page_url" class="truncate"></span>
+                                       class="text-blue-600 hover:text-blue-800 hover:underline truncate block" 
+                                       :title="test.page_url">
+                                        <span x-text="test.page_url" class="truncate"></span>
                                         <i class="fas fa-external-link-alt ml-1 text-xs"></i>
                                     </a>
                                     <span x-show="!test.page_url" class="text-gray-400 italic">No URL</span>
@@ -2839,8 +2842,12 @@
                                                 <div x-text="truncateText(violation.description, 120)"></div>
                                             </td>
                                             <td class="px-6 py-4 text-sm max-w-xs">
-                                                <div class="text-gray-900 font-medium" x-text="truncateText(violation.page_title, 30)"></div>
-                                                <div class="text-gray-500 text-xs" x-text="truncateText(violation.url, 50)"></div>
+                                                <a :href="violation.url" target="_blank" 
+                                                   class="text-blue-600 hover:text-blue-800 hover:underline block"
+                                                   :title="violation.url">
+                                                    <div class="font-medium truncate" x-text="truncateText(violation.url, 50)"></div>
+                                                    <i class="fas fa-external-link-alt ml-1 text-xs"></i>
+                                                </a>
                                             </td>
                                             <td class="px-6 py-4 text-sm">
                                                 <div class="flex flex-col space-y-1">
@@ -3273,8 +3280,12 @@
                                                 <div x-text="truncateText(violation.description, 80)"></div>
                                             </td>
                                             <td class="px-3 py-2 text-xs">
-                                                <div class="text-gray-900 font-medium" x-text="truncateText(violation.page_title, 25)"></div>
-                                                <div class="text-gray-500 text-xs" x-text="truncateText(violation.url, 35)"></div>
+                                                <a :href="violation.url" target="_blank" 
+                                                   class="text-blue-600 hover:text-blue-800 hover:underline block"
+                                                   :title="violation.url">
+                                                    <div class="font-medium truncate" x-text="truncateText(violation.url, 35)"></div>
+                                                    <i class="fas fa-external-link-alt ml-1 text-xs"></i>
+                                                </a>
                                             </td>
                                             <td class="px-3 py-2 text-xs">
                                                 <div class="flex flex-col space-y-1">
@@ -3450,8 +3461,9 @@
                             <div>
                                 <span class="text-sm font-medium text-gray-700">Page:</span>
                                 <a :href="selectedViolation?.violation?.url" target="_blank" 
-                                   class="ml-2 text-blue-600 hover:underline text-sm">
-                                    <span x-text="selectedViolation?.violation?.page_title"></span>
+                                   class="ml-2 text-blue-600 hover:underline text-sm"
+                                   :title="selectedViolation?.violation?.url">
+                                    <span x-text="selectedViolation?.violation?.url"></span>
                                     <i class="fas fa-external-link-alt ml-1 text-xs"></i>
                                 </a>
                             </div>
@@ -3597,13 +3609,10 @@
                                 <h4 class="text-lg font-semibold text-blue-900 mb-3">Page Information</h4>
                                 <div class="space-y-2 text-sm">
                                     <div>
-                                        <span class="font-medium text-blue-800">Page Title:</span>
-                                        <span class="ml-2 text-blue-900" x-text="currentAutomatedTest?.violation?.page_title"></span>
-                                    </div>
-                                    <div>
-                                        <span class="font-medium text-blue-800">Page URL:</span>
+                                        <span class="font-medium text-blue-800">Page:</span>
                                         <a :href="currentAutomatedTest?.violation?.url" target="_blank" 
-                                           class="ml-2 text-blue-600 hover:underline text-sm break-all">
+                                           class="ml-2 text-blue-600 hover:underline text-sm break-all"
+                                           :title="currentAutomatedTest?.violation?.url">
                                             <span x-text="currentAutomatedTest?.violation?.url"></span>
                                             <i class="fas fa-external-link-alt ml-1 text-xs"></i>
                                         </a>
@@ -5341,18 +5350,13 @@
                             </div>
                             <div>
                                 <h4 class="text-lg font-semibold text-blue-900 mb-3">Page to Test</h4>
-                                <div class="space-y-2">
-                                    <div class="text-sm text-blue-800">
-                                        <span class="font-medium">Title:</span>
-                                        <span class="ml-2" x-text="currentManualTest?.pageGroup?.page_title || 'Untitled Page'"></span>
-                                    </div>
-                                    <div class="text-sm">
-                                        <a :href="currentManualTest?.pageGroup?.page_url" target="_blank" 
-                                           class="inline-flex items-center text-blue-600 hover:text-blue-800 font-medium">
-                                            <i class="fas fa-external-link-alt mr-2"></i>
-                                            <span x-text="currentManualTest?.pageGroup?.page_url"></span>
-                                        </a>
-                                    </div>
+                                <div>
+                                    <a :href="currentManualTest?.pageGroup?.page_url" target="_blank" 
+                                       class="inline-flex items-center text-blue-600 hover:text-blue-800 font-medium text-sm"
+                                       :title="currentManualTest?.pageGroup?.page_url">
+                                        <i class="fas fa-external-link-alt mr-2"></i>
+                                        <span x-text="currentManualTest?.pageGroup?.page_url"></span>
+                                    </a>
                                 </div>
                             </div>
                         </div>
@@ -5895,8 +5899,10 @@
                                     
                                     <div>
                                         <span class="font-medium text-blue-800">Page:</span>
-                                        <a :href="currentTestInstance?.page_url" target="_blank" class="ml-2 text-blue-600 hover:text-blue-800">
-                                            <span x-text="currentTestInstance?.page_title || currentTestInstance?.page_url"></span>
+                                        <a :href="currentTestInstance?.page_url" target="_blank" 
+                                           class="ml-2 text-blue-600 hover:text-blue-800"
+                                           :title="currentTestInstance?.page_url">
+                                            <span x-text="currentTestInstance?.page_url"></span>
                                             <i class="fas fa-external-link-alt ml-1 text-xs"></i>
                                         </a>
                                     </div>
@@ -6190,11 +6196,12 @@
                         <div class="text-sm">
                             <div class="mb-1">
                                 <span class="font-medium text-gray-700">Page:</span>
-                                <span class="text-gray-900" x-text="selectedAssignmentForTester?.pageGroup?.page_title || 'Untitled'"></span>
-                            </div>
-                            <div class="mb-1">
-                                <span class="font-medium text-gray-700">URL:</span>
-                                <span class="text-blue-600 text-xs" x-text="selectedAssignmentForTester?.pageGroup?.page_url"></span>
+                                <a :href="selectedAssignmentForTester?.pageGroup?.page_url" target="_blank" 
+                                   class="text-blue-600 hover:text-blue-800 text-sm ml-1"
+                                   :title="selectedAssignmentForTester?.pageGroup?.page_url">
+                                    <span x-text="selectedAssignmentForTester?.pageGroup?.page_url"></span>
+                                    <i class="fas fa-external-link-alt ml-1 text-xs"></i>
+                                </a>
                             </div>
                             <div>
                                 <span class="font-medium text-gray-700">WCAG Level:</span>

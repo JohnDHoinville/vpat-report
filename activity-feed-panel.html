@@ -145,10 +145,13 @@
                                         </div>
                                     </span>
                                 </span>
-                                <span x-show="activity.page_url" class="truncate max-w-32">
+                                <a x-show="activity.page_url" :href="activity.page_url" target="_blank"
+                                   class="truncate max-w-32 text-blue-600 hover:text-blue-800 flex items-center"
+                                   :title="activity.page_url">
                                     <i class="fas fa-link mr-1"></i>
                                     <span x-text="activity.page_url.length > 20 ? activity.page_url.substring(0, 20) + '...' : activity.page_url"></span>
-                                </span>
+                                    <i class="fas fa-external-link-alt ml-1 text-xs"></i>
+                                </a>
                             </div>
 
                             <!-- Timestamp -->
