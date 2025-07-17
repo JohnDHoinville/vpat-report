@@ -994,13 +994,24 @@
                 <div x-show="selectedProject" class="space-y-4">
                     <div class="flex justify-between items-center">
                         <h3 class="text-lg font-semibold text-gray-900">Test Sessions for <span x-text="selectedProject?.name" class="text-purple-600"></span></h3>
-                        <div class="text-sm text-gray-600">
-                            <span x-text="testSessions.length"></span> session(s) created
+                        <div class="flex items-center space-x-4">
+                            <div class="text-sm text-gray-600">
+                                <span x-text="testSessions.length"></span> session(s) created
+                            </div>
+                            <button x-show="currentlyViewedSession" 
+                                    @click="currentlyViewedSession = null; currentViewingMode = null;" 
+                                    class="text-blue-600 hover:text-blue-800 text-sm px-3 py-1 rounded bg-blue-50 hover:bg-blue-100 transition-colors">
+                                <i class="fas fa-times mr-1"></i>Clear Selection
+                            </button>
                         </div>
                     </div>
                     
                     <template x-for="session in testSessions" :key="session.id">
-                        <div class="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+                        <div class="bg-white rounded-lg shadow-md border border-gray-200 p-6 transition-all duration-200" 
+                             :class="{ 
+                                'opacity-40 scale-[0.98] pointer-events-none': currentlyViewedSession && currentlyViewedSession.id !== session.id,
+                                'ring-2 ring-blue-500 ring-opacity-50 shadow-lg': currentlyViewedSession && currentlyViewedSession.id === session.id
+                             }">
                             <div class="flex justify-between items-start mb-4">
                                 <div>
                                     <h3 class="text-lg font-semibold text-gray-900" x-text="session.name"></h3>
@@ -1191,10 +1202,16 @@
                                     <i :class="getSessionButtonIcon(session) + ' mr-1'"></i>
                                     <span x-text="getSessionButtonText(session)"></span>
                                 </button>
-                                <button @click="viewSessionResults(session)" class="bg-green-600 text-white px-3 py-2 rounded text-sm hover:bg-green-700 transition-colors">
-                                    <i class="fas fa-chart-line mr-1"></i>View Results
+                                <button @click="viewSessionResults(session); currentlyViewedSession = session;" 
+                                        class="bg-green-600 text-white px-3 py-2 rounded text-sm hover:bg-green-700 transition-colors"
+                                        :class="{ 'bg-green-800': currentlyViewedSession && currentlyViewedSession.id === session.id }">
+                                    <i class="fas fa-chart-line mr-1"></i>
+                                    <span x-show="!currentlyViewedSession || currentlyViewedSession.id !== session.id">View Results</span>
+                                    <span x-show="currentlyViewedSession && currentlyViewedSession.id === session.id" class="font-semibold">Viewing Results</span>
                                 </button>
-                                <button @click="viewPageResults(session)" class="bg-teal-600 text-white px-3 py-2 rounded text-sm hover:bg-teal-700 transition-colors">
+                                <button @click="viewPageResults(session); currentlyViewedSession = session;" 
+                                        class="bg-teal-600 text-white px-3 py-2 rounded text-sm hover:bg-teal-700 transition-colors"
+                                        :class="{ 'bg-teal-800': currentlyViewedSession && currentlyViewedSession.id === session.id && currentViewingMode === 'pages' }">
                                     <i class="fas fa-file-alt mr-1"></i>Page Results
                                 </button>
                                 <button @click="manualTesting(session)" class="bg-purple-600 text-white px-3 py-2 rounded text-sm hover:bg-purple-700 transition-colors">
@@ -1589,6 +1606,11 @@
                             <i class="fas fa-check-circle mr-1"></i>
                             Complete testing sessions covering all requirements for your selected conformance level
                         </p>                    <div class="flex space-x-3">
+                        <button x-show="currentlyViewedTestingSession" 
+                                @click="currentlyViewedTestingSession = null; viewingSessionDetails = false; currentSessionDetails = null;" 
+                                class="text-blue-600 hover:text-blue-800 px-4 py-2 rounded-lg bg-blue-50 hover:bg-blue-100 transition-colors">
+                            <i class="fas fa-times mr-2"></i>Clear Selection
+                        </button>
                         <button @click="refreshTestingSessionsTabData()" 
                                 class="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors">
                             <i class="fas fa-refresh mr-2"></i>Refresh
@@ -1619,7 +1641,11 @@
                 <!-- Sessions Grid -->
                 <div x-show="selectedProject" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     <template x-for="session in testingSessions" :key="session.id">
-                        <div class="bg-white rounded-lg shadow-md border border-gray-200 p-6 hover:shadow-lg transition-shadow">
+                        <div class="bg-white rounded-lg shadow-md border border-gray-200 p-6 hover:shadow-lg transition-all duration-200" 
+                             :class="{ 
+                                'opacity-40 scale-[0.98] pointer-events-none': currentlyViewedTestingSession && currentlyViewedTestingSession.id !== session.id,
+                                'ring-2 ring-blue-500 ring-opacity-50 shadow-xl': currentlyViewedTestingSession && currentlyViewedTestingSession.id === session.id
+                             }">
                             <div class="flex justify-between items-start mb-4">
                                 <h3 class="text-lg font-semibold text-gray-900" x-text="session.name"></h3>
                                 <span :class="getSessionStatusBadgeClass(session.status)" 
@@ -1669,9 +1695,12 @@
                             </div>
 
                             <div class="mt-2 flex space-x-2">
-                                <button @click="viewSessionTestGrid(session)" 
-                                        class="flex-1 bg-blue-600 text-white px-3 py-2 rounded text-sm hover:bg-blue-700 transition-colors">
-                                    <i class="fas fa-eye mr-1"></i>View
+                                <button @click="viewSessionTestGrid(session); currentlyViewedTestingSession = session;" 
+                                        class="flex-1 bg-blue-600 text-white px-3 py-2 rounded text-sm hover:bg-blue-700 transition-colors"
+                                        :class="{ 'bg-blue-800': currentlyViewedTestingSession && currentlyViewedTestingSession.id === session.id }">
+                                    <i class="fas fa-eye mr-1"></i>
+                                    <span x-show="!currentlyViewedTestingSession || currentlyViewedTestingSession.id !== session.id">View</span>
+                                    <span x-show="currentlyViewedTestingSession && currentlyViewedTestingSession.id === session.id" class="font-semibold">Viewing</span>
                                 </button>
                                 <button @click="editTestingSession(session)" 
                                         class="bg-gray-200 text-gray-700 px-3 py-2 rounded text-sm hover:bg-gray-300 transition-colors">
@@ -1946,16 +1975,21 @@
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <div x-show="requirement.automated_tests && requirement.automated_tests.length > 0" class="space-y-1">
                                         <template x-for="(autoTest, index) in (requirement.automated_tests || []).slice(0, 3)" :key="autoTest.tool_name + '_' + index">
-                                            <div class="flex items-center space-x-2">
+                                            <div class="flex items-center justify-between space-x-2">
                                                 <span :class="(autoTest.result_status === 'pass' || autoTest.result_status === 'passed') ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'" 
-                                                      class="px-2 py-1 text-xs font-medium rounded">
+                                                      class="px-2 py-1 text-xs font-medium rounded flex items-center">
                                                     <span x-text="autoTest.tool_name || 'Unknown'"></span>
                                                     <i :class="(autoTest.result_status === 'pass' || autoTest.result_status === 'passed') ? 'fas fa-check ml-1' : 'fas fa-times ml-1'"></i>
                                                 </span>
+                                                <div x-show="autoTest.violations_count > 0 || autoTest.passes_count > 0" class="text-xs text-gray-600">
+                                                    <span x-show="autoTest.violations_count > 0" class="text-red-600 font-medium" x-text="autoTest.violations_count + ' violations'"></span>
+                                                    <span x-show="autoTest.passes_count > 0 && (autoTest.result_status === 'pass' || autoTest.result_status === 'passed')" 
+                                                          class="text-green-600 font-medium" x-text="autoTest.passes_count + ' passed'"></span>
+                                                </div>
                                             </div>
                                         </template>
                                         <div x-show="requirement.automated_tests && requirement.automated_tests.length > 3" class="text-xs text-gray-500">
-                                            +<span x-text="(requirement.automated_tests || []).length - 3"></span> more
+                                            +<span x-text="(requirement.automated_tests || []).length - 3"></span> more tools
                                         </div>
                                     </div>
                                     <div x-show="!requirement.automated_tests || requirement.automated_tests.length === 0" class="text-sm text-gray-400 italic">
@@ -2271,12 +2305,65 @@
                     </select>
                 </div>
 
-                <!-- Search -->
+                <!-- Enhanced Search with URL Filter -->
                 <div>
                     <label class="block text-xs font-medium text-gray-700 mb-1">Search</label>
-                    <input type="text" x-model="testFilters.search" @input="applyTestFilters()" 
-                           placeholder="Search tests..." 
-                           class="px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <div class="flex space-x-2">
+                        <!-- Search Type Selector -->
+                        <select x-model="testFilters.searchType" @change="onSearchTypeChange()" 
+                                class="px-2 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-24"
+                                :class="{ 'bg-blue-50 border-blue-300': testFilters.searchType === 'url' }">
+                            <option value="general">General</option>
+                            <option value="url">🔗 URL</option>
+                        </select>
+                        
+                        <!-- Search Input -->
+                        <div class="relative flex-1" x-data="{ showUrlSuggestions: false }">
+                            <input type="text" 
+                                   x-model="testFilters.search" 
+                                   @input="applyTestFilters(); showUrlSuggestions = testFilters.searchType === 'url' && testFilters.search.length > 0" 
+                                   @focus="onSearchFocus(); showUrlSuggestions = testFilters.searchType === 'url' && testFilters.search.length > 0"
+                                   @blur="setTimeout(() => showUrlSuggestions = false, 200)"
+                                   :placeholder="testFilters.searchType === 'url' ? 'Enter or paste URL...' : 'Search tests...'" 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            
+                            <!-- URL Autofill Button -->
+                            <button x-show="testFilters.searchType === 'url' && selectedProject?.primary_url" 
+                                    @click="autofillBaseUrl()"
+                                    type="button"
+                                    class="absolute right-2 top-1/2 transform -translate-y-1/2 text-blue-600 hover:text-blue-800 text-xs px-1 py-1 rounded bg-blue-50 hover:bg-blue-100 transition-colors"
+                                    title="Autofill with base URL">
+                                <i class="fas fa-magic text-xs"></i> Base
+                            </button>
+                            
+                            <!-- URL Suggestions Dropdown -->
+                            <div x-show="showUrlSuggestions && testFilters.searchType === 'url'" 
+                                 class="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-b-md shadow-lg z-50 max-h-32 overflow-y-auto">
+                                <div class="py-1">
+                                    <template x-for="suggestion in getUrlSuggestions()" :key="suggestion">
+                                        <button type="button" 
+                                                @click="testFilters.search = suggestion; applyTestFilters(); showUrlSuggestions = false"
+                                                class="w-full text-left px-3 py-2 text-xs hover:bg-gray-100 font-mono text-gray-700">
+                                            <span x-text="suggestion"></span>
+                                        </button>
+                                    </template>
+                                    <div x-show="getUrlSuggestions().length === 0" class="px-3 py-2 text-xs text-gray-500">
+                                        No URL suggestions available
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- URL Search Helper Text -->
+                    <div x-show="testFilters.searchType === 'url'" class="mt-1 text-xs text-gray-500">
+                        <span x-show="selectedProject?.primary_url">
+                            Base URL: <span class="font-mono text-blue-600" x-text="selectedProject.primary_url"></span>
+                        </span>
+                        <span x-show="!selectedProject?.primary_url">
+                            Select a project to enable base URL autofill
+                        </span>
+                    </div>
                 </div>
             </div>
 
@@ -5895,21 +5982,194 @@
                     <!-- Test Results -->
                     <div x-show="currentRequirement?.automated_tests && currentRequirement?.automated_tests.length > 0" class="bg-white border border-gray-200 rounded-lg p-6">
                         <h4 class="text-lg font-semibold text-gray-900 mb-4">Automated Test Results</h4>
-                        <div class="space-y-3">
+                        <div class="space-y-4">
                             <template x-for="(autoTest, index) in currentRequirement?.automated_tests || []" :key="autoTest.id || index">
-                                <div class="border border-gray-200 rounded p-4">
-                                    <div class="flex justify-between items-start mb-2">
-                                        <div class="flex items-center space-x-2">
+                                <div class="border border-gray-200 rounded-lg p-4" x-data="{ 
+                                    expanded: false,
+                                    rawResults: null,
+                                    violations: null,
+                                    async loadDetails() {
+                                        if (!this.rawResults && autoTest.id) {
+                                            try {
+                                                const response = await fetch(`http://localhost:3001/api/results/automated-test-results/${autoTest.id}/details`);
+                                                if (response.ok) {
+                                                    const data = await response.json();
+                                                    this.rawResults = data.raw_results;
+                                                    this.violations = data.violations || [];
+                                                }
+                                            } catch (error) {
+                                                console.warn('Could not load detailed results:', error);
+                                                console.log('autoTest data:', autoTest);
+                                                // Use what we have in autoTest
+                                                this.rawResults = autoTest.raw_results || autoTest;
+                                                this.violations = autoTest.violations || [];
+                                            }
+                                        }
+                                    }
+                                }">
+                                    <!-- Main Result Header -->
+                                    <div class="flex justify-between items-start mb-3">
+                                        <div class="flex items-center space-x-3">
                                             <span :class="(autoTest.result_status === 'pass' || autoTest.result_status === 'passed') ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'" 
-                                                  class="px-2 py-1 text-xs font-medium rounded">
+                                                  class="px-3 py-1 text-sm font-medium rounded-full">
                                                 <span x-text="autoTest.tool_name || 'Unknown Tool'"></span>
                                                 <i :class="(autoTest.result_status === 'pass' || autoTest.result_status === 'passed') ? 'fas fa-check ml-1' : 'fas fa-times ml-1'"></i>
                                             </span>
-                                            <span class="text-sm text-gray-600" x-text="autoTest.result_status || 'Unknown Status'"></span>
+                                            <span class="text-sm font-medium" 
+                                                  :class="(autoTest.result_status === 'pass' || autoTest.result_status === 'passed') ? 'text-green-700' : 'text-red-700'"
+                                                  x-text="(autoTest.result_status || 'Unknown Status').toUpperCase()"></span>
                                         </div>
-                                        <span class="text-xs text-gray-500" x-text="formatDate(autoTest.created_at)"></span>
+                                        <div class="flex items-center space-x-2">
+                                            <span class="text-xs text-gray-500" x-text="formatDate(autoTest.executed_at || autoTest.created_at)"></span>
+                                            <button @click="expanded = !expanded; if(expanded) loadDetails()" 
+                                                    class="text-blue-600 hover:text-blue-800 text-sm">
+                                                <span x-show="!expanded" class="flex items-center">
+                                                    <i class="fas fa-chevron-down mr-1"></i>
+                                                    Show Details
+                                                </span>
+                                                <span x-show="expanded" class="flex items-center">
+                                                    <i class="fas fa-chevron-up mr-1"></i>
+                                                    Hide Details
+                                                </span>
+                                            </button>
+                                        </div>
                                     </div>
-                                    <div x-show="autoTest.description" class="text-sm text-gray-700" x-text="autoTest.description"></div>
+
+                                    <!-- Test Summary -->
+                                    <div class="bg-gray-50 rounded-lg p-3 mb-3">
+                                        <div class="grid grid-cols-3 gap-4 text-sm">
+                                            <div>
+                                                <span class="text-gray-600">Violations:</span>
+                                                <span class="font-medium text-red-600 ml-1" x-text="autoTest.violations_count || 0"></span>
+                                            </div>
+                                            <div>
+                                                <span class="text-gray-600">Passes:</span>
+                                                <span class="font-medium text-green-600 ml-1" x-text="autoTest.passes_count || 0"></span>
+                                            </div>
+                                            <div>
+                                                <span class="text-gray-600">Duration:</span>
+                                                <span class="font-medium text-gray-700 ml-1" x-text="autoTest.test_duration_ms ? (autoTest.test_duration_ms/1000).toFixed(1) + 's' : 'N/A'"></span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Basic Description -->
+                                    <div x-show="autoTest.description" class="text-sm text-gray-700 mb-3" x-text="autoTest.description"></div>
+
+                                    <!-- Detailed Results (Expandable) -->
+                                    <div x-show="expanded" class="space-y-4 border-t border-gray-200 pt-4">
+                                        
+                                        <!-- Violations Details -->
+                                        <div x-show="(violations && violations.length > 0) || (autoTest.violations_count > 0)">
+                                            <h5 class="text-md font-semibold text-red-800 mb-2">
+                                                <i class="fas fa-exclamation-triangle mr-1"></i>
+                                                Violations Found (<span x-text="violations?.length || autoTest.violations_count || 0"></span>)
+                                            </h5>
+                                            <div class="space-y-3">
+                                                <template x-for="(violation, vIndex) in (violations || []).slice(0, 3)" :key="vIndex">
+                                                    <div class="bg-red-50 border border-red-200 rounded-lg p-3">
+                                                        <div class="flex justify-between items-start mb-2">
+                                                            <h6 class="font-medium text-red-800" x-text="violation.violation_type || violation.id || 'Accessibility Violation'"></h6>
+                                                            <span class="text-xs px-2 py-1 rounded-full"
+                                                                  :class="violation.severity === 'critical' ? 'bg-red-200 text-red-800' : 
+                                                                         violation.severity === 'serious' ? 'bg-orange-200 text-orange-800' :
+                                                                         'bg-yellow-200 text-yellow-800'"
+                                                                  x-text="(violation.severity || violation.impact || 'moderate').toUpperCase()"></span>
+                                                        </div>
+                                                        <p class="text-sm text-red-700 mb-2" x-text="violation.description || violation.help"></p>
+                                                        <div x-show="violation.element_selector || (violation.nodes && violation.nodes[0])" class="text-xs text-gray-600 mb-1">
+                                                            <strong>Element:</strong> 
+                                                            <code x-text="violation.element_selector || (violation.nodes?.[0]?.target?.join(' '))" class="bg-gray-100 px-1 rounded"></code>
+                                                        </div>
+                                                        <div x-show="violation.element_html || (violation.nodes && violation.nodes[0]?.html)" class="text-xs text-gray-600 mb-2">
+                                                            <strong>HTML:</strong> 
+                                                            <code x-text="violation.element_html || violation.nodes?.[0]?.html" class="bg-gray-100 px-1 rounded block mt-1 whitespace-pre-wrap"></code>
+                                                        </div>
+                                                        <div x-show="violation.remediation_guidance || violation.help" class="text-sm text-blue-700 bg-blue-50 rounded p-2">
+                                                            <strong>How to fix:</strong> <span x-text="violation.remediation_guidance || violation.help"></span>
+                                                        </div>
+                                                        <div x-show="violation.help_url || violation.helpUrl" class="mt-2">
+                                                            <a :href="violation.help_url || violation.helpUrl" target="_blank" 
+                                                               class="text-xs text-blue-600 hover:text-blue-800">
+                                                                <i class="fas fa-external-link-alt mr-1"></i>
+                                                                Learn More
+                                                            </a>
+                                                        </div>
+                                                    </div>
+                                                </template>
+                                                <div x-show="(violations?.length || autoTest.violations_count || 0) > 3" class="text-sm text-gray-600 text-center">
+                                                    And <span x-text="(violations?.length || autoTest.violations_count || 0) - 3"></span> more violations...
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Pass Evidence -->
+                                        <div x-show="(autoTest.result_status === 'pass' || autoTest.result_status === 'passed') && autoTest.passes_count > 0">
+                                            <h5 class="text-md font-semibold text-green-800 mb-2">
+                                                <i class="fas fa-check-circle mr-1"></i>
+                                                Tests Passed (<span x-text="autoTest.passes_count"></span>)
+                                            </h5>
+                                            <div class="bg-green-50 border border-green-200 rounded-lg p-3">
+                                                <p class="text-sm text-green-700">
+                                                    All automated accessibility checks for this requirement passed successfully.
+                                                    The <span x-text="autoTest.tool_name"></span> tool found no violations.
+                                                </p>
+                                                <div x-show="autoTest.passes_count" class="text-xs text-green-600 mt-2">
+                                                    <strong>Elements verified:</strong> <span x-text="autoTest.passes_count"></span> accessibility rules satisfied
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Raw Results Section -->
+                                        <div x-show="rawResults" x-data="{ showRaw: false }">
+                                            <h5 class="text-md font-semibold text-gray-800 mb-2">
+                                                <i class="fas fa-code mr-1"></i>
+                                                Technical Details
+                                            </h5>
+                                            <div class="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                                                <button @click="showRaw = !showRaw" 
+                                                        class="text-sm text-blue-600 hover:text-blue-800 mb-2">
+                                                    <span x-show="!showRaw">
+                                                        <i class="fas fa-eye mr-1"></i>
+                                                        Show Raw Test Results
+                                                    </span>
+                                                    <span x-show="showRaw">
+                                                        <i class="fas fa-eye-slash mr-1"></i>
+                                                        Hide Raw Test Results
+                                                    </span>
+                                                </button>
+                                                <div x-show="showRaw" class="bg-gray-800 text-green-400 rounded p-2 text-xs font-mono overflow-x-auto">
+                                                    <pre x-text="JSON.stringify(rawResults, null, 2)"></pre>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Testing Environment -->
+                                        <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                                            <h5 class="text-md font-semibold text-blue-800 mb-2">
+                                                <i class="fas fa-cog mr-1"></i>
+                                                Test Environment
+                                            </h5>
+                                            <div class="grid grid-cols-2 gap-3 text-sm">
+                                                <div>
+                                                    <span class="text-blue-700 font-medium">Tool:</span>
+                                                    <span class="text-blue-600 ml-1" x-text="autoTest.tool_name + (autoTest.tool_version ? ' v' + autoTest.tool_version : '')"></span>
+                                                </div>
+                                                <div>
+                                                    <span class="text-blue-700 font-medium">Page:</span>
+                                                    <span class="text-blue-600 ml-1" x-text="autoTest.page_url || 'Current Page'"></span>
+                                                </div>
+                                                <div x-show="autoTest.browser_name">
+                                                    <span class="text-blue-700 font-medium">Browser:</span>
+                                                    <span class="text-blue-600 ml-1" x-text="autoTest.browser_name"></span>
+                                                </div>
+                                                <div x-show="autoTest.viewport_width">
+                                                    <span class="text-blue-700 font-medium">Viewport:</span>
+                                                    <span class="text-blue-600 ml-1" x-text="`${autoTest.viewport_width}x${autoTest.viewport_height}`"></span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </template>
                         </div>

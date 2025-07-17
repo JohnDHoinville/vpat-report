@@ -1,0 +1,25 @@
+{
+  "testName": "Discovery-33a915c5-5bde-4d46-ad5c-a2101dec839f",
+  "rootUrl": "https://fm-dev.ti.internet2.edu/organizations/10009",
+  "startTime": "2025-07-17T20:25:38.780Z",
+  "options": {
+    "maxDepth": 3,
+    "maxPages": 50,
+    "rateLimitMs": 2000,
+    "userAgent": "AccessibilityTestingBot/1.0",
+    "respectRobots": true,
+    "timeout": 10000,
+    "useAuth": false,
+    "authConfig": null,
+    "headless": true
+  },
+  "summary": {
+    "totalRequests": 0,
+    "successfulRequests": 0,
+    "discoveredPages": 0,
+    "errors": 0,
+    "maxDepthReached": 0
+  },
+  "pages": [],
+  "errors": []
+}

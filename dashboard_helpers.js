@@ -87,6 +87,11 @@ function dashboard() {
         // Unified Test Grid Data (Task 2.1.1)
         viewingSessionDetails: false,
         currentSessionDetails: null,
+        
+        // Session Viewing State (UI enhancement)
+        currentlyViewedSession: null,
+        currentlyViewedTestingSession: null,
+        currentViewingMode: null,
         testInstances: [],
         filteredTestInstances: [],
         paginatedTestInstances: [],
@@ -99,7 +104,8 @@ function dashboard() {
             requirementType: '',
             conformanceLevel: '',
             assignedTester: '',
-            search: ''
+            search: '',
+            searchType: 'general' // 'general' or 'url'
         },
         
         // Test Grid Pagination
@@ -4314,13 +4320,25 @@ function dashboard() {
             // Apply search filter
             if (this.testFilters.search) {
                 const searchTerm = this.testFilters.search.toLowerCase();
-                filtered = filtered.filter(test => test &&
-                    ((test.requirement_id && test.requirement_id.toLowerCase().includes(searchTerm)) ||
-                    (test.criterion_number && test.criterion_number.toLowerCase().includes(searchTerm)) ||
-                    (test.requirement_title && test.requirement_title.toLowerCase().includes(searchTerm)) ||
-                    (test.requirement_description && test.requirement_description.toLowerCase().includes(searchTerm)) ||
-                    (test.testing_instructions && test.testing_instructions.toLowerCase().includes(searchTerm)))
-                );
+                
+                if (this.testFilters.searchType === 'url') {
+                    // URL-specific search: match against page URLs
+                    filtered = filtered.filter(test => test &&
+                        ((test.page_url && test.page_url.toLowerCase().includes(searchTerm)) ||
+                        (test.test_url && test.test_url.toLowerCase().includes(searchTerm)) ||
+                        (test.target_url && test.target_url.toLowerCase().includes(searchTerm)))
+                    );
+                } else {
+                    // General search: match against requirement fields
+                    filtered = filtered.filter(test => test &&
+                        ((test.requirement_id && test.requirement_id.toLowerCase().includes(searchTerm)) ||
+                        (test.criterion_number && test.criterion_number.toLowerCase().includes(searchTerm)) ||
+                        (test.requirement_title && test.requirement_title.toLowerCase().includes(searchTerm)) ||
+                        (test.requirement_description && test.requirement_description.toLowerCase().includes(searchTerm)) ||
+                        (test.testing_instructions && test.testing_instructions.toLowerCase().includes(searchTerm)) ||
+                        (test.page_url && test.page_url.toLowerCase().includes(searchTerm)))
+                    );
+                }
             }
 
             // Apply sorting
@@ -4359,6 +4377,99 @@ function dashboard() {
                 this.testGridSort.direction = 'asc';
             }
             this.applyTestFilters();
+        },
+
+        // URL Search Enhancement Functions
+        onSearchTypeChange() {
+            // Clear search when switching types
+            this.testFilters.search = '';
+            this.applyTestFilters();
+        },
+
+        onSearchFocus() {
+            // Auto-suggest base URL on focus if URL search is selected and search is empty
+            if (this.testFilters.searchType === 'url' && 
+                !this.testFilters.search && 
+                this.selectedProject?.primary_url) {
+                // Optional: Auto-suggest but don't auto-fill
+                // this.autofillBaseUrl();
+            }
+        },
+
+        autofillBaseUrl() {
+            if (this.selectedProject?.primary_url) {
+                this.testFilters.search = this.selectedProject.primary_url;
+                this.applyTestFilters();
+            }
+        },
+
+        getUrlSuggestions() {
+            if (!this.selectedProject?.primary_url || !this.testFilters.search) {
+                return [];
+            }
+
+            const baseUrl = this.selectedProject.primary_url;
+            const currentInput = this.testFilters.search.toLowerCase();
+            
+            // Common path suggestions based on the base URL
+            const commonPaths = [
+                '',
+                '/home',
+                '/about',
+                '/contact',
+                '/login',
+                '/register',
+                '/dashboard',
+                '/profile',
+                '/search',
+                '/help',
+                '/privacy',
+                '/terms',
+                '/sitemap',
+                '/api',
+                '/admin'
+            ];
+
+            // Generate suggestions
+            const suggestions = [];
+            
+            // Add base URL if it matches current input
+            if (baseUrl.toLowerCase().includes(currentInput) || currentInput.includes(baseUrl.toLowerCase())) {
+                suggestions.push(baseUrl);
+            }
+            
+            // Add base URL + common paths
+            commonPaths.forEach(path => {
+                const fullUrl = baseUrl + path;
+                if (fullUrl.toLowerCase().includes(currentInput) && !suggestions.includes(fullUrl)) {
+                    suggestions.push(fullUrl);
+                }
+            });
+
+            // Get unique URLs from existing test data
+            const existingUrls = [...new Set(
+                this.testInstances
+                    .filter(test => test && test.page_url)
+                    .map(test => test.page_url)
+                    .filter(url => url.toLowerCase().includes(currentInput))
+            )];
+
+            // Merge existing URLs with suggestions
+            existingUrls.forEach(url => {
+                if (!suggestions.includes(url)) {
+                    suggestions.push(url);
+                }
+            });
+
+            // Limit to top 5 suggestions and sort by relevance
+            return suggestions
+                .slice(0, 5)
+                .sort((a, b) => {
+                    // Prioritize exact matches and shorter URLs
+                    const aScore = a.toLowerCase().indexOf(currentInput) + a.length / 1000;
+                    const bScore = b.toLowerCase().indexOf(currentInput) + b.length / 1000;
+                    return aScore - bScore;
+                });
         },
 
         updateTestGridPagination() {
@@ -5676,13 +5787,25 @@ function dashboard() {
             // Apply search filter
             if (this.testFilters.search) {
                 const searchTerm = this.testFilters.search.toLowerCase();
-                filtered = filtered.filter(test => test &&
-                    ((test.requirement_id && test.requirement_id.toLowerCase().includes(searchTerm)) ||
-                    (test.criterion_number && test.criterion_number.toLowerCase().includes(searchTerm)) ||
-                    (test.requirement_title && test.requirement_title.toLowerCase().includes(searchTerm)) ||
-                    (test.requirement_description && test.requirement_description.toLowerCase().includes(searchTerm)) ||
-                    (test.testing_instructions && test.testing_instructions.toLowerCase().includes(searchTerm)))
-                );
+                
+                if (this.testFilters.searchType === 'url') {
+                    // URL-specific search: match against page URLs
+                    filtered = filtered.filter(test => test &&
+                        ((test.page_url && test.page_url.toLowerCase().includes(searchTerm)) ||
+                        (test.test_url && test.test_url.toLowerCase().includes(searchTerm)) ||
+                        (test.target_url && test.target_url.toLowerCase().includes(searchTerm)))
+                    );
+                } else {
+                    // General search: match against requirement fields
+                    filtered = filtered.filter(test => test &&
+                        ((test.requirement_id && test.requirement_id.toLowerCase().includes(searchTerm)) ||
+                        (test.criterion_number && test.criterion_number.toLowerCase().includes(searchTerm)) ||
+                        (test.requirement_title && test.requirement_title.toLowerCase().includes(searchTerm)) ||
+                        (test.requirement_description && test.requirement_description.toLowerCase().includes(searchTerm)) ||
+                        (test.testing_instructions && test.testing_instructions.toLowerCase().includes(searchTerm)) ||
+                        (test.page_url && test.page_url.toLowerCase().includes(searchTerm)))
+                    );
+                }
             }
 
             // Apply sorting

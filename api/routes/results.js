@@ -120,6 +120,99 @@ router.get('/automated-test-results', async (req, res) => {
 });
 
 /**
+ * GET /api/results/automated-test-results/:id/details
+ * Get detailed automated test result including raw results and violations
+ */
+router.get('/automated-test-results/:id/details', async (req, res) => {
+    try {
+        const { id } = req.params;
+        
+        if (!id) {
+            return res.status(400).json({ 
+                error: 'Test result ID is required' 
+            });
+        }
+
+        // Get automated test result with violations
+        const query = `
+            SELECT 
+                atr.id,
+                atr.tool_name,
+                atr.tool_version,
+                atr.test_session_id,
+                atr.page_id,
+                atr.violations_count,
+                atr.warnings_count,
+                atr.passes_count,
+                atr.test_duration_ms,
+                atr.executed_at,
+                atr.raw_results,
+                dp.url as page_url,
+                dp.title as page_title,
+                dp.page_type,
+                
+                -- Get violations as JSON array
+                COALESCE(
+                    json_agg(
+                        json_build_object(
+                            'id', v.id,
+                            'violation_type', v.violation_type,
+                            'severity', v.severity,
+                            'wcag_criterion', v.wcag_criterion,
+                            'element_selector', v.element_selector,
+                            'element_html', v.element_html,
+                            'description', v.description,
+                            'remediation_guidance', v.remediation_guidance,
+                            'help_url', v.help_url
+                        ) ORDER BY v.severity DESC, v.id
+                    ) FILTER (WHERE v.id IS NOT NULL),
+                    '[]'::json
+                ) as violations
+                
+            FROM automated_test_results atr
+            JOIN discovered_pages dp ON atr.page_id = dp.id
+            LEFT JOIN violations v ON atr.id = v.automated_result_id
+            WHERE atr.id = $1
+            GROUP BY atr.id, atr.tool_name, atr.tool_version, atr.test_session_id, 
+                     atr.page_id, atr.violations_count, atr.warnings_count, 
+                     atr.passes_count, atr.test_duration_ms, atr.executed_at, 
+                     atr.raw_results, dp.url, dp.title, dp.page_type
+        `;
+
+        const result = await db.query(query, [id]);
+        
+        if (result.rows.length === 0) {
+            return res.status(404).json({ 
+                error: 'Test result not found' 
+            });
+        }
+
+        const testResult = result.rows[0];
+        
+        // Parse raw_results if it's a string
+        if (typeof testResult.raw_results === 'string') {
+            try {
+                testResult.raw_results = JSON.parse(testResult.raw_results);
+            } catch (error) {
+                console.warn('Could not parse raw_results as JSON:', error);
+            }
+        }
+
+        res.json({
+            success: true,
+            data: testResult
+        });
+
+    } catch (error) {
+        console.error('Error fetching detailed test results:', error);
+        res.status(500).json({ 
+            error: 'Failed to fetch detailed test results',
+            details: error.message 
+        });
+    }
+});
+
+/**
  * GET /api/results/statistics
  * Get overall statistics about test results
  */
