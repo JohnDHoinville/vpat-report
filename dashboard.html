@@ -65,6 +65,24 @@
     <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
     <style>
         [x-cloak] { display: none !important; }
+        
+        /* Ensure tooltips appear above modals and other content */
+        .group:hover .group-hover\\:opacity-100 {
+            z-index: 9999;
+        }
+        
+        /* Tooltip styling improvements */
+        .requirement-tooltip {
+            white-space: normal;
+            word-wrap: break-word;
+            max-width: 320px;
+            z-index: 9999;
+        }
+        
+        /* Fix tooltip positioning in tables */
+        td .group {
+            position: relative;
+        }
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
@@ -1795,6 +1813,24 @@
                                             <div class="font-medium text-gray-900">
                                                 <span x-text="requirement.criterion_number" class="font-mono text-sm"></span>
                                                 <span x-text="requirement.title" class="ml-2"></span>
+                                                <!-- Requirement Tooltip -->
+                                                <span x-data="{ tooltip: createRequirementTooltip(requirement) }" 
+                                                      x-show="tooltip" 
+                                                      class="inline-block relative group ml-1">
+                                                    <i class="fas fa-info-circle text-blue-500 hover:text-blue-700 cursor-help text-xs"></i>
+                                                    <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50 w-80 hidden group-hover:block">
+                                                        <div class="font-semibold mb-1" x-text="tooltip?.title + ': ' + tooltip?.requirementTitle"></div>
+                                                        <div x-show="tooltip?.description" class="mb-2 text-gray-200" x-text="tooltip?.description"></div>
+                                                        <div x-show="tooltip?.level" class="mb-2">
+                                                            <span class="inline-block px-2 py-1 bg-blue-600 text-white text-xs rounded" x-text="'Level ' + tooltip?.level"></span>
+                                                        </div>
+                                                        <a :href="tooltip?.officialUrl" target="_blank" class="inline-flex items-center text-blue-300 hover:text-blue-100">
+                                                            <i class="fas fa-external-link-alt mr-1"></i>
+                                                            <span x-text="'View ' + tooltip?.standard + ' Documentation'"></span>
+                                                        </a>
+                                                        <div class="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                                                    </div>
+                                                </span>
                                             </div>
                                             <div class="text-sm text-gray-500 mt-1" x-text="requirement.description?.substring(0, 120) + '...'"></div>
                                         </div>
@@ -2211,8 +2247,29 @@
                                        @change="toggleTestSelection(test.id, $event.target.checked)"
                                        class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900" 
-                                x-text="test.criterion_number"></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                <div class="flex items-center">
+                                    <span x-text="test.criterion_number"></span>
+                                    <!-- Requirement Tooltip -->
+                                    <span x-data="{ tooltip: createRequirementTooltip(test) }" 
+                                          x-show="tooltip" 
+                                          class="inline-block relative group ml-2">
+                                        <i class="fas fa-info-circle text-blue-500 hover:text-blue-700 cursor-help text-xs"></i>
+                                        <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50 w-80 hidden group-hover:block">
+                                            <div class="font-semibold mb-1" x-text="tooltip?.title + ': ' + tooltip?.requirementTitle"></div>
+                                            <div x-show="tooltip?.description" class="mb-2 text-gray-200" x-text="tooltip?.description"></div>
+                                            <div x-show="tooltip?.level" class="mb-2">
+                                                <span class="inline-block px-2 py-1 bg-blue-600 text-white text-xs rounded" x-text="'Level ' + tooltip?.level"></span>
+                                            </div>
+                                            <a :href="tooltip?.officialUrl" target="_blank" class="inline-flex items-center text-blue-300 hover:text-blue-100">
+                                                <i class="fas fa-external-link-alt mr-1"></i>
+                                                <span x-text="'View ' + tooltip?.standard + ' Documentation'"></span>
+                                            </a>
+                                            <div class="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                                        </div>
+                                    </span>
+                                </div>
+                            </td>
                             <td class="px-6 py-4 text-sm text-gray-900">
                                 <div class="font-medium" x-text="test.requirement_title"></div>
                                 <div class="text-gray-500 text-xs" x-text="test.requirement_description?.substring(0, 100) + '...'"></div>
@@ -2806,9 +2863,28 @@
                                                 </div>
                                             </td>
                                             <td class="px-6 py-4 text-sm">
-                                                <span x-show="violation.wcag_criterion" 
-                                                      class="font-mono text-xs bg-gray-100 px-2 py-1 rounded" 
-                                                      x-text="violation.wcag_criterion"></span>
+                                                <div x-show="violation.wcag_criterion" class="flex items-center">
+                                                    <span class="font-mono text-xs bg-gray-100 px-2 py-1 rounded" 
+                                                          x-text="violation.wcag_criterion"></span>
+                                                    <!-- Requirement Tooltip -->
+                                                    <span x-data="{ tooltip: createRequirementTooltip({...violation, criterion_number: violation.wcag_criterion}) }" 
+                                                          x-show="tooltip" 
+                                                          class="inline-block relative group ml-2">
+                                                        <i class="fas fa-info-circle text-blue-500 hover:text-blue-700 cursor-help text-xs"></i>
+                                                        <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50 w-80 hidden group-hover:block">
+                                                            <div class="font-semibold mb-1" x-text="tooltip?.title + ': ' + tooltip?.requirementTitle"></div>
+                                                            <div x-show="tooltip?.description" class="mb-2 text-gray-200" x-text="tooltip?.description"></div>
+                                                            <div x-show="tooltip?.level" class="mb-2">
+                                                                <span class="inline-block px-2 py-1 bg-blue-600 text-white text-xs rounded" x-text="'Level ' + tooltip?.level"></span>
+                                                            </div>
+                                                            <a :href="tooltip?.officialUrl" target="_blank" class="inline-flex items-center text-blue-300 hover:text-blue-100">
+                                                                <i class="fas fa-external-link-alt mr-1"></i>
+                                                                <span x-text="'View ' + tooltip?.standard + ' Documentation'"></span>
+                                                            </a>
+                                                            <div class="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                                                        </div>
+                                                    </span>
+                                                </div>
                                             </td>
                                             <td class="px-6 py-4 text-sm">
                                                 <div class="flex space-x-2">
@@ -3221,9 +3297,28 @@
                                                 </div>
                                             </td>
                                             <td class="px-3 py-2 text-xs">
-                                                <span x-show="violation.wcag_criterion" 
-                                                      class="font-mono text-xs bg-gray-100 px-1 py-1 rounded" 
-                                                      x-text="violation.wcag_criterion"></span>
+                                                <div x-show="violation.wcag_criterion" class="flex items-center">
+                                                    <span class="font-mono text-xs bg-gray-100 px-1 py-1 rounded" 
+                                                          x-text="violation.wcag_criterion"></span>
+                                                    <!-- Requirement Tooltip -->
+                                                    <span x-data="{ tooltip: createRequirementTooltip({...violation, criterion_number: violation.wcag_criterion}) }" 
+                                                          x-show="tooltip" 
+                                                          class="inline-block relative group ml-1">
+                                                        <i class="fas fa-info-circle text-blue-500 hover:text-blue-700 cursor-help text-xs"></i>
+                                                        <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50 w-80 hidden group-hover:block">
+                                                            <div class="font-semibold mb-1" x-text="tooltip?.title + ': ' + tooltip?.requirementTitle"></div>
+                                                            <div x-show="tooltip?.description" class="mb-2 text-gray-200" x-text="tooltip?.description"></div>
+                                                            <div x-show="tooltip?.level" class="mb-2">
+                                                                <span class="inline-block px-2 py-1 bg-blue-600 text-white text-xs rounded" x-text="'Level ' + tooltip?.level"></span>
+                                                            </div>
+                                                            <a :href="tooltip?.officialUrl" target="_blank" class="inline-flex items-center text-blue-300 hover:text-blue-100">
+                                                                <i class="fas fa-external-link-alt mr-1"></i>
+                                                                <span x-text="'View ' + tooltip?.standard + ' Documentation'"></span>
+                                                            </a>
+                                                            <div class="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                                                        </div>
+                                                    </span>
+                                                </div>
                                             </td>
                                             <td class="px-3 py-2 text-xs">
                                                 <div class="flex space-x-1">
@@ -3329,10 +3424,28 @@
                                     </span>
                                 </div>
                             </div>
-                            <div x-show="selectedViolation?.violation?.wcag_criterion">
+                            <div x-show="selectedViolation?.violation?.wcag_criterion" class="flex items-center">
                                 <span class="text-sm font-medium text-gray-700">WCAG Criterion:</span>
                                 <span class="ml-2 font-mono text-sm bg-gray-100 px-2 py-1 rounded" 
                                       x-text="selectedViolation?.violation?.wcag_criterion"></span>
+                                <!-- Requirement Tooltip -->
+                                <span x-data="{ tooltip: createRequirementTooltip({...selectedViolation?.violation, criterion_number: selectedViolation?.violation?.wcag_criterion}) }" 
+                                      x-show="tooltip" 
+                                      class="inline-block relative group ml-2">
+                                    <i class="fas fa-info-circle text-blue-500 hover:text-blue-700 cursor-help text-xs"></i>
+                                    <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50 w-80 hidden group-hover:block">
+                                        <div class="font-semibold mb-1" x-text="tooltip?.title + ': ' + tooltip?.requirementTitle"></div>
+                                        <div x-show="tooltip?.description" class="mb-2 text-gray-200" x-text="tooltip?.description"></div>
+                                        <div x-show="tooltip?.level" class="mb-2">
+                                            <span class="inline-block px-2 py-1 bg-blue-600 text-white text-xs rounded" x-text="'Level ' + tooltip?.level"></span>
+                                        </div>
+                                        <a :href="tooltip?.officialUrl" target="_blank" class="inline-flex items-center text-blue-300 hover:text-blue-100">
+                                            <i class="fas fa-external-link-alt mr-1"></i>
+                                            <span x-text="'View ' + tooltip?.standard + ' Documentation'"></span>
+                                        </a>
+                                        <div class="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                                    </div>
+                                </span>
                             </div>
                             <div>
                                 <span class="text-sm font-medium text-gray-700">Page:</span>
@@ -3432,9 +3545,27 @@
                             <div>
                                 <h4 class="text-lg font-semibold text-blue-900 mb-3">Test Details</h4>
                                 <div class="space-y-2 text-sm">
-                                    <div>
+                                    <div class="flex items-center">
                                         <span class="font-medium text-blue-800">WCAG Criterion:</span>
                                         <span class="ml-2 font-mono bg-blue-100 px-2 py-1 rounded text-blue-900" x-text="currentAutomatedTest?.violation?.wcag_criterion"></span>
+                                        <!-- Requirement Tooltip -->
+                                        <span x-data="{ tooltip: createRequirementTooltip({...automatedTestDetails?.requirement, criterion_number: currentAutomatedTest?.violation?.wcag_criterion}) }" 
+                                              x-show="tooltip" 
+                                              class="inline-block relative group ml-2">
+                                            <i class="fas fa-info-circle text-blue-500 hover:text-blue-700 cursor-help text-xs"></i>
+                                            <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50 w-80 hidden group-hover:block">
+                                                <div class="font-semibold mb-1" x-text="tooltip?.title + ': ' + tooltip?.requirementTitle"></div>
+                                                <div x-show="tooltip?.description" class="mb-2 text-gray-200" x-text="tooltip?.description"></div>
+                                                <div x-show="tooltip?.level" class="mb-2">
+                                                    <span class="inline-block px-2 py-1 bg-blue-600 text-white text-xs rounded" x-text="'Level ' + tooltip?.level"></span>
+                                                </div>
+                                                <a :href="tooltip?.officialUrl" target="_blank" class="inline-flex items-center text-blue-300 hover:text-blue-100">
+                                                    <i class="fas fa-external-link-alt mr-1"></i>
+                                                    <span x-text="'View ' + tooltip?.standard + ' Documentation'"></span>
+                                                </a>
+                                                <div class="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                                            </div>
+                                        </span>
                                     </div>
                                     <div x-show="automatedTestDetails?.requirement?.level">
                                         <span class="font-medium text-blue-800">WCAG Level:</span>
@@ -5175,9 +5306,27 @@
                             <div>
                                 <h4 class="text-lg font-semibold text-blue-900 mb-3">Test Details</h4>
                                 <div class="space-y-2 text-sm">
-                                    <div>
+                                    <div class="flex items-center">
                                         <span class="font-medium text-blue-800">WCAG Criterion:</span>
                                         <span class="ml-2 font-mono bg-blue-100 px-2 py-1 rounded text-blue-900" x-text="currentManualTest?.assignment?.criterion_number"></span>
+                                        <!-- Requirement Tooltip -->
+                                        <span x-data="{ tooltip: createRequirementTooltip(currentManualTest?.assignment) }" 
+                                              x-show="tooltip" 
+                                              class="inline-block relative group ml-2">
+                                            <i class="fas fa-info-circle text-blue-500 hover:text-blue-700 cursor-help text-xs"></i>
+                                            <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50 w-80 hidden group-hover:block">
+                                                <div class="font-semibold mb-1" x-text="tooltip?.title + ': ' + tooltip?.requirementTitle"></div>
+                                                <div x-show="tooltip?.description" class="mb-2 text-gray-200" x-text="tooltip?.description"></div>
+                                                <div x-show="tooltip?.level" class="mb-2">
+                                                    <span class="inline-block px-2 py-1 bg-blue-600 text-white text-xs rounded" x-text="'Level ' + tooltip?.level"></span>
+                                                </div>
+                                                <a :href="tooltip?.officialUrl" target="_blank" class="inline-flex items-center text-blue-300 hover:text-blue-100">
+                                                    <i class="fas fa-external-link-alt mr-1"></i>
+                                                    <span x-text="'View ' + tooltip?.standard + ' Documentation'"></span>
+                                                </a>
+                                                <div class="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                                            </div>
+                                        </span>
                                     </div>
                                     <div>
                                         <span class="font-medium text-blue-800">WCAG Level:</span>
@@ -5531,9 +5680,27 @@
                             <div>
                                 <h4 class="text-lg font-semibold text-blue-900 mb-3">WCAG Details</h4>
                                 <div class="space-y-2 text-sm">
-                                    <div>
+                                    <div class="flex items-center">
                                         <span class="font-medium text-blue-800">WCAG Criterion:</span>
                                         <span class="ml-2 font-mono bg-blue-100 px-2 py-1 rounded text-blue-900" x-text="currentRequirement?.criterion_number"></span>
+                                        <!-- Requirement Tooltip -->
+                                        <span x-data="{ tooltip: createRequirementTooltip(currentRequirement) }" 
+                                              x-show="tooltip" 
+                                              class="inline-block relative group ml-2">
+                                            <i class="fas fa-info-circle text-blue-500 hover:text-blue-700 cursor-help text-xs"></i>
+                                            <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50 w-80 hidden group-hover:block">
+                                                <div class="font-semibold mb-1" x-text="tooltip?.title + ': ' + tooltip?.requirementTitle"></div>
+                                                <div x-show="tooltip?.description" class="mb-2 text-gray-200" x-text="tooltip?.description"></div>
+                                                <div x-show="tooltip?.level" class="mb-2">
+                                                    <span class="inline-block px-2 py-1 bg-blue-600 text-white text-xs rounded" x-text="'Level ' + tooltip?.level"></span>
+                                                </div>
+                                                <a :href="tooltip?.officialUrl" target="_blank" class="inline-flex items-center text-blue-300 hover:text-blue-100">
+                                                    <i class="fas fa-external-link-alt mr-1"></i>
+                                                    <span x-text="'View ' + tooltip?.standard + ' Documentation'"></span>
+                                                </a>
+                                                <div class="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                                            </div>
+                                        </span>
                                     </div>
                                     <div>
                                         <span class="font-medium text-blue-800">WCAG Level:</span>
@@ -5671,9 +5838,27 @@
                             <div>
                                 <h4 class="text-lg font-semibold text-blue-900 mb-3">Test Details</h4>
                                 <div class="space-y-2 text-sm">
-                                    <div>
+                                    <div class="flex items-center">
                                         <span class="font-medium text-blue-800">WCAG Criterion:</span>
                                         <span class="ml-2 font-mono bg-blue-100 px-2 py-1 rounded text-blue-900" x-text="currentTestInstance?.criterion_number"></span>
+                                        <!-- Requirement Tooltip -->
+                                        <span x-data="{ tooltip: createRequirementTooltip(currentTestInstance) }" 
+                                              x-show="tooltip" 
+                                              class="inline-block relative group ml-2">
+                                            <i class="fas fa-info-circle text-blue-500 hover:text-blue-700 cursor-help text-xs"></i>
+                                            <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50 w-80 hidden group-hover:block">
+                                                <div class="font-semibold mb-1" x-text="tooltip?.title + ': ' + tooltip?.requirementTitle"></div>
+                                                <div x-show="tooltip?.description" class="mb-2 text-gray-200" x-text="tooltip?.description"></div>
+                                                <div x-show="tooltip?.level" class="mb-2">
+                                                    <span class="inline-block px-2 py-1 bg-blue-600 text-white text-xs rounded" x-text="'Level ' + tooltip?.level"></span>
+                                                </div>
+                                                <a :href="tooltip?.officialUrl" target="_blank" class="inline-flex items-center text-blue-300 hover:text-blue-100">
+                                                    <i class="fas fa-external-link-alt mr-1"></i>
+                                                    <span x-text="'View ' + tooltip?.standard + ' Documentation'"></span>
+                                                </a>
+                                                <div class="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                                            </div>
+                                        </span>
                                     </div>
                                     <div>
                                         <span class="font-medium text-blue-800">WCAG Level:</span>

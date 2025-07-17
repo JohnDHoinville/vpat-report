@@ -8641,6 +8641,158 @@ function generateAuditReportPDF(sessionId) {
     });
 }
 
+/**
+ * REQUIREMENT TOOLTIP UTILITIES
+ * Functions to generate official WCAG and Section 508 URLs and create tooltips
+ */
+
+/**
+ * Generate official WCAG URL based on criterion number
+ * @param {string} criterionNumber - WCAG criterion (e.g., "1.1.1", "2.4.7")
+ * @param {string} version - WCAG version (defaults to "2.1")
+ * @return {string} Official WCAG understanding URL
+ */
+function generateWCAGUrl(criterionNumber, version = '2.1') {
+    if (!criterionNumber) return null;
+    
+    // WCAG 2.1 Understanding documents mapping
+    const criterionMap = {
+        '1.1.1': 'non-text-content',
+        '1.2.1': 'audio-only-and-video-only-prerecorded',
+        '1.2.2': 'captions-prerecorded',
+        '1.2.3': 'audio-description-or-media-alternative-prerecorded',
+        '1.2.4': 'captions-live',
+        '1.2.5': 'audio-description-prerecorded',
+        '1.3.1': 'info-and-relationships',
+        '1.3.2': 'meaningful-sequence',
+        '1.3.3': 'sensory-characteristics',
+        '1.3.4': 'orientation',
+        '1.3.5': 'identify-input-purpose',
+        '1.4.1': 'use-of-color',
+        '1.4.2': 'audio-control',
+        '1.4.3': 'contrast-minimum',
+        '1.4.4': 'resize-text',
+        '1.4.5': 'images-of-text',
+        '1.4.10': 'reflow',
+        '1.4.11': 'non-text-contrast',
+        '1.4.12': 'text-spacing',
+        '1.4.13': 'content-on-hover-or-focus',
+        '2.1.1': 'keyboard',
+        '2.1.2': 'no-keyboard-trap',
+        '2.1.4': 'character-key-shortcuts',
+        '2.2.1': 'timing-adjustable',
+        '2.2.2': 'pause-stop-hide',
+        '2.3.1': 'three-flashes-or-below-threshold',
+        '2.4.1': 'bypass-blocks',
+        '2.4.2': 'page-titled',
+        '2.4.3': 'focus-order',
+        '2.4.4': 'link-purpose-in-context',
+        '2.4.5': 'multiple-ways',
+        '2.4.6': 'headings-and-labels',
+        '2.4.7': 'focus-visible',
+        '2.5.1': 'pointer-gestures',
+        '2.5.2': 'pointer-cancellation',
+        '2.5.3': 'label-in-name',
+        '2.5.4': 'motion-actuation',
+        '3.1.1': 'language-of-page',
+        '3.1.2': 'language-of-parts',
+        '3.2.1': 'on-focus',
+        '3.2.2': 'on-input',
+        '3.2.3': 'consistent-navigation',
+        '3.2.4': 'consistent-identification',
+        '3.3.1': 'error-identification',
+        '3.3.2': 'labels-or-instructions',
+        '3.3.3': 'error-suggestion',
+        '3.3.4': 'error-prevention-legal-financial-data',
+        '4.1.1': 'parsing',
+        '4.1.2': 'name-role-value',
+        '4.1.3': 'status-messages'
+    };
+    
+    switch (version) {
+        case '2.0':
+            return `https://www.w3.org/WAI/WCAG20/Understanding/Overview.html#${criterionNumber}`;
+        case '2.1':
+            const urlSlug = criterionMap[criterionNumber];
+            if (urlSlug) {
+                return `https://www.w3.org/WAI/WCAG21/Understanding/${urlSlug}.html`;
+            }
+            break;
+        case '2.2':
+            return `https://www.w3.org/WAI/WCAG22/Understanding/`;
+        default:
+            return `https://www.w3.org/WAI/WCAG21/Understanding/`;
+    }
+    
+    // Fallback to general WCAG documentation
+    return `https://www.w3.org/WAI/WCAG21/Understanding/`;
+}
+
+/**
+ * Generate official Section 508 URL based on criterion number
+ * @param {string} criterionNumber - Section 508 criterion (e.g., "1194.22(a)", "502.2.1")
+ * @return {string} Official Section 508 URL
+ */
+function generateSection508Url(criterionNumber) {
+    if (!criterionNumber) return null;
+    
+    // Handle both old (1194.22) and new (502.x) Section 508 format
+    if (criterionNumber.startsWith('1194.22')) {
+        // Legacy Section 508 format
+        return 'https://www.section508.gov/manage/laws-and-policies/';
+    } else if (criterionNumber.startsWith('502.')) {
+        // Current Section 508 format
+        const section = criterionNumber.replace(/\./g, '');
+        return `https://www.access-board.gov/ict/#${section}`;
+    }
+    
+    // Fallback to general Section 508 documentation
+    return 'https://www.section508.gov/';
+}
+
+/**
+ * Create a tooltip with requirement information and official link
+ * @param {Object} requirement - Requirement object with criterion_number, title, etc.
+ * @return {Object} Tooltip data with content and URL
+ */
+function createRequirementTooltip(requirement) {
+    if (!requirement) return null;
+    
+    const isWCAG = requirement.requirement_type === 'wcag' || requirement.criterion_number?.match(/^\d+\.\d+\.\d+$/);
+    const isSection508 = requirement.requirement_type === 'section_508' || requirement.criterion_number?.includes('1194.22') || requirement.criterion_number?.startsWith('502.');
+    
+    let officialUrl = null;
+    let tooltipTitle = '';
+    let standard = '';
+    
+    if (isWCAG) {
+        officialUrl = requirement.understanding_url || requirement.wcag_url || generateWCAGUrl(requirement.criterion_number, requirement.wcag_version);
+        standard = 'WCAG';
+        tooltipTitle = `WCAG ${requirement.criterion_number}`;
+    } else if (isSection508) {
+        officialUrl = requirement.reference_url || requirement.section_508_url || generateSection508Url(requirement.criterion_number);
+        standard = 'Section 508';
+        tooltipTitle = `Section 508 ${requirement.criterion_number}`;
+    }
+    
+    if (!officialUrl) return null;
+    
+    return {
+        title: tooltipTitle,
+        standard: standard,
+        criterionNumber: requirement.criterion_number,
+        requirementTitle: requirement.title,
+        officialUrl: officialUrl,
+        description: requirement.description?.substring(0, 200) + (requirement.description?.length > 200 ? '...' : ''),
+        level: requirement.level || requirement.wcag_level
+    };
+}
+
+// Make tooltip creation functions available globally
+window.generateWCAGUrl = generateWCAGUrl;
+window.generateSection508Url = generateSection508Url;
+window.createRequirementTooltip = createRequirementTooltip;
+
 document.addEventListener('DOMContentLoaded', () => {
     console.log('🎯 Dashboard Helpers Loaded');
     
