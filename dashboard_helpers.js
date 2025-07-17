@@ -7309,6 +7309,13 @@ function dashboard() {
                             if (!automatedByRequirement[reqId]) {
                                 automatedByRequirement[reqId] = [];
                             }
+                            // Ensure we have the correct field structure for display
+                            if (!result.tool_name && result.tool_used) {
+                                result.tool_name = result.tool_used;
+                            }
+                            if (!result.result_status && result.status) {
+                                result.result_status = result.status;
+                            }
                             automatedByRequirement[reqId].push(result);
                         }
                     });
@@ -8792,10 +8799,115 @@ function createRequirementTooltip(requirement) {
     };
 }
 
+// Smart tooltip positioning function
+function createSmartTooltip(element, tooltipContent) {
+    if (!element || !tooltipContent) return null;
+    
+    const rect = element.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const scrollX = window.pageXOffset || document.documentElement.scrollLeft;
+    const scrollY = window.pageYOffset || document.documentElement.scrollTop;
+    
+    // Tooltip dimensions (estimated)
+    const tooltipWidth = 320;
+    const tooltipHeight = 140; // Approximate height
+    const margin = 12;
+    
+    let position = 'tooltip-top'; // Default
+    let left = rect.left + scrollX + (rect.width / 2);
+    let top = rect.top + scrollY;
+    
+    // Check if tooltip fits above
+    if (rect.top < tooltipHeight + margin) {
+        position = 'tooltip-bottom';
+        top = rect.bottom + scrollY;
+    } else {
+        position = 'tooltip-top';
+        top = rect.top + scrollY;
+    }
+    
+    // Check horizontal positioning
+    if (left - (tooltipWidth / 2) < margin) {
+        // Too close to left edge
+        left = margin + (tooltipWidth / 2);
+    } else if (left + (tooltipWidth / 2) > viewportWidth - margin) {
+        // Too close to right edge
+        left = viewportWidth - margin - (tooltipWidth / 2);
+    }
+    
+    // If there's really no room above or below, try left/right
+    if (rect.top < tooltipHeight + margin && rect.bottom + tooltipHeight + margin > viewportHeight) {
+        if (rect.left > tooltipWidth + margin) {
+            position = 'tooltip-left';
+            left = rect.left + scrollX;
+            top = rect.top + scrollY + (rect.height / 2);
+        } else if (rect.right + tooltipWidth + margin < viewportWidth) {
+            position = 'tooltip-right';
+            left = rect.right + scrollX;
+            top = rect.top + scrollY + (rect.height / 2);
+        }
+    }
+    
+    return {
+        position,
+        left: Math.round(left),
+        top: Math.round(top)
+    };
+}
+
+// Initialize smart tooltips
+function initSmartTooltips() {
+    document.querySelectorAll('.tooltip-container').forEach(container => {
+        const trigger = container.querySelector('.tooltip-trigger');
+        const content = container.querySelector('.tooltip-content');
+        
+        if (!trigger || !content) return;
+        
+        let positioningTimeout;
+        
+        const positionTooltip = () => {
+            const positioning = createSmartTooltip(trigger, content);
+            if (positioning) {
+                content.className = content.className.replace(/tooltip-(top|bottom|left|right)/g, '');
+                content.classList.add(positioning.position);
+                content.style.left = positioning.left + 'px';
+                content.style.top = positioning.top + 'px';
+                
+                // Update arrow if it exists
+                const arrow = content.querySelector('.tooltip-arrow');
+                if (arrow) {
+                    arrow.className = 'tooltip-arrow';
+                }
+            }
+        };
+        
+        trigger.addEventListener('mouseenter', () => {
+            clearTimeout(positioningTimeout);
+            positioningTimeout = setTimeout(positionTooltip, 10);
+        });
+        
+        // Reposition on scroll and resize
+        window.addEventListener('scroll', () => {
+            if (container.matches(':hover')) {
+                positionTooltip();
+            }
+        });
+        
+        window.addEventListener('resize', () => {
+            if (container.matches(':hover')) {
+                positionTooltip();
+            }
+        });
+    });
+}
+
 // Make tooltip creation functions available globally
 window.generateWCAGUrl = generateWCAGUrl;
 window.generateSection508Url = generateSection508Url;
 window.createRequirementTooltip = createRequirementTooltip;
+window.createSmartTooltip = createSmartTooltip;
+window.initSmartTooltips = initSmartTooltips;
 
 document.addEventListener('DOMContentLoaded', () => {
     console.log('🎯 Dashboard Helpers Loaded');

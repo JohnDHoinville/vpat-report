@@ -66,22 +66,113 @@
     <style>
         [x-cloak] { display: none !important; }
         
-        /* Ensure tooltips appear above modals and other content */
-        .group:hover .group-hover\\:opacity-100 {
-            z-index: 9999;
+        /* Enhanced tooltip positioning and visibility */
+        .tooltip-container {
+            position: relative;
+            display: inline-block;
         }
         
-        /* Tooltip styling improvements */
-        .requirement-tooltip {
+        .tooltip-content {
+            position: fixed;
+            z-index: 99999;
             white-space: normal;
             word-wrap: break-word;
             max-width: 320px;
-            z-index: 9999;
+            min-width: 280px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease-in-out;
+            background: rgba(17, 24, 39, 0.95);
+            backdrop-filter: blur(4px);
+            border: 1px solid rgba(75, 85, 99, 0.3);
         }
         
-        /* Fix tooltip positioning in tables */
-        td .group {
+        .tooltip-container:hover .tooltip-content {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        
+        /* Ensure tooltips appear above everything */
+        .group:hover .group-hover\\:opacity-100 {
+            z-index: 99999;
+        }
+        
+        /* Smart positioning to avoid viewport edges */
+        .tooltip-content.tooltip-top {
+            transform: translateX(-50%) translateY(-100%);
+            margin-top: -8px;
+        }
+        
+        .tooltip-content.tooltip-bottom {
+            transform: translateX(-50%) translateY(8px);
+        }
+        
+        .tooltip-content.tooltip-left {
+            transform: translateX(-100%) translateY(-50%);
+            margin-left: -8px;
+        }
+        
+        .tooltip-content.tooltip-right {
+            transform: translateX(8px) translateY(-50%);
+        }
+        
+        /* Tooltip arrows */
+        .tooltip-arrow {
+            position: absolute;
+            width: 0;
+            height: 0;
+        }
+        
+        .tooltip-top .tooltip-arrow {
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border-left: 6px solid transparent;
+            border-right: 6px solid transparent;
+            border-top: 6px solid rgba(17, 24, 39, 0.95);
+        }
+        
+        .tooltip-bottom .tooltip-arrow {
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border-left: 6px solid transparent;
+            border-right: 6px solid transparent;
+            border-bottom: 6px solid rgba(17, 24, 39, 0.95);
+        }
+        
+        .tooltip-left .tooltip-arrow {
+            left: 100%;
+            top: 50%;
+            transform: translateY(-50%);
+            border-top: 6px solid transparent;
+            border-bottom: 6px solid transparent;
+            border-left: 6px solid rgba(17, 24, 39, 0.95);
+        }
+        
+        .tooltip-right .tooltip-arrow {
+            right: 100%;
+            top: 50%;
+            transform: translateY(-50%);
+            border-top: 6px solid transparent;
+            border-bottom: 6px solid transparent;
+            border-right: 6px solid rgba(17, 24, 39, 0.95);
+        }
+        
+        /* Fix tooltip positioning in tables and constrained containers */
+        td .tooltip-container,
+        th .tooltip-container {
             position: relative;
+        }
+        
+        /* Prevent tooltips from being clipped by table containers */
+        .table-container {
+            overflow: visible !important;
+        }
+        
+        /* Enhanced tooltip for modals */
+        .modal .tooltip-content {
+            z-index: 99999;
         }
     </style>
 </head>
@@ -1818,9 +1909,9 @@
                                                 <!-- Requirement Tooltip -->
                                                 <span x-data="{ tooltip: createRequirementTooltip(requirement) }" 
                                                       x-show="tooltip" 
-                                                      class="inline-block relative group ml-1">
-                                                    <i class="fas fa-info-circle text-blue-500 hover:text-blue-700 cursor-help text-xs"></i>
-                                                    <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50 w-80 hidden group-hover:block">
+                                                      class="tooltip-container ml-1">
+                                                    <i class="fas fa-info-circle text-blue-500 hover:text-blue-700 cursor-help text-xs tooltip-trigger"></i>
+                                                    <div class="tooltip-content tooltip-top px-3 py-2 text-white text-xs rounded-lg shadow-xl">
                                                         <div class="font-semibold mb-1" x-text="tooltip?.title + ': ' + tooltip?.requirementTitle"></div>
                                                         <div x-show="tooltip?.description" class="mb-2 text-gray-200" x-text="tooltip?.description"></div>
                                                         <div x-show="tooltip?.level" class="mb-2">
@@ -1830,7 +1921,7 @@
                                                             <i class="fas fa-external-link-alt mr-1"></i>
                                                             <span x-text="'View ' + tooltip?.standard + ' Documentation'"></span>
                                                         </a>
-                                                        <div class="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                                                        <div class="tooltip-arrow"></div>
                                                     </div>
                                                 </span>
                                             </div>
@@ -1854,12 +1945,12 @@
                                 <!-- Automated Results -->
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <div x-show="requirement.automated_tests && requirement.automated_tests.length > 0" class="space-y-1">
-                                        <template x-for="(autoTest, index) in (requirement.automated_tests || []).slice(0, 3)" :key="autoTest.tool_used + '_' + index">
+                                        <template x-for="(autoTest, index) in (requirement.automated_tests || []).slice(0, 3)" :key="autoTest.tool_name + '_' + index">
                                             <div class="flex items-center space-x-2">
-                                                <span :class="autoTest.status === 'passed' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'" 
+                                                <span :class="(autoTest.result_status === 'pass' || autoTest.result_status === 'passed') ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'" 
                                                       class="px-2 py-1 text-xs font-medium rounded">
-                                                    <span x-text="autoTest.tool_used || 'Unknown'"></span>
-                                                    <i :class="autoTest.status === 'passed' ? 'fas fa-check ml-1' : 'fas fa-times ml-1'"></i>
+                                                    <span x-text="autoTest.tool_name || 'Unknown'"></span>
+                                                    <i :class="(autoTest.result_status === 'pass' || autoTest.result_status === 'passed') ? 'fas fa-check ml-1' : 'fas fa-times ml-1'"></i>
                                                 </span>
                                             </div>
                                         </template>
@@ -2309,9 +2400,9 @@
                                     <!-- Requirement Tooltip -->
                                     <span x-data="{ tooltip: createRequirementTooltip(test) }" 
                                           x-show="tooltip" 
-                                          class="inline-block relative group ml-2">
-                                        <i class="fas fa-info-circle text-blue-500 hover:text-blue-700 cursor-help text-xs"></i>
-                                        <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50 w-80 hidden group-hover:block">
+                                          class="tooltip-container ml-2">
+                                        <i class="fas fa-info-circle text-blue-500 hover:text-blue-700 cursor-help text-xs tooltip-trigger"></i>
+                                        <div class="tooltip-content tooltip-top px-3 py-2 text-white text-xs rounded-lg shadow-xl">
                                             <div class="font-semibold mb-1" x-text="tooltip?.title + ': ' + tooltip?.requirementTitle"></div>
                                             <div x-show="tooltip?.description" class="mb-2 text-gray-200" x-text="tooltip?.description"></div>
                                             <div x-show="tooltip?.level" class="mb-2">
@@ -2321,7 +2412,7 @@
                                                 <i class="fas fa-external-link-alt mr-1"></i>
                                                 <span x-text="'View ' + tooltip?.standard + ' Documentation'"></span>
                                             </a>
-                                            <div class="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                                            <div class="tooltip-arrow"></div>
                                         </div>
                                     </span>
                                 </div>
@@ -2930,9 +3021,9 @@
                                                     <!-- Requirement Tooltip -->
                                                     <span x-data="{ tooltip: createRequirementTooltip({...violation, criterion_number: violation.wcag_criterion}) }" 
                                                           x-show="tooltip" 
-                                                          class="inline-block relative group ml-2">
-                                                        <i class="fas fa-info-circle text-blue-500 hover:text-blue-700 cursor-help text-xs"></i>
-                                                        <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50 w-80 hidden group-hover:block">
+                                                          class="tooltip-container ml-1">
+                                                        <i class="fas fa-info-circle text-blue-500 hover:text-blue-700 cursor-help text-xs tooltip-trigger"></i>
+                                                        <div class="tooltip-content tooltip-top px-3 py-2 text-white text-xs rounded-lg shadow-xl">
                                                             <div class="font-semibold mb-1" x-text="tooltip?.title + ': ' + tooltip?.requirementTitle"></div>
                                                             <div x-show="tooltip?.description" class="mb-2 text-gray-200" x-text="tooltip?.description"></div>
                                                             <div x-show="tooltip?.level" class="mb-2">
@@ -2942,7 +3033,7 @@
                                                                 <i class="fas fa-external-link-alt mr-1"></i>
                                                                 <span x-text="'View ' + tooltip?.standard + ' Documentation'"></span>
                                                             </a>
-                                                            <div class="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                                                            <div class="tooltip-arrow"></div>
                                                         </div>
                                                     </span>
                                                 </div>
@@ -3368,9 +3459,9 @@
                                                     <!-- Requirement Tooltip -->
                                                     <span x-data="{ tooltip: createRequirementTooltip({...violation, criterion_number: violation.wcag_criterion}) }" 
                                                           x-show="tooltip" 
-                                                          class="inline-block relative group ml-1">
-                                                        <i class="fas fa-info-circle text-blue-500 hover:text-blue-700 cursor-help text-xs"></i>
-                                                        <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50 w-80 hidden group-hover:block">
+                                                          class="tooltip-container ml-1">
+                                                        <i class="fas fa-info-circle text-blue-500 hover:text-blue-700 cursor-help text-xs tooltip-trigger"></i>
+                                                        <div class="tooltip-content tooltip-top px-3 py-2 text-white text-xs rounded-lg shadow-xl">
                                                             <div class="font-semibold mb-1" x-text="tooltip?.title + ': ' + tooltip?.requirementTitle"></div>
                                                             <div x-show="tooltip?.description" class="mb-2 text-gray-200" x-text="tooltip?.description"></div>
                                                             <div x-show="tooltip?.level" class="mb-2">
@@ -3380,7 +3471,7 @@
                                                                 <i class="fas fa-external-link-alt mr-1"></i>
                                                                 <span x-text="'View ' + tooltip?.standard + ' Documentation'"></span>
                                                             </a>
-                                                            <div class="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                                                            <div class="tooltip-arrow"></div>
                                                         </div>
                                                     </span>
                                                 </div>
@@ -3496,9 +3587,9 @@
                                 <!-- Requirement Tooltip -->
                                 <span x-data="{ tooltip: createRequirementTooltip({...selectedViolation?.violation, criterion_number: selectedViolation?.violation?.wcag_criterion}) }" 
                                       x-show="tooltip" 
-                                      class="inline-block relative group ml-2">
-                                    <i class="fas fa-info-circle text-blue-500 hover:text-blue-700 cursor-help text-xs"></i>
-                                    <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50 w-80 hidden group-hover:block">
+                                      class="tooltip-container ml-1">
+                                    <i class="fas fa-info-circle text-blue-500 hover:text-blue-700 cursor-help text-xs tooltip-trigger"></i>
+                                    <div class="tooltip-content tooltip-top px-3 py-2 text-white text-xs rounded-lg shadow-xl">
                                         <div class="font-semibold mb-1" x-text="tooltip?.title + ': ' + tooltip?.requirementTitle"></div>
                                         <div x-show="tooltip?.description" class="mb-2 text-gray-200" x-text="tooltip?.description"></div>
                                         <div x-show="tooltip?.level" class="mb-2">
@@ -3508,7 +3599,7 @@
                                             <i class="fas fa-external-link-alt mr-1"></i>
                                             <span x-text="'View ' + tooltip?.standard + ' Documentation'"></span>
                                         </a>
-                                        <div class="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                                        <div class="tooltip-arrow"></div>
                                     </div>
                                 </span>
                             </div>
@@ -3617,9 +3708,9 @@
                                         <!-- Requirement Tooltip -->
                                         <span x-data="{ tooltip: createRequirementTooltip({...automatedTestDetails?.requirement, criterion_number: currentAutomatedTest?.violation?.wcag_criterion}) }" 
                                               x-show="tooltip" 
-                                              class="inline-block relative group ml-2">
-                                            <i class="fas fa-info-circle text-blue-500 hover:text-blue-700 cursor-help text-xs"></i>
-                                            <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50 w-80 hidden group-hover:block">
+                                              class="tooltip-container ml-1">
+                                            <i class="fas fa-info-circle text-blue-500 hover:text-blue-700 cursor-help text-xs tooltip-trigger"></i>
+                                            <div class="tooltip-content tooltip-top px-3 py-2 text-white text-xs rounded-lg shadow-xl">
                                                 <div class="font-semibold mb-1" x-text="tooltip?.title + ': ' + tooltip?.requirementTitle"></div>
                                                 <div x-show="tooltip?.description" class="mb-2 text-gray-200" x-text="tooltip?.description"></div>
                                                 <div x-show="tooltip?.level" class="mb-2">
@@ -3629,7 +3720,7 @@
                                                     <i class="fas fa-external-link-alt mr-1"></i>
                                                     <span x-text="'View ' + tooltip?.standard + ' Documentation'"></span>
                                                 </a>
-                                                <div class="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                                                <div class="tooltip-arrow"></div>
                                             </div>
                                         </span>
                                     </div>
@@ -5375,9 +5466,9 @@
                                         <!-- Requirement Tooltip -->
                                         <span x-data="{ tooltip: createRequirementTooltip(currentManualTest?.assignment) }" 
                                               x-show="tooltip" 
-                                              class="inline-block relative group ml-2">
-                                            <i class="fas fa-info-circle text-blue-500 hover:text-blue-700 cursor-help text-xs"></i>
-                                            <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50 w-80 hidden group-hover:block">
+                                              class="tooltip-container ml-1">
+                                            <i class="fas fa-info-circle text-blue-500 hover:text-blue-700 cursor-help text-xs tooltip-trigger"></i>
+                                            <div class="tooltip-content tooltip-top px-3 py-2 text-white text-xs rounded-lg shadow-xl">
                                                 <div class="font-semibold mb-1" x-text="tooltip?.title + ': ' + tooltip?.requirementTitle"></div>
                                                 <div x-show="tooltip?.description" class="mb-2 text-gray-200" x-text="tooltip?.description"></div>
                                                 <div x-show="tooltip?.level" class="mb-2">
@@ -5387,7 +5478,7 @@
                                                     <i class="fas fa-external-link-alt mr-1"></i>
                                                     <span x-text="'View ' + tooltip?.standard + ' Documentation'"></span>
                                                 </a>
-                                                <div class="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                                                <div class="tooltip-arrow"></div>
                                             </div>
                                         </span>
                                     </div>
@@ -5744,9 +5835,9 @@
                                         <!-- Requirement Tooltip -->
                                         <span x-data="{ tooltip: createRequirementTooltip(currentRequirement) }" 
                                               x-show="tooltip" 
-                                              class="inline-block relative group ml-2">
-                                            <i class="fas fa-info-circle text-blue-500 hover:text-blue-700 cursor-help text-xs"></i>
-                                            <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50 w-80 hidden group-hover:block">
+                                              class="tooltip-container ml-1">
+                                            <i class="fas fa-info-circle text-blue-500 hover:text-blue-700 cursor-help text-xs tooltip-trigger"></i>
+                                            <div class="tooltip-content tooltip-top px-3 py-2 text-white text-xs rounded-lg shadow-xl">
                                                 <div class="font-semibold mb-1" x-text="tooltip?.title + ': ' + tooltip?.requirementTitle"></div>
                                                 <div x-show="tooltip?.description" class="mb-2 text-gray-200" x-text="tooltip?.description"></div>
                                                 <div x-show="tooltip?.level" class="mb-2">
@@ -5756,7 +5847,7 @@
                                                     <i class="fas fa-external-link-alt mr-1"></i>
                                                     <span x-text="'View ' + tooltip?.standard + ' Documentation'"></span>
                                                 </a>
-                                                <div class="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                                                <div class="tooltip-arrow"></div>
                                             </div>
                                         </span>
                                     </div>
@@ -5809,12 +5900,12 @@
                                 <div class="border border-gray-200 rounded p-4">
                                     <div class="flex justify-between items-start mb-2">
                                         <div class="flex items-center space-x-2">
-                                            <span :class="autoTest.status === 'passed' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'" 
+                                            <span :class="(autoTest.result_status === 'pass' || autoTest.result_status === 'passed') ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'" 
                                                   class="px-2 py-1 text-xs font-medium rounded">
-                                                <span x-text="autoTest.tool_used || 'Unknown Tool'"></span>
-                                                <i :class="autoTest.status === 'passed' ? 'fas fa-check ml-1' : 'fas fa-times ml-1'"></i>
+                                                <span x-text="autoTest.tool_name || 'Unknown Tool'"></span>
+                                                <i :class="(autoTest.result_status === 'pass' || autoTest.result_status === 'passed') ? 'fas fa-check ml-1' : 'fas fa-times ml-1'"></i>
                                             </span>
-                                            <span class="text-sm text-gray-600" x-text="autoTest.status || 'Unknown Status'"></span>
+                                            <span class="text-sm text-gray-600" x-text="autoTest.result_status || 'Unknown Status'"></span>
                                         </div>
                                         <span class="text-xs text-gray-500" x-text="formatDate(autoTest.created_at)"></span>
                                     </div>
@@ -5902,9 +5993,9 @@
                                         <!-- Requirement Tooltip -->
                                         <span x-data="{ tooltip: createRequirementTooltip(currentTestInstance) }" 
                                               x-show="tooltip" 
-                                              class="inline-block relative group ml-2">
-                                            <i class="fas fa-info-circle text-blue-500 hover:text-blue-700 cursor-help text-xs"></i>
-                                            <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50 w-80 hidden group-hover:block">
+                                              class="tooltip-container ml-1">
+                                            <i class="fas fa-info-circle text-blue-500 hover:text-blue-700 cursor-help text-xs tooltip-trigger"></i>
+                                            <div class="tooltip-content tooltip-top px-3 py-2 text-white text-xs rounded-lg shadow-xl">
                                                 <div class="font-semibold mb-1" x-text="tooltip?.title + ': ' + tooltip?.requirementTitle"></div>
                                                 <div x-show="tooltip?.description" class="mb-2 text-gray-200" x-text="tooltip?.description"></div>
                                                 <div x-show="tooltip?.level" class="mb-2">
@@ -5914,7 +6005,7 @@
                                                     <i class="fas fa-external-link-alt mr-1"></i>
                                                     <span x-text="'View ' + tooltip?.standard + ' Documentation'"></span>
                                                 </a>
-                                                <div class="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                                                <div class="tooltip-arrow"></div>
                                             </div>
                                         </span>
                                     </div>
@@ -6861,3 +6952,25 @@
 </div>
 
 <script src="user-management.js"></script>
+
+<script>
+// Initialize smart tooltips after the page loads
+document.addEventListener('DOMContentLoaded', () => {
+    // Wait for Alpine.js to initialize
+    setTimeout(() => {
+        if (typeof initSmartTooltips === 'function') {
+            initSmartTooltips();
+            console.log('🎯 Smart tooltips initialized');
+        }
+    }, 500);
+});
+
+// Re-initialize tooltips when data changes
+document.addEventListener('alpine:updated', () => {
+    setTimeout(() => {
+        if (typeof initSmartTooltips === 'function') {
+            initSmartTooltips();
+        }
+    }, 100);
+});
+</script>
