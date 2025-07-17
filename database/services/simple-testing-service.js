@@ -3,6 +3,7 @@ const { pool } = require('../config');
 const { v4: uuidv4 } = require('uuid');
 const ComprehensiveTestRunner = require('../../scripts/comprehensive-test-runner');
 const WCAGCriteriaMapper = require('../../scripts/wcag-criteria-mapper');
+const AuditTrailService = require('./audit-trail-service');
 
 /**
  * Simple Testing Service
@@ -13,6 +14,7 @@ class SimpleTestingService {
     constructor(wsService = null) {
         this.pool = pool;
         this.activeTestSessions = new Map(); // Track running test sessions
+        this.auditTrailService = new AuditTrailService(pool);
         this.wcagMapper = new WCAGCriteriaMapper();
         this.wsService = wsService; // WebSocket service for real-time updates
     }
@@ -443,7 +445,8 @@ class SimpleTestingService {
                 testResultId, 
                 toolName, 
                 result,
-                violationsCount
+                violationsCount,
+                testResult.rows[0] // Pass the automated result record for audit trail
             );
             
             await client.query('COMMIT');
@@ -461,7 +464,7 @@ class SimpleTestingService {
      * Maps tool results to WCAG requirements and creates test instances
      * @private
      */
-    async createTestInstancesFromAutomatedResult(client, sessionId, pageId, testResultId, toolName, result, violationsCount) {
+    async createTestInstancesFromAutomatedResult(client, sessionId, pageId, testResultId, toolName, result, violationsCount, automatedResult = null) {
         try {
             // Extract violations and passes from result
             const testData = result.result || result;
@@ -490,7 +493,8 @@ class SimpleTestingService {
                         'failed',
                         toolName,
                         testResultId,
-                        violation
+                        violation,
+                        automatedResult
                     );
                     
                     processedRequirements.add(requirementKey);
@@ -518,7 +522,8 @@ class SimpleTestingService {
                         'passed',
                         toolName,
                         testResultId,
-                        null
+                        null,
+                        automatedResult
                     );
                     
                     processedRequirements.add(requirementKey);
@@ -534,10 +539,10 @@ class SimpleTestingService {
     }
 
     /**
-     * Create a test instance for a specific requirement
+     * Create a test instance for a specific requirement with full audit trail
      * @private
      */
-    async createTestInstanceForRequirement(client, sessionId, pageId, wcagCriterion, status, toolName, testResultId, violationData) {
+    async createTestInstanceForRequirement(client, sessionId, pageId, wcagCriterion, status, toolName, testResultId, violationData, automatedResult = null) {
         try {
             // Find the requirement ID for this WCAG criterion
             const requirementQuery = await client.query(
@@ -553,64 +558,92 @@ class SimpleTestingService {
             
             const requirementId = requirementQuery.rows[0].id;
             
-            // Create evidence object
-            const evidence = violationData ? [{
-                type: 'automated_violation',
-                tool: toolName,
-                violation_id: violationData.id,
-                description: violationData.description || violationData.help,
-                help_url: violationData.helpUrl,
-                impact: violationData.impact,
-                nodes: violationData.nodes || [],
-                created_at: new Date().toISOString()
-            }] : [{
-                type: 'automated_pass',
-                tool: toolName,
-                description: `${toolName} automated test passed for WCAG ${wcagCriterion}`,
-                created_at: new Date().toISOString()
-            }];
-            
-            // Create or update test instance
-            await client.query(
-                `INSERT INTO test_instances (
-                    session_id, requirement_id, page_id, status,
-                    test_method_used, tool_used, confidence_level,
-                    notes, evidence, automated_result_id,
-                    started_at, completed_at, created_at, updated_at
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
-                ON CONFLICT (session_id, requirement_id, page_id) DO UPDATE SET
-                    status = CASE 
-                        WHEN EXCLUDED.status = 'failed' THEN 'failed'
-                        WHEN test_instances.status = 'failed' THEN 'failed'
-                        ELSE EXCLUDED.status
-                    END,
-                    test_method_used = COALESCE(EXCLUDED.test_method_used, test_instances.test_method_used),
-                    tool_used = COALESCE(EXCLUDED.tool_used, test_instances.tool_used),
-                    confidence_level = EXCLUDED.confidence_level,
-                    notes = COALESCE(EXCLUDED.notes, test_instances.notes),
-                    evidence = EXCLUDED.evidence,
-                    automated_result_id = COALESCE(EXCLUDED.automated_result_id, test_instances.automated_result_id),
-                    completed_at = EXCLUDED.completed_at,
-                    updated_at = EXCLUDED.updated_at`,
-                [
-                    sessionId,
-                    requirementId,
-                    pageId,
-                    status,
-                    'automated',
-                    toolName,
-                    'high', // Automated tests have high confidence
-                    violationData ? 
-                        `Automated ${status} detected by ${toolName}: ${violationData.description || violationData.help}` :
-                        `Automated test passed by ${toolName} for WCAG ${wcagCriterion}`,
-                    JSON.stringify(evidence),
-                    testResultId,
-                    new Date(), // started_at
-                    new Date(), // completed_at
-                    new Date(), // created_at
-                    new Date()  // updated_at
-                ]
+            // Check if test instance already exists
+            const existingQuery = await client.query(
+                `SELECT id FROM test_instances 
+                 WHERE session_id = $1 AND requirement_id = $2 AND page_id = $3`,
+                [sessionId, requirementId, pageId]
             );
+            
+            let testInstanceId;
+            
+            if (existingQuery.rows.length > 0) {
+                // Update existing test instance
+                testInstanceId = existingQuery.rows[0].id;
+                console.log(`📝 Updating existing test instance ${testInstanceId} for WCAG ${wcagCriterion}`);
+                
+                // If we have automated result, process with audit trail
+                if (automatedResult) {
+                    await this.auditTrailService.processAutomatedResult(testInstanceId, automatedResult, wcagCriterion);
+                } else {
+                    // Legacy update without audit trail
+                    await client.query(
+                        `UPDATE test_instances SET 
+                         status = $1, test_method_used = 'automated', tool_used = $2,
+                         updated_at = CURRENT_TIMESTAMP
+                         WHERE id = $3`,
+                        [status, toolName, testInstanceId]
+                    );
+                }
+            } else {
+                // Create new test instance
+                console.log(`✨ Creating new test instance for WCAG ${wcagCriterion}`);
+                
+                // Basic evidence for legacy compatibility
+                const basicEvidence = violationData ? [{
+                    type: 'automated_violation',
+                    tool: toolName,
+                    violation_id: violationData.id,
+                    description: violationData.description || violationData.help,
+                    help_url: violationData.helpUrl,
+                    impact: violationData.impact,
+                    nodes: violationData.nodes || [],
+                    created_at: new Date().toISOString()
+                }] : [{
+                    type: 'automated_pass',
+                    tool: toolName,
+                    description: `${toolName} automated test passed for WCAG ${wcagCriterion}`,
+                    created_at: new Date().toISOString()
+                }];
+                
+                // Create new test instance
+                const result = await client.query(
+                    `INSERT INTO test_instances (
+                        session_id, requirement_id, page_id, status,
+                        test_method_used, tool_used, confidence_level,
+                        notes, evidence, automated_result_id,
+                        started_at, completed_at, created_at, updated_at
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+                    RETURNING id`,
+                    [
+                        sessionId,
+                        requirementId,
+                        pageId,
+                        status,
+                        'automated',
+                        toolName,
+                        'high', // Automated tests have high confidence
+                        violationData ? 
+                            `Automated ${status} detected by ${toolName}: ${violationData.description || violationData.help}` :
+                            `Automated test passed by ${toolName} for WCAG ${wcagCriterion}`,
+                        JSON.stringify(basicEvidence),
+                        testResultId,
+                        new Date(), // started_at
+                        new Date(), // completed_at
+                        new Date(), // created_at
+                        new Date()  // updated_at
+                    ]
+                );
+                
+                testInstanceId = result.rows[0].id;
+                
+                // If we have detailed automated result, process with audit trail
+                if (automatedResult) {
+                    await this.auditTrailService.processAutomatedResult(testInstanceId, automatedResult, wcagCriterion);
+                }
+            }
+            
+            return testInstanceId;
             
         } catch (error) {
             console.error(`❌ Error creating test instance for ${wcagCriterion}:`, error);
