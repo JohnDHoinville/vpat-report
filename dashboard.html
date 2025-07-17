@@ -1815,21 +1815,21 @@
                                 
                                 <!-- Automated Results -->
                                 <td class="px-6 py-4 whitespace-nowrap">
-                                    <div x-show="requirement.automated_tests?.length > 0" class="space-y-1">
-                                        <template x-for="autoTest in requirement.automated_tests.slice(0, 3)" :key="autoTest.tool_used">
+                                    <div x-show="requirement.automated_tests && requirement.automated_tests.length > 0" class="space-y-1">
+                                        <template x-for="(autoTest, index) in (requirement.automated_tests || []).slice(0, 3)" :key="autoTest.tool_used + '_' + index">
                                             <div class="flex items-center space-x-2">
                                                 <span :class="autoTest.status === 'passed' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'" 
                                                       class="px-2 py-1 text-xs font-medium rounded">
-                                                    <span x-text="autoTest.tool_used"></span>
+                                                    <span x-text="autoTest.tool_used || 'Unknown'"></span>
                                                     <i :class="autoTest.status === 'passed' ? 'fas fa-check ml-1' : 'fas fa-times ml-1'"></i>
                                                 </span>
                                             </div>
                                         </template>
-                                        <div x-show="requirement.automated_tests?.length > 3" class="text-xs text-gray-500">
-                                            +<span x-text="requirement.automated_tests.length - 3"></span> more
+                                        <div x-show="requirement.automated_tests && requirement.automated_tests.length > 3" class="text-xs text-gray-500">
+                                            +<span x-text="(requirement.automated_tests || []).length - 3"></span> more
                                         </div>
                                     </div>
-                                    <div x-show="!requirement.automated_tests?.length" class="text-sm text-gray-400 italic">
+                                    <div x-show="!requirement.automated_tests || requirement.automated_tests.length === 0" class="text-sm text-gray-400 italic">
                                         No automated tests
                                     </div>
                                 </td>
@@ -1892,7 +1892,7 @@
                         of <span x-text="filteredRequirements.length"></span> requirements
                     </div>
                     <div class="flex space-x-2">
-                        <button @click="requirementCurrentPage = Math.max(1, requirementCurrentPage - 1)" 
+                        <button @click="requirementCurrentPage = Math.max(1, requirementCurrentPage - 1); updateRequirementsPagination()" 
                                 :disabled="requirementCurrentPage === 1"
                                 class="px-3 py-1 text-sm border rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
                             Previous
@@ -1900,7 +1900,7 @@
                         <span class="px-3 py-1 text-sm">
                             Page <span x-text="requirementCurrentPage"></span> of <span x-text="requirementTotalPages"></span>
                         </span>
-                        <button @click="requirementCurrentPage = Math.min(requirementTotalPages, requirementCurrentPage + 1)" 
+                        <button @click="requirementCurrentPage = Math.min(requirementTotalPages, requirementCurrentPage + 1); updateRequirementsPagination()" 
                                 :disabled="requirementCurrentPage === requirementTotalPages"
                                 class="px-3 py-1 text-sm border rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
                             Next
@@ -2165,6 +2165,14 @@
                             </div>
                         </th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                            @click="sortTestInstances('page_url')">
+                            <div class="flex items-center">
+                                Page URL
+                                <i :class="testGridSort.field === 'page_url' ? (testGridSort.direction === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down') : 'fas fa-sort'" 
+                                   class="ml-1 text-gray-400"></i>
+                            </div>
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
                             @click="sortTestInstances('status')">
                             <div class="flex items-center">
                                 Status
@@ -2214,8 +2222,18 @@
                                       x-text="test.requirement_level?.toUpperCase()"></span>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
-                                <span :class="getTestMethodBadgeClass(test.requirement_test_method || 'manual') + ' px-2 py-1 text-xs font-medium rounded-full'" 
-                                      x-text="(test.requirement_test_method || 'manual').charAt(0).toUpperCase() + (test.requirement_test_method || 'manual').slice(1)"></span>
+                                <span :class="getTestMethodBadgeClass(test.test_method_used || test.requirement_test_method || 'manual') + ' px-2 py-1 text-xs font-medium rounded-full'" 
+                                      x-text="(test.test_method_used || test.requirement_test_method || 'manual').charAt(0).toUpperCase() + (test.test_method_used || test.requirement_test_method || 'manual').slice(1)"></span>
+                            </td>
+                            <td class="px-6 py-4 text-sm">
+                                <div class="max-w-xs">
+                                    <a x-show="test.page_url" :href="test.page_url" target="_blank" 
+                                       class="text-blue-600 hover:text-blue-800 hover:underline truncate block">
+                                        <span x-text="test.page_title || test.page_url" class="truncate"></span>
+                                        <i class="fas fa-external-link-alt ml-1 text-xs"></i>
+                                    </a>
+                                    <span x-show="!test.page_url" class="text-gray-400 italic">No URL</span>
+                                </div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <span :class="getTestStatusBadgeClass(test.status) + ' px-2 py-1 text-xs font-medium rounded-full'" 
@@ -5484,6 +5502,146 @@
             </div>
         </div>
 
+        <!-- Requirement Details Modal -->
+        <div x-show="showRequirementDetailsModal" 
+             x-transition:enter="transition ease-out duration-300"
+             x-transition:enter-start="opacity-0"
+             x-transition:enter-end="opacity-100"
+             x-transition:leave="transition ease-in duration-200"
+             x-transition:leave-start="opacity-100"
+             x-transition:leave-end="opacity-0"
+             class="fixed inset-0 bg-black bg-opacity-50 z-70 flex items-center justify-center p-4"
+             @click.self="closeRequirementDetailsModal">
+            <div class="bg-white rounded-lg shadow-xl w-full max-w-6xl max-h-[95vh] overflow-y-auto">
+                <div x-show="currentRequirement" class="p-6 space-y-6">
+                    <!-- Modal Header -->
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <h3 class="text-2xl font-bold text-gray-900">Requirement Details</h3>
+                            <p class="text-gray-600 text-sm mt-1" x-text="currentRequirement?.criterion_number + ' - ' + currentRequirement?.title"></p>
+                        </div>
+                        <button @click="closeRequirementDetailsModal" class="text-gray-400 hover:text-gray-600">
+                            <i class="fas fa-times text-xl"></i>
+                        </button>
+                    </div>
+
+                    <!-- Requirement Overview -->
+                    <div class="bg-blue-50 rounded-lg p-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <h4 class="text-lg font-semibold text-blue-900 mb-3">WCAG Details</h4>
+                                <div class="space-y-2 text-sm">
+                                    <div>
+                                        <span class="font-medium text-blue-800">WCAG Criterion:</span>
+                                        <span class="ml-2 font-mono bg-blue-100 px-2 py-1 rounded text-blue-900" x-text="currentRequirement?.criterion_number"></span>
+                                    </div>
+                                    <div>
+                                        <span class="font-medium text-blue-800">WCAG Level:</span>
+                                        <span :class="'ml-2 px-2 py-1 rounded text-xs font-semibold ' + getWcagLevelBadgeClass(currentRequirement?.level)" 
+                                              x-text="currentRequirement?.level?.toUpperCase()"></span>
+                                    </div>
+                                    <div>
+                                        <span class="font-medium text-blue-800">Test Method:</span>
+                                        <span :class="getTestMethodBadgeClass(currentRequirement?.test_method || 'manual') + ' ml-2 px-2 py-1 text-xs font-medium rounded-full'" 
+                                              x-text="(currentRequirement?.test_method || 'manual').charAt(0).toUpperCase() + (currentRequirement?.test_method || 'manual').slice(1)"></span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div>
+                                <h4 class="text-lg font-semibold text-blue-900 mb-3">Test Status</h4>
+                                <div class="space-y-2 text-sm">
+                                    <div>
+                                        <span class="font-medium text-blue-800">Overall Status:</span>
+                                        <span :class="getRequirementOverallStatusClass(currentRequirement) + ' ml-2 px-2 py-1 text-xs font-medium rounded-full'" 
+                                              x-text="getRequirementOverallStatus(currentRequirement)"></span>
+                                    </div>
+                                    <div x-show="currentRequirement?.automated_tests && currentRequirement?.automated_tests.length > 0">
+                                        <span class="font-medium text-blue-800">Automated Tests:</span>
+                                        <span class="ml-2 text-blue-900" x-text="currentRequirement?.automated_tests?.length || 0"></span>
+                                    </div>
+                                    <div x-show="currentRequirement?.manual_tests && currentRequirement?.manual_tests.length > 0">
+                                        <span class="font-medium text-blue-800">Manual Tests:</span>
+                                        <span class="ml-2 text-blue-900" x-text="currentRequirement?.manual_tests?.length || 0"></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Requirement Description -->
+                    <div class="bg-gray-50 border border-gray-200 rounded-lg p-6">
+                        <h4 class="text-lg font-semibold text-gray-900 mb-3">Requirement Description</h4>
+                        <div class="bg-white border border-gray-200 rounded p-4">
+                            <p class="text-sm text-gray-900" x-text="currentRequirement?.description || 'No description available'"></p>
+                        </div>
+                    </div>
+
+                    <!-- Test Results -->
+                    <div x-show="currentRequirement?.automated_tests && currentRequirement?.automated_tests.length > 0" class="bg-white border border-gray-200 rounded-lg p-6">
+                        <h4 class="text-lg font-semibold text-gray-900 mb-4">Automated Test Results</h4>
+                        <div class="space-y-3">
+                            <template x-for="(autoTest, index) in currentRequirement?.automated_tests || []" :key="autoTest.id || index">
+                                <div class="border border-gray-200 rounded p-4">
+                                    <div class="flex justify-between items-start mb-2">
+                                        <div class="flex items-center space-x-2">
+                                            <span :class="autoTest.status === 'passed' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'" 
+                                                  class="px-2 py-1 text-xs font-medium rounded">
+                                                <span x-text="autoTest.tool_used || 'Unknown Tool'"></span>
+                                                <i :class="autoTest.status === 'passed' ? 'fas fa-check ml-1' : 'fas fa-times ml-1'"></i>
+                                            </span>
+                                            <span class="text-sm text-gray-600" x-text="autoTest.status || 'Unknown Status'"></span>
+                                        </div>
+                                        <span class="text-xs text-gray-500" x-text="formatDate(autoTest.created_at)"></span>
+                                    </div>
+                                    <div x-show="autoTest.description" class="text-sm text-gray-700" x-text="autoTest.description"></div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- Manual Test Results -->
+                    <div x-show="currentRequirement?.manual_tests && currentRequirement?.manual_tests.length > 0" class="bg-white border border-gray-200 rounded-lg p-6">
+                        <h4 class="text-lg font-semibold text-gray-900 mb-4">Manual Test Results</h4>
+                        <div class="space-y-3">
+                            <template x-for="(manualTest, index) in currentRequirement?.manual_tests || []" :key="manualTest.id || index">
+                                <div class="border border-gray-200 rounded p-4">
+                                    <div class="flex justify-between items-start mb-2">
+                                        <div class="flex items-center space-x-2">
+                                            <span :class="getTestStatusBadgeClass(manualTest.status) + ' px-2 py-1 text-xs font-medium rounded'" 
+                                                  x-text="manualTest.status || 'Unknown Status'"></span>
+                                            <span x-show="manualTest.assigned_tester_name" class="text-sm text-gray-600" 
+                                                  x-text="'Assigned to: ' + manualTest.assigned_tester_name"></span>
+                                        </div>
+                                        <span class="text-xs text-gray-500" x-text="formatDate(manualTest.updated_at)"></span>
+                                    </div>
+                                    <div x-show="manualTest.notes" class="text-sm text-gray-700" x-text="manualTest.notes"></div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="flex justify-end space-x-3 pt-6 border-t border-gray-200">
+                        <button @click="closeRequirementDetailsModal" 
+                                class="px-6 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors">
+                            Close
+                        </button>
+                        <button x-show="currentRequirement?.test_method === 'automated' || currentRequirement?.test_method === 'both'" 
+                                @click="runAutomatedTestForRequirement(currentRequirement)" 
+                                class="px-6 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors">
+                            <i class="fas fa-robot mr-2"></i>Run Automated Test
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Loading State -->
+                <div x-show="isLoadingRequirement" class="p-6 text-center">
+                    <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                    <p class="text-gray-600">Loading requirement details...</p>
+                </div>
+            </div>
+        </div>
+
         <!-- Test Instance Detail Modal (Task 2.1.2) -->
         <div x-show="showTestInstanceModal" 
              x-transition:enter="transition ease-out duration-300"
@@ -5528,16 +5686,16 @@
                                             <div>
                                                 <span class="font-medium text-blue-800">Requirement Test Method:</span>
                                                 <div class="mt-1">
-                                                    <span :class="getTestMethodBadgeClass(testInstanceDetails?.requirement_test_method || currentTestInstance?.requirement_test_method || 'manual') + ' px-2 py-1 text-xs font-medium rounded-full'" 
-                                                          x-text="(testInstanceDetails?.requirement_test_method || currentTestInstance?.requirement_test_method || 'manual').charAt(0).toUpperCase() + (testInstanceDetails?.requirement_test_method || currentTestInstance?.requirement_test_method || 'manual').slice(1)"></span>
+                                                    <span :class="getTestMethodBadgeClass(currentTestInstance?.requirement_test_method || 'manual') + ' px-2 py-1 text-xs font-medium rounded-full'" 
+                                                          x-text="(currentTestInstance?.requirement_test_method || 'manual').charAt(0).toUpperCase() + (currentTestInstance?.requirement_test_method || 'manual').slice(1)"></span>
                                                     <div class="text-xs text-gray-600 mt-1">What this requirement supports</div>
                                                 </div>
                                             </div>
                                             <div>
                                                 <span class="font-medium text-blue-800">Instance Test Method:</span>
                                                 <div class="mt-1">
-                                                    <span :class="getTestMethodBadgeClass(testInstanceDetails?.test_method_used || currentTestInstance?.test_method_used || 'manual') + ' px-2 py-1 text-xs font-medium rounded-full'" 
-                                                          x-text="(testInstanceDetails?.test_method_used || currentTestInstance?.test_method_used || 'manual').charAt(0).toUpperCase() + (testInstanceDetails?.test_method_used || currentTestInstance?.test_method_used || 'manual').slice(1)"></span>
+                                                    <span :class="getTestMethodBadgeClass(currentTestInstance?.test_method_used || 'manual') + ' px-2 py-1 text-xs font-medium rounded-full'" 
+                                                          x-text="(currentTestInstance?.test_method_used || 'manual').charAt(0).toUpperCase() + (currentTestInstance?.test_method_used || 'manual').slice(1)"></span>
                                                     <div class="text-xs text-gray-600 mt-1">What was actually used</div>
                                                 </div>
                                             </div>
@@ -5545,9 +5703,9 @@
                                     </div>
                                     
                                     <!-- Tool and Result Information -->
-                                    <div x-show="testInstanceDetails?.tool_used || currentTestInstance?.tool_used">
+                                    <div x-show="currentTestInstance?.tool_used">
                                         <span class="font-medium text-blue-800">Tool Used:</span>
-                                        <span class="ml-2 px-2 py-1 bg-green-100 text-green-800 rounded text-xs font-medium" x-text="testInstanceDetails?.tool_used || currentTestInstance?.tool_used"></span>
+                                        <span class="ml-2 px-2 py-1 bg-green-100 text-green-800 rounded text-xs font-medium" x-text="currentTestInstance?.tool_used"></span>
                                     </div>
                                     
                                     <div>

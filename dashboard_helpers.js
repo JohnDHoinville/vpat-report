@@ -158,6 +158,11 @@ function dashboard() {
         isLoadingTestInstance: false,
         isSavingTestInstance: false,
         
+        // Requirement Details Modal
+        showRequirementDetailsModal: false,
+        currentRequirement: null,
+        isLoadingRequirement: false,
+        
         // Test Assignment Interface (Task 2.1.3)
         showTestAssignmentPanel: false,
         draggedTest: null,
@@ -7640,8 +7645,14 @@ function dashboard() {
 
         viewRequirementDetails(requirement) {
             console.log('Viewing requirement details:', requirement);
-            // TODO: Implement requirement details modal
-            this.showNotification(`Viewing details for ${requirement.criterion_number}: ${requirement.title}`, 'info');
+            this.currentRequirement = requirement;
+            this.showRequirementDetailsModal = true;
+        },
+
+        closeRequirementDetailsModal() {
+            this.showRequirementDetailsModal = false;
+            this.currentRequirement = null;
+            this.isLoadingRequirement = false;
         }
     };
 }
