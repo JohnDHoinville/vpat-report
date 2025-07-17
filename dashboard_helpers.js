@@ -5473,6 +5473,10 @@ function dashboard() {
             return this.testInstances.filter(test => test && test.assigned_tester).length;
         },
 
+        getTestInstanceCountByStatus(status) {
+            return this.testInstances.filter(test => test && test.status === status).length;
+        },
+
         // Enhanced Selection Functions
         toggleAllTestSelection(checked) {
             if (checked) {
