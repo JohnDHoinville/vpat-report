@@ -590,16 +590,193 @@ router.put('/:id', async (req, res) => {
 });
 
 /**
+ * DELETE /api/sessions/bulk
+ * Bulk delete sessions (archive or permanent)
+ */
+router.delete('/bulk', async (req, res) => {
+    try {
+        const { session_ids, permanent = false, confirm_permanent = false } = req.body;
+
+        if (!session_ids || !Array.isArray(session_ids) || session_ids.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'session_ids array is required'
+            });
+        }
+
+        // Check if sessions exist
+        const existingSessions = await pool.query(`
+            SELECT ts.id, ts.name, ts.status, p.name as project_name,
+                   COUNT(ti.id) as test_instance_count,
+                   COUNT(atr.id) as automated_result_count
+            FROM test_sessions ts
+            LEFT JOIN projects p ON ts.project_id = p.id
+            LEFT JOIN test_instances ti ON ts.id = ti.session_id
+            LEFT JOIN automated_test_results atr ON ts.id = atr.test_session_id
+            WHERE ts.id = ANY($1)
+            GROUP BY ts.id, ts.name, ts.status, p.name
+        `, [session_ids]);
+
+        if (existingSessions.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'No sessions found with provided IDs'
+            });
+        }
+
+        const sessions = existingSessions.rows;
+        
+        if (permanent === true) {
+            // Require explicit confirmation for bulk permanent deletion
+            if (confirm_permanent !== true) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Bulk permanent deletion requires explicit confirmation',
+                    sessions_to_delete: sessions.map(s => ({
+                        id: s.id,
+                        name: s.name,
+                        project: s.project_name,
+                        test_instances: s.test_instance_count,
+                        automated_results: s.automated_result_count
+                    })),
+                    total_sessions: sessions.length,
+                    required_parameter: 'confirm_permanent: true'
+                });
+            }
+
+            console.log(`🗑️ BULK PERMANENT DELETION: Starting for ${sessions.length} sessions`);
+            
+            const deletedSessions = [];
+            const errors = [];
+            
+            for (const session of sessions) {
+                const client = await pool.connect();
+                try {
+                    await client.query('BEGIN');
+                    
+                    console.log(`🗑️ Deleting session: ${session.name} (${session.id})`);
+                    
+                    // Delete in proper order (same as single deletion)
+                    await client.query(`
+                        DELETE FROM test_instance_audit_log 
+                        WHERE test_instance_id IN (
+                            SELECT id FROM test_instances WHERE session_id = $1
+                        )
+                    `, [session.id]);
+                    
+                    await client.query(`
+                        DELETE FROM evidence_repository 
+                        WHERE test_instance_id IN (
+                            SELECT id FROM test_instances WHERE session_id = $1
+                        )
+                    `, [session.id]);
+                    
+                    await client.query(`
+                        DELETE FROM automated_result_review_queue 
+                        WHERE test_instance_id IN (
+                            SELECT id FROM test_instances WHERE session_id = $1
+                        )
+                    `, [session.id]);
+                    
+                    await client.query(`
+                        DELETE FROM violations 
+                        WHERE automated_result_id IN (
+                            SELECT id FROM automated_test_results WHERE test_session_id = $1
+                        ) OR manual_result_id IN (
+                            SELECT id FROM manual_test_results WHERE test_session_id = $1
+                        )
+                    `, [session.id]);
+                    
+                    await client.query('DELETE FROM frontend_test_runs WHERE test_session_id = $1', [session.id]);
+                    await client.query('DELETE FROM automated_test_results WHERE test_session_id = $1', [session.id]);
+                    await client.query('DELETE FROM manual_test_results WHERE test_session_id = $1', [session.id]);
+                    const deleteTestInstances = await client.query('DELETE FROM test_instances WHERE session_id = $1', [session.id]);
+                    const deleteSession = await client.query('DELETE FROM test_sessions WHERE id = $1', [session.id]);
+                    
+                    await client.query('COMMIT');
+                    
+                    deletedSessions.push({
+                        id: session.id,
+                        name: session.name,
+                        project: session.project_name,
+                        test_instances_deleted: deleteTestInstances.rowCount
+                    });
+                    
+                    console.log(`✅ Deleted session: ${session.name}`);
+                    
+                } catch (error) {
+                    await client.query('ROLLBACK');
+                    console.error(`❌ Failed to delete session ${session.name}:`, error);
+                    errors.push({
+                        session: session.name,
+                        error: error.message
+                    });
+                } finally {
+                    client.release();
+                }
+            }
+            
+            res.json({
+                success: true,
+                message: `Bulk permanent deletion completed`,
+                results: {
+                    deleted_count: deletedSessions.length,
+                    error_count: errors.length,
+                    deleted_sessions: deletedSessions,
+                    errors: errors
+                }
+            });
+            
+        } else {
+            // Bulk soft delete (archive)
+            const archiveQuery = `
+                UPDATE test_sessions 
+                SET status = 'archived', updated_at = CURRENT_TIMESTAMP
+                WHERE id = ANY($1)
+            `;
+            
+            const result = await pool.query(archiveQuery, [session_ids]);
+            
+            res.json({
+                success: true,
+                message: 'Sessions archived successfully',
+                archived_count: result.rowCount,
+                sessions: sessions.map(s => ({ id: s.id, name: s.name, project: s.project_name }))
+            });
+        }
+
+    } catch (error) {
+        console.error('Error in bulk session deletion:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to delete sessions',
+            error: error.message
+        });
+    }
+});
+
+/**
  * DELETE /api/sessions/:id
- * Archive session (soft delete)
+ * Archive session (soft delete) or permanently delete with all related data
  */
 router.delete('/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        const { permanent = false } = req.query;
+        const { permanent = false, confirm_permanent = false } = req.query;
 
         // Check if session exists
-        const existingSession = await pool.query('SELECT * FROM test_sessions WHERE id = $1', [id]);
+        const existingSession = await pool.query(`
+            SELECT ts.*, p.name as project_name,
+                   COUNT(ti.id) as test_instance_count,
+                   COUNT(atr.id) as automated_result_count
+            FROM test_sessions ts
+            LEFT JOIN projects p ON ts.project_id = p.id
+            LEFT JOIN test_instances ti ON ts.id = ti.session_id
+            LEFT JOIN automated_test_results atr ON ts.id = atr.test_session_id
+            WHERE ts.id = $1
+            GROUP BY ts.id, p.name
+        `, [id]);
+        
         if (existingSession.rows.length === 0) {
             return res.status(404).json({
                 success: false,
@@ -607,14 +784,114 @@ router.delete('/:id', async (req, res) => {
             });
         }
 
+        const session = existingSession.rows[0];
+
         if (permanent === 'true') {
-            // Permanent deletion (use with caution)
-            await pool.query('DELETE FROM test_sessions WHERE id = $1', [id]);
+            // Require explicit confirmation for permanent deletion
+            if (confirm_permanent !== 'true') {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Permanent deletion requires explicit confirmation',
+                    session_info: {
+                        name: session.name,
+                        project: session.project_name,
+                        test_instances: session.test_instance_count,
+                        automated_results: session.automated_result_count,
+                        created_at: session.created_at
+                    },
+                    required_parameter: 'confirm_permanent=true'
+                });
+            }
+
+            console.log(`🗑️ PERMANENT DELETION: Starting cascade delete for session ${session.name} (${id})`);
             
-            res.json({
-                success: true,
-                message: 'Testing session permanently deleted'
-            });
+            const client = await pool.connect();
+            try {
+                await client.query('BEGIN');
+                
+                // Delete in proper order to handle foreign key constraints
+                
+                // 1. Delete audit trail data first
+                console.log('🗑️ Deleting audit trail data...');
+                await client.query(`
+                    DELETE FROM test_instance_audit_log 
+                    WHERE test_instance_id IN (
+                        SELECT id FROM test_instances WHERE session_id = $1
+                    )
+                `, [id]);
+                
+                // 2. Delete evidence repository entries
+                console.log('🗑️ Deleting evidence repository...');
+                await client.query(`
+                    DELETE FROM evidence_repository 
+                    WHERE test_instance_id IN (
+                        SELECT id FROM test_instances WHERE session_id = $1
+                    )
+                `, [id]);
+                
+                // 3. Delete automated result review queue
+                console.log('🗑️ Deleting review queue entries...');
+                await client.query(`
+                    DELETE FROM automated_result_review_queue 
+                    WHERE test_instance_id IN (
+                        SELECT id FROM test_instances WHERE session_id = $1
+                    )
+                `, [id]);
+                
+                // 4. Delete violations (they reference test results)
+                console.log('🗑️ Deleting violations...');
+                await client.query(`
+                    DELETE FROM violations 
+                    WHERE automated_result_id IN (
+                        SELECT id FROM automated_test_results WHERE test_session_id = $1
+                    ) OR manual_result_id IN (
+                        SELECT id FROM manual_test_results WHERE test_session_id = $1
+                    )
+                `, [id]);
+                
+                // 5. Delete frontend test runs
+                console.log('🗑️ Deleting frontend test runs...');
+                await client.query('DELETE FROM frontend_test_runs WHERE test_session_id = $1', [id]);
+                
+                // 6. Delete automated test results
+                console.log('🗑️ Deleting automated test results...');
+                await client.query('DELETE FROM automated_test_results WHERE test_session_id = $1', [id]);
+                
+                // 7. Delete manual test results
+                console.log('🗑️ Deleting manual test results...');
+                await client.query('DELETE FROM manual_test_results WHERE test_session_id = $1', [id]);
+                
+                // 8. Delete test instances
+                console.log('🗑️ Deleting test instances...');
+                const deleteTestInstances = await client.query('DELETE FROM test_instances WHERE session_id = $1', [id]);
+                
+                // 9. Finally delete the session
+                console.log('🗑️ Deleting session...');
+                const deleteSession = await client.query('DELETE FROM test_sessions WHERE id = $1', [id]);
+                
+                await client.query('COMMIT');
+                
+                console.log(`✅ PERMANENT DELETION COMPLETE: Session "${session.name}" and all related data deleted`);
+                
+                res.json({
+                    success: true,
+                    message: 'Testing session permanently deleted',
+                    deleted_data: {
+                        session_name: session.name,
+                        project_name: session.project_name,
+                        test_instances_deleted: deleteTestInstances.rowCount,
+                        session_deleted: deleteSession.rowCount > 0
+                    }
+                });
+                
+            } catch (error) {
+                await client.query('ROLLBACK');
+                console.error(`❌ PERMANENT DELETION FAILED for session ${id}:`, error);
+                throw error;
+            } finally {
+                client.release();
+            }
+            
         } else {
             // Soft delete - archive the session
             await pool.query(`
@@ -638,6 +915,8 @@ router.delete('/:id', async (req, res) => {
         });
     }
 });
+
+
 
 /**
  * POST /api/sessions/:id/duplicate

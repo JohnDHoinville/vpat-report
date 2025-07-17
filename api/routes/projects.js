@@ -384,17 +384,25 @@ router.put('/:id', authenticateToken, async (req, res) => {
 
 /**
  * DELETE /api/projects/:id
- * Delete a project and all related data (requires authentication)
+ * Delete a project and all related data including new audit trail tables (requires authentication)
  */
 router.delete('/:id', authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
+        const { confirm_permanent = false } = req.query;
 
-        // Check if project exists and get related data count
+        // Check if project exists and get comprehensive data count
         const checkQuery = `
             SELECT 
                 p.name,
-                (SELECT COUNT(*) FROM test_sessions WHERE project_id = p.id) as session_count
+                p.primary_url,
+                (SELECT COUNT(*) FROM test_sessions WHERE project_id = p.id) as session_count,
+                (SELECT COUNT(*) FROM test_instances WHERE session_id IN 
+                    (SELECT id FROM test_sessions WHERE project_id = p.id)) as test_instance_count,
+                (SELECT COUNT(*) FROM automated_test_results WHERE test_session_id IN 
+                    (SELECT id FROM test_sessions WHERE project_id = p.id)) as automated_result_count,
+                (SELECT COUNT(*) FROM discovered_pages WHERE discovery_id IN 
+                    (SELECT id FROM site_discovery WHERE project_id = p.id)) as discovered_page_count
             FROM projects p 
             WHERE p.id = $1
         `;
@@ -409,64 +417,155 @@ router.delete('/:id', authenticateToken, async (req, res) => {
 
         const project = checkResult.rows[0];
 
-        // Delete project with proper cascading deletion
-        // We need to handle this in a transaction to ensure data integrity
+        // Require explicit confirmation for project deletion (impacts lots of data)
+        if (confirm_permanent !== 'true') {
+            return res.status(400).json({
+                error: 'Project deletion requires explicit confirmation',
+                project_info: {
+                    name: project.name,
+                    primary_url: project.primary_url,
+                    sessions: project.session_count,
+                    test_instances: project.test_instance_count,
+                    automated_results: project.automated_result_count,
+                    discovered_pages: project.discovered_page_count
+                },
+                warning: 'This will permanently delete ALL project data including sessions, test results, audit trails, and discoveries',
+                required_parameter: 'confirm_permanent=true'
+            });
+        }
+
+        console.log(`🗑️ PROJECT DELETION: Starting cascade delete for project "${project.name}" (${id})`);
         
         await db.query('BEGIN');
         
         try {
-            // 1. Delete test instances first (they reference sessions)
-            const deleteTestInstancesQuery = `
-                DELETE FROM test_instances 
-                WHERE session_id IN (
+            // Delete in proper order to handle foreign key constraints and new audit trail tables
+            
+            // 1. Delete audit trail data for all test instances in this project
+            console.log('🗑️ Deleting audit trail data...');
+            await db.query(`
+                DELETE FROM test_instance_audit_log 
+                WHERE test_instance_id IN (
+                    SELECT ti.id FROM test_instances ti
+                    JOIN test_sessions ts ON ti.session_id = ts.id
+                    WHERE ts.project_id = $1
+                )
+            `, [id]);
+            
+            // 2. Delete evidence repository entries
+            console.log('🗑️ Deleting evidence repository...');
+            await db.query(`
+                DELETE FROM evidence_repository 
+                WHERE test_instance_id IN (
+                    SELECT ti.id FROM test_instances ti
+                    JOIN test_sessions ts ON ti.session_id = ts.id
+                    WHERE ts.project_id = $1
+                )
+            `, [id]);
+            
+            // 3. Delete automated result review queue
+            console.log('🗑️ Deleting review queue entries...');
+            await db.query(`
+                DELETE FROM automated_result_review_queue 
+                WHERE test_instance_id IN (
+                    SELECT ti.id FROM test_instances ti
+                    JOIN test_sessions ts ON ti.session_id = ts.id
+                    WHERE ts.project_id = $1
+                )
+            `, [id]);
+            
+            // 4. Delete violations (they reference test results)
+            console.log('🗑️ Deleting violations...');
+            await db.query(`
+                DELETE FROM violations 
+                WHERE automated_result_id IN (
+                    SELECT id FROM automated_test_results WHERE test_session_id IN 
+                        (SELECT id FROM test_sessions WHERE project_id = $1)
+                ) OR manual_result_id IN (
+                    SELECT id FROM manual_test_results WHERE test_session_id IN 
+                        (SELECT id FROM test_sessions WHERE project_id = $1)
+                )
+            `, [id]);
+            
+            // 5. Delete frontend test runs
+            console.log('🗑️ Deleting frontend test runs...');
+            await db.query(`
+                DELETE FROM frontend_test_runs 
+                WHERE test_session_id IN (
                     SELECT id FROM test_sessions WHERE project_id = $1
                 )
-            `;
-            await db.query(deleteTestInstancesQuery, [id]);
+            `, [id]);
             
-            // 2. Delete automated test results
-            const deleteTestResultsQuery = `
+            // 6. Delete automated test results
+            console.log('🗑️ Deleting automated test results...');
+            const deleteAutomatedResults = await db.query(`
                 DELETE FROM automated_test_results 
                 WHERE test_session_id IN (
                     SELECT id FROM test_sessions WHERE project_id = $1
                 )
-            `;
-            await db.query(deleteTestResultsQuery, [id]);
+            `, [id]);
             
-            // 3. Delete test sessions
-            const deleteSessionsQuery = 'DELETE FROM test_sessions WHERE project_id = $1';
-            await db.query(deleteSessionsQuery, [id]);
+            // 7. Delete manual test results
+            console.log('🗑️ Deleting manual test results...');
+            await db.query(`
+                DELETE FROM manual_test_results 
+                WHERE test_session_id IN (
+                    SELECT id FROM test_sessions WHERE project_id = $1
+                )
+            `, [id]);
             
-            // 4. Delete discovered pages first (they reference discoveries)
-            const deletePagesQuery = `
+            // 8. Delete test instances
+            console.log('🗑️ Deleting test instances...');
+            const deleteTestInstances = await db.query(`
+                DELETE FROM test_instances 
+                WHERE session_id IN (
+                    SELECT id FROM test_sessions WHERE project_id = $1
+                )
+            `, [id]);
+            
+            // 9. Delete test sessions
+            console.log('🗑️ Deleting test sessions...');
+            const deleteSessions = await db.query('DELETE FROM test_sessions WHERE project_id = $1', [id]);
+            
+            // 10. Delete discovered pages (they reference site discoveries)
+            console.log('🗑️ Deleting discovered pages...');
+            const deletePages = await db.query(`
                 DELETE FROM discovered_pages 
                 WHERE discovery_id IN (
                     SELECT id FROM site_discovery WHERE project_id = $1
                 )
-            `;
-            await db.query(deletePagesQuery, [id]);
+            `, [id]);
             
-            // 5. Delete site discoveries
-            const deleteDiscoveriesQuery = 'DELETE FROM site_discovery WHERE project_id = $1';
-            await db.query(deleteDiscoveriesQuery, [id]);
+            // 11. Delete site discoveries
+            console.log('🗑️ Deleting site discoveries...');
+            const deleteDiscoveries = await db.query('DELETE FROM site_discovery WHERE project_id = $1', [id]);
             
-            // 6. Finally delete the project
-            const deleteProjectQuery = 'DELETE FROM projects WHERE id = $1';
-            await db.query(deleteProjectQuery, [id]);
+            // 12. Finally delete the project
+            console.log('🗑️ Deleting project...');
+            const deleteProject = await db.query('DELETE FROM projects WHERE id = $1', [id]);
             
             await db.query('COMMIT');
             
+            console.log(`✅ PROJECT DELETION COMPLETE: "${project.name}" and all related data deleted`);
+            
         } catch (deleteError) {
             await db.query('ROLLBACK');
+            console.error(`❌ PROJECT DELETION FAILED for project ${id}:`, deleteError);
             throw deleteError;
         }
 
         res.json({
             message: 'Project deleted successfully',
-            deleted: {
+            deleted_data: {
                 id,
                 name: project.name,
-                sessions_deleted: project.session_count
+                primary_url: project.primary_url,
+                sessions_deleted: deleteSessions.rowCount,
+                test_instances_deleted: deleteTestInstances.rowCount,
+                automated_results_deleted: deleteAutomatedResults.rowCount,
+                discovered_pages_deleted: deletePages.rowCount,
+                discoveries_deleted: deleteDiscoveries.rowCount,
+                project_deleted: deleteProject.rowCount > 0
             }
         });
 

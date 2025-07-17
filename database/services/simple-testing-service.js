@@ -177,14 +177,74 @@ class SimpleTestingService {
     }
 
     /**
+     * Insert a synthetic page into discovered_pages table for single URL tests
+     * @param {string} sessionId - Test session UUID
+     * @param {string} pageId - Page UUID
+     * @param {string} url - Page URL
+     * @private
+     */
+    async insertSyntheticPage(sessionId, pageId, url) {
+        const client = await this.pool.connect();
+        try {
+            // Create a synthetic discovery session for this session
+            const discoveryId = uuidv4();
+            const projectResult = await client.query(
+                'SELECT project_id FROM test_sessions WHERE id = $1',
+                [sessionId]
+            );
+            
+            if (projectResult.rows.length > 0) {
+                // Extract domain from URL
+                const domain = new URL(url).hostname;
+                
+                // Create synthetic discovery session
+                await client.query(
+                    `INSERT INTO site_discovery (id, project_id, primary_url, domain, status, total_pages_found, created_at, completed_at)
+                     VALUES ($1, $2, $3, $4, 'completed', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                     ON CONFLICT (id) DO NOTHING`,
+                    [discoveryId, projectResult.rows[0].project_id, url, domain]
+                );
+                
+                // Insert the synthetic page
+                await client.query(
+                    `INSERT INTO discovered_pages (id, discovery_id, url, page_type, http_status, title, discovered_at)
+                     VALUES ($1, $2, $3, 'content', 200, 'Manual Test Page', CURRENT_TIMESTAMP)
+                     ON CONFLICT (id) DO NOTHING`,
+                    [pageId, discoveryId, url]
+                );
+            }
+            
+        } finally {
+            client.release();
+        }
+    }
+
+    /**
      * Run automated tests for all pages in a session
      * @param {string} sessionId - Test session UUID
      * @param {Array} pages - Array of discovered pages
      * @param {Object} options - Testing options
      */
-    async runAutomatedTests(sessionId, pages, options) {
+    async runAutomatedTests(sessionId, pages, options = {}) {
         try {
             this.activeTestSessions.set(sessionId, { status: 'running', progress: 0 });
+            
+            // Handle case where pages is actually a single URL or URL object
+            if (!Array.isArray(pages)) {
+                if (typeof pages === 'string') {
+                    // Single URL string - need to create and insert the page first
+                    const pageId = uuidv4();
+                    await this.insertSyntheticPage(sessionId, pageId, pages);
+                    pages = [{ id: pageId, url: pages, page_type: 'content' }];
+                } else if (pages && pages.url) {
+                    // URL object - ensure it exists in discovered_pages
+                    const pageId = pages.id || uuidv4();
+                    await this.insertSyntheticPage(sessionId, pageId, pages.url);
+                    pages = [{ id: pageId, url: pages.url, page_type: 'content' }];
+                } else {
+                    throw new Error('Invalid pages parameter - must be array of page objects or single URL');
+                }
+            }
             
             const testTypes = options.testTypes || ['axe', 'pa11y', 'lighthouse'];
             const totalTests = pages.length * testTypes.length;
@@ -485,19 +545,28 @@ class SimpleTestingService {
                     const requirementKey = `${criterion}-${pageId}`;
                     if (processedRequirements.has(requirementKey)) continue;
                     
-                    await this.createTestInstanceForRequirement(
-                        client,
-                        sessionId,
-                        pageId,
-                        criterion,
-                        'failed',
-                        toolName,
-                        testResultId,
-                        violation,
-                        automatedResult
-                    );
-                    
-                    processedRequirements.add(requirementKey);
+                    try {
+                        await this.createTestInstanceForRequirement(
+                            client,
+                            sessionId,
+                            pageId,
+                            criterion,
+                            'failed',
+                            toolName,
+                            testResultId,
+                            violation,
+                            automatedResult
+                        );
+                        
+                        processedRequirements.add(requirementKey);
+                    } catch (error) {
+                        console.error(`❌ Failed to create test instance for ${criterion}:`, error.message);
+                        // If transaction is aborted, we need to stop processing
+                        if (error.code === '25P02') {
+                            throw error;
+                        }
+                        // For other errors, continue processing
+                    }
                 }
             }
             
@@ -514,19 +583,28 @@ class SimpleTestingService {
                 );
                 
                 if (!hasViolation) {
-                    await this.createTestInstanceForRequirement(
-                        client,
-                        sessionId,
-                        pageId,
-                        criterion,
-                        'passed',
-                        toolName,
-                        testResultId,
-                        null,
-                        automatedResult
-                    );
-                    
-                    processedRequirements.add(requirementKey);
+                    try {
+                        await this.createTestInstanceForRequirement(
+                            client,
+                            sessionId,
+                            pageId,
+                            criterion,
+                            'passed',
+                            toolName,
+                            testResultId,
+                            null,
+                            automatedResult
+                        );
+                        
+                        processedRequirements.add(requirementKey);
+                    } catch (error) {
+                        console.error(`❌ Failed to create test instance for ${criterion}:`, error.message);
+                        // If transaction is aborted, we need to stop processing
+                        if (error.code === '25P02') {
+                            throw error;
+                        }
+                        // For other errors, continue processing
+                    }
                 }
             }
             
@@ -572,7 +650,7 @@ class SimpleTestingService {
                 testInstanceId = existingQuery.rows[0].id;
                 console.log(`📝 Updating existing test instance ${testInstanceId} for WCAG ${wcagCriterion}`);
                 
-                // If we have automated result, process with audit trail
+                // Process with audit trail if available
                 if (automatedResult) {
                     await this.auditTrailService.processAutomatedResult(testInstanceId, automatedResult, wcagCriterion);
                 } else {
@@ -637,7 +715,7 @@ class SimpleTestingService {
                 
                 testInstanceId = result.rows[0].id;
                 
-                // If we have detailed automated result, process with audit trail
+                // Process with audit trail if available
                 if (automatedResult) {
                     await this.auditTrailService.processAutomatedResult(testInstanceId, automatedResult, wcagCriterion);
                 }
@@ -647,7 +725,7 @@ class SimpleTestingService {
             
         } catch (error) {
             console.error(`❌ Error creating test instance for ${wcagCriterion}:`, error);
-            // Don't throw - continue processing other requirements
+            throw error; // Throw error to properly handle transaction state
         }
     }
 
