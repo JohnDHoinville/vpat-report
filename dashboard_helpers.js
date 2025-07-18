@@ -12,6 +12,19 @@ function dashboard() {
         apiConnected: false,
         loading: false,
         selectedProject: null,
+        isInitializing: true,
+        _initialized: false,
+        
+        // Auth prompt data
+        authPrompt: {
+            promptId: '',
+            discoveryId: '',
+            loginUrl: '',
+            authType: '',
+            formFields: [],
+            message: ''
+        },
+        authCredentials: {},
         
         // Authentication State
         isAuthenticated: false,
@@ -83,6 +96,7 @@ function dashboard() {
         testingSessions: [], // New testing sessions data
         analytics: {},
         sessions: [],
+        availableAuthConfigs: [], // Authentication configurations for discovery
         
         // Unified Test Grid Data (Task 2.1.1)
         viewingSessionDetails: false,
@@ -277,6 +291,7 @@ function dashboard() {
         showDeleteSession: false,
         showLogin: false,
         showProfile: false,
+        showAuthPrompt: false,
         showChangePassword: false,
         showSessions: false,
         
@@ -292,7 +307,10 @@ function dashboard() {
             primary_url: '',
             maxDepth: 3,
             maxPages: 50,
-            respectRobots: true
+            respectRobots: true,
+            excludePublicPages: false,
+            dynamicAuth: false,
+            auth_config_id: ''
         },
         
         newSession: {
@@ -339,6 +357,13 @@ function dashboard() {
 
         // Initialization
         async init() {
+            // Prevent multiple initializations
+            if (this.isInitializing === false || this._initialized) {
+                console.log('⚠️ Skipping duplicate initialization');
+                return;
+            }
+            this._initialized = true;
+            
             console.log('🚀 Initializing Accessibility Testing Dashboard...');
             
             // AGGRESSIVE modal reset to prevent stuck modals
@@ -346,6 +371,29 @@ function dashboard() {
             this.showTestInstanceModal = false;
             this.showViolationInspector = false;
             this.showLogin = false;
+            this.showAuthPrompt = false;
+            
+            // Clear any old auth prompt data that might be persisting
+            this.authPrompt = {
+                promptId: '',
+                discoveryId: '',
+                loginUrl: '',
+                authType: '',
+                formFields: [],
+                message: ''
+            };
+            this.authCredentials = {};
+            
+            // Clear any potentially stuck localStorage state
+            const authKeys = Object.keys(localStorage).filter(key => 
+                key.includes('auth') || key.includes('Auth') || key.includes('prompt')
+            );
+            authKeys.forEach(key => {
+                if (key !== 'auth_token') { // Keep the actual auth token
+                    console.log(`🧹 Clearing localStorage key: ${key}`);
+                    localStorage.removeItem(key);
+                }
+            });
             
             // NUCLEAR OPTION: Override modal opening functions temporarily for 30 seconds
             const originalOpenTestConfigModal = this.openTestConfigurationModal;
@@ -355,21 +403,59 @@ function dashboard() {
                 return Promise.resolve();
             };
             
+            // Block auth prompt for initialization period
+            const originalHandleAuthPrompt = this.handleAuthPrompt;
+            this.handleAuthPrompt = function(authPromptData) {
+                console.log('🚫 Auth prompt BLOCKED during initialization - Data:', authPromptData);
+                this.showAuthPrompt = false;
+                return;
+            };
+            
             // Create a manual function for when user wants to open modal
             this.manualOpenTestConfigurationModal = originalOpenTestConfigModal;
             
             // Block for 30 seconds instead of 5
             setTimeout(() => {
                 this.openTestConfigurationModal = originalOpenTestConfigModal;
+                this.handleAuthPrompt = originalHandleAuthPrompt;
                 console.log('✅ Modal functions restored after 30-second cooldown');
             }, 30000);
             
             // Force close any potentially stuck modals multiple times
             for (let i = 0; i < 5; i++) {
                 setTimeout(() => {
+                    // Testing modals
                     this.showTestConfigurationModal = false;
                     this.showTestInstanceModal = false;
                     this.showViolationInspector = false;
+                    this.showRequirementDetailsModal = false;
+                    this.showTestAssignmentPanel = false;
+                    this.showAutomatedTestModal = false;
+                    this.showManualTestingModal = false;
+                    this.showTesterAssignmentModal = false;
+                    
+                    // Project and discovery modals
+                    this.showCreateProject = false;
+                    this.showStartDiscovery = false;
+                    this.showCreateSession = false;
+                    this.showCreateTestingSession = false;
+                    this.showViewPages = false;
+                    this.showDeleteProject = false;
+                    this.showDeleteDiscovery = false;
+                    this.showDeleteSession = false;
+                    
+                    // Auth and user modals
+                    this.showLogin = false;
+                    this.showProfile = false;
+                    this.showAuthPrompt = false;
+                    this.showChangePassword = false;
+                    this.showSetupAuth = false;
+                    this.showEditAuth = false;
+                    
+                    // Other modals
+                    this.showSessions = false;
+                    this.showCoverageAnalysis = false;
+                    
                     console.log(`🔒 Force-closed all modals (attempt ${i + 1})`);
                 }, i * 200);
             }
@@ -378,6 +464,14 @@ function dashboard() {
             
             await this.checkAPIConnection();
             await this.checkExistingAuth();
+            
+            // Additional safety check after initialization to ensure auth prompt doesn't appear
+            setTimeout(() => {
+                if (this.showAuthPrompt) {
+                    console.log('🔒 Auth prompt detected after initialization, forcing close');
+                    this.showAuthPrompt = false;
+                }
+            }, 2000);
             if (this.apiConnected) {
                 if (this.isAuthenticated) {
                     await this.initWebSocket();
@@ -389,6 +483,35 @@ function dashboard() {
                     setTimeout(() => this.showLogin = true, 500);
                 }
             }
+            
+            // Mark initialization as complete
+            this.isInitializing = false;
+            console.log('✅ Dashboard initialization complete');
+            
+            // Final auth prompt cleanup - run this after everything else
+            setTimeout(() => {
+                if (this.showAuthPrompt) {
+                    console.log('🧹 Final cleanup: Force-closing auth prompt after initialization');
+                    this.showAuthPrompt = false;
+                    this.authPrompt = {
+                        promptId: '',
+                        discoveryId: '',
+                        loginUrl: '',
+                        authType: '',
+                        formFields: [],
+                        message: ''
+                    };
+                }
+                
+                // Also check DOM and force-hide any auth prompt modals
+                const authModals = document.querySelectorAll('[x-show="showAuthPrompt"]');
+                authModals.forEach(modal => {
+                    if (modal.style.display !== 'none') {
+                        console.log('🧹 Force-hiding auth modal via DOM manipulation');
+                        modal.style.display = 'none';
+                    }
+                });
+            }, 1000);
         },
 
         // API Connection
@@ -441,6 +564,12 @@ function dashboard() {
                 this.socket.on('connect_error', (error) => {
                     console.error('WebSocket connection error:', error);
                     this.wsConnected = false;
+                });
+                
+                // Auth prompt events
+                this.socket.on('auth_prompt', (data) => {
+                    console.log('🔐 Auth prompt received:', data);
+                    this.handleAuthPrompt(data.authPrompt);
                 });
                 
                 // Discovery progress events
@@ -580,6 +709,74 @@ function dashboard() {
             if (this.selectedProject) {
                 this.loadProjectDiscoveries();
             }
+        },
+
+        // Auth prompt handling methods
+        handleAuthPrompt(authPromptData) {
+            // Prevent auth prompt from showing during initialization or if no project is selected
+            if (!this.selectedProject || this.isInitializing) {
+                console.log('🔒 Auth prompt blocked during initialization or no project selected');
+                return;
+            }
+            
+            this.authPrompt = {
+                promptId: authPromptData.promptId,
+                discoveryId: authPromptData.discoveryId,
+                loginUrl: authPromptData.loginUrl,
+                authType: authPromptData.authType,
+                formFields: authPromptData.formFields,
+                message: authPromptData.message
+            };
+            
+            // Initialize credentials object based on form fields
+            this.authCredentials = {};
+            authPromptData.formFields.forEach(field => {
+                this.authCredentials[field.name] = '';
+            });
+            
+            this.showAuthPrompt = true;
+        },
+
+        async submitAuthCredentials() {
+            try {
+                const response = await fetch(`/api/projects/${this.selectedProject.id}/discoveries/${this.authPrompt.discoveryId}/auth-response`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${this.token}`
+                    },
+                    body: JSON.stringify({
+                        promptId: this.authPrompt.promptId,
+                        credentials: this.authCredentials
+                    })
+                });
+
+                if (response.ok) {
+                    this.showAuthPrompt = false;
+                    this.addNotification('Authentication Submitted', 'Credentials provided, discovery will continue with authentication.', 'success');
+                } else {
+                    const error = await response.json();
+                    this.addNotification('Authentication Failed', error.message, 'error');
+                }
+            } catch (error) {
+                console.error('Error submitting auth credentials:', error);
+                this.addNotification('Authentication Error', error.message, 'error');
+            }
+        },
+
+        cancelAuthPrompt() {
+            // Send empty credentials to cancel
+            this.submitAuthCredentials().then(() => {
+                this.authPrompt = {
+                    promptId: '',
+                    discoveryId: '',
+                    loginUrl: '',
+                    authType: '',
+                    formFields: [],
+                    message: ''
+                };
+                this.authCredentials = {};
+            });
         },
 
         handleSessionProgress(data) {
@@ -1438,15 +1635,37 @@ function dashboard() {
                 primary_url: '',
                 maxDepth: 3,
                 maxPages: 50,
-                respectRobots: true
+                respectRobots: true,
+                excludePublicPages: false,
+                dynamicAuth: false,
+                auth_config_id: ''
             };
         },
 
-        openStartDiscoveryModal() {
+        async openStartDiscoveryModal() {
             this.showStartDiscovery = true;
             // Auto-populate the primary URL from the selected project
             if (this.selectedProject && this.selectedProject.primary_url) {
                 this.newDiscovery.primary_url = this.selectedProject.primary_url;
+            }
+            
+            // Load available authentication configurations for this project
+            await this.loadAvailableAuthConfigs();
+        },
+
+        async loadAvailableAuthConfigs() {
+            if (!this.selectedProject) {
+                this.availableAuthConfigs = [];
+                return;
+            }
+            
+            try {
+                const response = await this.apiCall(`/projects/${this.selectedProject.id}/auth-configs`);
+                this.availableAuthConfigs = response.data.auth_configs || [];
+                console.log(`✅ Loaded ${this.availableAuthConfigs.length} authentication configurations for project ${this.selectedProject.name}`);
+            } catch (error) {
+                console.warn('Failed to load authentication configurations:', error);
+                this.availableAuthConfigs = [];
             }
         },
 
@@ -1561,6 +1780,9 @@ function dashboard() {
                 const data = await this.apiCall(`/projects/${this.selectedProject.id}/discoveries/${discovery.id}/pages`);
                 this.discoveredPages = data.pages || [];
                 console.log(`📄 Loaded ${this.discoveredPages.length} discovered pages`);
+                
+                // Clean up any stale excluded page references
+                this.cleanupExcludedPages();
             } catch (error) {
                 console.error('Failed to load discovered pages:', error);
                 this.showNotification('Failed to load discovered pages', 'error');
@@ -1630,6 +1852,23 @@ function dashboard() {
             const key = `excludedPages_${discoveryId}`;
             const saved = localStorage.getItem(key);
             this.excludedPages = saved ? JSON.parse(saved) : [];
+            
+            // Clean up any excluded page IDs that don't exist in the current discovered pages
+            this.cleanupExcludedPages();
+        },
+        
+        cleanupExcludedPages() {
+            if (this.discoveredPages.length > 0 && this.excludedPages.length > 0) {
+                const validPageIds = this.discoveredPages.map(page => page.id);
+                const originalLength = this.excludedPages.length;
+                this.excludedPages = this.excludedPages.filter(pageId => validPageIds.includes(pageId));
+                
+                // Save cleaned up data if changes were made
+                if (this.excludedPages.length !== originalLength) {
+                    console.log(`🧹 Cleaned up excluded pages: ${originalLength} → ${this.excludedPages.length}`);
+                    this.saveExcludedPages();
+                }
+            }
         },
 
         clearExcludedPages() {
@@ -1692,9 +1931,17 @@ function dashboard() {
             const saved = localStorage.getItem(key);
             const excludedPages = saved ? JSON.parse(saved) : [];
             
-            const totalPages = discovery.total_pages_found || 0;
-            const excludedCount = excludedPages.length;
-            const includedCount = totalPages - excludedCount;
+            let totalPages = discovery.total_pages_found || 0;
+            
+            // If we're currently viewing this discovery's pages, use the actual loaded data for accuracy
+            if (this.selectedDiscovery && this.selectedDiscovery.id === discovery.id && this.discoveredPages.length > 0) {
+                totalPages = this.discoveredPages.length;
+            }
+            
+            // Ensure excluded count doesn't exceed total pages (data consistency issue)
+            const excludedCount = Math.min(excludedPages.length, totalPages);
+            const includedCount = Math.max(0, totalPages - excludedCount);
+            
             return {
                 total: totalPages,
                 included: includedCount,
@@ -1753,6 +2000,9 @@ function dashboard() {
             
             // Reload selected discoveries from localStorage to ensure consistency
             this.loadSelectedDiscoveries();
+            
+            // Force refresh of discoveries array to trigger reactivity in displays
+            this.discoveries = [...this.discoveries];
             
             // Force recalculation of page counts by calling the function
             // This ensures the Testing tab shows up-to-date counts
@@ -5562,7 +5812,7 @@ function dashboard() {
                 // Update test assignment
                 const response = await this.apiCall(
                     `/test-instances/${draggedTestRef.id}/assign`,
-                    'PUT',
+                    'POST',
                     { assigned_tester: testerId }
                 );
 
@@ -7643,6 +7893,11 @@ function dashboard() {
         },
 
         getRequirementOverallStatus(requirement) {
+            // Handle null/undefined requirement
+            if (!requirement) {
+                return 'not_tested';
+            }
+            
             // Handle both direct calls with separate parameters and requirement objects
             if (typeof requirement === 'object' && requirement.automated_tests !== undefined) {
                 // Called with requirement object - extract the test arrays
@@ -7785,6 +8040,11 @@ function dashboard() {
         },
 
         getRequirementOverallStatusClass(requirement) {
+            // Handle null/undefined requirement
+            if (!requirement) {
+                return 'bg-gray-100 text-gray-600';
+            }
+            
             const status = requirement.overall_status;
             switch (status) {
                 case 'passed':

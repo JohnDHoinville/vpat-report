@@ -679,7 +679,10 @@ router.post('/:id/discoveries', optionalAuth, async (req, res) => {
             maxDepth = 3,
             maxPages = 100,
             respectRobots = true,
-            timeout = 10000
+            timeout = 10000,
+            auth_config_id,  // New parameter for authentication selection
+            excludePublicPages = false,  // Skip public pages, discover only authenticated content
+            dynamicAuth = false  // Prompt for credentials when login page is encountered
         } = req.body;
 
         // Check if project exists
@@ -699,12 +702,15 @@ router.post('/:id/discoveries', optionalAuth, async (req, res) => {
         // Initialize discovery service with WebSocket
         const discoveryService = new SiteDiscoveryService(wsService);
 
-        // Start discovery
+        // Start discovery with optional authentication config
         const discovery = await discoveryService.startDiscovery(projectId, urlToUse, {
             maxDepth,
             maxPages,
             respectRobots,
-            timeout
+            timeout,
+            authConfigId: auth_config_id,  // Pass auth config ID to discovery service
+            excludePublicPages,  // Skip public pages if true
+            dynamicAuth  // Prompt for credentials when needed
         });
 
         res.status(201).json({
@@ -811,6 +817,34 @@ router.delete('/:id/discoveries/:discoveryId', authenticateToken, async (req, re
         console.error('Error deleting discovery:', error);
         res.status(500).json({
             error: 'Failed to delete discovery',
+            message: error.message
+        });
+    }
+});
+
+// API endpoint to handle dynamic authentication responses
+router.post('/api/projects/:id/discoveries/:discoveryId/auth-response', async (req, res) => {
+    try {
+        const { id: projectId, discoveryId } = req.params;
+        const { promptId, credentials } = req.body;
+
+        // Get the dynamic auth service
+        const DynamicAuthService = require('../../database/services/dynamic-auth-service');
+        const dynamicAuthService = new DynamicAuthService(req.pool, req.wsService);
+
+        // Handle the auth response
+        await dynamicAuthService.handleAuthResponse(discoveryId, promptId, credentials);
+
+        res.json({
+            message: 'Authentication response processed',
+            promptId,
+            discoveryId
+        });
+
+    } catch (error) {
+        console.error('Error processing auth response:', error);
+        res.status(500).json({
+            error: 'Failed to process authentication response',
             message: error.message
         });
     }
@@ -1226,50 +1260,53 @@ router.post('/:id/playwright-testing', authenticateToken, async (req, res) => {
  * GET /api/projects/:id/auth-configs
  * Get available authentication configurations for a project
  */
-router.get('/:id/auth-configs', authenticateToken, async (req, res) => {
+router.get('/:id/auth-configs', async (req, res) => {
     try {
         const { id: projectId } = req.params;
 
-        // Get project authentication configurations using the database function
-        const result = await db.query(`
-            SELECT * FROM get_project_auth_configs($1)
-        `, [projectId]);
-
-        const authConfigs = result.rows;
-
-        // Group by domain for better organization
-        const configsByDomain = authConfigs.reduce((acc, config) => {
-            if (!acc[config.domain]) {
-                acc[config.domain] = [];
-            }
-            acc[config.domain].push({
-                id: config.auth_config_id,
-                name: config.auth_config_name,
-                type: config.auth_type,
-                domain: config.domain,
-                auth_role: config.auth_role,
-                auth_description: config.auth_description,
-                priority: config.priority,
-                is_default: config.is_default,
-                username: config.username,
-                auth_url: config.auth_url,
-                project_role: {
-                    name: config.project_role_name,
-                    description: config.project_role_description,
-                    type: config.role_type,
-                    testing_scope: config.testing_scope
-                }
+        // Get project details to get its primary domain
+        const projectResult = await db.query('SELECT primary_url FROM projects WHERE id = $1', [projectId]);
+        if (projectResult.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'Project not found'
             });
-            return acc;
-        }, {});
+        }
+
+        const primaryUrl = projectResult.rows[0].primary_url;
+        const domain = new URL(primaryUrl).hostname;
+
+        // Get authentication configurations for this domain
+        const result = await db.query(`
+            SELECT 
+                ac.id,
+                ac.name,
+                ac.type,
+                ac.domain,
+                ac.username,
+                ac.login_page,
+                ac.success_url,
+                ac.status,
+                ac.auth_role,
+                ac.auth_description,
+                ac.priority,
+                ac.is_default,
+                ac.created_at,
+                p.name as project_name
+            FROM auth_configs ac
+            LEFT JOIN projects p ON ac.project_id = p.id
+            WHERE ac.domain = $1 AND ac.status = 'active'
+            ORDER BY ac.priority ASC, ac.is_default DESC, ac.created_at DESC
+        `, [domain]);
 
         res.json({
             success: true,
             data: {
                 project_id: projectId,
-                auth_configs: authConfigs,
-                configs_by_domain: configsByDomain,
-                total_configs: authConfigs.length
+                domain: domain,
+                primary_url: primaryUrl,
+                auth_configs: result.rows,
+                total_configs: result.rows.length
             }
         });
 

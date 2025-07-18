@@ -987,14 +987,6 @@ router.post('/:id/assign', authenticateToken, async (req, res) => {
         const { id } = req.params;
         const { assigned_tester, notes } = req.body;
 
-        // Validate required fields
-        if (!assigned_tester) {
-            return res.status(400).json({
-                success: false,
-                error: 'assigned_tester is required'
-            });
-        }
-
         // Check if test instance exists
         const instanceExists = await pool.query('SELECT id FROM test_instances WHERE id = $1', [id]);
         if (instanceExists.rows.length === 0) {
@@ -1004,13 +996,15 @@ router.post('/:id/assign', authenticateToken, async (req, res) => {
             });
         }
 
-        // Check if user exists
-        const userExists = await pool.query('SELECT id FROM users WHERE id = $1', [assigned_tester]);
-        if (userExists.rows.length === 0) {
-            return res.status(404).json({
-                success: false,
-                error: 'User not found'
-            });
+        // Check if user exists (only if assigning, not unassigning)
+        if (assigned_tester) {
+            const userExists = await pool.query('SELECT id FROM users WHERE id = $1', [assigned_tester]);
+            if (userExists.rows.length === 0) {
+                return res.status(404).json({
+                    success: false,
+                    error: 'User not found'
+                });
+            }
         }
 
         // Update the test instance
@@ -1018,7 +1012,7 @@ router.post('/:id/assign', authenticateToken, async (req, res) => {
             UPDATE test_instances 
             SET 
                 assigned_tester = $1,
-                assigned_at = CURRENT_TIMESTAMP,
+                assigned_at = CASE WHEN $1 IS NULL THEN NULL ELSE CURRENT_TIMESTAMP END,
                 updated_at = CURRENT_TIMESTAMP,
                 notes = COALESCE($2, notes)
             WHERE id = $3
@@ -1027,9 +1021,12 @@ router.post('/:id/assign', authenticateToken, async (req, res) => {
 
         const result = await pool.query(updateQuery, [assigned_tester, notes, id]);
 
+        const isAssignment = assigned_tester !== null;
+        const message = isAssignment ? 'Test instance assigned successfully' : 'Test instance unassigned successfully';
+
         res.json({
             success: true,
-            message: 'Test instance assigned successfully',
+            message: message,
             data: result.rows[0]
         });
 

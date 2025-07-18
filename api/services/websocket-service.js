@@ -204,6 +204,29 @@ class WebSocketService {
     }
 
     /**
+     * Broadcast authentication prompt for dynamic authentication
+     */
+    emitAuthPrompt(projectId, discoveryId, authPromptData) {
+        const message = {
+            type: 'auth_prompt',
+            projectId,
+            discoveryId,
+            authPrompt: {
+                promptId: authPromptData.promptId,
+                loginUrl: authPromptData.loginUrl,
+                authType: authPromptData.authType,
+                formFields: authPromptData.formFields,
+                message: authPromptData.message
+            },
+            timestamp: new Date().toISOString()
+        };
+
+        // Emit to project room
+        this.io.to(`project_${projectId}`).emit('auth_prompt', message);
+        console.log(`🔐 Auth prompt emitted for discovery ${discoveryId} in project ${projectId}`);
+    }
+
+    /**
      * Broadcast discovery completion
      */
     emitDiscoveryComplete(projectId, discoveryId, results) {

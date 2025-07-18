@@ -1,0 +1,45 @@
+{
+  "testName": "Discovery-45bd3a4f-17d7-476e-a161-ceb6066f3e4b",
+  "rootUrl": "https://fm-dev.ti.internet2.edu/home",
+  "startTime": "2025-07-17T21:17:59.289Z",
+  "options": {
+    "maxDepth": "5",
+    "maxPages": "100",
+    "rateLimitMs": 2000,
+    "userAgent": "AccessibilityTestingBot/1.0",
+    "respectRobots": true,
+    "timeout": 10000,
+    "useAuth": false,
+    "authConfig": {
+      "id": "6696e569-00cd-4d79-b56f-dff28bd997ca",
+      "name": "I2 - FM: SA & RA",
+      "type": "sso",
+      "domain": "fm-dev.ti.internet2.edu",
+      "url": "https://fm-dev.ti.internet2.edu",
+      "username": null,
+      "password": null,
+      "login_page": "https://fm-dev.ti.internet2.edu/Shibboleth.sso/IAM_Login",
+      "success_url": "https://fm-dev.ti.internet2.edu/organizations",
+      "status": "active",
+      "project_id": "e0357656-e28d-47df-9eaf-e5825ebce426",
+      "created_at": "2025-07-17T22:14:25.022Z",
+      "updated_at": "2025-07-17T22:14:25.022Z",
+      "created_by": "46088230-6133-45e3-8a04-06feea298094",
+      "auth_role": "SA_RA",
+      "auth_description": "Service Administrator & Registration Authority role for FM",
+      "priority": 1,
+      "is_default": true,
+      "project_name": "Federation Manager (7/17 Testing)"
+    },
+    "headless": true
+  },
+  "summary": {
+    "totalRequests": 0,
+    "successfulRequests": 0,
+    "discoveredPages": 0,
+    "errors": 0,
+    "maxDepthReached": 0
+  },
+  "pages": [],
+  "errors": []
+}
