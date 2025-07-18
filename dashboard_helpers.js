@@ -2374,8 +2374,10 @@ function dashboard() {
             return this.projectAuthConfigs.filter(config => config.status === 'failed' || config.status === 'error').length;
         },
 
-        refreshAuthConfigs() {
-            this.loadProjectAuthConfigs();
+        async refreshAuthConfigs() {
+            // Refresh both global and project-specific auth configs
+            await this.loadAuthConfigs(); // This loads all configs into authConfigs array
+            await this.loadProjectAuthConfigs(); // This loads project-specific configs
             this.showNotification('Authentication configurations refreshed', 'success');
         },
 
@@ -2449,7 +2451,10 @@ function dashboard() {
                 this.showNotification('Authentication setup completed successfully!', 'success');
                 this.showSetupAuth = false;
                 this.resetAuthSetup();
-                await this.loadProjectAuthConfigs();
+                
+                // Refresh both global and project-specific auth configs
+                await this.loadAuthConfigs(); // This loads all configs into authConfigs array
+                await this.loadProjectAuthConfigs(); // This loads project-specific configs
 
             } catch (error) {
                 console.error('Authentication setup failed:', error);
@@ -2471,41 +2476,39 @@ function dashboard() {
         },
 
         async setupSSOAuth(config) {
-            this.authSetup.progressMessage = 'Starting browser for SSO authentication...';
-            this.authSetup.progress = 10;
+            this.authSetup.progressMessage = 'Configuring SSO authentication...';
+            this.authSetup.progress = 15;
 
-            // Validate authentication token
             if (!this.token) {
                 throw new Error('Authentication token not available. Please login first.');
             }
 
-            // Call the auth wizard API endpoint
-            const response = await fetch(`${this.API_BASE_URL}/auth/setup-sso`, {
+            // Create the auth config in the database for SSO
+            const authConfigData = {
+                name: config.name,
+                type: 'sso',
+                domain: this.extractDomainFromUrl(config.url),
+                url: config.url,
+                login_page: config.loginPage,
+                success_url: config.successUrl,
+                project_id: this.selectedProject?.id || null,
+                auth_role: config.auth_role || 'default',
+                auth_description: config.auth_description || `SSO authentication for ${config.name}`,
+                priority: config.priority || 1,
+                is_default: config.is_default || false
+            };
+
+            const response = await this.apiCall('/auth/configs', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${this.token}`
-                },
-                body: JSON.stringify({
-                    url: config.url,
-                    name: config.name,
-                    loginPage: config.loginPage,
-                    successUrl: config.successUrl
-                })
+                body: JSON.stringify(authConfigData)
             });
 
-            if (!response.ok) {
-                const errorText = await response.text();
-                console.error('SSO setup failed:', response.status, response.statusText, errorText);
-                throw new Error(`Setup failed: ${response.statusText} (${response.status})`);
+            if (!response.success) {
+                throw new Error(response.message || 'Failed to create SSO authentication configuration');
             }
 
-            const result = await response.json();
-            
-            // Simulate progress updates
             await this.simulateAuthProgress();
-            
-            return result;
+            return response.data;
         },
 
         async setupBasicAuth(config) {
@@ -2554,23 +2557,34 @@ function dashboard() {
                 throw new Error('Authentication token not available. Please login first.');
             }
 
-            const response = await fetch(`${this.API_BASE_URL}/auth/setup-advanced`, {
+            // Create the auth config in the database for advanced auth
+            const authConfigData = {
+                name: config.name,
+                type: 'advanced',
+                domain: this.extractDomainFromUrl(config.url),
+                url: config.url,
+                username: config.apiKey ? 'api_key' : 'token', // Store auth method in username field
+                password: config.apiKey || config.token, // Store the actual key/token in password field
+                login_page: config.loginPage,
+                success_url: config.successUrl,
+                project_id: this.selectedProject?.id || null,
+                auth_role: config.auth_role || 'default',
+                auth_description: config.auth_description || `Advanced authentication for ${config.name}`,
+                priority: config.priority || 1,
+                is_default: config.is_default || false
+            };
+
+            const response = await this.apiCall('/auth/configs', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${this.token}`
-                },
-                body: JSON.stringify(config)
+                body: JSON.stringify(authConfigData)
             });
 
-            if (!response.ok) {
-                const errorText = await response.text();
-                console.error('Advanced auth setup failed:', response.status, response.statusText, errorText);
-                throw new Error(`Setup failed: ${response.statusText} (${response.status})`);
+            if (!response.success) {
+                throw new Error(response.message || 'Failed to create advanced authentication configuration');
             }
 
             await this.simulateAuthProgress();
-            return await response.json();
+            return response.data;
         },
 
         async simulateAuthProgress() {
@@ -2697,7 +2711,8 @@ function dashboard() {
                 this.showNotification('Authentication configuration updated successfully!', 'success');
                 
                 // Reload configs to get the latest data
-                await this.loadProjectAuthConfigs();
+                await this.loadAuthConfigs(); // Refresh global configs
+                await this.loadProjectAuthConfigs(); // Refresh project-specific configs
 
             } catch (error) {
                 console.error('Failed to update auth config:', error);
@@ -2786,7 +2801,8 @@ function dashboard() {
                 });
 
                 if (response.ok) {
-                    this.loadAuthConfigs();
+                    await this.loadAuthConfigs(); // Refresh global configs
+                    await this.loadProjectAuthConfigs(); // Refresh project-specific configs
                     this.showNotification(`Authentication config imported for ${config.domain}`, 'success');
                 } else {
                     const errorText = await response.text();
