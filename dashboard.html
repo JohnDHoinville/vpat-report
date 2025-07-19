@@ -674,7 +674,49 @@
                 <!-- Discovery Sessions -->
                 <div x-show="selectedProject" class="space-y-4">
                     <div class="bg-white rounded-lg shadow-md border border-gray-200 p-6">
-                        <h3 class="text-lg font-semibold mb-4">Discovery Sessions for <span x-text="selectedProject?.name" class="text-blue-600"></span></h3>
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-lg font-semibold">Discovery Sessions for <span x-text="selectedProject?.name" class="text-blue-600"></span></h3>
+                            <div class="flex space-x-2">
+                                <button @click="recoverAllDiscoveries()" 
+                                        :disabled="loading"
+                                        class="bg-yellow-600 text-white px-3 py-2 rounded text-sm hover:bg-yellow-700 transition-colors disabled:opacity-50"
+                                        title="Recover all stuck discoveries in this project">
+                                    <i class="fas fa-wrench mr-1"></i>Recover All
+                                </button>
+                                <button @click="cleanupDiscoveryData()" 
+                                        :disabled="loading"
+                                        class="bg-purple-600 text-white px-3 py-2 rounded text-sm hover:bg-purple-700 transition-colors disabled:opacity-50"
+                                        title="Clean up orphaned discovery data">
+                                    <i class="fas fa-broom mr-1"></i>Cleanup
+                                </button>
+                                <button @click="openStartDiscoveryModal()" 
+                                        :disabled="loading"
+                                        class="bg-green-600 text-white px-3 py-2 rounded text-sm hover:bg-green-700 transition-colors disabled:opacity-50">
+                                    <i class="fas fa-plus mr-1"></i>New Discovery
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Pending Discoveries Alert -->
+                        <div x-show="discoveries.filter(d => ['pending', 'in_progress'].includes(d.status)).length > 0" 
+                             class="mb-4 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center space-x-3">
+                                    <i class="fas fa-exclamation-triangle text-orange-600"></i>
+                                    <div>
+                                        <h4 class="font-medium text-orange-900">Pending Discoveries Found</h4>
+                                        <p class="text-sm text-orange-700">
+                                            <span x-text="discoveries.filter(d => ['pending', 'in_progress'].includes(d.status)).length"></span> 
+                                            discovery(ies) may be stuck. Consider recovering them.
+                                        </p>
+                                    </div>
+                                </div>
+                                <button @click="recoverAllDiscoveries()" 
+                                        class="bg-orange-600 text-white px-3 py-2 rounded text-sm hover:bg-orange-700 transition-colors">
+                                    <i class="fas fa-wrench mr-1"></i>Recover All
+                                </button>
+                            </div>
+                        </div>
                         
                         <!-- Discovery Selection Controls -->
                         <div x-show="discoveries.filter(d => d.status === 'completed').length > 0" class="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
@@ -811,12 +853,31 @@
                                         </div>
                                     </div>
 
-                                    <!-- Actions for other statuses (in_progress, cancelled, etc.) -->
-                                    <div x-show="!['completed', 'failed'].includes(discovery.status)" class="mt-3">
-                                        <div x-show="discovery.status === 'in_progress'" class="flex items-center text-blue-600 text-sm font-medium">
-                                            <div class="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600 mr-2"></div>
-                                            Discovery in progress...
+                                    <!-- Actions for pending/stuck discoveries -->
+                                    <div x-show="['pending', 'in_progress'].includes(discovery.status)" class="mt-3">
+                                        <div class="flex items-center justify-between">
+                                            <div class="flex items-center text-orange-600 text-sm font-medium">
+                                                <div x-show="discovery.status === 'in_progress'" class="animate-spin rounded-full h-3 w-3 border-b-2 border-orange-600 mr-2"></div>
+                                                <i x-show="discovery.status === 'pending'" class="fas fa-clock mr-2"></i>
+                                                <span x-text="discovery.status === 'pending' ? 'Discovery pending...' : 'Discovery in progress...'"></span>
+                                            </div>
+                                            <div class="flex space-x-2">
+                                                <button @click="recoverDiscovery(discovery.id)" 
+                                                        class="bg-yellow-600 text-white px-3 py-1 rounded text-sm hover:bg-yellow-700 transition-colors"
+                                                        title="Attempt to recover this discovery">
+                                                    <i class="fas fa-wrench mr-1"></i>Recover
+                                                </button>
+                                                <button @click="deleteDiscovery(discovery)" 
+                                                        class="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700 transition-colors"
+                                                        title="Delete this stuck discovery">
+                                                    <i class="fas fa-trash mr-1"></i>Delete
+                                                </button>
+                                            </div>
                                         </div>
+                                    </div>
+
+                                    <!-- Actions for other statuses (cancelled, etc.) -->
+                                    <div x-show="!['completed', 'failed', 'pending', 'in_progress'].includes(discovery.status)" class="mt-3">
                                         <div x-show="discovery.status === 'cancelled'" class="flex justify-between items-center">
                                             <div class="flex space-x-2">
                                                 <button @click="deleteDiscovery(discovery)" class="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700 transition-colors">
@@ -4119,7 +4180,7 @@
                         <input x-model="newDiscovery.respectRobots" type="checkbox" id="respectRobots"
                                class="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded">
                         <label for="respectRobots" class="ml-2 block text-sm text-gray-700">
-                            Respect robots.txt
+                            Respect robots.txt (⚠️ many authenticated sites block crawlers)
                         </label>
                     </div>
                     <div class="flex items-center">
@@ -7242,80 +7303,80 @@
             <i class="fas fa-spinner fa-spin text-4xl text-gray-400 mb-4"></i>
             <p class="text-gray-600">Loading test configuration...</p>
         </div>
-    </div>
-</div>
+        <!-- Dynamic Authentication Prompt Modal -->
+        <div x-show="$data.hasOwnProperty('showAuthPrompt') && showAuthPrompt" 
+             x-init="$data.hasOwnProperty('showAuthPrompt') && showAuthPrompt && console.log('⚠️ Auth modal initialized with showAuthPrompt=true')"
+             x-effect="$data.hasOwnProperty('showAuthPrompt') && showAuthPrompt && $data.hasOwnProperty('authPrompt') && console.log('⚠️ Auth modal shown, authPrompt:', authPrompt)"
+             x-transition:enter="transition ease-out duration-300"
+             x-transition:enter-start="opacity-0"
+             x-transition:enter-end="opacity-100"
+             x-transition:leave="transition ease-in duration-200"
+             x-transition:leave-start="opacity-100"
+             x-transition:leave-end="opacity-0"
+             class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div x-show="$data.hasOwnProperty('showAuthPrompt') && showAuthPrompt"
+                 x-transition:enter="transition ease-out duration-300 transform"
+                 x-transition:enter-start="opacity-0 scale-95"
+                 x-transition:enter-end="opacity-100 scale-100"
+                 x-transition:leave="transition ease-in duration-200 transform"
+                 x-transition:leave-start="opacity-100 scale-100"
+                 x-transition:leave-end="opacity-0 scale-95"
+                 class="bg-white rounded-lg shadow-xl max-w-md w-full max-h-96 overflow-y-auto"
+                 @click.away="$data.hasOwnProperty('showAuthPrompt') && (showAuthPrompt = false)">
+                
+                <div class="flex items-center justify-between p-6 border-b border-gray-200">
+                    <h3 class="text-lg font-medium text-gray-900">
+                        <i class="fas fa-key text-blue-600 mr-2"></i>
+                        Authentication Required
+                    </h3>
+                    <button @click="cancelAuthPrompt()" class="text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
 
-<!-- Dynamic Authentication Prompt Modal -->
-<div x-show="showAuthPrompt" 
-     x-init="if (showAuthPrompt) console.log('⚠️ Auth modal initialized with showAuthPrompt=true')"
-     x-effect="if (showAuthPrompt) console.log('⚠️ Auth modal shown, authPrompt:', authPrompt)"
-     x-transition:enter="transition ease-out duration-300"
-     x-transition:enter-start="opacity-0"
-     x-transition:enter-end="opacity-100"
-     x-transition:leave="transition ease-in duration-200"
-     x-transition:leave-start="opacity-100"
-     x-transition:leave-end="opacity-0"
-     class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-    <div x-show="showAuthPrompt"
-         x-transition:enter="transition ease-out duration-300 transform"
-         x-transition:enter-start="opacity-0 scale-95"
-         x-transition:enter-end="opacity-100 scale-100"
-         x-transition:leave="transition ease-in duration-200 transform"
-         x-transition:leave-start="opacity-100 scale-100"
-         x-transition:leave-end="opacity-0 scale-95"
-         class="bg-white rounded-lg shadow-xl max-w-md w-full max-h-96 overflow-y-auto"
-         @click.away="showAuthPrompt = false">
-        
-        <div class="flex items-center justify-between p-6 border-b border-gray-200">
-            <h3 class="text-lg font-medium text-gray-900">
-                <i class="fas fa-key text-blue-600 mr-2"></i>
-                Authentication Required
-            </h3>
-            <button @click="cancelAuthPrompt()" class="text-gray-400 hover:text-gray-600">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
+                <div class="p-6">
+                    <div class="mb-4">
+                        <p class="text-sm text-gray-600 mb-2">
+                            The crawler encountered a login page and needs credentials to continue:
+                        </p>
+                        <div class="bg-gray-50 rounded-lg p-3">
+                            <p class="text-xs text-gray-500">Login URL:</p>
+                            <p class="text-sm font-mono break-all" x-text="($data.hasOwnProperty('authPrompt') && authPrompt) ? (authPrompt.loginUrl || '') : ''"></p>
+                            <p class="text-xs text-gray-500 mt-1">Authentication Type:</p>
+                            <p class="text-sm capitalize" x-text="($data.hasOwnProperty('authPrompt') && authPrompt) ? (authPrompt.authType || '') : ''"></p>
+                        </div>
+                    </div>
 
-        <div class="p-6">
-            <div class="mb-4">
-                <p class="text-sm text-gray-600 mb-2">
-                    The crawler encountered a login page and needs credentials to continue:
-                </p>
-                <div class="bg-gray-50 rounded-lg p-3">
-                    <p class="text-xs text-gray-500">Login URL:</p>
-                    <p class="text-sm font-mono break-all" x-text="authPrompt.loginUrl"></p>
-                    <p class="text-xs text-gray-500 mt-1">Authentication Type:</p>
-                    <p class="text-sm capitalize" x-text="authPrompt.authType"></p>
+                    <form @submit.prevent="submitAuthCredentials()">
+                        <template x-for="field in (($data.hasOwnProperty('authPrompt') && authPrompt) ? (authPrompt.formFields || []) : [])" :key="field.name">
+                            <div class="mb-4">
+                                <label class="block text-sm font-medium text-gray-700 mb-1" x-text="field.label"></label>
+                                <input 
+                                    :type="field.type"
+                                    :name="field.name"
+                                    x-model="authCredentials[field.name]"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    :placeholder="'Enter ' + field.label.toLowerCase()"
+                                    required>
+                            </div>
+                        </template>
+
+                        <div class="flex justify-end space-x-3 pt-4">
+                            <button type="button" @click="cancelAuthPrompt()" 
+                                    class="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 transition-colors">
+                                Cancel Discovery
+                            </button>
+                            <button type="submit" 
+                                    class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
+                                <i class="fas fa-sign-in-alt mr-1"></i>
+                                Continue with Login
+                            </button>
+                        </div>
+                    </form>
                 </div>
             </div>
-
-            <form @submit.prevent="submitAuthCredentials()">
-                <template x-for="field in authPrompt.formFields" :key="field.name">
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium text-gray-700 mb-1" x-text="field.label"></label>
-                        <input 
-                            :type="field.type"
-                            :name="field.name"
-                            x-model="authCredentials[field.name]"
-                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            :placeholder="'Enter ' + field.label.toLowerCase()"
-                            required>
-                    </div>
-                </template>
-
-                <div class="flex justify-end space-x-3 pt-4">
-                    <button type="button" @click="cancelAuthPrompt()" 
-                            class="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 transition-colors">
-                        Cancel Discovery
-                    </button>
-                    <button type="submit" 
-                            class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
-                        <i class="fas fa-sign-in-alt mr-1"></i>
-                        Continue with Login
-                    </button>
-                </div>
-            </form>
         </div>
+
     </div>
 </div>
 

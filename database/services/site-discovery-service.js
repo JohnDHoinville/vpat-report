@@ -63,7 +63,6 @@ class SiteDiscoveryService {
             const discoverySettings = {
                 maxDepth: options.maxDepth || 3,
                 maxPages: options.maxPages || 500,
-                respectRobots: options.respectRobots !== false,
                 rateLimitMs: options.rateLimitMs || 2000,
                 timeout: options.timeout || 10000,
                 userAgent: options.userAgent || 'AccessibilityTestingBot/1.0'
@@ -256,29 +255,27 @@ class SiteDiscoveryService {
                 console.log(`🌐 No authentication found for ${new URL(primaryUrl).hostname}, crawling as public site`);
             }
 
-            // Handle excludePublicPages option
+            // Handle excludePublicPages option with Two-Pass Discovery
             if (excludePublicPages) {
+                console.log(`🔐 Starting Two-Pass Authenticated Discovery (excludePublicPages=true)...`);
+                
                 if (!authConfig || !authConfig.authConfig) {
-                    console.log(`🚫 excludePublicPages=true but no authentication configured. Skipping normal crawling, will only inject known authenticated routes.`);
+                    console.log(`⚠️ No authentication configured for two-pass discovery, falling back to route injection...`);
                     
-                    // Skip normal crawling, just inject known authenticated routes if available
+                    // Fallback to route injection if no auth configured
                     const results = { pages: [] };
                     
-                    // Try to inject known authenticated routes
                     if (new URL(primaryUrl).hostname.includes('fm-dev.ti.internet2.edu')) {
-                        console.log(`🔐 Injecting known authenticated routes for SAML domain without crawling...`);
+                        console.log(`🔐 Injecting known authenticated routes for SAML domain...`);
                         await this.injectKnownAuthenticatedRoutes(discoveryId, primaryUrl, { type: 'sso' });
                         
-                        // Get count of injected pages
                         const injectedResult = await this.pool.query(
                             'SELECT COUNT(*) as count FROM discovered_pages WHERE discovery_id = $1',
                             [discoveryId]
                         );
                         const injectedCount = parseInt(injectedResult.rows[0].count);
+                        results.pages = Array(injectedCount).fill({ url: 'authenticated' });
                         
-                        results.pages = Array(injectedCount).fill({ url: 'authenticated' }); // Mock for progress
-                        
-                        // Emit completion
                         if (this.wsService) {
                             const projectId = await this.getProjectIdFromDiscovery(discoveryId);
                             this.wsService.emitDiscoveryProgress(projectId, discoveryId, {
@@ -291,52 +288,6 @@ class SiteDiscoveryService {
                         }
                     }
                     
-                    // Update final status and return
-                    await this.updateDiscoveryStatus(discoveryId, 'completed', {
-                        totalPages: results.pages.length,
-                        mode: 'authenticated_only'
-                    });
-                    
-                    if (this.wsService) {
-                        const projectId = await this.getProjectIdFromDiscovery(discoveryId);
-                        this.wsService.emitDiscoveryComplete(projectId, discoveryId, results.pages.length);
-                    }
-                    
-                    return;
-                } else {
-                    console.log(`🔐 excludePublicPages=true with authentication. Skipping normal crawling, will only inject authenticated routes.`);
-                    
-                    // Skip normal crawling, just inject known authenticated routes
-                    const results = { pages: [] };
-                    
-                    // Inject known authenticated routes with authentication
-                    if (new URL(primaryUrl).hostname.includes('fm-dev.ti.internet2.edu')) {
-                        console.log(`🔐 Injecting known authenticated routes for SAML domain with authentication...`);
-                        await this.injectKnownAuthenticatedRoutes(discoveryId, primaryUrl, authConfig.authConfig);
-                        
-                        // Get count of injected pages
-                        const injectedResult = await this.pool.query(
-                            'SELECT COUNT(*) as count FROM discovered_pages WHERE discovery_id = $1',
-                            [discoveryId]
-                        );
-                        const injectedCount = parseInt(injectedResult.rows[0].count);
-                        
-                        results.pages = Array(injectedCount).fill({ url: 'authenticated' }); // Mock for progress
-                        
-                        // Emit completion
-                        if (this.wsService) {
-                            const projectId = await this.getProjectIdFromDiscovery(discoveryId);
-                            this.wsService.emitDiscoveryProgress(projectId, discoveryId, {
-                                stage: 'completed',
-                                percentage: 100,
-                                pagesFound: injectedCount,
-                                currentUrl: 'Completed',
-                                message: `Discovery completed! Found ${injectedCount} authenticated pages (public pages excluded)`
-                            });
-                        }
-                    }
-                    
-                    // Update final status and return
                     await this.updateDiscoveryStatus(discoveryId, 'completed', {
                         totalPages: results.pages.length,
                         mode: 'authenticated_only'
@@ -349,6 +300,211 @@ class SiteDiscoveryService {
                     
                     return;
                 }
+                
+                // TWO-PASS DISCOVERY with Authentication
+                console.log(`🎯 Starting Two-Pass Authenticated Discovery...`);
+                
+                // Determine optimal starting URL for authenticated sessions
+                let startingUrl = primaryUrl;
+                const baseUrl = new URL(primaryUrl);
+                const domain = baseUrl.hostname;
+                
+                if (domain.includes('fm-dev.ti.internet2.edu') || domain.includes('federation')) {
+                    startingUrl = `${baseUrl.protocol}//${baseUrl.hostname}/dashboard`;
+                    console.log(`🎯 Using authenticated starting URL: ${startingUrl}`);
+                }
+
+                // PASS 1: Quick discovery of high-level authenticated URLs
+                console.log(`🕷️ PASS 1: Quick discovery of high-level authenticated URLs...`);
+                
+                const pass1Settings = {
+                    maxDepth: 2,
+                    maxPages: 50,
+                    rateLimitMs: rateLimitMs,
+                    userAgent: userAgent,
+                    timeout: timeout,
+                    useAuth: true,
+                    authConfig: authConfig.authConfig,
+                    dynamicAuth: dynamicAuth,
+                    headless: headless,
+                    onProgress: (progress) => {
+                        if (this.wsService) {
+                            const projectId = this.getProjectIdFromDiscovery(discoveryId);
+                            this.wsService.emitDiscoveryProgress(projectId, discoveryId, {
+                                stage: 'crawling',
+                                percentage: Math.round((progress.discoveredPages || 0) / 50 * 25), // 25% for Pass 1
+                                pagesFound: progress.discoveredPages || 0,
+                                currentUrl: progress.currentUrl || startingUrl,
+                                message: `Pass 1: ${progress.message || 'Finding high-level pages...'}`
+                            });
+                        }
+                        console.log(`🕷️ Discovery ${discoveryId} Pass 1: ${progress.message || 'Processing...'} (${progress.discoveredPages || 0} pages found)`);
+                    }
+                };
+                
+                const crawler1 = new SiteCrawler(pass1Settings);
+                this.activeCrawlers.set(discoveryId + '-pass1', crawler1);
+                
+                try {
+                    const pass1Results = await crawler1.crawl(startingUrl, `Discovery-${discoveryId}-Pass1`);
+                    this.activeCrawlers.delete(discoveryId + '-pass1');
+                    
+                    if (!pass1Results || !pass1Results.pages) {
+                        throw new Error('Pass 1 crawling failed or returned no results');
+                    }
+                    
+                    console.log(`✅ PASS 1 Complete: Found ${pass1Results.pages.length} high-level pages`);
+                    
+                    // Filter for authenticated pages from Pass 1
+                    const authenticatedPages = pass1Results.pages.filter(page => {
+                        const url = page.url || page.href;
+                        return url && page.status === 200 && (
+                            url.includes('/admin') || url.includes('/dashboard') || url.includes('/manage') ||
+                            url.includes('/organizations') || url.includes('/entities') || url.includes('/service_providers') ||
+                            url.includes('/identity_providers') || url.includes('/reports') || url.includes('/settings') ||
+                            url.includes('/users') || url.includes('/federation') || url.includes('/siteadmin') ||
+                            (!url.includes('/legal') && !url.includes('/privacy') && !url.includes('/assets/') &&
+                             !url.includes('.css') && !url.includes('.js') && !url.includes('/Shibboleth.sso'))
+                        );
+                    });
+                    
+                    console.log(`🎯 PASS 1: Found ${authenticatedPages.length} authenticated pages to explore in Pass 2`);
+                    
+                    if (authenticatedPages.length === 0) {
+                        console.log(`⚠️ No authenticated pages found in Pass 1, processing Pass 1 results...`);
+                        await this.processDiscoveryResults(undefined, discoveryId, pass1Results, { twoPassMode: 'pass1_only' });
+                        return;
+                    }
+                    
+                    // PASS 2: Deep crawl each authenticated page
+                    console.log(`🔍 PASS 2: Deep crawling each authenticated page...`);
+                    const allDiscoveredPages = [...pass1Results.pages]; // Start with Pass 1 results
+                    
+                    for (let i = 0; i < Math.min(authenticatedPages.length, 8); i++) {
+                        const authPage = authenticatedPages[i];
+                        const authUrl = authPage.url || authPage.href;
+                        
+                        console.log(`🔍 PASS 2.${i+1}: Deep crawling ${authUrl}`);
+                        
+                        const pass2Settings = {
+                            maxDepth: 3,
+                            maxPages: 200,
+                            rateLimitMs: rateLimitMs,
+                            userAgent: userAgent,
+                            timeout: timeout,
+                            useAuth: true,
+                            authConfig: authConfig.authConfig,
+                            dynamicAuth: dynamicAuth,
+                            headless: headless,
+                            onProgress: (progress) => {
+                                const overallProgress = 25 + ((i / Math.min(authenticatedPages.length, 8)) * 75);
+                                if (this.wsService) {
+                                    const projectId = this.getProjectIdFromDiscovery(discoveryId);
+                                    this.wsService.emitDiscoveryProgress(projectId, discoveryId, {
+                                        stage: 'crawling',
+                                        percentage: Math.round(overallProgress),
+                                        pagesFound: allDiscoveredPages.length + (progress.discoveredPages || 0),
+                                        currentUrl: progress.currentUrl || authUrl,
+                                        message: `Pass 2.${i+1}: ${progress.message || 'Deep crawling...'}`
+                                    });
+                                }
+                                console.log(`🔍 Discovery ${discoveryId} Pass 2.${i+1}: ${progress.message || 'Processing...'}`);
+                            }
+                        };
+                        
+                        const crawler2 = new SiteCrawler(pass2Settings);
+                        this.activeCrawlers.set(discoveryId + `-pass2-${i+1}`, crawler2);
+                        
+                        try {
+                            const pass2Results = await crawler2.crawl(authUrl, `Discovery-${discoveryId}-Pass2-${i+1}`);
+                            this.activeCrawlers.delete(discoveryId + `-pass2-${i+1}`);
+                            
+                            if (pass2Results && pass2Results.pages) {
+                                console.log(`✅ PASS 2.${i+1}: Found ${pass2Results.pages.length} pages from ${authUrl}`);
+                                // Add unique pages only
+                                const existingUrls = new Set(allDiscoveredPages.map(p => p.url || p.href));
+                                const newPages = pass2Results.pages.filter(p => !existingUrls.has(p.url || p.href));
+                                allDiscoveredPages.push(...newPages);
+                                console.log(`📊 Total unique pages so far: ${allDiscoveredPages.length}`);
+                            }
+                        } catch (error) {
+                            console.log(`❌ PASS 2.${i+1}: Error crawling ${authUrl}: ${error.message}`);
+                            this.activeCrawlers.delete(discoveryId + `-pass2-${i+1}`);
+                        }
+                        
+                        // Rate limiting between deep crawls
+                        if (i < Math.min(authenticatedPages.length, 8) - 1) {
+                            await new Promise(resolve => setTimeout(resolve, 1500));
+                        }
+                    }
+                    
+                    console.log(`🎉 TWO-PASS DISCOVERY COMPLETE: Found ${allDiscoveredPages.length} total pages`);
+                    
+                    // Process and save all discovered pages
+                    const finalResults = {
+                        pages: allDiscoveredPages,
+                        errors: [],
+                        completed: true,
+                        totalPages: allDiscoveredPages.length,
+                        pass1Pages: pass1Results.pages.length,
+                        twoPassMode: true
+                    };
+                    
+                    await this.processDiscoveryResults(undefined, discoveryId, finalResults, { twoPassMode: 'complete' });
+                    
+                    if (this.wsService) {
+                        const projectId = await this.getProjectIdFromDiscovery(discoveryId);
+                        this.wsService.emitDiscoveryProgress(projectId, discoveryId, {
+                            stage: 'completed',
+                            percentage: 100,
+                            pagesFound: allDiscoveredPages.length,
+                            currentUrl: 'Completed',
+                            message: `Two-pass discovery completed! Found ${allDiscoveredPages.length} pages`
+                        });
+                        this.wsService.emitDiscoveryComplete(projectId, discoveryId, allDiscoveredPages.length);
+                    }
+                    
+                    return;
+                    
+                } catch (error) {
+                    console.error(`❌ Two-pass discovery failed:`, error.message);
+                    this.activeCrawlers.delete(discoveryId + '-pass1');
+                    
+                    // Fallback to route injection
+                    console.log(`🔄 Falling back to route injection...`);
+                    const results = { pages: [] };
+                    
+                    if (new URL(primaryUrl).hostname.includes('fm-dev.ti.internet2.edu')) {
+                        await this.injectKnownAuthenticatedRoutes(discoveryId, primaryUrl, authConfig.authConfig);
+                        
+                        const injectedResult = await this.pool.query(
+                            'SELECT COUNT(*) as count FROM discovered_pages WHERE discovery_id = $1',
+                            [discoveryId]
+                        );
+                        const injectedCount = parseInt(injectedResult.rows[0].count);
+                        results.pages = Array(injectedCount).fill({ url: 'authenticated' });
+                        
+                        if (this.wsService) {
+                            const projectId = await this.getProjectIdFromDiscovery(discoveryId);
+                            this.wsService.emitDiscoveryProgress(projectId, discoveryId, {
+                                stage: 'completed',
+                                percentage: 100,
+                                pagesFound: injectedCount,
+                                currentUrl: 'Completed',
+                                message: `Discovery completed! Found ${injectedCount} authenticated pages (fallback)`
+                            });
+                            this.wsService.emitDiscoveryComplete(projectId, discoveryId, injectedCount);
+                        }
+                    }
+                    
+                    await this.updateDiscoveryStatus(discoveryId, 'completed', {
+                        totalPages: results.pages.length,
+                        mode: 'authenticated_only_fallback',
+                        error: error.message
+                    });
+                    
+                    return;
+                }
             }
 
             // Handle dynamic authentication option
@@ -357,6 +513,7 @@ class SiteDiscoveryService {
                 
                 // Configure crawler with dynamic auth detection
                 crawlerSettings.dynamicAuth = true;
+                crawlerSettings.useAuth = true; // Enable authentication for dynamic auth
                 crawlerSettings.onAuthRequired = async (authInfo) => {
                     console.log(`🔐 Authentication required at: ${authInfo.loginUrl}`);
                     
@@ -427,8 +584,52 @@ class SiteDiscoveryService {
                 }
             });
 
-            // Start crawling
-            const results = await crawler.crawl(primaryUrl, `Discovery-${discoveryId}`);
+            // Determine optimal starting URL for authenticated sessions
+            let startingUrl = primaryUrl;
+            
+            if (authConfig && authConfig.authConfig) {
+                // For authenticated crawling, try to use better entry points
+                const baseUrl = new URL(primaryUrl);
+                const domain = baseUrl.hostname;
+                
+                if (domain.includes('fm-dev.ti.internet2.edu') || domain.includes('federation')) {
+                    // For Federation Manager, try authenticated entry points
+                    const authEntryPoints = [
+                        '/dashboard',
+                        '/admin',
+                        '/organizations',
+                        '/entities',
+                        '/reports',
+                        '/home' // fallback to original
+                    ];
+                    
+                    // Use the success URL from auth config if available
+                    if (authConfig.authConfig.successUrl || authConfig.authConfig.success_url) {
+                        startingUrl = authConfig.authConfig.successUrl || authConfig.authConfig.success_url;
+                        console.log(`🔐 Using configured success URL as starting point: ${startingUrl}`);
+                    } else {
+                        // Try the first available entry point
+                        for (const entryPoint of authEntryPoints) {
+                            const testUrl = new URL(entryPoint, baseUrl).toString();
+                            if (testUrl !== primaryUrl) {
+                                startingUrl = testUrl;
+                                console.log(`🔐 Using authenticated entry point: ${startingUrl}`);
+                                break;
+                            }
+                        }
+                    }
+                } else {
+                    // For other domains, use success URL from auth config if available
+                    if (authConfig.authConfig.successUrl || authConfig.authConfig.success_url) {
+                        startingUrl = authConfig.authConfig.successUrl || authConfig.authConfig.success_url;
+                        console.log(`🔐 Using configured success URL as starting point: ${startingUrl}`);
+                    }
+                }
+            }
+            
+            // Start crawling with optimal starting URL
+            console.log(`🕷️ Starting discovery crawl from: ${startingUrl}`);
+            const results = await crawler.crawl(startingUrl, `Discovery-${discoveryId}`);
             
             // Emit final progress update showing 100% completion
             if (this.wsService) {
@@ -714,60 +915,29 @@ class SiteDiscoveryService {
         const client = await this.pool.connect();
         
         try {
-            // Check if discovery exists and is stuck
-            const discoveryResult = await client.query(
-                'SELECT * FROM site_discovery WHERE id = $1 AND status = $2',
-                [discoveryId, 'running']
-            );
-
-            if (discoveryResult.rows.length === 0) {
-                return { recovered: false, reason: 'Discovery not found or not in running status' };
-            }
-
-            // Check if it has discovered pages
-            const pagesResult = await client.query(
-                'SELECT COUNT(*) as page_count FROM discovered_pages WHERE discovery_id = $1',
-                [discoveryId]
-            );
-
-            const pageCount = parseInt(pagesResult.rows[0].page_count);
-
-            if (pageCount > 0) {
-                // Has pages, mark as completed
-                await this.updateDiscoveryStatus(discoveryId, 'completed', {
-                    totalPages: pageCount,
-                    recovered: true,
-                    recoveredAt: new Date().toISOString()
-                });
-
+            // Use the new database function for better recovery
+            const result = await client.query('SELECT recover_stuck_discovery($1) as result', [discoveryId]);
+            const recoveryResult = result.rows[0].result;
+            
+            if (recoveryResult.success) {
                 // Clean up from active crawlers
                 this.activeCrawlers.delete(discoveryId);
-
-                // Emit completion event
-                if (this.wsService) {
+                
+                // Emit progress update if WebSocket is available
+                if (this.wsService && recoveryResult.action !== 'no_change_needed') {
                     const projectId = await this.getProjectIdFromDiscovery(discoveryId);
                     this.wsService.emitDiscoveryProgress(projectId, discoveryId, {
                         stage: 'completed',
                         percentage: 100,
-                        pagesFound: pageCount,
+                        pagesFound: recoveryResult.page_count || 0,
                         currentUrl: 'Recovered',
-                        message: `Discovery recovered! Found ${pageCount} pages`
+                        message: recoveryResult.message
                     });
+                    this.wsService.emitDiscoveryComplete(projectId, discoveryId, recoveryResult.page_count || 0);
                 }
-
-                return { recovered: true, pageCount, status: 'completed' };
-            } else {
-                // No pages found, mark as failed
-                await this.updateDiscoveryStatus(discoveryId, 'failed', {
-                    error: 'Discovery stuck with no pages found',
-                    recovered: true,
-                    recoveredAt: new Date().toISOString()
-                });
-
-                this.activeCrawlers.delete(discoveryId);
-
-                return { recovered: true, pageCount: 0, status: 'failed' };
             }
+            
+            return recoveryResult;
 
         } finally {
             client.release();
@@ -775,31 +945,213 @@ class SiteDiscoveryService {
     }
 
     /**
-     * Delete a discovery and all its pages
-     * @param {string} discoveryId - Discovery session UUID
+     * Clean up orphaned discovery data
      */
-    async deleteDiscovery(discoveryId) {
-        // Stop if active
-        await this.stopDiscovery(discoveryId);
-        
+    async cleanupOrphanedData() {
         const client = await this.pool.connect();
         
         try {
+            const result = await client.query('SELECT cleanup_orphaned_discovery_data() as result');
+            return result.rows[0].result;
+        } finally {
+            client.release();
+        }
+    }
+
+    /**
+     * List all pending/stuck discoveries for debugging
+     */
+    async listPendingDiscoveries() {
+        const client = await this.pool.connect();
+        
+        try {
+            const result = await client.query('SELECT * FROM list_pending_discoveries()');
+            return result.rows;
+        } finally {
+            client.release();
+        }
+    }
+
+    /**
+     * Recover all stuck discoveries in a project
+     * @param {string} projectId - Project UUID
+     */
+    async recoverAllStuckDiscoveries(projectId) {
+        const client = await this.pool.connect();
+        
+        try {
+            // Get all pending/in_progress discoveries for this project
+            const discoveryResult = await client.query(
+                'SELECT id FROM site_discovery WHERE project_id = $1 AND status IN ($2, $3)',
+                [projectId, 'pending', 'in_progress']
+            );
+            
+            const recoveryResults = [];
+            for (const row of discoveryResult.rows) {
+                try {
+                    const result = await this.recoverStuckDiscovery(row.id);
+                    recoveryResults.push({
+                        discoveryId: row.id,
+                        ...result
+                    });
+                } catch (error) {
+                    recoveryResults.push({
+                        discoveryId: row.id,
+                        success: false,
+                        error: error.message
+                    });
+                }
+            }
+            
+            return {
+                success: true,
+                projectId,
+                recovered: recoveryResults.length,
+                results: recoveryResults
+            };
+            
+        } finally {
+            client.release();
+        }
+    }
+
+    /**
+     * Enhanced delete discovery with safe cleanup
+     * @param {string} discoveryId - Discovery session UUID
+     */
+    async deleteDiscovery(discoveryId) {
+        const client = await this.pool.connect();
+        
+        try {
+            // Get project info and discovery details before deletion
+            const discoveryResult = await client.query(
+                'SELECT project_id, domain, total_pages_found FROM site_discovery WHERE id = $1', 
+                [discoveryId]
+            );
+            
+            if (discoveryResult.rows.length === 0) {
+                return { success: false, error: 'Discovery not found' };
+            }
+            
+            const discovery = discoveryResult.rows[0];
+            const projectId = discovery.project_id;
+            
+            // Start transaction for safe deletion
             await client.query('BEGIN');
             
-            // Delete pages first (foreign key constraint)
-            await client.query('DELETE FROM discovered_pages WHERE discovery_id = $1', [discoveryId]);
-            
-            // Delete discovery
-            const result = await client.query('DELETE FROM site_discovery WHERE id = $1', [discoveryId]);
-            
-            await client.query('COMMIT');
-            
-            return result.rowCount > 0;
+            try {
+                // Step 1: Set page_id to NULL in test_instances that reference this discovery's pages
+                console.log(`🔧 Clearing test_instances page references for discovery ${discoveryId}`);
+                const updateResult = await client.query(`
+                    UPDATE test_instances 
+                    SET page_id = NULL 
+                    WHERE page_id IN (
+                        SELECT id FROM discovered_pages WHERE discovery_id = $1
+                    )
+                `, [discoveryId]);
+                
+                console.log(`📝 Updated ${updateResult.rowCount} test instances to clear page references`);
+                
+                // Step 2: Clear automated_result_id references in test_instances before deleting automated_test_results
+                console.log(`🔧 Clearing test_instances automated_result_id references for discovery ${discoveryId}`);
+                const clearResultsResult = await client.query(`
+                    UPDATE test_instances 
+                    SET automated_result_id = NULL 
+                    WHERE automated_result_id IN (
+                        SELECT id FROM automated_test_results 
+                        WHERE page_id IN (
+                            SELECT id FROM discovered_pages WHERE discovery_id = $1
+                        )
+                    )
+                `, [discoveryId]);
+                
+                console.log(`📝 Updated ${clearResultsResult.rowCount} test instances to clear automated_result_id references`);
+                
+                // Step 3: Clear manual_result_id references in test_instances before deleting manual_test_results
+                console.log(`🔧 Clearing test_instances manual_result_id references for discovery ${discoveryId}`);
+                const clearManualResultsResult = await client.query(`
+                    UPDATE test_instances 
+                    SET manual_result_id = NULL 
+                    WHERE manual_result_id IN (
+                        SELECT id FROM manual_test_results 
+                        WHERE page_id IN (
+                            SELECT id FROM discovered_pages WHERE discovery_id = $1
+                        )
+                    )
+                `, [discoveryId]);
+                
+                console.log(`📝 Updated ${clearManualResultsResult.rowCount} test instances to clear manual_result_id references`);
+                
+                // Step 4: Delete automated test results that reference pages from this discovery
+                console.log(`🗑️ Deleting automated test results for discovery ${discoveryId}`);
+                const resultsDeleteResult = await client.query(`
+                    DELETE FROM automated_test_results 
+                    WHERE page_id IN (
+                        SELECT id FROM discovered_pages WHERE discovery_id = $1
+                    )
+                `, [discoveryId]);
+                
+                console.log(`🗑️ Deleted ${resultsDeleteResult.rowCount} automated test results`);
+                
+                // Step 5: Delete manual test results that reference pages from this discovery
+                console.log(`🗑️ Deleting manual test results for discovery ${discoveryId}`);
+                const manualDeleteResult = await client.query(`
+                    DELETE FROM manual_test_results 
+                    WHERE page_id IN (
+                        SELECT id FROM discovered_pages WHERE discovery_id = $1
+                    )
+                `, [discoveryId]);
+                
+                console.log(`🗑️ Deleted ${manualDeleteResult.rowCount} manual test results`);
+                
+                // Step 6: Delete discovered pages
+                console.log(`🗑️ Deleting discovered pages for discovery ${discoveryId}`);
+                const pagesResult = await client.query(`
+                    DELETE FROM discovered_pages WHERE discovery_id = $1
+                `, [discoveryId]);
+                
+                console.log(`🗑️ Deleted ${pagesResult.rowCount} discovered pages`);
+                
+                // Step 7: Finally, delete the discovery record itself
+                console.log(`🗑️ Deleting discovery record ${discoveryId}`);
+                await client.query(`
+                    DELETE FROM site_discovery WHERE id = $1
+                `, [discoveryId]);
+                
+                await client.query('COMMIT');
+                
+                console.log(`✅ Successfully deleted discovery ${discoveryId}: ${discovery.domain}`);
+                
+                // Clean up from active crawlers
+                this.activeCrawlers.delete(discoveryId);
+                
+                // Emit deletion event if WebSocket is available
+                if (this.wsService && projectId) {
+                    this.wsService.emitDiscoveryDeleted(projectId, discoveryId);
+                }
+                
+                return {
+                    success: true,
+                    message: 'Discovery deleted successfully',
+                    deleted: {
+                        id: discoveryId,
+                        domain: discovery.domain,
+                        total_pages_found: discovery.total_pages_found
+                    }
+                };
+                
+            } catch (deleteError) {
+                await client.query('ROLLBACK');
+                console.error(`❌ Error during discovery deletion transaction:`, deleteError);
+                throw deleteError;
+            }
             
         } catch (error) {
-            await client.query('ROLLBACK');
-            throw error;
+            console.error('Error deleting discovery:', error);
+            return { 
+                success: false, 
+                error: error.message || 'Failed to delete discovery'
+            };
         } finally {
             client.release();
         }

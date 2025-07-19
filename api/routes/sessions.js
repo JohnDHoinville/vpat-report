@@ -604,6 +604,19 @@ router.delete('/bulk', async (req, res) => {
             });
         }
 
+        // Validate UUIDs
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+        const invalidIds = session_ids.filter(id => !uuidRegex.test(id));
+        
+        if (invalidIds.length > 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid session IDs provided',
+                invalid_ids: invalidIds,
+                note: 'All session IDs must be valid UUIDs'
+            });
+        }
+
         // Check if sessions exist
         const existingSessions = await pool.query(`
             SELECT ts.id, ts.name, ts.status, p.name as project_name,

@@ -1,0 +1,85 @@
+{
+  "testName": "Interactive-Debug-Test3",
+  "rootUrl": "http://localhost:8080/test-interactive.html",
+  "startTime": "2025-07-18T15:11:32.256Z",
+  "options": {
+    "maxDepth": 3,
+    "maxPages": 3,
+    "rateLimitMs": 1000,
+    "userAgent": "AccessibilityTestingBot/1.0",
+    "respectRobots": false,
+    "bypassRobotsForAuth": true,
+    "timeout": 10000,
+    "useAuth": false,
+    "authConfig": null,
+    "headless": false,
+    "enableInteractiveDiscovery": true
+  },
+  "summary": {
+    "totalRequests": 3,
+    "successfulRequests": 3,
+    "discoveredPages": 5,
+    "errors": 0,
+    "maxDepthReached": 1
+  },
+  "pages": [
+    {
+      "url": "http://localhost:8080/test-interactive.html",
+      "title": "Interactive Discovery Test",
+      "depth": 0,
+      "parentUrl": null,
+      "statusCode": 200,
+      "contentType": "text/html",
+      "wordCount": 63,
+      "lastModified": "Fri, 18 Jul 2025 15:08:33 GMT",
+      "discoveredAt": "2025-07-18T15:11:00.242Z"
+    },
+    {
+      "url": "http://localhost:8080/app",
+      "title": "Error response",
+      "depth": 1,
+      "parentUrl": "http://localhost:8080/test-interactive.html",
+      "statusCode": 404,
+      "contentType": "text/html;charset=utf-8",
+      "wordCount": 19,
+      "lastModified": null,
+      "discoveredAt": "2025-07-18T15:11:01.255Z"
+    },
+    {
+      "url": "http://localhost:8080/login",
+      "title": "Error response",
+      "depth": 1,
+      "parentUrl": "http://localhost:8080/test-interactive.html",
+      "statusCode": 404,
+      "contentType": "text/html;charset=utf-8",
+      "wordCount": 19,
+      "lastModified": null,
+      "discoveredAt": "2025-07-18T15:11:02.261Z"
+    },
+    {
+      "url": "http://localhost:3000/",
+      "title": "From Sitemap",
+      "depth": 0,
+      "parentUrl": "sitemap.xml",
+      "statusCode": "unknown",
+      "contentType": "unknown",
+      "wordCount": 0,
+      "lastModified": null,
+      "discoveredAt": "2025-07-18T15:10:59.601Z",
+      "source": "sitemap"
+    },
+    {
+      "url": "http://localhost:3000/index.html",
+      "title": "From Sitemap",
+      "depth": 0,
+      "parentUrl": "sitemap.xml",
+      "statusCode": "unknown",
+      "contentType": "unknown",
+      "wordCount": 0,
+      "lastModified": null,
+      "discoveredAt": "2025-07-18T15:10:59.601Z",
+      "source": "sitemap"
+    }
+  ],
+  "errors": []
+}

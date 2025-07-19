@@ -678,40 +678,29 @@ router.post('/:id/discoveries', optionalAuth, async (req, res) => {
             primary_url,
             maxDepth = 3,
             maxPages = 100,
-            respectRobots = true,
-            timeout = 10000,
-            auth_config_id,  // New parameter for authentication selection
             excludePublicPages = false,  // Skip public pages, discover only authenticated content
             dynamicAuth = false  // Prompt for credentials when login page is encountered
         } = req.body;
+        
+        // Debug: Log the actual request parameters
+        console.log(`🔍 Discovery API request: excludePublicPages=${excludePublicPages}, dynamicAuth=${dynamicAuth}`);
 
-        // Check if project exists
-        const projectExists = await db.query('SELECT primary_url FROM projects WHERE id = $1', [projectId]);
-        if (projectExists.rows.length === 0) {
-            return res.status(404).json({
-                error: 'Project not found',
-                id: projectId
-            });
+        // Validate project exists
+        const project = await db.query(
+            'SELECT id, name FROM projects WHERE id = $1',
+            [projectId]
+        );
+
+        if (project.rows.length === 0) {
+            return res.status(404).json({ error: 'Project not found' });
         }
 
-        const urlToUse = primary_url || projectExists.rows[0].primary_url;
-
-        // Get WebSocket service from app
-        const wsService = req.app.get('wsService');
-        
-        // Initialize discovery service with WebSocket
-        const discoveryService = new SiteDiscoveryService(wsService);
-
-        // Start discovery with optional authentication config
-        const discovery = await discoveryService.startDiscovery(projectId, urlToUse, {
-            maxDepth,
-            maxPages,
-            respectRobots,
-            timeout,
-            authConfigId: auth_config_id,  // Pass auth config ID to discovery service
-            excludePublicPages,  // Skip public pages if true
-            dynamicAuth  // Prompt for credentials when needed
-        });
+        // Start discovery using site discovery service
+        const discoveryId = await SiteDiscoveryService.startDiscovery(
+            projectId,
+            excludePublicPages,
+            dynamicAuth
+        );
 
         res.status(201).json({
             message: 'Site discovery started',
@@ -793,23 +782,28 @@ router.delete('/:id/discoveries/:discoveryId', authenticateToken, async (req, re
         // Initialize discovery service
         const discoveryService = new SiteDiscoveryService(wsService);
 
-        // Delete discovery and all its pages
-        const deleted = await discoveryService.deleteDiscovery(discoveryId);
+        // Delete discovery and all its pages using enhanced delete function
+        const deleteResult = await discoveryService.deleteDiscovery(discoveryId);
 
-        if (!deleted) {
-            return res.status(404).json({
-                error: 'Discovery not found',
+        if (!deleteResult.success) {
+            return res.status(500).json({
+                success: false,
+                error: deleteResult.error || 'Failed to delete discovery',
+                message: deleteResult.message || 'Discovery deletion failed',
                 discoveryId
             });
         }
 
         res.json({
-            message: 'Discovery deleted successfully',
+            success: true,
+            message: deleteResult.message,
             deleted: {
                 id: discoveryId,
                 domain: discovery.domain,
                 primary_url: discovery.primary_url,
-                pages_deleted: discovery.total_pages_found
+                pages_deleted: deleteResult.deleted_pages,
+                test_instances_cleaned: deleteResult.deleted_instances,
+                results_cleaned: deleteResult.deleted_results
             }
         });
 
@@ -884,17 +878,141 @@ router.post('/:id/discoveries/:discoveryId/recover', optionalAuth, async (req, r
         const result = await discoveryService.recoverStuckDiscovery(discoveryId);
 
         res.json({
-            success: true,
+            success: result.success,
             result,
-            message: result.recovered ? 
-                `Discovery recovered with ${result.pageCount} pages (${result.status})` : 
-                result.reason
+            message: result.message
         });
 
     } catch (error) {
         console.error('Error recovering discovery:', error);
         res.status(500).json({
             error: 'Failed to recover discovery',
+            message: error.message
+        });
+    }
+});
+
+/**
+ * POST /api/projects/:id/discoveries/recover-all
+ * Recover all stuck discoveries in a project
+ */
+router.post('/:id/discoveries/recover-all', optionalAuth, async (req, res) => {
+    try {
+        const { id: projectId } = req.params;
+
+        // Check if project exists
+        const projectExists = await db.query('SELECT id FROM projects WHERE id = $1', [projectId]);
+        if (projectExists.rows.length === 0) {
+            return res.status(404).json({
+                error: 'Project not found',
+                projectId
+            });
+        }
+
+        // Get WebSocket service from app
+        const wsService = req.app.get('wsService');
+        
+        // Initialize discovery service
+        const discoveryService = new SiteDiscoveryService(wsService);
+
+        // Recover all stuck discoveries
+        const result = await discoveryService.recoverAllStuckDiscoveries(projectId);
+
+        res.json({
+            success: true,
+            result,
+            message: `Attempted recovery on ${result.recovered} discoveries`
+        });
+
+    } catch (error) {
+        console.error('Error recovering all discoveries:', error);
+        res.status(500).json({
+            error: 'Failed to recover discoveries',
+            message: error.message
+        });
+    }
+});
+
+/**
+ * GET /api/projects/:id/discoveries/pending
+ * List all pending/stuck discoveries for debugging
+ */
+router.get('/:id/discoveries/pending', optionalAuth, async (req, res) => {
+    try {
+        const { id: projectId } = req.params;
+
+        // Check if project exists
+        const projectExists = await db.query('SELECT id FROM projects WHERE id = $1', [projectId]);
+        if (projectExists.rows.length === 0) {
+            return res.status(404).json({
+                error: 'Project not found',
+                projectId
+            });
+        }
+
+        // Get WebSocket service from app
+        const wsService = req.app.get('wsService');
+        
+        // Initialize discovery service
+        const discoveryService = new SiteDiscoveryService(wsService);
+
+        // List pending discoveries
+        const pendingDiscoveries = await discoveryService.listPendingDiscoveries();
+        
+        // Filter to current project
+        const projectPendingDiscoveries = pendingDiscoveries.filter(d => d.project_id === projectId);
+
+        res.json({
+            success: true,
+            discoveries: projectPendingDiscoveries,
+            total: projectPendingDiscoveries.length
+        });
+
+    } catch (error) {
+        console.error('Error listing pending discoveries:', error);
+        res.status(500).json({
+            error: 'Failed to list pending discoveries',
+            message: error.message
+        });
+    }
+});
+
+/**
+ * POST /api/projects/:id/discoveries/cleanup
+ * Clean up orphaned discovery data
+ */
+router.post('/:id/discoveries/cleanup', optionalAuth, async (req, res) => {
+    try {
+        const { id: projectId } = req.params;
+
+        // Check if project exists
+        const projectExists = await db.query('SELECT id FROM projects WHERE id = $1', [projectId]);
+        if (projectExists.rows.length === 0) {
+            return res.status(404).json({
+                error: 'Project not found',
+                projectId
+            });
+        }
+
+        // Get WebSocket service from app
+        const wsService = req.app.get('wsService');
+        
+        // Initialize discovery service
+        const discoveryService = new SiteDiscoveryService(wsService);
+
+        // Clean up orphaned data
+        const result = await discoveryService.cleanupOrphanedData();
+
+        res.json({
+            success: true,
+            result,
+            message: result.message
+        });
+
+    } catch (error) {
+        console.error('Error cleaning up discovery data:', error);
+        res.status(500).json({
+            error: 'Failed to cleanup discovery data',
             message: error.message
         });
     }

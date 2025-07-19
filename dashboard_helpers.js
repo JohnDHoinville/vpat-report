@@ -307,7 +307,6 @@ function dashboard() {
             primary_url: '',
             maxDepth: 3,
             maxPages: 50,
-            respectRobots: true,
             excludePublicPages: false,
             dynamicAuth: false,
             auth_config_id: ''
@@ -705,9 +704,10 @@ function dashboard() {
             this.discoveryProgress.active = false;
             this.addNotification('Discovery Complete', data.results.message, 'success');
             
-            // Refresh discoveries list
+            // Force refresh discoveries to clear cache and update status
             if (this.selectedProject) {
-                this.loadProjectDiscoveries();
+                console.log('🔄 Discovery completed - forcing refresh to update status');
+                this.forceRefreshDiscoveries();
             }
         },
 
@@ -873,10 +873,7 @@ function dashboard() {
                     message = `Large site detected (${milestone.totalPages}+ pages). Consider adjusting maxPages setting.`;
                     type = 'warning';
                     break;
-                case 'robots_blocking':
-                    message = `Some pages blocked by robots.txt. ${milestone.blockedCount} URLs skipped.`;
-                    type = 'warning';
-                    break;
+
                 case 'error_threshold':
                     message = `High error rate detected (${milestone.errorRate}%). Checking connectivity...`;
                     type = 'error';
@@ -1388,6 +1385,19 @@ function dashboard() {
                 this.discoveries = data.data || [];
                 console.log(`🔍 Loaded ${this.discoveries.length} discoveries for project`);
                 
+                // Check for pending discoveries and offer recovery
+                const pendingDiscoveries = this.discoveries.filter(d => d.status === 'pending' || d.status === 'in_progress');
+                if (pendingDiscoveries.length > 0) {
+                    console.log(`⚠️ Found ${pendingDiscoveries.length} pending discoveries - offering recovery options`);
+                    await this.handlePendingDiscoveries(pendingDiscoveries);
+                    
+                    // Force refresh after recovery to ensure latest status is shown
+                    setTimeout(() => {
+                        console.log('🔄 Auto-refreshing after pending discovery handling');
+                        this.forceRefreshDiscoveries();
+                    }, 2000);
+                }
+                
                 // Auto-select completed discoveries if none are selected and there's only one completed
                 const completedDiscoveries = this.discoveries.filter(d => d.status === 'completed');
                 if (completedDiscoveries.length === 1 && this.selectedDiscoveries.length === 0) {
@@ -1397,6 +1407,114 @@ function dashboard() {
                 }
             } catch (error) {
                 console.error('Failed to load discoveries:', error);
+            }
+        },
+
+        async handlePendingDiscoveries(pendingDiscoveries) {
+            // Show notification about pending discoveries
+            const message = `Found ${pendingDiscoveries.length} pending discovery(ies). Would you like to recover them?`;
+            
+            if (confirm(message)) {
+                await this.recoverAllDiscoveries();
+            }
+        },
+
+        async recoverAllDiscoveries() {
+            if (!this.selectedProject) return;
+            
+            try {
+                this.loading = true;
+                console.log('🔄 Attempting to recover all stuck discoveries...');
+                
+                const data = await this.apiCall(`/projects/${this.selectedProject.id}/discoveries/recover-all`, {
+                    method: 'POST'
+                });
+                
+                if (data.success) {
+                    this.showNotification(`Recovery completed: ${data.result.recovered} discoveries processed`, 'success');
+                    // Force refresh discoveries to clear any cached status
+                    await this.forceRefreshDiscoveries();
+                } else {
+                    this.showNotification(`Recovery failed: ${data.message}`, 'error');
+                }
+                
+            } catch (error) {
+                console.error('Failed to recover discoveries:', error);
+                this.showNotification(error.message || 'Failed to recover discoveries', 'error');
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        async forceRefreshDiscoveries() {
+            console.log('🔄 Force refreshing discoveries data...');
+            
+            // Clear any cached data
+            this.discoveries = [];
+            this.selectedDiscoveries = [];
+            
+            // Wait a moment for any pending operations to complete
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            // Reload fresh data from server
+            await this.loadProjectDiscoveries();
+            
+            // Refresh testing tab data
+            this.refreshTestingTabData();
+            
+            console.log('✅ Discoveries force refreshed');
+        },
+
+        async recoverDiscovery(discoveryId) {
+            if (!this.selectedProject) return;
+            
+            try {
+                console.log(`🔄 Attempting to recover discovery ${discoveryId}...`);
+                
+                const data = await this.apiCall(`/projects/${this.selectedProject.id}/discoveries/${discoveryId}/recover`, {
+                    method: 'POST'
+                });
+                
+                if (data.success) {
+                    this.showNotification(`Discovery recovered: ${data.result.message}`, 'success');
+                    // Force refresh to clear cached status
+                    await this.forceRefreshDiscoveries();
+                } else {
+                    this.showNotification(`Recovery failed: ${data.result.message}`, 'error');
+                }
+                
+            } catch (error) {
+                console.error('Failed to recover discovery:', error);
+                this.showNotification(error.message || 'Failed to recover discovery', 'error');
+            }
+        },
+
+        async cleanupDiscoveryData() {
+            if (!this.selectedProject) return;
+            
+            if (!confirm('This will clean up orphaned discovery data. Continue?')) return;
+            
+            try {
+                this.loading = true;
+                console.log('🧹 Cleaning up orphaned discovery data...');
+                
+                const data = await this.apiCall(`/projects/${this.selectedProject.id}/discoveries/cleanup`, {
+                    method: 'POST'
+                });
+                
+                if (data.success) {
+                    this.showNotification(`Cleanup completed: ${data.result.message}`, 'success');
+                    // Reload discoveries
+                    await this.loadProjectDiscoveries();
+                } else {
+                    this.showNotification(`Cleanup failed: ${data.message}`, 'error');
+                }
+                
+            } catch (error) {
+                console.error('Failed to cleanup discovery data:', error);
+                this.showNotification(error.message || 'Failed to cleanup discovery data', 'error');
+            } finally {
+                this.loading = false;
             }
         },
 
@@ -1635,7 +1753,6 @@ function dashboard() {
                 primary_url: '',
                 maxDepth: 3,
                 maxPages: 50,
-                respectRobots: true,
                 excludePublicPages: false,
                 dynamicAuth: false,
                 auth_config_id: ''
@@ -1741,20 +1858,27 @@ function dashboard() {
             
             try {
                 this.loading = true;
-                await this.apiCall(`/projects/${this.selectedProject.id}/discoveries/${this.discoveryToDelete.id}`, {
+                const data = await this.apiCall(`/projects/${this.selectedProject.id}/discoveries/${this.discoveryToDelete.id}`, {
                     method: 'DELETE'
                 });
                 
-                // Remove from discoveries list
-                this.discoveries = this.discoveries.filter(d => d.id !== this.discoveryToDelete.id);
-                
-                this.showDeleteDiscovery = false;
-                this.discoveryToDelete = null;
-                this.showNotification('Site discovery deleted successfully!', 'success');
+                if (data.success) {
+                    this.showDeleteDiscovery = false;
+                    this.discoveryToDelete = null;
+                    this.showNotification(`Discovery deleted successfully: ${data.message}`, 'success');
+                    
+                    // Force refresh to ensure UI is in sync with database
+                    await this.forceRefreshDiscoveries();
+                } else {
+                    this.showNotification(`Failed to delete discovery: ${data.message}`, 'error');
+                }
                 
             } catch (error) {
                 console.error('Failed to delete discovery:', error);
                 this.showNotification('Failed to delete discovery. Please try again.', 'error');
+                
+                // Force refresh even on error to sync status
+                await this.forceRefreshDiscoveries();
             } finally {
                 this.loading = false;
             }
@@ -9340,12 +9464,105 @@ function initSmartTooltips() {
     });
 }
 
+// Force refresh discoveries by clearing cache and reloading
+async function forceRefreshDiscoveries() {
+    try {
+        console.log('🔄 Force refreshing discoveries...');
+        
+        // Clear any cached discovery data
+        if (window.discoveryCache) {
+            window.discoveryCache.clear();
+        }
+        
+        // Wait a moment for cache to clear
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Get current dashboard instance
+        const dashboard = window.dashboardInstance || window.dashboardHelpers;
+        if (dashboard && dashboard.selectedProject) {
+            // Force reload project data
+            await dashboard.setActiveProject(dashboard.selectedProject.id, true); // true for force refresh
+        }
+        
+        console.log('✅ Discoveries force refreshed');
+    } catch (error) {
+        console.error('❌ Error force refreshing discoveries:', error);
+        if (window.dashboardHelpers && window.dashboardHelpers.showNotification) {
+            window.dashboardHelpers.showNotification('Failed to refresh discoveries: ' + error.message, 'error');
+        }
+    }
+}
+
+// Enhanced recovery operations that force refresh
+async function recoveryCompleted(type, message) {
+    try {
+        console.log(`✅ ${type} recovery completed: ${message}`);
+        
+        // Force refresh discoveries to show latest state
+        await forceRefreshDiscoveries();
+        
+        // Show success notification
+        if (window.dashboardHelpers && window.dashboardHelpers.showNotification) {
+            window.dashboardHelpers.showNotification(`${type} recovery completed`, 'success');
+        }
+    } catch (error) {
+        console.error('❌ Error in recovery completion:', error);
+    }
+}
+
+// Manual refresh function for troubleshooting
+async function manualRefreshDashboard() {
+    try {
+        console.log('🔄 Manual dashboard refresh triggered...');
+        
+        // Force refresh discoveries
+        await forceRefreshDiscoveries();
+        
+        // Show notification
+        if (window.dashboardHelpers && window.dashboardHelpers.showNotification) {
+            window.dashboardHelpers.showNotification('Dashboard refreshed successfully', 'success');
+        }
+        
+        console.log('✅ Manual dashboard refresh completed');
+    } catch (error) {
+        console.error('❌ Error in manual refresh:', error);
+        if (window.dashboardHelpers && window.dashboardHelpers.showNotification) {
+            window.dashboardHelpers.showNotification('Failed to refresh dashboard: ' + error.message, 'error');
+        }
+    }
+}
+
+// Expose refresh function globally for debugging
+window.manualRefreshDashboard = manualRefreshDashboard;
+
+// Enhanced cleanup operations that force refresh
+async function cleanupCompleted(type, deletedCount, message) {
+    try {
+        console.log(`🗑️ ${type} cleanup completed: ${deletedCount} items deleted`);
+        
+        // Force refresh discoveries to show latest state
+        await forceRefreshDiscoveries();
+        
+        // Show success notification
+        if (window.dashboardHelpers && window.dashboardHelpers.showNotification) {
+            window.dashboardHelpers.showNotification(`${type} cleanup completed: ${deletedCount} items deleted`, 'success');
+        }
+    } catch (error) {
+        console.error('❌ Error in cleanup completion:', error);
+    }
+}
+
 // Make tooltip creation functions available globally
 window.generateWCAGUrl = generateWCAGUrl;
 window.generateSection508Url = generateSection508Url;
 window.createRequirementTooltip = createRequirementTooltip;
 window.createSmartTooltip = createSmartTooltip;
 window.initSmartTooltips = initSmartTooltips;
+
+// Expose force refresh functions globally
+window.forceRefreshDiscoveries = forceRefreshDiscoveries;
+window.recoveryCompleted = recoveryCompleted;
+window.cleanupCompleted = cleanupCompleted;
 
 document.addEventListener('DOMContentLoaded', () => {
     console.log('🎯 Dashboard Helpers Loaded');

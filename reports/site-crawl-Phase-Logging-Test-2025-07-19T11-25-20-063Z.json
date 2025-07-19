@@ -1,0 +1,138 @@
+{
+  "testName": "Phase-Logging-Test",
+  "rootUrl": "https://httpbin.org",
+  "startTime": "2025-07-19T11:25:20.063Z",
+  "options": {
+    "maxDepth": 3,
+    "maxPages": 10,
+    "rateLimitMs": 1000,
+    "userAgent": "AccessibilityTestingBot/1.0",
+    "respectRobots": false,
+    "bypassRobotsForAuth": true,
+    "timeout": 10000,
+    "useAuth": false,
+    "authConfig": null,
+    "headless": false,
+    "enableInteractiveDiscovery": true
+  },
+  "summary": {
+    "totalRequests": 10,
+    "successfulRequests": 10,
+    "discoveredPages": 10,
+    "errors": 0,
+    "maxDepthReached": 1
+  },
+  "pages": [
+    {
+      "url": "https://httpbin.org",
+      "title": "httpbin.org",
+      "depth": 0,
+      "parentUrl": null,
+      "statusCode": 200,
+      "contentType": "text/html; charset=utf-8",
+      "wordCount": 164,
+      "lastModified": null,
+      "discoveredAt": "2025-07-19T11:24:31.760Z"
+    },
+    {
+      "url": "https://httpbin.org/app",
+      "title": "404 Not Found",
+      "depth": 1,
+      "parentUrl": "https://httpbin.org",
+      "statusCode": 404,
+      "contentType": "text/html",
+      "wordCount": 24,
+      "lastModified": null,
+      "discoveredAt": "2025-07-19T11:24:33.542Z"
+    },
+    {
+      "url": "https://httpbin.org/login",
+      "title": "404 Not Found",
+      "depth": 1,
+      "parentUrl": "https://httpbin.org",
+      "statusCode": 404,
+      "contentType": "text/html",
+      "wordCount": 24,
+      "lastModified": null,
+      "discoveredAt": "2025-07-19T11:24:34.830Z"
+    },
+    {
+      "url": "https://httpbin.org/signup",
+      "title": "404 Not Found",
+      "depth": 1,
+      "parentUrl": "https://httpbin.org",
+      "statusCode": 404,
+      "contentType": "text/html",
+      "wordCount": 24,
+      "lastModified": null,
+      "discoveredAt": "2025-07-19T11:24:36.223Z"
+    },
+    {
+      "url": "https://httpbin.org/register",
+      "title": "404 Not Found",
+      "depth": 1,
+      "parentUrl": "https://httpbin.org",
+      "statusCode": 404,
+      "contentType": "text/html",
+      "wordCount": 24,
+      "lastModified": null,
+      "discoveredAt": "2025-07-19T11:24:37.422Z"
+    },
+    {
+      "url": "https://httpbin.org/dashboard",
+      "title": "404 Not Found",
+      "depth": 1,
+      "parentUrl": "https://httpbin.org",
+      "statusCode": 404,
+      "contentType": "text/html",
+      "wordCount": 24,
+      "lastModified": null,
+      "discoveredAt": "2025-07-19T11:24:38.785Z"
+    },
+    {
+      "url": "https://httpbin.org/profile",
+      "title": "404 Not Found",
+      "depth": 1,
+      "parentUrl": "https://httpbin.org",
+      "statusCode": 404,
+      "contentType": "text/html",
+      "wordCount": 24,
+      "lastModified": null,
+      "discoveredAt": "2025-07-19T11:24:41.222Z"
+    },
+    {
+      "url": "https://httpbin.org/settings",
+      "title": "404 Not Found",
+      "depth": 1,
+      "parentUrl": "https://httpbin.org",
+      "statusCode": 404,
+      "contentType": "text/html",
+      "wordCount": 24,
+      "lastModified": null,
+      "discoveredAt": "2025-07-19T11:24:42.429Z"
+    },
+    {
+      "url": "https://httpbin.org/account",
+      "title": "404 Not Found",
+      "depth": 1,
+      "parentUrl": "https://httpbin.org",
+      "statusCode": 404,
+      "contentType": "text/html",
+      "wordCount": 24,
+      "lastModified": null,
+      "discoveredAt": "2025-07-19T11:24:44.302Z"
+    },
+    {
+      "url": "https://httpbin.org/home",
+      "title": "404 Not Found",
+      "depth": 1,
+      "parentUrl": "https://httpbin.org",
+      "statusCode": 404,
+      "contentType": "text/html",
+      "wordCount": 24,
+      "lastModified": null,
+      "discoveredAt": "2025-07-19T11:24:45.505Z"
+    }
+  ],
+  "errors": []
+}

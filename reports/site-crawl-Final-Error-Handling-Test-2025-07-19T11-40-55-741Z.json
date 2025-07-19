@@ -1,0 +1,61 @@
+{
+  "testName": "Final-Error-Handling-Test",
+  "rootUrl": "https://httpbin.org",
+  "startTime": "2025-07-19T11:40:55.741Z",
+  "options": {
+    "maxDepth": 3,
+    "maxPages": 3,
+    "rateLimitMs": 1000,
+    "userAgent": "AccessibilityTestingBot/1.0",
+    "respectRobots": false,
+    "bypassRobotsForAuth": true,
+    "timeout": 10000,
+    "useAuth": false,
+    "authConfig": null,
+    "headless": false,
+    "enableInteractiveDiscovery": true
+  },
+  "summary": {
+    "totalRequests": 3,
+    "successfulRequests": 3,
+    "discoveredPages": 3,
+    "errors": 0,
+    "maxDepthReached": 1
+  },
+  "pages": [
+    {
+      "url": "https://httpbin.org",
+      "title": "httpbin.org",
+      "depth": 0,
+      "parentUrl": null,
+      "statusCode": 200,
+      "contentType": "text/html; charset=utf-8",
+      "wordCount": 164,
+      "lastModified": null,
+      "discoveredAt": "2025-07-19T11:40:36.375Z"
+    },
+    {
+      "url": "https://httpbin.org/flasgger_static/swagger-ui.css",
+      "title": "No title",
+      "depth": 1,
+      "parentUrl": "https://httpbin.org",
+      "statusCode": 200,
+      "contentType": "text/css; charset=utf-8",
+      "wordCount": 4125,
+      "lastModified": "Tue, 14 Jan 2020 07:34:22 GMT",
+      "discoveredAt": "2025-07-19T11:40:37.927Z"
+    },
+    {
+      "url": "https://httpbin.org/static/favicon.ico",
+      "title": "No title",
+      "depth": 1,
+      "parentUrl": "https://httpbin.org",
+      "statusCode": 200,
+      "contentType": "image/vnd.microsoft.icon",
+      "wordCount": 64,
+      "lastModified": "Tue, 14 Jan 2020 07:02:15 GMT",
+      "discoveredAt": "2025-07-19T11:40:39.258Z"
+    }
+  ],
+  "errors": []
+}

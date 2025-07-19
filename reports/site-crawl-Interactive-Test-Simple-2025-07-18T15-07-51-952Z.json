@@ -1,0 +1,138 @@
+{
+  "testName": "Interactive-Test-Simple",
+  "rootUrl": "https://httpbin.org",
+  "startTime": "2025-07-18T15:07:51.952Z",
+  "options": {
+    "maxDepth": 3,
+    "maxPages": 10,
+    "rateLimitMs": 1000,
+    "userAgent": "AccessibilityTestingBot/1.0",
+    "respectRobots": false,
+    "bypassRobotsForAuth": true,
+    "timeout": 10000,
+    "useAuth": false,
+    "authConfig": null,
+    "headless": false,
+    "enableInteractiveDiscovery": true
+  },
+  "summary": {
+    "totalRequests": 10,
+    "successfulRequests": 10,
+    "discoveredPages": 10,
+    "errors": 0,
+    "maxDepthReached": 1
+  },
+  "pages": [
+    {
+      "url": "https://httpbin.org",
+      "title": "503 Service Temporarily Unavailable",
+      "depth": 0,
+      "parentUrl": null,
+      "statusCode": 503,
+      "contentType": "text/html",
+      "wordCount": 4,
+      "lastModified": null,
+      "discoveredAt": "2025-07-18T15:07:41.540Z"
+    },
+    {
+      "url": "https://httpbin.org/app",
+      "title": "503 Service Temporarily Unavailable",
+      "depth": 1,
+      "parentUrl": "https://httpbin.org",
+      "statusCode": 503,
+      "contentType": "text/html",
+      "wordCount": 4,
+      "lastModified": null,
+      "discoveredAt": "2025-07-18T15:07:42.708Z"
+    },
+    {
+      "url": "https://httpbin.org/login",
+      "title": "503 Service Temporarily Unavailable",
+      "depth": 1,
+      "parentUrl": "https://httpbin.org",
+      "statusCode": 503,
+      "contentType": "text/html",
+      "wordCount": 4,
+      "lastModified": null,
+      "discoveredAt": "2025-07-18T15:07:43.884Z"
+    },
+    {
+      "url": "https://httpbin.org/signup",
+      "title": "503 Service Temporarily Unavailable",
+      "depth": 1,
+      "parentUrl": "https://httpbin.org",
+      "statusCode": 503,
+      "contentType": "text/html",
+      "wordCount": 4,
+      "lastModified": null,
+      "discoveredAt": "2025-07-18T15:07:45.055Z"
+    },
+    {
+      "url": "https://httpbin.org/register",
+      "title": "503 Service Temporarily Unavailable",
+      "depth": 1,
+      "parentUrl": "https://httpbin.org",
+      "statusCode": 503,
+      "contentType": "text/html",
+      "wordCount": 4,
+      "lastModified": null,
+      "discoveredAt": "2025-07-18T15:07:46.158Z"
+    },
+    {
+      "url": "https://httpbin.org/dashboard",
+      "title": "503 Service Temporarily Unavailable",
+      "depth": 1,
+      "parentUrl": "https://httpbin.org",
+      "statusCode": 503,
+      "contentType": "text/html",
+      "wordCount": 4,
+      "lastModified": null,
+      "discoveredAt": "2025-07-18T15:07:47.262Z"
+    },
+    {
+      "url": "https://httpbin.org/profile",
+      "title": "503 Service Temporarily Unavailable",
+      "depth": 1,
+      "parentUrl": "https://httpbin.org",
+      "statusCode": 503,
+      "contentType": "text/html",
+      "wordCount": 4,
+      "lastModified": null,
+      "discoveredAt": "2025-07-18T15:07:48.365Z"
+    },
+    {
+      "url": "https://httpbin.org/settings",
+      "title": "503 Service Temporarily Unavailable",
+      "depth": 1,
+      "parentUrl": "https://httpbin.org",
+      "statusCode": 503,
+      "contentType": "text/html",
+      "wordCount": 4,
+      "lastModified": null,
+      "discoveredAt": "2025-07-18T15:07:49.486Z"
+    },
+    {
+      "url": "https://httpbin.org/account",
+      "title": "503 Service Temporarily Unavailable",
+      "depth": 1,
+      "parentUrl": "https://httpbin.org",
+      "statusCode": 503,
+      "contentType": "text/html",
+      "wordCount": 4,
+      "lastModified": null,
+      "discoveredAt": "2025-07-18T15:07:50.654Z"
+    },
+    {
+      "url": "https://httpbin.org/home",
+      "title": "503 Service Temporarily Unavailable",
+      "depth": 1,
+      "parentUrl": "https://httpbin.org",
+      "statusCode": 503,
+      "contentType": "text/html",
+      "wordCount": 4,
+      "lastModified": null,
+      "discoveredAt": "2025-07-18T15:07:51.778Z"
+    }
+  ],
+  "errors": []
+}

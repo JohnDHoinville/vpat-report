@@ -1,0 +1,103 @@
+{
+  "testName": "Discovery-e6d68fb3-8454-4c83-80ba-858d6a9d39ee",
+  "rootUrl": "https://run-analysis.onrender.com/app",
+  "startTime": "2025-07-18T13:38:26.632Z",
+  "options": {
+    "maxDepth": "5",
+    "maxPages": "250",
+    "rateLimitMs": 2000,
+    "userAgent": "AccessibilityTestingBot/1.0",
+    "respectRobots": false,
+    "bypassRobotsForAuth": true,
+    "timeout": 10000,
+    "useAuth": false,
+    "authConfig": {
+      "type": "basic",
+      "loginUrl": "https://run-analysis.onrender.com/login",
+      "username": "johndhoinville@gmail.com",
+      "password": "ilovesolden",
+      "successUrl": "https://run-analysis.onrender.com/app",
+      "domain": "run-analysis.onrender.com",
+      "name": "ToeTheLine.Life",
+      "authType": "basic",
+      "loginPage": "https://run-analysis.onrender.com/login",
+      "successPage": "https://run-analysis.onrender.com/app"
+    },
+    "headless": true
+  },
+  "summary": {
+    "totalRequests": 1,
+    "successfulRequests": 1,
+    "discoveredPages": 5,
+    "errors": 1,
+    "maxDepthReached": 0
+  },
+  "pages": [
+    {
+      "url": "https://run-analysis.onrender.com/",
+      "title": "From Sitemap",
+      "depth": 0,
+      "parentUrl": "sitemap.xml",
+      "statusCode": "unknown",
+      "contentType": "unknown",
+      "wordCount": 0,
+      "lastModified": null,
+      "discoveredAt": "2025-07-18T13:38:26.403Z",
+      "source": "sitemap"
+    },
+    {
+      "url": "https://run-analysis.onrender.com/blog",
+      "title": "From Sitemap",
+      "depth": 0,
+      "parentUrl": "sitemap.xml",
+      "statusCode": "unknown",
+      "contentType": "unknown",
+      "wordCount": 0,
+      "lastModified": null,
+      "discoveredAt": "2025-07-18T13:38:26.403Z",
+      "source": "sitemap"
+    },
+    {
+      "url": "https://run-analysis.onrender.com/app",
+      "title": "From Sitemap",
+      "depth": 0,
+      "parentUrl": "sitemap.xml",
+      "statusCode": "unknown",
+      "contentType": "unknown",
+      "wordCount": 0,
+      "lastModified": null,
+      "discoveredAt": "2025-07-18T13:38:26.403Z",
+      "source": "sitemap"
+    },
+    {
+      "url": "https://run-analysis.onrender.com/tailwind-demo",
+      "title": "From Sitemap",
+      "depth": 0,
+      "parentUrl": "sitemap.xml",
+      "statusCode": "unknown",
+      "contentType": "unknown",
+      "wordCount": 0,
+      "lastModified": null,
+      "discoveredAt": "2025-07-18T13:38:26.403Z",
+      "source": "sitemap"
+    },
+    {
+      "url": "https://run-analysis.onrender.com/app",
+      "title": "ToeTheLine",
+      "depth": 0,
+      "parentUrl": null,
+      "statusCode": 200,
+      "contentType": "text/html; charset=utf-8",
+      "wordCount": 41,
+      "lastModified": null,
+      "discoveredAt": "2025-07-18T13:38:26.576Z"
+    }
+  ],
+  "errors": [
+    {
+      "url": "https://run-analysis.onrender.com/app",
+      "error": "Attribute selector didn't terminate",
+      "timestamp": "2025-07-18T13:38:26.589Z"
+    }
+  ]
+}

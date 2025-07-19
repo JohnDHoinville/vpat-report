@@ -243,6 +243,21 @@ class WebSocketService {
     }
 
     /**
+     * Broadcast discovery deletion
+     */
+    emitDiscoveryDeleted(projectId, discoveryId) {
+        const message = {
+            type: 'discovery_deleted',
+            projectId,
+            discoveryId,
+            timestamp: new Date().toISOString()
+        };
+
+        this.io.to(`project_${projectId}`).emit('discovery_deleted', message);
+        console.log(`🗑️ Discovery deletion broadcast: ${projectId} - ${discoveryId}`);
+    }
+
+    /**
      * Broadcast test session progress update
      */
     emitSessionProgress(sessionId, projectId, progressData) {
@@ -382,10 +397,7 @@ class WebSocketService {
                     totalPages: milestone.totalPages,
                     recommendedMaxPages: milestone.recommendedMaxPages
                 }),
-                ...(milestone.type === 'robots_blocking' && {
-                    blockedCount: milestone.blockedCount,
-                    blockedUrls: milestone.blockedUrls
-                }),
+
                 ...(milestone.type === 'error_threshold' && {
                     errorRate: milestone.errorRate,
                     errorCount: milestone.errorCount,

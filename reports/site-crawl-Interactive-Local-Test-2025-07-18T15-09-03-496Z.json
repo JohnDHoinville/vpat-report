@@ -1,0 +1,272 @@
+{
+  "testName": "Interactive-Local-Test",
+  "rootUrl": "http://localhost:8080/test-interactive.html",
+  "startTime": "2025-07-18T15:09:03.496Z",
+  "options": {
+    "maxDepth": 3,
+    "maxPages": 20,
+    "rateLimitMs": 1000,
+    "userAgent": "AccessibilityTestingBot/1.0",
+    "respectRobots": false,
+    "bypassRobotsForAuth": true,
+    "timeout": 10000,
+    "useAuth": false,
+    "authConfig": null,
+    "headless": false,
+    "enableInteractiveDiscovery": true
+  },
+  "summary": {
+    "totalRequests": 20,
+    "successfulRequests": 20,
+    "discoveredPages": 22,
+    "errors": 0,
+    "maxDepthReached": 1
+  },
+  "pages": [
+    {
+      "url": "http://localhost:8080/test-interactive.html",
+      "title": "Interactive Discovery Test",
+      "depth": 0,
+      "parentUrl": null,
+      "statusCode": 200,
+      "contentType": "text/html",
+      "wordCount": 63,
+      "lastModified": "Fri, 18 Jul 2025 15:08:33 GMT",
+      "discoveredAt": "2025-07-18T15:08:44.178Z"
+    },
+    {
+      "url": "http://localhost:8080/app",
+      "title": "Error response",
+      "depth": 1,
+      "parentUrl": "http://localhost:8080/test-interactive.html",
+      "statusCode": 404,
+      "contentType": "text/html;charset=utf-8",
+      "wordCount": 19,
+      "lastModified": null,
+      "discoveredAt": "2025-07-18T15:08:45.191Z"
+    },
+    {
+      "url": "http://localhost:8080/login",
+      "title": "Error response",
+      "depth": 1,
+      "parentUrl": "http://localhost:8080/test-interactive.html",
+      "statusCode": 404,
+      "contentType": "text/html;charset=utf-8",
+      "wordCount": 19,
+      "lastModified": null,
+      "discoveredAt": "2025-07-18T15:08:46.197Z"
+    },
+    {
+      "url": "http://localhost:8080/signup",
+      "title": "Error response",
+      "depth": 1,
+      "parentUrl": "http://localhost:8080/test-interactive.html",
+      "statusCode": 404,
+      "contentType": "text/html;charset=utf-8",
+      "wordCount": 19,
+      "lastModified": null,
+      "discoveredAt": "2025-07-18T15:08:47.203Z"
+    },
+    {
+      "url": "http://localhost:8080/register",
+      "title": "Error response",
+      "depth": 1,
+      "parentUrl": "http://localhost:8080/test-interactive.html",
+      "statusCode": 404,
+      "contentType": "text/html;charset=utf-8",
+      "wordCount": 19,
+      "lastModified": null,
+      "discoveredAt": "2025-07-18T15:08:48.209Z"
+    },
+    {
+      "url": "http://localhost:8080/dashboard",
+      "title": "No title",
+      "depth": 1,
+      "parentUrl": "http://localhost:8080/test-interactive.html",
+      "statusCode": 301,
+      "contentType": "unknown",
+      "wordCount": 0,
+      "lastModified": null,
+      "discoveredAt": "2025-07-18T15:08:49.217Z"
+    },
+    {
+      "url": "http://localhost:8080/profile",
+      "title": "Error response",
+      "depth": 1,
+      "parentUrl": "http://localhost:8080/test-interactive.html",
+      "statusCode": 404,
+      "contentType": "text/html;charset=utf-8",
+      "wordCount": 19,
+      "lastModified": null,
+      "discoveredAt": "2025-07-18T15:08:50.221Z"
+    },
+    {
+      "url": "http://localhost:8080/settings",
+      "title": "Error response",
+      "depth": 1,
+      "parentUrl": "http://localhost:8080/test-interactive.html",
+      "statusCode": 404,
+      "contentType": "text/html;charset=utf-8",
+      "wordCount": 19,
+      "lastModified": null,
+      "discoveredAt": "2025-07-18T15:08:51.226Z"
+    },
+    {
+      "url": "http://localhost:8080/account",
+      "title": "Error response",
+      "depth": 1,
+      "parentUrl": "http://localhost:8080/test-interactive.html",
+      "statusCode": 404,
+      "contentType": "text/html;charset=utf-8",
+      "wordCount": 19,
+      "lastModified": null,
+      "discoveredAt": "2025-07-18T15:08:52.231Z"
+    },
+    {
+      "url": "http://localhost:8080/home",
+      "title": "Error response",
+      "depth": 1,
+      "parentUrl": "http://localhost:8080/test-interactive.html",
+      "statusCode": 404,
+      "contentType": "text/html;charset=utf-8",
+      "wordCount": 19,
+      "lastModified": null,
+      "discoveredAt": "2025-07-18T15:08:53.248Z"
+    },
+    {
+      "url": "http://localhost:8080/about",
+      "title": "Error response",
+      "depth": 1,
+      "parentUrl": "http://localhost:8080/test-interactive.html",
+      "statusCode": 404,
+      "contentType": "text/html;charset=utf-8",
+      "wordCount": 19,
+      "lastModified": null,
+      "discoveredAt": "2025-07-18T15:08:54.257Z"
+    },
+    {
+      "url": "http://localhost:8080/contact",
+      "title": "Error response",
+      "depth": 1,
+      "parentUrl": "http://localhost:8080/test-interactive.html",
+      "statusCode": 404,
+      "contentType": "text/html;charset=utf-8",
+      "wordCount": 19,
+      "lastModified": null,
+      "discoveredAt": "2025-07-18T15:08:55.261Z"
+    },
+    {
+      "url": "http://localhost:8080/help",
+      "title": "Error response",
+      "depth": 1,
+      "parentUrl": "http://localhost:8080/test-interactive.html",
+      "statusCode": 404,
+      "contentType": "text/html;charset=utf-8",
+      "wordCount": 19,
+      "lastModified": null,
+      "discoveredAt": "2025-07-18T15:08:56.266Z"
+    },
+    {
+      "url": "http://localhost:8080/support",
+      "title": "Error response",
+      "depth": 1,
+      "parentUrl": "http://localhost:8080/test-interactive.html",
+      "statusCode": 404,
+      "contentType": "text/html;charset=utf-8",
+      "wordCount": 19,
+      "lastModified": null,
+      "discoveredAt": "2025-07-18T15:08:57.272Z"
+    },
+    {
+      "url": "http://localhost:8080/pricing",
+      "title": "Error response",
+      "depth": 1,
+      "parentUrl": "http://localhost:8080/test-interactive.html",
+      "statusCode": 404,
+      "contentType": "text/html;charset=utf-8",
+      "wordCount": 19,
+      "lastModified": null,
+      "discoveredAt": "2025-07-18T15:08:58.278Z"
+    },
+    {
+      "url": "http://localhost:8080/features",
+      "title": "Error response",
+      "depth": 1,
+      "parentUrl": "http://localhost:8080/test-interactive.html",
+      "statusCode": 404,
+      "contentType": "text/html;charset=utf-8",
+      "wordCount": 19,
+      "lastModified": null,
+      "discoveredAt": "2025-07-18T15:08:59.283Z"
+    },
+    {
+      "url": "http://localhost:8080/blog",
+      "title": "Error response",
+      "depth": 1,
+      "parentUrl": "http://localhost:8080/test-interactive.html",
+      "statusCode": 404,
+      "contentType": "text/html;charset=utf-8",
+      "wordCount": 19,
+      "lastModified": null,
+      "discoveredAt": "2025-07-18T15:09:00.286Z"
+    },
+    {
+      "url": "http://localhost:8080/blogs",
+      "title": "Error response",
+      "depth": 1,
+      "parentUrl": "http://localhost:8080/test-interactive.html",
+      "statusCode": 404,
+      "contentType": "text/html;charset=utf-8",
+      "wordCount": 19,
+      "lastModified": null,
+      "discoveredAt": "2025-07-18T15:09:01.290Z"
+    },
+    {
+      "url": "http://localhost:8080/news",
+      "title": "Error response",
+      "depth": 1,
+      "parentUrl": "http://localhost:8080/test-interactive.html",
+      "statusCode": 404,
+      "contentType": "text/html;charset=utf-8",
+      "wordCount": 19,
+      "lastModified": null,
+      "discoveredAt": "2025-07-18T15:09:02.294Z"
+    },
+    {
+      "url": "http://localhost:8080/docs",
+      "title": "Error response",
+      "depth": 1,
+      "parentUrl": "http://localhost:8080/test-interactive.html",
+      "statusCode": 404,
+      "contentType": "text/html;charset=utf-8",
+      "wordCount": 19,
+      "lastModified": null,
+      "discoveredAt": "2025-07-18T15:09:03.298Z"
+    },
+    {
+      "url": "http://localhost:3000/",
+      "title": "From Sitemap",
+      "depth": 0,
+      "parentUrl": "sitemap.xml",
+      "statusCode": "unknown",
+      "contentType": "unknown",
+      "wordCount": 0,
+      "lastModified": null,
+      "discoveredAt": "2025-07-18T15:08:43.492Z",
+      "source": "sitemap"
+    },
+    {
+      "url": "http://localhost:3000/index.html",
+      "title": "From Sitemap",
+      "depth": 0,
+      "parentUrl": "sitemap.xml",
+      "statusCode": "unknown",
+      "contentType": "unknown",
+      "wordCount": 0,
+      "lastModified": null,
+      "discoveredAt": "2025-07-18T15:08:43.492Z",
+      "source": "sitemap"
+    }
+  ],
+  "errors": []
+}

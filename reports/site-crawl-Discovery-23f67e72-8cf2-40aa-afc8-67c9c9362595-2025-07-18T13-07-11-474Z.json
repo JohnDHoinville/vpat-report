@@ -1,0 +1,42 @@
+{
+  "testName": "Discovery-23f67e72-8cf2-40aa-afc8-67c9c9362595",
+  "rootUrl": "https://fm-dev.ti.internet2.edu/home",
+  "startTime": "2025-07-18T13:07:11.474Z",
+  "options": {
+    "maxDepth": "5",
+    "maxPages": "250",
+    "rateLimitMs": 2000,
+    "userAgent": "AccessibilityTestingBot/1.0",
+    "respectRobots": false,
+    "timeout": 10000,
+    "useAuth": true,
+    "authConfig": {
+      "type": "sso",
+      "loginUrl": "https://fm-dev.ti.internet2.edu/login",
+      "username": null,
+      "password": null,
+      "successUrl": "https://fm-dev.ti.internet2.edu/home",
+      "domain": "fm-dev.ti.internet2.edu",
+      "name": "FM Auth",
+      "authType": "sso",
+      "loginPage": "https://fm-dev.ti.internet2.edu/login",
+      "successPage": "https://fm-dev.ti.internet2.edu/home"
+    },
+    "headless": true
+  },
+  "summary": {
+    "totalRequests": 1,
+    "successfulRequests": 0,
+    "discoveredPages": 0,
+    "errors": 1,
+    "maxDepthReached": 0
+  },
+  "pages": [],
+  "errors": [
+    {
+      "url": "https://fm-dev.ti.internet2.edu/home",
+      "error": "Failed to fetch authenticated page https://fm-dev.ti.internet2.edu/home: Authentication expired or failed - redirected to login page",
+      "timestamp": "2025-07-18T13:07:11.427Z"
+    }
+  ]
+}

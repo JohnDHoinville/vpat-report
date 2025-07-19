@@ -520,24 +520,17 @@ class SimpleTestingService {
     }
 
     /**
-     * Create test instances from automated test results
-     * Maps tool results to WCAG requirements and creates test instances
+     * Create test instances from automated test results with proper WCAG mapping
      * @private
      */
     async createTestInstancesFromAutomatedResult(client, sessionId, pageId, testResultId, toolName, result, violationsCount, automatedResult = null) {
         try {
-            // Extract violations and passes from result
-            const testData = result.result || result;
-            const violations = testData.detailedViolations || result.detailedViolations || [];
-            const passes = testData.detailedPasses || result.detailedPasses || [];
+            console.log(`🔗 Processing ${toolName} results for test instances...`);
             
-            // Get tool-to-WCAG mapping
-            const wcagMappings = this.getToolWCAGMappings(toolName);
-            
-            // Track which requirements we've processed to avoid duplicates
+            const violations = this.extractViolationsFromResult(result);
             const processedRequirements = new Set();
             
-            // Process violations (failed tests)
+            // Process violations (failed tests) - handle transaction aborts
             for (const violation of violations) {
                 const wcagCriteria = this.extractWCAGCriteriaFromViolation(violation);
                 
@@ -560,12 +553,17 @@ class SimpleTestingService {
                         
                         processedRequirements.add(requirementKey);
                     } catch (error) {
-                        console.error(`❌ Failed to create test instance for ${criterion}:`, error.message);
-                        // If transaction is aborted, we need to stop processing
+                        console.error(`❌ Error creating test instance for ${criterion}: ${error.message}`);
+                        
+                        // If transaction is aborted, we need to restart the transaction
                         if (error.code === '25P02') {
-                            throw error;
+                            console.error(`🔄 Transaction aborted for ${criterion}, restarting transaction block`);
+                            await client.query('ROLLBACK');
+                            await client.query('BEGIN');
+                            // Continue with next criteria - don't throw here
+                            continue;
                         }
-                        // For other errors, continue processing
+                        // For other errors, continue processing other criteria
                     }
                 }
             }
@@ -598,12 +596,17 @@ class SimpleTestingService {
                         
                         processedRequirements.add(requirementKey);
                     } catch (error) {
-                        console.error(`❌ Failed to create test instance for ${criterion}:`, error.message);
-                        // If transaction is aborted, we need to stop processing
+                        console.error(`❌ Error creating test instance for ${criterion}: ${error.message}`);
+                        
+                        // If transaction is aborted, restart the transaction
                         if (error.code === '25P02') {
-                            throw error;
+                            console.error(`🔄 Transaction aborted for ${criterion}, restarting transaction block`);
+                            await client.query('ROLLBACK');
+                            await client.query('BEGIN');
+                            // Continue with next criteria - don't throw here
+                            continue;
                         }
-                        // For other errors, continue processing
+                        // For other errors, continue processing other criteria
                     }
                 }
             }
@@ -724,8 +727,16 @@ class SimpleTestingService {
             return testInstanceId;
             
         } catch (error) {
-            console.error(`❌ Error creating test instance for ${wcagCriterion}:`, error);
-            throw error; // Throw error to properly handle transaction state
+            console.error(`❌ Error creating test instance for ${wcagCriterion}: ${error.message}`);
+            
+            // If transaction is aborted, let the caller handle it
+            if (error.code === '25P02') {
+                console.error(`🔄 Transaction aborted during test instance creation for ${wcagCriterion}`);
+                throw error; // Propagate to caller for transaction restart
+            }
+            
+            // For other errors, we can continue but still throw to let caller handle
+            throw error; 
         }
     }
 

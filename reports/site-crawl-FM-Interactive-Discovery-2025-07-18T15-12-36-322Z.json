@@ -1,0 +1,193 @@
+{
+  "testName": "FM-Interactive-Discovery",
+  "rootUrl": "https://fm-dev.ti.internet2.edu",
+  "startTime": "2025-07-18T15:12:36.322Z",
+  "options": {
+    "maxDepth": 3,
+    "maxPages": 15,
+    "rateLimitMs": 1000,
+    "userAgent": "AccessibilityTestingBot/1.0",
+    "respectRobots": false,
+    "bypassRobotsForAuth": true,
+    "timeout": 10000,
+    "useAuth": false,
+    "authConfig": null,
+    "headless": false,
+    "enableInteractiveDiscovery": true
+  },
+  "summary": {
+    "totalRequests": 15,
+    "successfulRequests": 15,
+    "discoveredPages": 15,
+    "errors": 0,
+    "maxDepthReached": 1
+  },
+  "pages": [
+    {
+      "url": "https://fm-dev.ti.internet2.edu",
+      "title": "No title",
+      "depth": 0,
+      "parentUrl": null,
+      "statusCode": 302,
+      "contentType": "text/html; charset=utf-8",
+      "wordCount": 0,
+      "lastModified": null,
+      "discoveredAt": "2025-07-18T15:11:53.417Z"
+    },
+    {
+      "url": "https://fm-dev.ti.internet2.edu/app",
+      "title": "InCommon Federation Manager",
+      "depth": 1,
+      "parentUrl": "https://fm-dev.ti.internet2.edu",
+      "statusCode": 404,
+      "contentType": "text/html",
+      "wordCount": 28,
+      "lastModified": "Tue, 21 Jun 2022 19:45:53 GMT",
+      "discoveredAt": "2025-07-18T15:11:54.506Z"
+    },
+    {
+      "url": "https://fm-dev.ti.internet2.edu/login",
+      "title": "No title",
+      "depth": 1,
+      "parentUrl": "https://fm-dev.ti.internet2.edu",
+      "statusCode": 200,
+      "contentType": "text/html; charset=utf-8",
+      "wordCount": 42,
+      "lastModified": null,
+      "discoveredAt": "2025-07-18T15:11:55.622Z"
+    },
+    {
+      "url": "https://fm-dev.ti.internet2.edu/signup",
+      "title": "InCommon Federation Manager",
+      "depth": 1,
+      "parentUrl": "https://fm-dev.ti.internet2.edu",
+      "statusCode": 404,
+      "contentType": "text/html",
+      "wordCount": 28,
+      "lastModified": "Tue, 21 Jun 2022 19:45:53 GMT",
+      "discoveredAt": "2025-07-18T15:11:56.720Z"
+    },
+    {
+      "url": "https://fm-dev.ti.internet2.edu/register",
+      "title": "InCommon Federation Manager",
+      "depth": 1,
+      "parentUrl": "https://fm-dev.ti.internet2.edu",
+      "statusCode": 404,
+      "contentType": "text/html",
+      "wordCount": 28,
+      "lastModified": "Tue, 21 Jun 2022 19:45:53 GMT",
+      "discoveredAt": "2025-07-18T15:11:57.796Z"
+    },
+    {
+      "url": "https://fm-dev.ti.internet2.edu/dashboard",
+      "title": "InCommon Federation Manager",
+      "depth": 1,
+      "parentUrl": "https://fm-dev.ti.internet2.edu",
+      "statusCode": 404,
+      "contentType": "text/html",
+      "wordCount": 28,
+      "lastModified": "Tue, 21 Jun 2022 19:45:53 GMT",
+      "discoveredAt": "2025-07-18T15:11:58.885Z"
+    },
+    {
+      "url": "https://fm-dev.ti.internet2.edu/profile",
+      "title": "InCommon Federation Manager",
+      "depth": 1,
+      "parentUrl": "https://fm-dev.ti.internet2.edu",
+      "statusCode": 404,
+      "contentType": "text/html",
+      "wordCount": 28,
+      "lastModified": "Tue, 21 Jun 2022 19:45:53 GMT",
+      "discoveredAt": "2025-07-18T15:11:59.969Z"
+    },
+    {
+      "url": "https://fm-dev.ti.internet2.edu/settings",
+      "title": "InCommon Federation Manager",
+      "depth": 1,
+      "parentUrl": "https://fm-dev.ti.internet2.edu",
+      "statusCode": 404,
+      "contentType": "text/html",
+      "wordCount": 28,
+      "lastModified": "Tue, 21 Jun 2022 19:45:53 GMT",
+      "discoveredAt": "2025-07-18T15:12:01.129Z"
+    },
+    {
+      "url": "https://fm-dev.ti.internet2.edu/account",
+      "title": "InCommon Federation Manager",
+      "depth": 1,
+      "parentUrl": "https://fm-dev.ti.internet2.edu",
+      "statusCode": 404,
+      "contentType": "text/html",
+      "wordCount": 28,
+      "lastModified": "Tue, 21 Jun 2022 19:45:53 GMT",
+      "discoveredAt": "2025-07-18T15:12:02.215Z"
+    },
+    {
+      "url": "https://fm-dev.ti.internet2.edu/home",
+      "title": "No title",
+      "depth": 1,
+      "parentUrl": "https://fm-dev.ti.internet2.edu",
+      "statusCode": 302,
+      "contentType": "text/html; charset=utf-8",
+      "wordCount": 0,
+      "lastModified": null,
+      "discoveredAt": "2025-07-18T15:12:03.307Z"
+    },
+    {
+      "url": "https://fm-dev.ti.internet2.edu/about",
+      "title": "InCommon Federation Manager",
+      "depth": 1,
+      "parentUrl": "https://fm-dev.ti.internet2.edu",
+      "statusCode": 404,
+      "contentType": "text/html",
+      "wordCount": 28,
+      "lastModified": "Tue, 21 Jun 2022 19:45:53 GMT",
+      "discoveredAt": "2025-07-18T15:12:04.387Z"
+    },
+    {
+      "url": "https://fm-dev.ti.internet2.edu/contact",
+      "title": "InCommon Federation Manager",
+      "depth": 1,
+      "parentUrl": "https://fm-dev.ti.internet2.edu",
+      "statusCode": 404,
+      "contentType": "text/html",
+      "wordCount": 28,
+      "lastModified": "Tue, 21 Jun 2022 19:45:53 GMT",
+      "discoveredAt": "2025-07-18T15:12:05.473Z"
+    },
+    {
+      "url": "https://fm-dev.ti.internet2.edu/help",
+      "title": "InCommon Federation Manager",
+      "depth": 1,
+      "parentUrl": "https://fm-dev.ti.internet2.edu",
+      "statusCode": 404,
+      "contentType": "text/html",
+      "wordCount": 28,
+      "lastModified": "Tue, 21 Jun 2022 19:45:53 GMT",
+      "discoveredAt": "2025-07-18T15:12:06.549Z"
+    },
+    {
+      "url": "https://fm-dev.ti.internet2.edu/support",
+      "title": "InCommon Federation Manager",
+      "depth": 1,
+      "parentUrl": "https://fm-dev.ti.internet2.edu",
+      "statusCode": 404,
+      "contentType": "text/html",
+      "wordCount": 28,
+      "lastModified": "Tue, 21 Jun 2022 19:45:53 GMT",
+      "discoveredAt": "2025-07-18T15:12:07.683Z"
+    },
+    {
+      "url": "https://fm-dev.ti.internet2.edu/pricing",
+      "title": "InCommon Federation Manager",
+      "depth": 1,
+      "parentUrl": "https://fm-dev.ti.internet2.edu",
+      "statusCode": 404,
+      "contentType": "text/html",
+      "wordCount": 28,
+      "lastModified": "Tue, 21 Jun 2022 19:45:53 GMT",
+      "discoveredAt": "2025-07-18T15:12:08.765Z"
+    }
+  ],
+  "errors": []
+}

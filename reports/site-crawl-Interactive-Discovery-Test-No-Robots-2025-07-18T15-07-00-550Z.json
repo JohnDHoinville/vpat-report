@@ -1,0 +1,45 @@
+{
+  "testName": "Interactive-Discovery-Test-No-Robots",
+  "rootUrl": "https://fm-dev.ti.internet2.edu",
+  "startTime": "2025-07-18T15:07:00.550Z",
+  "options": {
+    "maxDepth": 3,
+    "maxPages": 30,
+    "rateLimitMs": 1000,
+    "userAgent": "AccessibilityTestingBot/1.0",
+    "respectRobots": false,
+    "bypassRobotsForAuth": true,
+    "timeout": 10000,
+    "useAuth": false,
+    "authConfig": null,
+    "headless": false,
+    "enableInteractiveDiscovery": true
+  },
+  "summary": {
+    "totalRequests": 1,
+    "successfulRequests": 1,
+    "discoveredPages": 1,
+    "errors": 1,
+    "maxDepthReached": 0
+  },
+  "pages": [
+    {
+      "url": "https://fm-dev.ti.internet2.edu",
+      "title": "No title",
+      "depth": 0,
+      "parentUrl": null,
+      "statusCode": 302,
+      "contentType": "text/html; charset=utf-8",
+      "wordCount": 1,
+      "lastModified": null,
+      "discoveredAt": "2025-07-18T15:07:00.377Z"
+    }
+  ],
+  "errors": [
+    {
+      "url": "https://fm-dev.ti.internet2.edu",
+      "error": "Attribute selector didn't terminate",
+      "timestamp": "2025-07-18T15:07:00.380Z"
+    }
+  ]
+}
