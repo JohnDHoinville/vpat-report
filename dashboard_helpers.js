@@ -1863,8 +1863,8 @@ function dashboard() {
                 });
                 
                 if (data.success) {
-                    this.showDeleteDiscovery = false;
-                    this.discoveryToDelete = null;
+                this.showDeleteDiscovery = false;
+                this.discoveryToDelete = null;
                     this.showNotification(`Discovery deleted successfully: ${data.message}`, 'success');
                     
                     // Force refresh to ensure UI is in sync with database
@@ -2609,7 +2609,7 @@ function dashboard() {
 
             // Create the auth config in the database for SSO
             const authConfigData = {
-                name: config.name,
+                    name: config.name,
                 type: 'sso',
                 domain: this.extractDomainFromUrl(config.url),
                 url: config.url,
@@ -4479,10 +4479,10 @@ function dashboard() {
                 }
                 
                 this.testInstances = allTestInstances;
-                this.applyTestFilters();
+                    this.applyTestFilters();
                 
-                // Load progress data
-                await this.loadSessionProgressMetrics(sessionId);
+                    // Load progress data
+                    await this.loadSessionProgressMetrics(sessionId);
                 
                 console.log(`✅ Total test instances loaded: ${this.testInstances.length}`);
                 
@@ -4720,14 +4720,14 @@ function dashboard() {
                     );
                 } else {
                     // General search: match against requirement fields
-                    filtered = filtered.filter(test => test &&
-                        ((test.requirement_id && test.requirement_id.toLowerCase().includes(searchTerm)) ||
-                        (test.criterion_number && test.criterion_number.toLowerCase().includes(searchTerm)) ||
-                        (test.requirement_title && test.requirement_title.toLowerCase().includes(searchTerm)) ||
-                        (test.requirement_description && test.requirement_description.toLowerCase().includes(searchTerm)) ||
+                filtered = filtered.filter(test => test &&
+                    ((test.requirement_id && test.requirement_id.toLowerCase().includes(searchTerm)) ||
+                    (test.criterion_number && test.criterion_number.toLowerCase().includes(searchTerm)) ||
+                    (test.requirement_title && test.requirement_title.toLowerCase().includes(searchTerm)) ||
+                    (test.requirement_description && test.requirement_description.toLowerCase().includes(searchTerm)) ||
                         (test.testing_instructions && test.testing_instructions.toLowerCase().includes(searchTerm)) ||
                         (test.page_url && test.page_url.toLowerCase().includes(searchTerm)))
-                    );
+                );
                 }
             }
 
@@ -6187,14 +6187,14 @@ function dashboard() {
                     );
                 } else {
                     // General search: match against requirement fields
-                    filtered = filtered.filter(test => test &&
-                        ((test.requirement_id && test.requirement_id.toLowerCase().includes(searchTerm)) ||
-                        (test.criterion_number && test.criterion_number.toLowerCase().includes(searchTerm)) ||
-                        (test.requirement_title && test.requirement_title.toLowerCase().includes(searchTerm)) ||
-                        (test.requirement_description && test.requirement_description.toLowerCase().includes(searchTerm)) ||
+                filtered = filtered.filter(test => test &&
+                    ((test.requirement_id && test.requirement_id.toLowerCase().includes(searchTerm)) ||
+                    (test.criterion_number && test.criterion_number.toLowerCase().includes(searchTerm)) ||
+                    (test.requirement_title && test.requirement_title.toLowerCase().includes(searchTerm)) ||
+                    (test.requirement_description && test.requirement_description.toLowerCase().includes(searchTerm)) ||
                         (test.testing_instructions && test.testing_instructions.toLowerCase().includes(searchTerm)) ||
                         (test.page_url && test.page_url.toLowerCase().includes(searchTerm)))
-                    );
+                );
                 }
             }
 
@@ -7712,7 +7712,7 @@ function dashboard() {
             }
         },
 
-        async loadSessionRequirements(sessionId) {
+                async loadSessionRequirements(sessionId) {
             if (!sessionId) return;
             
             try {
@@ -7722,23 +7722,23 @@ function dashboard() {
                 // This gives us the actual requirements being tested with their correct test methods
                 let requirementsData = [];
                 try {
-                    const sessionResponse = await this.apiCall(`/sessions/${sessionId}?include_tests=true`);
+                const sessionResponse = await this.apiCall(`/sessions/${sessionId}?include_tests=true`);
                     if (sessionResponse.success && sessionResponse.data.test_instances) {
-                        // Extract unique requirements from test instances
-                        const requirementMap = new Map();
-                        sessionResponse.data.test_instances.forEach(instance => {
-                            const criterionNumber = instance.criterion_number;
-                            if (!requirementMap.has(criterionNumber)) {
-                                requirementMap.set(criterionNumber, {
-                                    criterion_number: criterionNumber,
-                                    title: instance.requirement_title,
-                                    description: instance.requirement_description || '',
-                                    level: instance.requirement_level,
+                // Extract unique requirements from test instances
+                const requirementMap = new Map();
+                sessionResponse.data.test_instances.forEach(instance => {
+                    const criterionNumber = instance.criterion_number;
+                    if (!requirementMap.has(criterionNumber)) {
+                        requirementMap.set(criterionNumber, {
+                            criterion_number: criterionNumber,
+                            title: instance.requirement_title,
+                            description: instance.requirement_description || '',
+                            level: instance.requirement_level,
                                     test_method: instance.requirement_test_method, // This comes from the correct source
-                                    requirement_type: instance.requirement_type
-                                });
-                            }
+                            requirement_type: instance.requirement_type
                         });
+                    }
+                });
                         requirementsData = Array.from(requirementMap.values());
                         console.log(`📋 Loaded ${requirementsData.length} requirements from session test instances`);
                     }

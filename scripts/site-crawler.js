@@ -108,9 +108,9 @@ class SiteCrawler {
                         // Keep useAuth enabled for SSO even if setup had issues
                     } else {
                         // For traditional auth, disable if setup failed
-                        this.options.useAuth = false;
-                    }
+                    this.options.useAuth = false;
                 }
+            }
             }
 
             // Try to discover pages from sitemap.xml first for better coverage
@@ -439,29 +439,29 @@ class SiteCrawler {
      * Setup authentication using browser context
      */
     async setupAuthentication(rootUrl) {
-        const domain = new URL(rootUrl).hostname;
+            const domain = new URL(rootUrl).hostname;
         
         // Check for live authentication state first
-        let liveSessionPath = null;
+            let liveSessionPath = null;
         if (this.authStatesDir && fs.existsSync(this.authStatesDir)) {
             const liveSessionFiles = fs.readdirSync(this.authStatesDir)
                 .filter(file => file.includes(domain) && file.endsWith('.json'))
                 .sort((a, b) => {
                     const timestampA = parseInt(a.match(/(\d+)\.json$/)?.[1] || '0');
                     const timestampB = parseInt(b.match(/(\d+)\.json$/)?.[1] || '0');
-                    return timestampB - timestampA;
-                });
+                        return timestampB - timestampA;
+                    });
             if (liveSessionFiles.length > 0) {
                 liveSessionPath = path.join(this.authStatesDir, liveSessionFiles[0]);
                 this.updateProgress(`🔄 Found existing live session: ${liveSessionFiles[0]}`);
+                }
             }
-        }
 
         // Launch browser
-        this.browser = await chromium.launch({ headless: this.options.headless });
-        
+            this.browser = await chromium.launch({ headless: this.options.headless });
+            
         // Try live session first
-        if (liveSessionPath && fs.existsSync(liveSessionPath)) {
+            if (liveSessionPath && fs.existsSync(liveSessionPath)) {
             try {
                 this.updateProgress('🔐 Loading live authentication session...');
                 this.authContext = await this.browser.newContext({ storageState: liveSessionPath });
@@ -481,7 +481,7 @@ class SiteCrawler {
                     this.updateProgress('🔐 Setting up SSO/SAML authentication...');
                     await this.setupSSOAuthentication(rootUrl);
                 } else {
-                    this.updateProgress('🔐 Setting up traditional authentication...');
+                this.updateProgress('🔐 Setting up traditional authentication...');
                     await this.setupTraditionalAuthentication(rootUrl);
                 }
             } catch (error) {
@@ -552,40 +552,40 @@ class SiteCrawler {
      */
     async setupTraditionalAuthentication(rootUrl) {
         const domain = new URL(rootUrl).hostname;
-        const authHelper = new AuthHelper({
-            headless: this.options.headless,
-            timeout: this.options.timeout
-        });
-        
-        // Ensure URLs have proper protocols
-        const normalizeUrl = (url, baseUrl) => {
-            if (!url) return url;
-            if (url.startsWith('http://') || url.startsWith('https://')) return url;
-            
-            // If URL starts with domain, add protocol
-            if (url.includes('.')) {
-                const protocol = new URL(baseUrl).protocol;
-                return `${protocol}//${url}`;
-            }
-            
-            // If URL is a path, make it relative to base URL
-            return new URL(url, baseUrl).toString();
-        };
-        
-        authHelper.registerAuth(domain, {
-            loginUrl: normalizeUrl(this.options.authConfig.loginUrl, rootUrl),
-            username: this.options.authConfig.username || process.env.TEST_USERNAME,
-            password: this.options.authConfig.password || process.env.TEST_PASSWORD,
-            usernameSelector: this.options.authConfig.usernameSelector,
-            passwordSelector: this.options.authConfig.passwordSelector,
-            submitSelector: this.options.authConfig.submitSelector,
-            successUrl: normalizeUrl(this.options.authConfig.successUrl, rootUrl),
-            additionalSteps: this.options.authConfig.additionalSteps || [],
-            customLogin: this.options.authConfig.customLogin || null
-        });
-        
-        const { context } = await authHelper.createAuthenticatedContext(rootUrl, this.browser);
-        this.authContext = context;
+                const authHelper = new AuthHelper({
+                    headless: this.options.headless,
+                    timeout: this.options.timeout
+                });
+                
+                // Ensure URLs have proper protocols
+                const normalizeUrl = (url, baseUrl) => {
+                    if (!url) return url;
+                    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+                    
+                    // If URL starts with domain, add protocol
+                    if (url.includes('.')) {
+                        const protocol = new URL(baseUrl).protocol;
+                        return `${protocol}//${url}`;
+                    }
+                    
+                    // If URL is a path, make it relative to base URL
+                    return new URL(url, baseUrl).toString();
+                };
+                
+                authHelper.registerAuth(domain, {
+                    loginUrl: normalizeUrl(this.options.authConfig.loginUrl, rootUrl),
+                    username: this.options.authConfig.username || process.env.TEST_USERNAME,
+                    password: this.options.authConfig.password || process.env.TEST_PASSWORD,
+                    usernameSelector: this.options.authConfig.usernameSelector,
+                    passwordSelector: this.options.authConfig.passwordSelector,
+                    submitSelector: this.options.authConfig.submitSelector,
+                    successUrl: normalizeUrl(this.options.authConfig.successUrl, rootUrl),
+                    additionalSteps: this.options.authConfig.additionalSteps || [],
+                    customLogin: this.options.authConfig.customLogin || null
+                });
+                
+                const { context } = await authHelper.createAuthenticatedContext(rootUrl, this.browser);
+                this.authContext = context;
         this.updateProgress('✅ Traditional authentication completed');
     }
 
@@ -1048,18 +1048,18 @@ class SiteCrawler {
                 ignoreWhitespace: false,
                 lowerCaseAttributeNames: false
             });
-            const links = new Set();
-            
-            // Extract links from various sources
-            this.extractFromHrefAttributes($, baseUrl, links);
-            this.extractFromSrcAttributes($, baseUrl, links);
-            this.extractFromScriptContent($, baseUrl, links);
+        const links = new Set();
+        
+        // Extract links from various sources
+        this.extractFromHrefAttributes($, baseUrl, links);
+        this.extractFromSrcAttributes($, baseUrl, links);
+        this.extractFromScriptContent($, baseUrl, links);
             this.extractFromDataAttributes($, baseUrl, links);
             this.extractFromAdminPatterns($, baseUrl, links);
-            this.extractCommonSPARoutes(baseUrl, links);
+        this.extractCommonSPARoutes(baseUrl, links);
             this.extractFromFormActions($, baseUrl, links);
-            
-            return Array.from(links);
+        
+        return Array.from(links);
         } catch (error) {
             // Fallback to regex-based extraction if Cheerio fails
             const links = new Set();

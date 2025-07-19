@@ -156,7 +156,7 @@ class SiteDiscoveryService {
                 const authConfig = result.rows[0];
                 console.log(`✅ Found database authentication config: ${authConfig.name} for ${authConfig.domain} (Project: ${authConfig.project_name})`);
                 
-                return {
+                        return {
                     type: 'database',
                     domain: authConfig.domain,
                     name: authConfig.name,
@@ -199,6 +199,12 @@ class SiteDiscoveryService {
             // Configure crawler settings with authentication if available
             const crawlerSettings = { ...settings };
             
+            // Extract common settings for use throughout the function
+            const rateLimitMs = settings.rateLimitMs || 2000;
+            const userAgent = settings.userAgent || 'AccessibilityTestingBot/1.0';
+            const timeout = settings.timeout || 10000;
+            const headless = settings.headless !== false; // Default to true
+            
             if (authConfig) {
                 try {
                     crawlerSettings.useAuth = true;
@@ -222,12 +228,12 @@ class SiteDiscoveryService {
                         };
                         console.log(`🔐 Using database authentication for ${authConfig.domain}: ${authConfig.name} (Project: ${authConfig.project_name})`);
                         console.log(`🔐 Auth config mapped: loginUrl=${crawlerSettings.authConfig.loginUrl}, successUrl=${crawlerSettings.authConfig.successUrl}`);
-                        
-                        // Emit authentication info via WebSocket
-                        if (this.wsService) {
-                            const projectId = await this.getProjectIdFromDiscovery(discoveryId);
-                            this.wsService.emitDiscoveryMilestone(projectId, discoveryId, {
-                                type: 'authentication_detected',
+                    
+                    // Emit authentication info via WebSocket
+                    if (this.wsService) {
+                        const projectId = await this.getProjectIdFromDiscovery(discoveryId);
+                        this.wsService.emitDiscoveryMilestone(projectId, discoveryId, {
+                            type: 'authentication_detected',
                                 message: `Using database authentication: ${authConfig.name} (Project: ${authConfig.project_name})`,
                                 authType: 'database',
                                 domain: authConfig.domain,
@@ -922,7 +928,7 @@ class SiteDiscoveryService {
             if (recoveryResult.success) {
                 // Clean up from active crawlers
                 this.activeCrawlers.delete(discoveryId);
-                
+
                 // Emit progress update if WebSocket is available
                 if (this.wsService && recoveryResult.action !== 'no_change_needed') {
                     const projectId = await this.getProjectIdFromDiscovery(discoveryId);
@@ -1016,7 +1022,7 @@ class SiteDiscoveryService {
     }
 
     /**
-     * Enhanced delete discovery with safe cleanup
+     * Enhanced delete discovery with comprehensive cascade cleanup
      * @param {string} discoveryId - Discovery session UUID
      */
     async deleteDiscovery(discoveryId) {
@@ -1040,84 +1046,103 @@ class SiteDiscoveryService {
             await client.query('BEGIN');
             
             try {
-                // Step 1: Set page_id to NULL in test_instances that reference this discovery's pages
-                console.log(`🔧 Clearing test_instances page references for discovery ${discoveryId}`);
-                const updateResult = await client.query(`
-                    UPDATE test_instances 
-                    SET page_id = NULL 
-                    WHERE page_id IN (
-                        SELECT id FROM discovered_pages WHERE discovery_id = $1
-                    )
-                `, [discoveryId]);
+                console.log(`🔧 Starting comprehensive deletion for discovery ${discoveryId}`);
                 
-                console.log(`📝 Updated ${updateResult.rowCount} test instances to clear page references`);
+                // Step 1: Get all page IDs from this discovery
+                const pageResult = await client.query(
+                    'SELECT id FROM discovered_pages WHERE discovery_id = $1',
+                    [discoveryId]
+                );
+                const pageIds = pageResult.rows.map(row => row.id);
+                console.log(`📄 Found ${pageIds.length} pages to clean up`);
                 
-                // Step 2: Clear automated_result_id references in test_instances before deleting automated_test_results
-                console.log(`🔧 Clearing test_instances automated_result_id references for discovery ${discoveryId}`);
-                const clearResultsResult = await client.query(`
-                    UPDATE test_instances 
-                    SET automated_result_id = NULL 
-                    WHERE automated_result_id IN (
-                        SELECT id FROM automated_test_results 
-                        WHERE page_id IN (
-                            SELECT id FROM discovered_pages WHERE discovery_id = $1
+                if (pageIds.length > 0) {
+                    // Step 2: Clear ALL foreign key references in test_instances
+                    console.log(`🔧 Clearing test_instances references for ${pageIds.length} pages`);
+                    
+                    // Clear page_id references
+                    const clearPageRefsResult = await client.query(`
+                        UPDATE test_instances 
+                        SET page_id = NULL 
+                        WHERE page_id = ANY($1)
+                    `, [pageIds]);
+                    console.log(`📝 Cleared ${clearPageRefsResult.rowCount} page_id references in test_instances`);
+                    
+                    // Step 3: Clear references to automated_test_results that reference these pages
+                    console.log(`🔧 Clearing automated_result_id references`);
+                    const clearAutoRefsResult = await client.query(`
+                        UPDATE test_instances 
+                        SET automated_result_id = NULL 
+                        WHERE automated_result_id IN (
+                            SELECT id FROM automated_test_results 
+                            WHERE page_id = ANY($1)
                         )
-                    )
-                `, [discoveryId]);
-                
-                console.log(`📝 Updated ${clearResultsResult.rowCount} test instances to clear automated_result_id references`);
-                
-                // Step 3: Clear manual_result_id references in test_instances before deleting manual_test_results
-                console.log(`🔧 Clearing test_instances manual_result_id references for discovery ${discoveryId}`);
-                const clearManualResultsResult = await client.query(`
-                    UPDATE test_instances 
-                    SET manual_result_id = NULL 
-                    WHERE manual_result_id IN (
-                        SELECT id FROM manual_test_results 
-                        WHERE page_id IN (
-                            SELECT id FROM discovered_pages WHERE discovery_id = $1
+                    `, [pageIds]);
+                    console.log(`📝 Cleared ${clearAutoRefsResult.rowCount} automated_result_id references`);
+                    
+                    // Step 4: Clear references to manual_test_results that reference these pages
+                    console.log(`🔧 Clearing manual_result_id references`);
+                    const clearManualRefsResult = await client.query(`
+                        UPDATE test_instances 
+                        SET manual_result_id = NULL 
+                        WHERE manual_result_id IN (
+                            SELECT id FROM manual_test_results 
+                            WHERE page_id = ANY($1)
                         )
-                    )
-                `, [discoveryId]);
+                    `, [pageIds]);
+                    console.log(`📝 Cleared ${clearManualRefsResult.rowCount} manual_result_id references`);
+                    
+                    // Step 5: Delete violations that reference test results for these pages
+                    console.log(`🗑️ Deleting violations for pages`);
+                    const violationsResult = await client.query(`
+                        DELETE FROM violations 
+                        WHERE automated_result_id IN (
+                            SELECT id FROM automated_test_results WHERE page_id = ANY($1)
+                        ) OR manual_result_id IN (
+                            SELECT id FROM manual_test_results WHERE page_id = ANY($1)
+                        )
+                    `, [pageIds]);
+                    console.log(`🗑️ Deleted ${violationsResult.rowCount} violations`);
+                    
+                    // Step 6: Delete automated test results
+                    console.log(`🗑️ Deleting automated test results for pages`);
+                    const autoResultsResult = await client.query(`
+                        DELETE FROM automated_test_results 
+                        WHERE page_id = ANY($1)
+                    `, [pageIds]);
+                    console.log(`🗑️ Deleted ${autoResultsResult.rowCount} automated test results`);
+                    
+                    // Step 7: Delete manual test results
+                    console.log(`🗑️ Deleting manual test results for pages`);
+                    const manualResultsResult = await client.query(`
+                        DELETE FROM manual_test_results 
+                        WHERE page_id = ANY($1)
+                    `, [pageIds]);
+                    console.log(`🗑️ Deleted ${manualResultsResult.rowCount} manual test results`);
+                    
+                    // Step 8: Delete frontend test runs that might reference these pages
+                    console.log(`🗑️ Deleting frontend test runs for pages`);
+                    const frontendRunsResult = await client.query(`
+                        DELETE FROM frontend_test_runs 
+                        WHERE page_id = ANY($1)
+                    `, [pageIds]);
+                    console.log(`🗑️ Deleted ${frontendRunsResult.rowCount} frontend test runs`);
+                }
                 
-                console.log(`📝 Updated ${clearManualResultsResult.rowCount} test instances to clear manual_result_id references`);
-                
-                // Step 4: Delete automated test results that reference pages from this discovery
-                console.log(`🗑️ Deleting automated test results for discovery ${discoveryId}`);
-                const resultsDeleteResult = await client.query(`
-                    DELETE FROM automated_test_results 
-                    WHERE page_id IN (
-                        SELECT id FROM discovered_pages WHERE discovery_id = $1
-                    )
-                `, [discoveryId]);
-                
-                console.log(`🗑️ Deleted ${resultsDeleteResult.rowCount} automated test results`);
-                
-                // Step 5: Delete manual test results that reference pages from this discovery
-                console.log(`🗑️ Deleting manual test results for discovery ${discoveryId}`);
-                const manualDeleteResult = await client.query(`
-                    DELETE FROM manual_test_results 
-                    WHERE page_id IN (
-                        SELECT id FROM discovered_pages WHERE discovery_id = $1
-                    )
-                `, [discoveryId]);
-                
-                console.log(`🗑️ Deleted ${manualDeleteResult.rowCount} manual test results`);
-                
-                // Step 6: Delete discovered pages
+                // Step 9: Delete discovered pages
                 console.log(`🗑️ Deleting discovered pages for discovery ${discoveryId}`);
                 const pagesResult = await client.query(`
                     DELETE FROM discovered_pages WHERE discovery_id = $1
                 `, [discoveryId]);
-                
                 console.log(`🗑️ Deleted ${pagesResult.rowCount} discovered pages`);
                 
-                // Step 7: Finally, delete the discovery record itself
+                // Step 10: Finally, delete the discovery record itself
                 console.log(`🗑️ Deleting discovery record ${discoveryId}`);
-                await client.query(`
+                const discoveryDeleteResult = await client.query(`
                     DELETE FROM site_discovery WHERE id = $1
                 `, [discoveryId]);
-                
+                console.log(`🗑️ Deleted ${discoveryDeleteResult.rowCount} discovery record`);
+            
                 await client.query('COMMIT');
                 
                 console.log(`✅ Successfully deleted discovery ${discoveryId}: ${discovery.domain}`);
@@ -1136,7 +1161,9 @@ class SiteDiscoveryService {
                     deleted: {
                         id: discoveryId,
                         domain: discovery.domain,
-                        total_pages_found: discovery.total_pages_found
+                        total_pages_found: discovery.total_pages_found,
+                        pages_deleted: pageResult.rowCount,
+                        cleanup_completed: true
                     }
                 };
                 

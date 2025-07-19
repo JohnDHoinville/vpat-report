@@ -695,11 +695,30 @@ router.post('/:id/discoveries', optionalAuth, async (req, res) => {
             return res.status(404).json({ error: 'Project not found' });
         }
 
+        // Get project info to extract primary URL
+        const projectResult = await db.query(
+            'SELECT primary_url FROM projects WHERE id = $1',
+            [projectId]
+        );
+        
+        const primaryUrl = primary_url || projectResult.rows[0].primary_url;
+
+        // Get WebSocket service from app
+        const wsService = req.app.get('wsService');
+        
+        // Initialize discovery service
+        const discoveryService = new SiteDiscoveryService(wsService);
+
         // Start discovery using site discovery service
-        const discoveryId = await SiteDiscoveryService.startDiscovery(
+        const discovery = await discoveryService.startDiscovery(
             projectId,
-            excludePublicPages,
-            dynamicAuth
+            primaryUrl,
+            {
+                maxDepth,
+                maxPages,
+                excludePublicPages,
+                dynamicAuth
+            }
         );
 
         res.status(201).json({

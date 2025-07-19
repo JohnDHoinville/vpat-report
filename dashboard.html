@@ -860,7 +860,7 @@
                                                 <div x-show="discovery.status === 'in_progress'" class="animate-spin rounded-full h-3 w-3 border-b-2 border-orange-600 mr-2"></div>
                                                 <i x-show="discovery.status === 'pending'" class="fas fa-clock mr-2"></i>
                                                 <span x-text="discovery.status === 'pending' ? 'Discovery pending...' : 'Discovery in progress...'"></span>
-                                            </div>
+                                        </div>
                                             <div class="flex space-x-2">
                                                 <button @click="recoverDiscovery(discovery.id)" 
                                                         class="bg-yellow-600 text-white px-3 py-1 rounded text-sm hover:bg-yellow-700 transition-colors"
@@ -1056,8 +1056,8 @@
                     <div class="flex justify-between items-center">
                         <h3 class="text-lg font-semibold text-gray-900">Test Sessions for <span x-text="selectedProject?.name" class="text-purple-600"></span></h3>
                         <div class="flex items-center space-x-4">
-                            <div class="text-sm text-gray-600">
-                                <span x-text="testSessions.length"></span> session(s) created
+                        <div class="text-sm text-gray-600">
+                            <span x-text="testSessions.length"></span> session(s) created
                             </div>
                             <button x-show="currentlyViewedSession" 
                                     @click="currentlyViewedSession = null; currentViewingMode = null;" 
@@ -1513,7 +1513,7 @@
                             <div class="bg-gray-50 px-6 py-4 border-b border-gray-200 rounded-t-lg">
                                 <div class="flex justify-between items-center">
                                     <div>
-                                        <a :href="pageGroup.page_url" target="_blank" 
+                                            <a :href="pageGroup.page_url" target="_blank" 
                                            class="font-medium text-blue-600 hover:text-blue-800"
                                            :title="pageGroup.page_url">
                                             <span x-text="pageGroup.page_url"></span>
@@ -3165,7 +3165,7 @@
                                             <td class="px-6 py-4 text-sm">
                                                 <div x-show="violation.wcag_criterion" class="flex items-center">
                                                     <span class="font-mono text-xs bg-gray-100 px-2 py-1 rounded" 
-                                                          x-text="violation.wcag_criterion"></span>
+                                                      x-text="violation.wcag_criterion"></span>
                                                     <!-- Requirement Tooltip -->
                                                     <span x-data="{ tooltip: createRequirementTooltip({...violation, criterion_number: violation.wcag_criterion}) }" 
                                                           x-show="tooltip" 
@@ -3603,7 +3603,7 @@
                                             <td class="px-3 py-2 text-xs">
                                                 <div x-show="violation.wcag_criterion" class="flex items-center">
                                                     <span class="font-mono text-xs bg-gray-100 px-1 py-1 rounded" 
-                                                          x-text="violation.wcag_criterion"></span>
+                                                      x-text="violation.wcag_criterion"></span>
                                                     <!-- Requirement Tooltip -->
                                                     <span x-data="{ tooltip: createRequirementTooltip({...violation, criterion_number: violation.wcag_criterion}) }" 
                                                           x-show="tooltip" 
@@ -5678,12 +5678,12 @@
                             <div>
                                 <h4 class="text-lg font-semibold text-blue-900 mb-3">Page to Test</h4>
                                 <div>
-                                    <a :href="currentManualTest?.pageGroup?.page_url" target="_blank" 
+                                        <a :href="currentManualTest?.pageGroup?.page_url" target="_blank" 
                                        class="inline-flex items-center text-blue-600 hover:text-blue-800 font-medium text-sm"
                                        :title="currentManualTest?.pageGroup?.page_url">
-                                        <i class="fas fa-external-link-alt mr-2"></i>
-                                        <span x-text="currentManualTest?.pageGroup?.page_url"></span>
-                                    </a>
+                                            <i class="fas fa-external-link-alt mr-2"></i>
+                                            <span x-text="currentManualTest?.pageGroup?.page_url"></span>
+                                        </a>
                                 </div>
                             </div>
                         </div>
@@ -6774,7 +6774,7 @@
             console.log('🎯 Registering dashboard component with Alpine.js...');
             
             // Register the component immediately
-            document.addEventListener('alpine:init', () => {
+        document.addEventListener('alpine:init', () => {
                 console.log('🎯 Alpine.js initializing with dashboard function available');
                 Alpine.data('dashboard', window.dashboard);
                 console.log('✅ Dashboard component registered successfully');
