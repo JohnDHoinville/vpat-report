@@ -31,6 +31,7 @@ const manualTestingRoutes = require('./routes/manual-testing');
 const usersRoutes = require('./routes/users');
 const unifiedTestResultsRoutes = require('./routes/unified-test-results');
 const unifiedRequirementsRoutes = require('./routes/unified-requirements');
+const webCrawlersRoutes = require('./routes/web-crawlers');
 
 // Import services
 const WebSocketService = require('./services/websocket-service');
@@ -194,6 +195,7 @@ app.use('/api/manual-testing', manualTestingRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/unified-test-results', unifiedTestResultsRoutes);
 app.use('/api/unified-requirements', unifiedRequirementsRoutes);
+app.use('/api/web-crawlers', webCrawlersRoutes);
 
 // Add missing endpoint that frontend is calling
 app.get('/api/automated-test-results', asyncHandler(async (req, res) => {

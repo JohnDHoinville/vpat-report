@@ -98,6 +98,35 @@ function dashboard() {
         sessions: [],
         availableAuthConfigs: [], // Authentication configurations for discovery
         
+        // Web Crawler Data
+        webCrawlers: [],
+        selectedCrawler: null,
+        crawlerPages: [],
+        filteredCrawlerPages: [],
+        showCreateCrawler: false,
+        showCrawlerPages: false,
+        showAdvancedCrawlerOptions: false,
+        crawlerPageSearch: '',
+        crawlerPageFilter: '',
+        newCrawler: {
+            name: '',
+            description: '',
+            base_url: '',
+            auth_type: 'none',
+            browser_type: 'chromium',
+            max_pages: 100,
+            max_depth: 3,
+            request_delay_ms: 1000,
+            session_persistence: true,
+            respect_robots_txt: true,
+            saml_config: {},
+            auth_credentials: {},
+            auth_workflow: {},
+            wait_conditions_json: '',
+            extraction_rules_json: '',
+            url_patterns_json: ''
+        },
+        
         // Unified Test Grid Data (Task 2.1.1)
         viewingSessionDetails: false,
         currentSessionDetails: null,
@@ -7932,16 +7961,14 @@ function dashboard() {
                 
                 console.log(`🚀 Starting automated testing for session: ${session.name}`);
                 
-                // Start comprehensive automated testing
-                const response = await this.apiCall(`/projects/${this.selectedProject.id}/test-sessions`, {
+                // Start Playwright testing for the EXISTING session (not creating a new one)
+                const response = await this.apiCall(`/sessions/${sessionId}/start-playwright`, {
                     method: 'POST',
                     body: JSON.stringify({
-                        name: `Automated Tests - ${session.name}`,
-                        description: `Automated accessibility testing for compliance session`,
-                        testTypes: ['axe', 'pa11y', 'lighthouse'],
-                        maxPages: 50,
-                        session_id: sessionId,
-                        target_requirements: requirements
+                        testTypes: ['basic', 'keyboard', 'screen-reader', 'form'],
+                        browsers: ['chromium'],
+                        viewports: ['desktop'],
+                        authConfigId: null // You can add auth config support later
                     })
                 });
                 
@@ -7950,7 +7977,7 @@ function dashboard() {
                 // Refresh requirements data after starting tests
                 setTimeout(() => {
                     this.loadSessionRequirements(sessionId);
-                }, 2000);
+                }, 5000); // Give more time for tests to run
                 
                 return response;
                 
@@ -8226,6 +8253,405 @@ function dashboard() {
             this.showRequirementDetailsModal = false;
             this.currentRequirement = null;
             this.isLoadingRequirement = false;
+        },
+
+        // =============================================================================
+        // WEB CRAWLER MANAGEMENT
+        // =============================================================================
+
+        /**
+         * Load web crawlers for the selected project
+         */
+        async loadWebCrawlers() {
+            if (!this.selectedProject) {
+                this.webCrawlers = [];
+                return;
+            }
+
+            try {
+                this.loading = true;
+                const data = await this.apiCall(`/web-crawlers/projects/${this.selectedProject.id}/crawlers`);
+                this.webCrawlers = data.data || [];
+                console.log(`🕷️ Loaded ${this.webCrawlers.length} web crawlers`);
+            } catch (error) {
+                console.error('Failed to load web crawlers:', error);
+                this.webCrawlers = [];
+                this.showNotification('Failed to load web crawlers', 'error');
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        /**
+         * Quick setup crawler based on template type
+         */
+        quickSetupCrawler(type) {
+            this.newCrawler = {
+                name: '',
+                description: '',
+                base_url: this.selectedProject?.primary_url || '',
+                auth_type: 'none',
+                browser_type: 'chromium',
+                max_pages: 100,
+                max_depth: 3,
+                request_delay_ms: 1000,
+                session_persistence: true,
+                respect_robots_txt: true,
+                saml_config: {},
+                auth_credentials: {},
+                auth_workflow: {},
+                wait_conditions_json: '',
+                extraction_rules_json: '',
+                url_patterns_json: ''
+            };
+
+            if (type === 'saml') {
+                this.newCrawler.auth_type = 'saml';
+                this.newCrawler.name = `${this.selectedProject?.name} - SAML Crawler`;
+                this.newCrawler.description = 'SAML-authenticated site crawler with enterprise SSO support';
+                this.newCrawler.saml_config = {
+                    idp_domain: '',
+                    username_selector: 'input[name="username"]',
+                    password_selector: 'input[name="password"]',
+                    submit_selector: 'button[type="submit"]'
+                };
+            } else if (type === 'public') {
+                this.newCrawler.auth_type = 'none';
+                this.newCrawler.name = `${this.selectedProject?.name} - Public Crawler`;
+                this.newCrawler.description = 'Public website crawler for non-authenticated pages';
+            } else if (type === 'advanced') {
+                this.newCrawler.auth_type = 'custom';
+                this.newCrawler.name = `${this.selectedProject?.name} - Advanced Crawler`;
+                this.newCrawler.description = 'Advanced crawler with custom authentication and wait conditions';
+                this.newCrawler.wait_conditions_json = '[{"type": "selector", "selector": ".content-loaded", "timeout": 5000}]';
+                this.newCrawler.extraction_rules_json = '{"title": "h1", "description": "meta[name=\\"description\\"]"}';
+            }
+
+            this.showCreateCrawler = true;
+        },
+
+        /**
+         * Create a new web crawler
+         */
+        async createCrawler() {
+            if (!this.selectedProject) {
+                this.showNotification('Please select a project first', 'error');
+                return;
+            }
+
+            try {
+                this.loading = true;
+
+                // Parse JSON fields
+                const crawlerData = {
+                    ...this.newCrawler,
+                    project_id: this.selectedProject.id
+                };
+
+                // Parse JSON strings
+                if (this.newCrawler.wait_conditions_json) {
+                    try {
+                        crawlerData.wait_conditions = JSON.parse(this.newCrawler.wait_conditions_json);
+                    } catch (e) {
+                        crawlerData.wait_conditions = [];
+                    }
+                }
+
+                if (this.newCrawler.extraction_rules_json) {
+                    try {
+                        crawlerData.extraction_rules = JSON.parse(this.newCrawler.extraction_rules_json);
+                    } catch (e) {
+                        crawlerData.extraction_rules = {};
+                    }
+                }
+
+                if (this.newCrawler.url_patterns_json) {
+                    try {
+                        crawlerData.url_patterns = JSON.parse(this.newCrawler.url_patterns_json);
+                    } catch (e) {
+                        crawlerData.url_patterns = [];
+                    }
+                }
+
+                const data = await this.apiCall(`/web-crawlers/projects/${this.selectedProject.id}/crawlers`, {
+                    method: 'POST',
+                    body: JSON.stringify(crawlerData)
+                });
+
+                this.showNotification(`Crawler "${crawlerData.name}" created successfully`, 'success');
+                this.showCreateCrawler = false;
+                await this.loadWebCrawlers();
+
+            } catch (error) {
+                console.error('Failed to create crawler:', error);
+                this.showNotification(error.message || 'Failed to create crawler', 'error');
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        /**
+         * Start a web crawler
+         */
+        async startCrawler(crawler) {
+            try {
+                this.loading = true;
+                await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/start`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        headless: true,
+                        triggered_by: 'manual'
+                    })
+                });
+
+                this.showNotification(`Crawler "${crawler.name}" started successfully`, 'success');
+                await this.loadWebCrawlers();
+
+            } catch (error) {
+                console.error('Failed to start crawler:', error);
+                this.showNotification(error.message || 'Failed to start crawler', 'error');
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        /**
+         * View pages discovered by a crawler
+         */
+        async viewCrawlerPages(crawler) {
+            try {
+                this.loading = true;
+                this.selectedCrawler = crawler;
+                
+                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages`);
+                this.crawlerPages = data.data || [];
+                this.updateFilteredCrawlerPages();
+                this.showCrawlerPages = true;
+
+                console.log(`📄 Loaded ${this.crawlerPages.length} pages for crawler ${crawler.name}`);
+
+            } catch (error) {
+                console.error('Failed to load crawler pages:', error);
+                this.showNotification('Failed to load crawler pages', 'error');
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        /**
+         * Edit an existing crawler
+         */
+        async editCrawler(crawler) {
+            this.newCrawler = {
+                ...crawler,
+                wait_conditions_json: JSON.stringify(crawler.wait_conditions || [], null, 2),
+                extraction_rules_json: JSON.stringify(crawler.extraction_rules || {}, null, 2),
+                url_patterns_json: JSON.stringify(crawler.url_patterns || [], null, 2)
+            };
+            this.showCreateCrawler = true;
+        },
+
+        /**
+         * Delete a web crawler
+         */
+        async deleteCrawler(crawler) {
+            if (!confirm(`Are you sure you want to delete the crawler "${crawler.name}"?`)) {
+                return;
+            }
+
+            try {
+                this.loading = true;
+                await this.apiCall(`/web-crawlers/crawlers/${crawler.id}`, {
+                    method: 'DELETE'
+                });
+
+                this.showNotification(`Crawler "${crawler.name}" deleted successfully`, 'success');
+                await this.loadWebCrawlers();
+
+            } catch (error) {
+                console.error('Failed to delete crawler:', error);
+                this.showNotification(error.message || 'Failed to delete crawler', 'error');
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        /**
+         * Update filtered crawler pages based on search and filter
+         */
+        updateFilteredCrawlerPages() {
+            let filtered = [...this.crawlerPages];
+
+            // Apply search filter
+            if (this.crawlerPageSearch) {
+                const search = this.crawlerPageSearch.toLowerCase();
+                filtered = filtered.filter(page => 
+                    page.url.toLowerCase().includes(search) || 
+                    (page.title && page.title.toLowerCase().includes(search))
+                );
+            }
+
+            // Apply category filter
+            if (this.crawlerPageFilter) {
+                switch (this.crawlerPageFilter) {
+                    case 'forms':
+                        filtered = filtered.filter(page => page.has_forms);
+                        break;
+                    case 'auth':
+                        filtered = filtered.filter(page => page.requires_auth);
+                        break;
+                    case 'selected':
+                        filtered = filtered.filter(page => 
+                            page.selected_for_manual_testing || page.selected_for_automated_testing
+                        );
+                        break;
+                }
+            }
+
+            this.filteredCrawlerPages = filtered;
+        },
+
+        /**
+         * Toggle page selection for testing
+         */
+        async togglePageTesting(page, testingType) {
+            const field = testingType === 'manual' ? 'selected_for_manual_testing' : 'selected_for_automated_testing';
+            const newValue = !page[field];
+
+            try {
+                await this.apiCall(`/web-crawlers/crawler-pages/${page.id}/testing`, {
+                    method: 'PUT',
+                    body: JSON.stringify({
+                        [field]: newValue
+                    })
+                });
+
+                // Update local data
+                page[field] = newValue;
+                this.updateFilteredCrawlerPages();
+
+                this.showNotification(
+                    `Page ${newValue ? 'selected for' : 'deselected from'} ${testingType} testing`, 
+                    'success'
+                );
+
+            } catch (error) {
+                console.error('Failed to update page testing selection:', error);
+                this.showNotification('Failed to update page selection', 'error');
+            }
+        },
+
+        /**
+         * Bulk select pages for testing
+         */
+        async bulkSelectPagesForTesting(testingType) {
+            const selectedPages = this.filteredCrawlerPages.filter(page => page.selected);
+            
+            if (selectedPages.length === 0) {
+                this.showNotification('Please select pages first', 'warning');
+                return;
+            }
+
+            try {
+                this.loading = true;
+                const pageIds = selectedPages.map(page => page.id);
+                const field = testingType === 'manual' ? 'selected_for_manual_testing' : 'selected_for_automated_testing';
+
+                await this.apiCall(`/web-crawlers/crawlers/${this.selectedCrawler.id}/pages/bulk-testing`, {
+                    method: 'PUT',
+                    body: JSON.stringify({
+                        page_ids: pageIds,
+                        [field]: true
+                    })
+                });
+
+                // Update local data
+                selectedPages.forEach(page => {
+                    page[field] = true;
+                });
+
+                this.showNotification(
+                    `${selectedPages.length} pages selected for ${testingType} testing`, 
+                    'success'
+                );
+
+            } catch (error) {
+                console.error('Failed to bulk update page testing selection:', error);
+                this.showNotification('Failed to update page selections', 'error');
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        /**
+         * Toggle page selection in the UI
+         */
+        togglePageSelection(page, selected) {
+            page.selected = selected;
+        },
+
+        /**
+         * Toggle all page selections
+         */
+        toggleAllPageSelection(selectAll) {
+            this.filteredCrawlerPages.forEach(page => {
+                page.selected = selectAll;
+            });
+        },
+
+        /**
+         * Helper functions for crawler UI
+         */
+        getCrawlerStatusColor(status) {
+            switch (status) {
+                case 'active': return 'bg-green-500';
+                case 'running': return 'bg-blue-500';
+                case 'error': return 'bg-red-500';
+                case 'paused': return 'bg-yellow-500';
+                default: return 'bg-gray-500';
+            }
+        },
+
+        getAuthTypeBadgeClass(authType) {
+            switch (authType) {
+                case 'saml': return 'bg-blue-100 text-blue-800';
+                case 'basic': return 'bg-green-100 text-green-800';
+                case 'custom': return 'bg-purple-100 text-purple-800';
+                default: return 'bg-gray-100 text-gray-800';
+            }
+        },
+
+        getAuthTypeDisplay(authType) {
+            switch (authType) {
+                case 'saml': return 'SAML/SSO';
+                case 'basic': return 'Username/Password';
+                case 'custom': return 'Custom';
+                default: return 'None';
+            }
+        },
+
+        /**
+         * Reset new crawler form
+         */
+        resetNewCrawler() {
+            this.newCrawler = {
+                name: '',
+                description: '',
+                base_url: '',
+                auth_type: 'none',
+                browser_type: 'chromium',
+                max_pages: 100,
+                max_depth: 3,
+                request_delay_ms: 1000,
+                session_persistence: true,
+                respect_robots_txt: true,
+                saml_config: {},
+                auth_credentials: {},
+                auth_workflow: {},
+                wait_conditions_json: '',
+                extraction_rules_json: '',
+                url_patterns_json: ''
+            };
         }
     };
 }
