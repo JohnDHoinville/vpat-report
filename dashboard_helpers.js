@@ -35,6 +35,29 @@ function dashboard() {
         wsConnected: false,
         socket: null,
         
+        // Crawler State
+        crawlerProgress: {
+            active: false,
+            crawlerId: null,
+            runId: null,
+            status: 'idle',
+            pagesFound: 0,
+            pagesCrawled: 0,
+            currentUrl: '',
+            startTime: null,
+            message: 'Ready to crawl...',
+            percentage: 0,
+            estimatedTimeRemaining: null,
+            statistics: {
+                urlsQueued: 0,
+                urlsProcessed: 0,
+                averageTime: 0,
+                currentDepth: 1,
+                maxDepth: 3
+            },
+            errors: []
+        },
+        
         // Real-time Progress Tracking
         discoveryProgress: {
             active: false,
@@ -118,7 +141,7 @@ function dashboard() {
             max_depth: 3,
             request_delay_ms: 1000,
             session_persistence: true,
-            respect_robots_txt: true,
+            respect_robots_txt: false, // Always disable robots.txt for accessibility testing
             saml_config: {},
             auth_credentials: {},
             auth_workflow: {},
@@ -449,8 +472,8 @@ function dashboard() {
                 console.log('✅ Modal functions restored after 30-second cooldown');
             }, 30000);
             
-            // Force close any potentially stuck modals multiple times
-            for (let i = 0; i < 5; i++) {
+            // Force close any potentially stuck modals multiple times - excluding web crawler modals
+            for (let i = 0; i < 8; i++) {
                 setTimeout(() => {
                     // Testing modals
                     this.showTestConfigurationModal = false;
@@ -485,7 +508,7 @@ function dashboard() {
                     this.showCoverageAnalysis = false;
                     
                     console.log(`🔒 Force-closed all modals (attempt ${i + 1})`);
-                }, i * 200);
+                }, i * 150);
             }
             
             console.log('✅ Modal states reset during initialization');
@@ -683,6 +706,17 @@ function dashboard() {
                         test_instance_id: data.test_instance_id,
                         timestamp: new Date().toISOString()
                     });
+                });
+                
+                // Crawler events
+                this.socket.on('crawler_progress', (data) => {
+                    console.log('🕷️ Crawler progress:', data);
+                    this.handleCrawlerProgress(data);
+                });
+                
+                this.socket.on('crawler_update', (data) => {
+                    console.log('🔄 Crawler update:', data);
+                    this.handleCrawlerUpdate(data);
                 });
                 
                 // Milestone events
@@ -944,6 +978,55 @@ function dashboard() {
             }
             
             this.addNotification('Testing Update', message, type, 8000);
+        },
+
+        handleCrawlerProgress(data) {
+            const crawlerRun = data.crawlerRun;
+            
+            if (!crawlerRun) return;
+            
+            // Update crawler progress state
+            this.crawlerProgress.active = crawlerRun.status === 'running';
+            this.crawlerProgress.percentage = Math.round((crawlerRun.pages_found / Math.max(crawlerRun.pages_found + 50, 100)) * 100);
+            this.crawlerProgress.message = `Crawling ${crawlerRun.crawler_name}...`;
+            this.crawlerProgress.pagesFound = crawlerRun.pages_found || 0;
+            this.crawlerProgress.status = crawlerRun.status;
+            
+            // Update statistics if available
+            if (crawlerRun.statistics) {
+                this.crawlerProgress.statistics = {
+                    urlsQueued: crawlerRun.statistics.urlsQueued || 0,
+                    urlsProcessed: crawlerRun.statistics.urlsProcessed || 0,
+                    averageTime: crawlerRun.statistics.averageTime || 0,
+                    currentDepth: crawlerRun.statistics.currentDepth || 1,
+                    maxDepth: crawlerRun.statistics.maxDepth || 3
+                };
+            }
+            
+            // Handle completion
+            if (crawlerRun.status === 'completed') {
+                this.crawlerProgress.active = false;
+                this.addNotification('Crawler Complete', 
+                    `Found ${crawlerRun.pages_found} pages for ${crawlerRun.crawler_name}`, 
+                    'success', 5000);
+                
+                // Reload crawlers to update UI
+                this.loadWebCrawlers();
+            } else if (crawlerRun.status === 'failed') {
+                this.crawlerProgress.active = false;
+                this.addNotification('Crawler Failed', 
+                    `Crawler ${crawlerRun.crawler_name} encountered an error`, 
+                    'error', 8000);
+            }
+        },
+
+        handleCrawlerUpdate(data) {
+            // Handle general crawler updates (status changes, configuration updates, etc.)
+            console.log('🔄 Processing crawler update:', data);
+            
+            if (data.type === 'status_change') {
+                this.loadWebCrawlers(); // Refresh the crawler list
+            }
         },
 
         // Enhanced Error Handling
@@ -8264,17 +8347,22 @@ function dashboard() {
          */
         async loadWebCrawlers() {
             if (!this.selectedProject) {
+                console.log('🕷️ No project selected, skipping web crawler load');
                 this.webCrawlers = [];
                 return;
             }
 
             try {
                 this.loading = true;
-                const data = await this.apiCall(`/web-crawlers/projects/${this.selectedProject.id}/crawlers`);
-                this.webCrawlers = data.data || [];
-                console.log(`🕷️ Loaded ${this.webCrawlers.length} web crawlers`);
+                console.log('🕷️ Loading web crawlers for project:', this.selectedProject.name, this.selectedProject.id);
+                
+                // Load crawlers from database only
+                const dbData = await this.apiCall(`/web-crawlers/projects/${this.selectedProject.id}/crawlers`);
+                this.webCrawlers = dbData.data || [];
+                
+                console.log(`🕷️ Loaded ${this.webCrawlers.length} web crawlers:`, this.webCrawlers.map(c => ({name: c.name, status: c.status, id: c.id, pages: c.total_pages_found})));
             } catch (error) {
-                console.error('Failed to load web crawlers:', error);
+                console.error('❌ Failed to load web crawlers:', error);
                 this.webCrawlers = [];
                 this.showNotification('Failed to load web crawlers', 'error');
             } finally {
@@ -8296,7 +8384,7 @@ function dashboard() {
                 max_depth: 3,
                 request_delay_ms: 1000,
                 session_persistence: true,
-                respect_robots_txt: true,
+                respect_robots_txt: false, // Always disable robots.txt for accessibility testing
                 saml_config: {},
                 auth_credentials: {},
                 auth_workflow: {},
@@ -8394,9 +8482,13 @@ function dashboard() {
          * Start a web crawler
          */
         async startCrawler(crawler) {
+            console.log('🚀 Starting web crawler:', crawler.name, crawler.id);
+            
             try {
                 this.loading = true;
-                await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/start`, {
+                console.log('📡 Making API call to start crawler...');
+                
+                const response = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/start`, {
                     method: 'POST',
                     body: JSON.stringify({
                         headless: true,
@@ -8404,14 +8496,22 @@ function dashboard() {
                     })
                 });
 
+                console.log('✅ Crawler start response:', response);
                 this.showNotification(`Crawler "${crawler.name}" started successfully`, 'success');
+                
+                // Update crawler status immediately for UI feedback
+                crawler.status = 'running';
+                
+                // Reload crawlers to get latest status
                 await this.loadWebCrawlers();
 
             } catch (error) {
-                console.error('Failed to start crawler:', error);
+                console.error('❌ Failed to start crawler:', error);
+                console.error('❌ Error details:', error.message, error.stack);
                 this.showNotification(error.message || 'Failed to start crawler', 'error');
             } finally {
                 this.loading = false;
+                console.log('🏁 Crawler start process completed');
             }
         },
 
@@ -8423,12 +8523,49 @@ function dashboard() {
                 this.loading = true;
                 this.selectedCrawler = crawler;
                 
+                // Load pages from database only
                 const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages`);
-                this.crawlerPages = data.data || [];
+                
+                // Ensure pages have the required properties for the selection interface
+                this.crawlerPages = (data.data || []).map(page => ({
+                    ...page,
+                    selected: false,
+                    selected_for_manual_testing: page.selected_for_manual_testing || false,
+                    selected_for_automated_testing: page.selected_for_automated_testing || false,
+                    has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
+                    title: page.title || 'Untitled Page',
+                    url: page.url || ''
+                }));
+                
+                console.log(`📄 Loaded ${this.crawlerPages.length} pages from database for crawler ${crawler.name}`);
+                console.log(`🔧 Sample page structure:`, this.crawlerPages[0]);
+                
                 this.updateFilteredCrawlerPages();
-                this.showCrawlerPages = true;
-
-                console.log(`📄 Loaded ${this.crawlerPages.length} pages for crawler ${crawler.name}`);
+                
+                // Force modal to show with explicit DOM manipulation to bypass emergency cleanup
+                setTimeout(() => {
+                    this.showCrawlerPages = true;
+                    console.log(`🎯 Modal state set: showCrawlerPages = ${this.showCrawlerPages}`);
+                    
+                    // Force DOM update after Alpine.js reactivity
+                    this.$nextTick(() => {
+                        const modal = document.querySelector('[x-show="showCrawlerPages"]');
+                        if (modal) {
+                            modal.style.display = 'flex';
+                            modal.style.visibility = 'visible';
+                            modal.style.opacity = '1';
+                            console.log(`🎯 Modal DOM updated: display=${modal.style.display}`);
+                            
+                            // Re-trigger filtering after modal is visible
+                            setTimeout(() => {
+                                console.log(`🔍 Re-triggering filter after modal display`);
+                                this.updateFilteredCrawlerPages();
+                            }, 50);
+                        } else {
+                            console.error('🚨 Modal element not found in DOM');
+                        }
+                    });
+                }, 100);
 
             } catch (error) {
                 console.error('Failed to load crawler pages:', error);
@@ -8476,11 +8613,97 @@ function dashboard() {
             }
         },
 
+
+
+        /**
+         * Render table rows directly when Alpine.js x-for fails
+         */
+        renderTableRowsDirectly() {
+            console.log('🔧 Rendering table rows directly...');
+            const tbody = document.querySelector('#crawler-pages-tbody');
+            if (!tbody || !this.filteredCrawlerPages) {
+                console.error('❌ Could not find table body or no data available');
+                return;
+            }
+
+            // Clear existing rows except debug rows
+            const existingRows = tbody.querySelectorAll('tr:not([class*="bg-"]):not([class*="debug"])');
+            existingRows.forEach(row => row.remove());
+
+            // Render each page as a table row
+            this.filteredCrawlerPages.forEach(page => {
+                const row = this.createPageRow(page);
+                tbody.appendChild(row);
+            });
+            
+            console.log(`✅ Rendered ${this.filteredCrawlerPages.length} table rows directly`);
+        },
+
+        /**
+         * Create a table row for a page
+         */
+        createPageRow(page) {
+            const row = document.createElement('tr');
+            row.className = 'hover:bg-gray-50';
+            
+            row.innerHTML = `
+                <td class="px-3 py-4">
+                    <input type="checkbox" ${page.selected ? 'checked' : ''} 
+                           onchange="window.dashboard.togglePageSelection('${page.id}', this.checked)"
+                           class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                </td>
+                <td class="px-6 py-4 text-sm text-blue-600 hover:text-blue-800 max-w-md truncate">
+                    <a href="${page.url}" target="_blank" rel="noopener noreferrer">
+                        ${page.url}
+                    </a>
+                </td>
+                <td class="px-6 py-4 text-sm text-gray-900 max-w-xs truncate">${page.title || 'No title'}</td>
+                <td class="px-6 py-4">
+                    <span class="px-2 py-1 text-xs font-medium rounded-full ${this.getStatusBadgeClass(page.status_code)}">
+                        ${page.status_code || 'Unknown'}
+                    </span>
+                </td>
+                <td class="px-6 py-4 text-sm">
+                    <span class="${page.has_forms ? 'text-green-600' : 'text-gray-400'}">
+                        <i class="fas fa-${page.has_forms ? 'check' : 'minus'}"></i>
+                    </span>
+                </td>
+                <td class="px-6 py-4 text-sm">
+                    <div class="space-x-2">
+                        <label class="inline-flex items-center">
+                            <input type="checkbox" ${page.selected_for_manual_testing ? 'checked' : ''}
+                                   onchange="window.dashboard.togglePageTesting('${page.id}', 'manual', this.checked)"
+                                   class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                            <span class="ml-1 text-xs">Manual</span>
+                        </label>
+                        <label class="inline-flex items-center">
+                            <input type="checkbox" ${page.selected_for_automated_testing ? 'checked' : ''}
+                                   onchange="window.dashboard.togglePageTesting('${page.id}', 'automated', this.checked)"
+                                   class="rounded border-gray-300 text-green-600 focus:ring-green-500">
+                            <span class="ml-1 text-xs">Auto</span>
+                        </label>
+                    </div>
+                </td>
+                <td class="px-6 py-4 text-sm">
+                    <button onclick="window.dashboard.viewPageDetails('${page.id}')" 
+                            class="text-blue-600 hover:text-blue-800">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                </td>
+            `;
+            
+            return row;
+        },
+
         /**
          * Update filtered crawler pages based on search and filter
          */
         updateFilteredCrawlerPages() {
             let filtered = [...this.crawlerPages];
+            console.log(`🔍 Filtering ${this.crawlerPages.length} crawler pages`);
+            console.log(`🔍 First page sample:`, this.crawlerPages[0]);
+            console.log(`🔍 First page keys:`, this.crawlerPages[0] ? Object.keys(this.crawlerPages[0]) : 'No first page');
+            console.log(`🔍 First page has id:`, this.crawlerPages[0] ? this.crawlerPages[0].id : 'No id property');
 
             // Apply search filter
             if (this.crawlerPageSearch) {
@@ -8489,6 +8712,7 @@ function dashboard() {
                     page.url.toLowerCase().includes(search) || 
                     (page.title && page.title.toLowerCase().includes(search))
                 );
+                console.log(`🔍 After search filter: ${filtered.length} pages`);
             }
 
             // Apply category filter
@@ -8506,9 +8730,24 @@ function dashboard() {
                         );
                         break;
                 }
+                console.log(`🔍 After category filter (${this.crawlerPageFilter}): ${filtered.length} pages`);
             }
 
             this.filteredCrawlerPages = filtered;
+            console.log(`🔍 Final filtered pages: ${this.filteredCrawlerPages.length}`);
+            
+            // Force Alpine.js reactivity update
+            this.$nextTick(() => {
+                console.log(`🔍 After $nextTick - filteredCrawlerPages length: ${this.filteredCrawlerPages ? this.filteredCrawlerPages.length : 'undefined'}`);
+                
+                // Force a reactive update by triggering a change
+                const temp = [...this.filteredCrawlerPages];
+                this.filteredCrawlerPages = temp;
+                console.log(`🔍 After forced update - filteredCrawlerPages length: ${this.filteredCrawlerPages.length}`);
+                
+                // DIRECT FIX: Render table rows manually since Alpine.js x-for isn't working
+                setTimeout(() => this.renderTableRowsDirectly(), 100);
+            });
         },
 
         /**
@@ -8644,7 +8883,7 @@ function dashboard() {
                 max_depth: 3,
                 request_delay_ms: 1000,
                 session_persistence: true,
-                respect_robots_txt: true,
+                respect_robots_txt: false, // Always disable robots.txt for accessibility testing
                 saml_config: {},
                 auth_credentials: {},
                 auth_workflow: {},
@@ -9993,9 +10232,121 @@ window.cleanupCompleted = cleanupCompleted;
 document.addEventListener('DOMContentLoaded', () => {
     console.log('🎯 Dashboard Helpers Loaded');
     
+    // Immediate modal cleanup on page load
+    setTimeout(() => {
+        if (window.closeModalsNow) {
+            window.closeModalsNow();
+            console.log('🔒 Emergency modal cleanup on page load');
+        }
+    }, 500);
+    
     // Expose dashboard helper for modal access
     if (typeof window !== 'undefined') {
         window.dashboardHelpers = dashboard();
         console.log('🎯 Dashboard helpers exposed on window');
+        
+        // Add global function to force close all modals (debugging tool)
+        window.forceCloseAllModals = function() {
+            if (window.dashboardHelpers) {
+                // Crawler modals
+                window.dashboardHelpers.showCreateCrawler = false;
+                window.dashboardHelpers.showCrawlerPages = false;
+                
+                // Test modals
+                window.dashboardHelpers.showTestConfigurationModal = false;
+                window.dashboardHelpers.showTestInstanceModal = false;
+                window.dashboardHelpers.showViolationInspector = false;
+                window.dashboardHelpers.showRequirementDetailsModal = false;
+                window.dashboardHelpers.showTestAssignmentPanel = false;
+                window.dashboardHelpers.showAutomatedTestModal = false;
+                window.dashboardHelpers.showManualTestingModal = false;
+                window.dashboardHelpers.showTesterAssignmentModal = false;
+                
+                // Project modals
+                window.dashboardHelpers.showCreateProject = false;
+                window.dashboardHelpers.showStartDiscovery = false;
+                window.dashboardHelpers.showCreateSession = false;
+                window.dashboardHelpers.showCreateTestingSession = false;
+                window.dashboardHelpers.showViewPages = false;
+                window.dashboardHelpers.showDeleteProject = false;
+                window.dashboardHelpers.showDeleteDiscovery = false;
+                window.dashboardHelpers.showDeleteSession = false;
+                
+                // Auth modals
+                window.dashboardHelpers.showLogin = false;
+                window.dashboardHelpers.showProfile = false;
+                window.dashboardHelpers.showAuthPrompt = false;
+                window.dashboardHelpers.showChangePassword = false;
+                window.dashboardHelpers.showSetupAuth = false;
+                window.dashboardHelpers.showEditAuth = false;
+                
+                // Other modals
+                window.dashboardHelpers.showSessions = false;
+                window.dashboardHelpers.showCoverageAnalysis = false;
+                
+                // Force Alpine.js reactivity update
+                if (window.Alpine && window.Alpine.store) {
+                    window.Alpine.nextTick(() => {
+                        console.log('🔒 All modals force-closed via window function with reactivity update');
+                    });
+                } else {
+                    console.log('🔒 All modals force-closed via window function');
+                }
+            }
+        };
+        
+        // Add immediate modal closer for emergency use
+        window.closeModalsNow = function() {
+            // Force close by directly manipulating DOM
+            const modals = document.querySelectorAll('[x-show^="show"]');
+            modals.forEach(modal => {
+                modal.style.display = 'none';
+            });
+            
+            // Also close Alpine.js controlled modals
+            window.forceCloseAllModals();
+            
+            console.log('🚨 Emergency modal closure - DOM and Alpine state cleared');
+        };
+        
+        // Nuclear option for modal closure
+        window.nukeAllModals = function() {
+            console.log('💥 Nuclear modal closure initiated');
+            
+            // 1. Reset all Alpine.js data properties
+            if (window.dashboardHelpers) {
+                Object.keys(window.dashboardHelpers).forEach(key => {
+                    if (key.startsWith('show')) {
+                        window.dashboardHelpers[key] = false;
+                    }
+                });
+            }
+            
+            // 2. Hide all modal backdrops by force
+            const backdrops = document.querySelectorAll('.fixed.inset-0.bg-black.bg-opacity-50, .fixed.inset-0');
+            backdrops.forEach(backdrop => {
+                backdrop.style.display = 'none';
+                backdrop.style.visibility = 'hidden';
+                backdrop.style.opacity = '0';
+                backdrop.classList.add('hidden');
+            });
+            
+            // 3. Remove any Alpine.js show attributes
+            const alpineModals = document.querySelectorAll('[x-show]');
+            alpineModals.forEach(modal => {
+                modal.style.display = 'none';
+                modal.setAttribute('style', 'display: none !important');
+            });
+            
+            // 4. Enable body scroll
+            document.body.style.overflow = 'auto';
+            document.documentElement.style.overflow = 'auto';
+            
+            // 5. Remove backdrop blur
+            const blurred = document.querySelectorAll('[style*="backdrop-filter"]');
+            blurred.forEach(el => el.style.backdropFilter = 'none');
+            
+                        console.log('💥 Nuclear modal closure complete - all modals destroyed');
+        };
     }
 });

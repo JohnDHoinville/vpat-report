@@ -24,8 +24,14 @@ class SiteCrawler {
             authConfig: options.authConfig || null,
             headless: options.headless !== false,
             enableInteractiveDiscovery: options.enableInteractiveDiscovery !== false, // Enable button clicking and JavaScript interaction
+            saveToJson: options.saveToJson !== undefined ? options.saveToJson : true, // Enable/disable JSON file saving
+            saveToDatabase: options.saveToDatabase || false, // Enable database saving instead
+            respect_robots_txt: options.respect_robots_txt !== undefined ? options.respect_robots_txt : false, // Disable robots.txt by default for accessibility testing
             ...options
         };
+        
+        // Debug logging for options
+        console.log(`🔧 SiteCrawler initialized with saveToJson: ${this.options.saveToJson}, saveToDatabase: ${this.options.saveToDatabase}, respect_robots_txt: ${this.options.respect_robots_txt}`);
         
         this.visitedUrls = new Set();
         this.discoveredPages = [];
@@ -38,6 +44,7 @@ class SiteCrawler {
         this.browser = null;
         this.authContext = null;
         this.authStatesDir = path.join(__dirname, '../reports/auth-states'); // Added for new setup
+        this.robotsCache = new Map(); // Cache robots.txt data
     }
 
     /**
@@ -147,6 +154,37 @@ class SiteCrawler {
 
                 try {
                     this.totalRequests++;
+                    
+                    // Check robots.txt if enabled - WITH DEBUG LOGGING AND ROBUST BOOLEAN CHECKING
+                    console.log(`🔧 DEBUG: respect_robots_txt = ${this.options.respect_robots_txt}`);
+                    console.log(`🔧 DEBUG: typeof respect_robots_txt = ${typeof this.options.respect_robots_txt}`);
+                    console.log(`🔧 DEBUG: Boolean conversion = ${Boolean(this.options.respect_robots_txt)}`);
+                    
+                    // Robust boolean checking to avoid string "false" being truthy
+                    const shouldRespectRobots = Boolean(this.options.respect_robots_txt) && 
+                                               this.options.respect_robots_txt !== false && 
+                                               this.options.respect_robots_txt !== "false" &&
+                                               this.options.respect_robots_txt !== 0;
+                    console.log(`🔧 DEBUG: shouldRespectRobots = ${shouldRespectRobots}`);
+                    
+                    if (shouldRespectRobots) {
+                        console.log(`🤖 Checking robots.txt for: ${url}`);
+                        const allowed = await this.isAllowedByRobots(url);
+                        console.log(`🤖 Robots.txt result: ${allowed}`);
+                        if (!allowed) {
+                            console.log(`🚫 Skipped by robots.txt: ${url}`);
+                            this.updateProgress(`Skipped by robots.txt: ${url}`, {
+                                currentUrl: url,
+                                currentDepth: depth,
+                                maxDepth: this.options.maxDepth,
+                                skipped: true
+                            });
+                            continue;
+                        }
+                    } else {
+                        console.log(`✅ Bypassing robots.txt for: ${url} (respect_robots_txt = false)`);
+                    }
+                    
                     this.updateProgress(`Fetching: ${url}`, { 
                         depth, 
                         queue: queue.length,
@@ -1065,7 +1103,7 @@ class SiteCrawler {
             const links = new Set();
             this.extractLinksWithRegex(html, baseUrl, links);
             this.extractCommonSPARoutes(baseUrl, links);
-            return Array.from(links);
+        return Array.from(links);
         }
     }
 
@@ -1416,19 +1454,30 @@ class SiteCrawler {
      * Save crawl results to file
      */
     async saveResults(results, testName) {
-        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-        const filename = `site-crawl-${testName.replace(/[^a-zA-Z0-9]/g, '-')}-${timestamp}.json`;
-        const filepath = path.join('reports', filename);
+        // Debug logging
+        console.log(`💾 SaveResults called with saveToJson: ${this.options.saveToJson}, saveToDatabase: ${this.options.saveToDatabase}`);
         
-        // Ensure reports directory exists
-        if (!fs.existsSync('reports')) {
-            fs.mkdirSync('reports', { recursive: true });
+        // Only save to JSON if saveToJson is enabled
+        if (this.options.saveToJson) {
+            console.log(`📄 Saving JSON file for ${testName}`);
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+            const filename = `site-crawl-${testName.replace(/[^a-zA-Z0-9]/g, '-')}-${timestamp}.json`;
+            const filepath = path.join('reports', filename);
+            
+            // Ensure reports directory exists
+            if (!fs.existsSync('reports')) {
+                fs.mkdirSync('reports', { recursive: true });
+            }
+            
+            fs.writeFileSync(filepath, JSON.stringify(results, null, 2));
+            this.updateProgress(`Results saved to ${filepath}`);
+            
+            return filepath;
+        } else {
+            console.log(`🚫 JSON saving disabled for ${testName}`);
+            this.updateProgress(`Results processing complete (JSON saving disabled)`);
+            return null;
         }
-        
-        fs.writeFileSync(filepath, JSON.stringify(results, null, 2));
-        this.updateProgress(`Results saved to ${filepath}`);
-        
-        return filepath;
     }
 
     /**
@@ -1698,6 +1747,158 @@ class SiteCrawler {
         }
         
         return Array.from(discoveredRoutes);
+    }
+
+    /**
+     * Check if a URL is allowed by robots.txt
+     */
+    async isAllowedByRobots(url) {
+        // Robust boolean checking - if robots.txt checking is disabled, always allow
+        const shouldRespectRobots = Boolean(this.options.respect_robots_txt) && 
+                                   this.options.respect_robots_txt !== false && 
+                                   this.options.respect_robots_txt !== "false" &&
+                                   this.options.respect_robots_txt !== 0;
+        
+        if (!shouldRespectRobots) {
+            console.log(`🔧 isAllowedByRobots: Bypassing robots.txt (respect_robots_txt = ${this.options.respect_robots_txt})`);
+            return true;
+        }
+        
+        try {
+            const urlObj = new URL(url);
+            const baseUrl = `${urlObj.protocol}//${urlObj.hostname}`;
+            const robotsUrl = `${baseUrl}/robots.txt`;
+            
+            // Check cache first
+            if (this.robotsCache.has(baseUrl)) {
+                const robotsData = this.robotsCache.get(baseUrl);
+                return this.checkRobotsRules(robotsData, url, this.options.userAgent);
+            }
+            
+            // Fetch robots.txt
+            const robotsData = await this.fetchRobotsTxt(robotsUrl);
+            this.robotsCache.set(baseUrl, robotsData);
+            
+            return this.checkRobotsRules(robotsData, url, this.options.userAgent);
+            
+        } catch (error) {
+            // If we can't fetch robots.txt, assume allowed
+            console.warn(`⚠️ Could not check robots.txt for ${url}: ${error.message}`);
+            return true;
+        }
+    }
+    
+    /**
+     * Fetch robots.txt content
+     */
+    async fetchRobotsTxt(robotsUrl) {
+        return new Promise((resolve, reject) => {
+            const urlObj = new URL(robotsUrl);
+            const client = urlObj.protocol === 'https:' ? require('https') : require('http');
+            
+            const req = client.request(robotsUrl, (res) => {
+                if (res.statusCode !== 200) {
+                    // No robots.txt or error - assume allowed
+                    resolve('');
+                    return;
+                }
+                
+                let data = '';
+                res.on('data', chunk => data += chunk);
+                res.on('end', () => resolve(data));
+            });
+            
+            req.on('error', () => resolve('')); // On error, assume no restrictions
+            req.setTimeout(5000, () => {
+                req.destroy();
+                resolve(''); // On timeout, assume no restrictions
+            });
+            
+            req.end();
+        });
+    }
+    
+    /**
+     * Check if URL is allowed based on robots.txt rules
+     */
+    checkRobotsRules(robotsContent, url, userAgent) {
+        if (!robotsContent) return true;
+        
+        const urlObj = new URL(url);
+        const path = urlObj.pathname + urlObj.search;
+        
+        const lines = robotsContent.split('\n').map(line => line.trim());
+        let currentUserAgent = '';
+        let disallowRules = [];
+        let allowRules = [];
+        let applies = false;
+        
+        for (const line of lines) {
+            if (line.toLowerCase().startsWith('user-agent:')) {
+                // Process previous user-agent rules
+                if (applies) {
+                    const allowed = this.evaluateRobotRules(path, allowRules, disallowRules);
+                    if (allowed !== null) return allowed;
+                }
+                
+                // Start new user-agent section
+                currentUserAgent = line.substring(11).trim().toLowerCase();
+                applies = currentUserAgent === '*' || 
+                         userAgent.toLowerCase().includes(currentUserAgent) ||
+                         currentUserAgent.includes(userAgent.toLowerCase());
+                disallowRules = [];
+                allowRules = [];
+                
+            } else if (applies && line.toLowerCase().startsWith('disallow:')) {
+                const rule = line.substring(9).trim();
+                if (rule) disallowRules.push(rule);
+                
+            } else if (applies && line.toLowerCase().startsWith('allow:')) {
+                const rule = line.substring(6).trim();
+                if (rule) allowRules.push(rule);
+            }
+        }
+        
+        // Process final user-agent rules
+        if (applies) {
+            const allowed = this.evaluateRobotRules(path, allowRules, disallowRules);
+            if (allowed !== null) return allowed;
+        }
+        
+        // Default: allow if no specific rules found
+        return true;
+    }
+    
+    /**
+     * Evaluate allow/disallow rules for a path
+     */
+    evaluateRobotRules(path, allowRules, disallowRules) {
+        // Check allow rules first (they take precedence)
+        for (const rule of allowRules) {
+            if (this.matchesRobotRule(path, rule)) {
+                return true;
+            }
+        }
+        
+        // Check disallow rules
+        for (const rule of disallowRules) {
+            if (this.matchesRobotRule(path, rule)) {
+                return false;
+            }
+        }
+        
+        return null; // No matching rules
+    }
+    
+    /**
+     * Check if path matches a robots.txt rule
+     */
+    matchesRobotRule(path, rule) {
+        if (rule === '/') return true; // Disallow all
+        if (rule === '') return false; // Empty rule
+        
+        // Simple prefix matching (robots.txt standard)
+        return path.startsWith(rule);
     }
 }
 

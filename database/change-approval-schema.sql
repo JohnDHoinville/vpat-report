@@ -217,17 +217,17 @@ BEGIN
                 END,
                 to_jsonb(
                     CASE 
-                        WHEN OLD.status != NEW.status THEN OLD.status
-                        WHEN OLD.confidence_level != NEW.confidence_level THEN OLD.confidence_level
-                        WHEN OLD.assigned_tester IS DISTINCT FROM NEW.assigned_tester THEN OLD.assigned_tester
+                        WHEN OLD.status != NEW.status THEN OLD.status::TEXT
+                        WHEN OLD.confidence_level != NEW.confidence_level THEN OLD.confidence_level::TEXT
+                        WHEN OLD.assigned_tester IS DISTINCT FROM NEW.assigned_tester THEN OLD.assigned_tester::TEXT
                         ELSE NULL
                     END
                 ),
                 to_jsonb(
                     CASE 
-                        WHEN OLD.status != NEW.status THEN NEW.status
-                        WHEN OLD.confidence_level != NEW.confidence_level THEN NEW.confidence_level
-                        WHEN OLD.assigned_tester IS DISTINCT FROM NEW.assigned_tester THEN NEW.assigned_tester
+                        WHEN OLD.status != NEW.status THEN NEW.status::TEXT
+                        WHEN OLD.confidence_level != NEW.confidence_level THEN NEW.confidence_level::TEXT
+                        WHEN OLD.assigned_tester IS DISTINCT FROM NEW.assigned_tester THEN NEW.assigned_tester::TEXT
                         ELSE NULL
                     END
                 ),

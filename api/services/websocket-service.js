@@ -412,6 +412,36 @@ class WebSocketService {
     }
 
     /**
+     * Broadcast crawler status update to project members
+     */
+    emitCrawlerUpdate(projectId, crawlerData) {
+        const message = {
+            type: 'crawler_update',
+            projectId,
+            crawler: crawlerData,
+            timestamp: new Date().toISOString()
+        };
+
+        this.io.to(`project_${projectId}`).emit('crawler_update', message);
+        console.log(`🕷️ Crawler update broadcast: ${projectId} - ${crawlerData.name} (${crawlerData.status})`);
+    }
+
+    /**
+     * Broadcast crawler run progress to project members
+     */
+    emitCrawlerProgress(projectId, crawlerRunData) {
+        const message = {
+            type: 'crawler_progress',
+            projectId,
+            crawlerRun: crawlerRunData,
+            timestamp: new Date().toISOString()
+        };
+
+        this.io.to(`project_${projectId}`).emit('crawler_progress', message);
+        console.log(`📊 Crawler progress: ${projectId} - ${crawlerRunData.status} (${crawlerRunData.pages_crawled || 0} pages)`);
+    }
+
+    /**
      * Send notification to specific user
      */
     emitUserNotification(userId, notification) {

@@ -85,12 +85,26 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Serve uploaded files statically
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
+// Serve dashboard and static files from project root
+app.use(express.static(path.join(__dirname, '..'), { 
+    index: 'dashboard.html',
+    dotfiles: 'ignore',
+    setHeaders: (res, path) => {
+        if (path.endsWith('.html')) {
+            res.setHeader('Cache-Control', 'no-cache');
+        }
+    }
+}));
+
 // Initialize WebSocket service
 const wsService = new WebSocketService(server);
 
 // Initialize testing services
 const testingService = new SimpleTestingService(wsService);
 const discoveryService = new SiteDiscoveryService(wsService);
+
+// Initialize crawler services with WebSocket support
+webCrawlersRoutes.initializeServices(wsService);
 
 // Make services available to routes
 app.set('wsService', wsService);

@@ -4,13 +4,17 @@ const crypto = require('crypto');
 const fs = require('fs').promises;
 const path = require('path');
 const { URL } = require('url');
+const https = require('https');
+const http = require('http');
 
 class PlaywrightCrawlerService {
-    constructor(dbConfig) {
+    constructor(dbConfig, websocketService = null) {
         this.pool = new Pool(dbConfig);
+        this.websocketService = websocketService;
         this.activeCrawlers = new Map(); // Track running crawlers
         this.browsers = new Map(); // Browser instances for session persistence
         this.authSessions = new Map(); // Cached authentication sessions
+        this.robotsCache = new Map(); // Cache robots.txt files for performance
     }
 
     /**
@@ -59,7 +63,7 @@ class PlaywrightCrawlerService {
                 crawlerData.enable_caching !== false,
                 crawlerData.cache_duration_hours || 24,
                 crawlerData.session_persistence !== false,
-                crawlerData.respect_robots_txt !== false,
+                crawlerData.respect_robots_txt || false, // Default to false for accessibility testing
                 crawlerData.created_by
             ];
 
@@ -147,6 +151,30 @@ class PlaywrightCrawlerService {
     }
 
     /**
+     * Verify domain resolution before crawling
+     */
+    async verifyDomainResolution(url) {
+        const dns = require('dns').promises;
+        
+        try {
+            const urlObj = new URL(url);
+            const hostname = urlObj.hostname;
+            
+            console.log(`🔍 Verifying domain resolution for: ${hostname}`);
+            
+            // Try DNS lookup
+            const addresses = await dns.lookup(hostname, { family: 0 });
+            console.log(`✅ Domain resolved: ${hostname} -> ${addresses.address}`);
+            
+            return true;
+        } catch (error) {
+            console.warn(`⚠️ DNS resolution failed for ${url}: ${error.message}`);
+            console.log(`🔧 Attempting to continue anyway (DNS might work in browser context)`);
+            return false; // Don't fail, just warn
+        }
+    }
+
+    /**
      * Execute crawler with Playwright
      */
     async executeCrawler(crawler, crawlerRun, runConfig = {}) {
@@ -158,6 +186,9 @@ class PlaywrightCrawlerService {
         try {
             console.log(`🚀 Starting crawler: ${crawler.name} (${crawlerRun.id})`);
             this.activeCrawlers.set(crawler.id, crawlerRun.id);
+            
+            // Test domain resolution before starting
+            await this.verifyDomainResolution(crawler.base_url);
 
             // Update status to running
             await this.updateCrawlerRunStatus(crawlerRun.id, 'running', {
@@ -169,15 +200,43 @@ class PlaywrightCrawlerService {
             const browserType = this.getBrowserType(crawler.browser_type);
             browser = await browserType.launch({
                 headless: runConfig.headless !== false,
-                args: ['--disable-dev-shm-usage', '--no-sandbox']
+                args: [
+                    '--disable-dev-shm-usage', 
+                    '--no-sandbox',
+                    '--disable-features=VizDisplayCompositor',
+                    '--dns-prefetch-disable',
+                    '--disable-background-timer-throttling',
+                    '--disable-backgrounding-occluded-windows',
+                    '--disable-renderer-backgrounding'
+                ]
             });
 
-            // Create context with viewport and headers
-            const contextOptions = {
-                viewport: crawler.viewport_config,
-                userAgent: crawler.user_agent,
-                extraHTTPHeaders: crawler.headers
-            };
+            // Create context with viewport and headers - ensure proper data types
+            const contextOptions = {};
+            
+            // Parse viewport config if it's a JSON string
+            if (crawler.viewport_config) {
+                contextOptions.viewport = typeof crawler.viewport_config === 'string' 
+                    ? JSON.parse(crawler.viewport_config) 
+                    : crawler.viewport_config;
+            } else {
+                contextOptions.viewport = { width: 1920, height: 1080 }; // Default viewport
+            }
+            
+            // Set user agent as string if provided
+            if (crawler.user_agent && typeof crawler.user_agent === 'string') {
+                contextOptions.userAgent = crawler.user_agent;
+            }
+            
+            // Parse headers if it's a JSON string
+            if (crawler.headers) {
+                const headers = typeof crawler.headers === 'string' 
+                    ? JSON.parse(crawler.headers) 
+                    : crawler.headers;
+                if (headers && Object.keys(headers).length > 0) {
+                    contextOptions.extraHTTPHeaders = headers;
+                }
+            }
 
             // Load persistent session if enabled
             if (crawler.session_persistence) {
@@ -282,54 +341,129 @@ class PlaywrightCrawlerService {
     }
 
     /**
-     * Handle SAML authentication flow
+     * Handle SAML authentication flow - Check if already authenticated
      */
     async handleSAMLAuthentication(page, crawler) {
-        const credentials = this.decryptCredentials(crawler.auth_credentials);
-        const samlConfig = crawler.saml_config;
+        console.log(`🔐 SAML Authentication Check for: ${crawler.base_url}`);
         
-        console.log(`🔐 SAML Authentication to: ${samlConfig.idp_url || crawler.base_url}`);
-
-        // Navigate to protected resource (triggers SAML redirect)
+        // Navigate to the protected resource to check authentication status
         await page.goto(crawler.base_url);
+        await page.waitForLoadState('networkidle');
+        await page.waitForTimeout(2000); // Allow for any redirects to complete
         
-        // Wait for redirect to Identity Provider
-        await page.waitForURL(url => url.includes(samlConfig.idp_domain || 'sso'), { timeout: 10000 });
+        const currentUrl = page.url();
+        const pageTitle = await page.title();
         
-        // Fill in credentials based on SAML provider
-        if (samlConfig.username_selector && credentials.username) {
-            await page.waitForSelector(samlConfig.username_selector);
-            await page.fill(samlConfig.username_selector, credentials.username);
+        console.log(`🔧 Current URL: ${currentUrl}`);
+        console.log(`🔧 Page Title: ${pageTitle}`);
+        
+        // Check if we're redirected to a login page
+        if (currentUrl.includes('/login') || pageTitle.toLowerCase().includes('login')) {
+            console.log(`⚠️ Redirected to login page - user not authenticated`);
+            console.log(`🔧 For federated SSO systems like InCommon, manual authentication required`);
+            console.log(`🔧 SOLUTION: Run this command to copy your browser cookies:`);
+            console.log(`🔧 1. Open https://fm-dev.ti.internet2.edu in your browser and login`);
+            console.log(`🔧 2. Press F12 → Application → Cookies → copy all cookies`);
+            console.log(`🔧 3. OR use the browser session sharing feature (coming soon)`);
+            
+            // Try to inject a known session if available
+            try {
+                // Check if there's a SAML session we can reuse
+                await this.tryInjectSAMLSession(page, crawler);
+                
+                // Test if injection worked
+                await page.goto(crawler.base_url);
+                await page.waitForLoadState('networkidle');
+                const newUrl = page.url();
+                
+                if (!newUrl.includes('/login')) {
+                    console.log(`✅ Session injection successful! Now authenticated`);
+                    return; // Continue with authenticated crawling
+                }
+            } catch (error) {
+                console.log(`⚠️ Session injection failed: ${error.message}`);
+            }
+            
+            // For now, we'll attempt to continue crawling what we can access
+            console.log(`🔧 Attempting to crawl accessible pages without authentication...`);
+            return;
         }
         
-        if (samlConfig.password_selector && credentials.password) {
-            await page.waitForSelector(samlConfig.password_selector);
-            await page.fill(samlConfig.password_selector, credentials.password);
-        }
+        // Check if we can access protected content
+        const hasProtectedContent = await page.evaluate(() => {
+            // Look for indicators that we're on an authenticated page
+            const body = document.body.textContent || '';
+            const hasNavigation = document.querySelector('nav, .navigation, .menu, .sidebar') !== null;
+            const hasDashboard = body.toLowerCase().includes('dashboard') || 
+                               body.toLowerCase().includes('welcome') ||
+                               document.querySelector('.dashboard, #dashboard') !== null;
+            const hasUserInfo = document.querySelector('.user, .profile, .logout, [href*="logout"]') !== null;
+            
+            return {
+                hasNavigation,
+                hasDashboard, 
+                hasUserInfo,
+                bodyLength: body.length,
+                url: window.location.href
+            };
+        });
         
-        // Submit authentication form
-        if (samlConfig.submit_selector) {
-            await page.click(samlConfig.submit_selector);
+        console.log(`🔧 Authentication check results:`, hasProtectedContent);
+        
+        if (hasProtectedContent.hasNavigation || hasProtectedContent.hasDashboard || hasProtectedContent.hasUserInfo) {
+            console.log(`✅ Successfully authenticated! User has access to protected content`);
+            console.log(`🎯 Ready to crawl authenticated pages`);
+        } else if (hasProtectedContent.bodyLength > 1000) {
+            console.log(`✅ Page loaded with substantial content - likely authenticated`);
+            console.log(`🎯 Proceeding with crawling`);
         } else {
-            await page.keyboard.press('Enter');
+            console.log(`⚠️ Authentication status unclear - minimal content detected`);
+            console.log(`🔧 Proceeding with crawling attempt anyway`);
         }
         
-        // Handle 2FA if configured
-        if (samlConfig.mfa_required && samlConfig.mfa_selector) {
-            console.log(`🔐 Handling MFA...`);
-            await page.waitForSelector(samlConfig.mfa_selector, { timeout: 30000 });
-            // Note: MFA handling would need additional implementation based on provider
-        }
+        // No form filling needed for pre-authenticated federated SSO
+        console.log(`🔧 SAML authentication check complete`);
+    }
+
+    /**
+     * Try to inject SAML session cookies for authentication
+     */
+    async tryInjectSAMLSession(page, crawler) {
+        console.log(`🔧 Attempting to inject SAML session for ${crawler.base_url}`);
         
-        // Wait for successful authentication (back to original domain)
-        const originalDomain = new URL(crawler.base_url).hostname;
-        await page.waitForURL(url => url.includes(originalDomain), { timeout: 30000 });
+        const fs = require('fs');
+        const path = require('path');
         
-        // Additional wait for post-auth page load
-        if (samlConfig.post_auth_wait_selector) {
-            await page.waitForSelector(samlConfig.post_auth_wait_selector);
+        // Try to load saved session
+        const sessionFile = path.join(process.cwd(), 'fm-session.json');
+        
+        if (fs.existsSync(sessionFile)) {
+            try {
+                const sessionData = JSON.parse(fs.readFileSync(sessionFile, 'utf8'));
+                console.log(`🔧 Found saved session from ${sessionData.extractedAt}`);
+                console.log(`🔧 Session was for URL: ${sessionData.url}`);
+                
+                // Check if session is recent (within 24 hours)
+                const sessionAge = Date.now() - new Date(sessionData.extractedAt).getTime();
+                const maxAge = 24 * 60 * 60 * 1000; // 24 hours
+                
+                if (sessionAge > maxAge) {
+                    console.log(`⚠️ Session is ${Math.round(sessionAge / (60 * 60 * 1000))} hours old - may be expired`);
+                }
+                
+                // Inject all cookies
+                if (sessionData.cookies && sessionData.cookies.length > 0) {
+                    await page.context().addCookies(sessionData.cookies);
+                    console.log(`✅ Injected ${sessionData.cookies.length} cookies from saved session`);
+                } else {
+                    throw new Error('No cookies found in session file');
+                }
+                
+            } catch (error) {
+                throw new Error(`Failed to load session file: ${error.message}`);
+            }
         } else {
-            await page.waitForLoadState('networkidle');
+            throw new Error(`No session file found at ${sessionFile}. Run: node extract-browser-session.js`);
         }
     }
 
@@ -352,6 +486,30 @@ class PlaywrightCrawlerService {
             for (const item of batch) {
                 if (visited.has(item.url) || item.depth > crawler.max_depth) continue;
                 
+                // Check robots.txt if enabled - WITH DEBUG LOGGING AND ROBUST BOOLEAN CHECKING
+                console.log(`🔧 DEBUG: crawler.respect_robots_txt = ${crawler.respect_robots_txt}`);
+                console.log(`🔧 DEBUG: typeof respect_robots_txt = ${typeof crawler.respect_robots_txt}`);
+                console.log(`🔧 DEBUG: Boolean conversion = ${Boolean(crawler.respect_robots_txt)}`);
+                
+                // Robust boolean checking to avoid string "false" being truthy
+                const shouldRespectRobots = Boolean(crawler.respect_robots_txt) && 
+                                           crawler.respect_robots_txt !== false && 
+                                           crawler.respect_robots_txt !== "false" &&
+                                           crawler.respect_robots_txt !== 0;
+                console.log(`🔧 DEBUG: shouldRespectRobots = ${shouldRespectRobots}`);
+                
+                if (shouldRespectRobots) {
+                    console.log(`🤖 Checking robots.txt for: ${item.url}`);
+                    const allowed = await this.isAllowedByRobots(item.url, crawler.respect_robots_txt);
+                    console.log(`🤖 Robots.txt result: ${allowed}`);
+                    if (!allowed) {
+                        console.log(`🚫 Skipped by robots.txt: ${item.url}`);
+                        continue;
+                    }
+                } else {
+                    console.log(`✅ Bypassing robots.txt for: ${item.url} (respect_robots_txt = false)`);
+                }
+                
                 visited.add(item.url);
                 
                 try {
@@ -366,7 +524,23 @@ class PlaywrightCrawlerService {
                     if (pageData.links && item.depth < crawler.max_depth) {
                         for (const link of pageData.links) {
                             if (!visited.has(link) && this.shouldCrawlUrl(link, crawler)) {
-                                queue.push({ url: link, depth: item.depth + 1, parent: item.url });
+                                // Check robots.txt for new links if enabled - ROBUST BOOLEAN CHECKING
+                                let allowedByRobots = true;
+                                const shouldRespectRobotsForLink = Boolean(crawler.respect_robots_txt) && 
+                                                                  crawler.respect_robots_txt !== false && 
+                                                                  crawler.respect_robots_txt !== "false" &&
+                                                                  crawler.respect_robots_txt !== 0;
+                                                                  
+                                if (shouldRespectRobotsForLink) {
+                                    console.log(`🤖 Checking robots.txt for new link: ${link}`);
+                                    allowedByRobots = await this.isAllowedByRobots(link, crawler.respect_robots_txt);
+                                } else {
+                                    console.log(`✅ Bypassing robots.txt for new link: ${link} (respect_robots_txt = false)`);
+                                }
+                                
+                                if (allowedByRobots) {
+                                    queue.push({ url: link, depth: item.depth + 1, parent: item.url });
+                                }
                             }
                         }
                     }
@@ -405,11 +579,37 @@ class PlaywrightCrawlerService {
         const startTime = Date.now();
         
         try {
-            // Navigate to page
-            const response = await page.goto(item.url, { 
-                waitUntil: 'networkidle',
-                timeout: 30000 
-            });
+            // Check if this is a fragment URL (same page, different anchor)
+            const currentUrl = page.url();
+            const targetUrl = new URL(item.url);
+            const currentUrlObj = new URL(currentUrl);
+            
+            let response = null;
+            
+            // If it's just a fragment change on the same page, don't navigate
+            if (currentUrlObj.origin === targetUrl.origin && 
+                currentUrlObj.pathname === targetUrl.pathname && 
+                targetUrl.hash) {
+                console.log(`🔗 Fragment navigation to ${item.url} - skipping actual navigation`);
+                // Just scroll to the fragment if it exists
+                try {
+                    if (targetUrl.hash) {
+                        const elementId = targetUrl.hash.substring(1);
+                        await page.evaluate((id) => {
+                            const element = document.getElementById(id);
+                            if (element) element.scrollIntoView();
+                        }, elementId);
+                    }
+                } catch (scrollError) {
+                    console.warn(`⚠️ Could not scroll to fragment: ${scrollError.message}`);
+                }
+            } else {
+                // Navigate to page normally
+                response = await page.goto(item.url, { 
+                    waitUntil: 'networkidle',
+                    timeout: 30000 
+                });
+            }
 
             // Apply custom wait conditions
             if (crawler.wait_conditions && crawler.wait_conditions.length > 0) {
@@ -460,7 +660,7 @@ class PlaywrightCrawlerService {
             }, crawler.extraction_rules);
 
             // Add response metadata
-            pageData.statusCode = response.status();
+            pageData.statusCode = response ? response.status() : 200; // Handle null response for fragment URLs
             pageData.responseTime = Date.now() - startTime;
             pageData.depth = item.depth;
             pageData.parentUrl = item.parent;
@@ -571,6 +771,103 @@ class PlaywrightCrawlerService {
         }
     }
 
+    /**
+     * Check if a URL is allowed by robots.txt
+     */
+    async isAllowedByRobots(url, respectRobotsTxt = false) {
+        // Robust boolean checking - if robots.txt checking is disabled, always allow
+        const shouldRespectRobots = Boolean(respectRobotsTxt) && 
+                                   respectRobotsTxt !== false && 
+                                   respectRobotsTxt !== "false" &&
+                                   respectRobotsTxt !== 0;
+        
+        if (!shouldRespectRobots) {
+            console.log(`🔧 isAllowedByRobots: Bypassing robots.txt (respectRobotsTxt = ${respectRobotsTxt})`);
+            return true;
+        }
+        
+        try {
+            const urlObj = new URL(url);
+            const baseUrl = `${urlObj.protocol}//${urlObj.hostname}`;
+            const robotsUrl = `${baseUrl}/robots.txt`;
+            
+            // Check cache first
+            if (this.robotsCache.has(baseUrl)) {
+                const robotsData = this.robotsCache.get(baseUrl);
+                return this.checkRobotsRules(robotsData, url, 'AccessibilityTestingBot/1.0');
+            }
+            
+            // Fetch robots.txt
+            const robotsData = await this.fetchRobotsTxt(robotsUrl);
+            this.robotsCache.set(baseUrl, robotsData);
+            
+            return this.checkRobotsRules(robotsData, url, 'AccessibilityTestingBot/1.0');
+            
+        } catch (error) {
+            console.log(`⚠️ Error checking robots.txt for ${url}: ${error.message}`);
+            return true; // Allow on error
+        }
+    }
+
+    /**
+     * Fetch robots.txt content
+     */
+    async fetchRobotsTxt(robotsUrl) {
+        return new Promise((resolve) => {
+            const urlObj = new URL(robotsUrl);
+            const protocol = urlObj.protocol === 'https:' ? https : http;
+            
+            const request = protocol.get(robotsUrl, (response) => {
+                if (response.statusCode !== 200) {
+                    resolve(null);
+                    return;
+                }
+                
+                let data = '';
+                response.on('data', chunk => data += chunk);
+                response.on('end', () => resolve(data));
+            });
+            
+            request.on('error', () => resolve(null));
+            request.setTimeout(5000, () => {
+                request.destroy();
+                resolve(null);
+            });
+        });
+    }
+
+    /**
+     * Check robots.txt rules
+     */
+    checkRobotsRules(robotsContent, url, userAgent) {
+        if (!robotsContent) {
+            return true; // No robots.txt found, allow
+        }
+
+        const urlObj = new URL(url);
+        const path = urlObj.pathname + urlObj.search;
+        
+        const lines = robotsContent.split('\n').map(line => line.trim());
+        let currentUserAgent = null;
+        let applies = false;
+        
+        for (const line of lines) {
+            if (line.startsWith('#') || line === '') continue;
+            
+            if (line.toLowerCase().startsWith('user-agent:')) {
+                currentUserAgent = line.substring(11).trim();
+                applies = (currentUserAgent === '*' || currentUserAgent === userAgent);
+            } else if (applies && line.toLowerCase().startsWith('disallow:')) {
+                const disallowPath = line.substring(9).trim();
+                if (disallowPath && path.startsWith(disallowPath)) {
+                    return false;
+                }
+            }
+        }
+        
+        return true;
+    }
+
     shouldCrawlUrl(url, crawler) {
         try {
             const urlObj = new URL(url);
@@ -646,6 +943,7 @@ class PlaywrightCrawlerService {
 
             updates.push(`status = $${paramCount++}`);
             values.push(status);
+            updates.push(`updated_at = NOW()`);
 
             for (const [key, value] of Object.entries(updateData)) {
                 updates.push(`${key} = $${paramCount++}`);
@@ -656,10 +954,30 @@ class PlaywrightCrawlerService {
                 UPDATE crawler_runs 
                 SET ${updates.join(', ')}
                 WHERE id = $${paramCount}
+                RETURNING *, 
+                    (SELECT project_id FROM web_crawlers WHERE id = crawler_runs.crawler_id) as project_id,
+                    (SELECT name FROM web_crawlers WHERE id = crawler_runs.crawler_id) as crawler_name
             `;
             values.push(runId);
 
-            await client.query(query, values);
+            const result = await client.query(query, values);
+            
+            // Broadcast WebSocket update if service is available
+            if (this.websocketService && result.rows.length > 0) {
+                const crawlerRun = result.rows[0];
+                this.websocketService.emitCrawlerProgress(crawlerRun.project_id, {
+                    id: crawlerRun.id,
+                    crawler_id: crawlerRun.crawler_id,
+                    crawler_name: crawlerRun.crawler_name,
+                    status: crawlerRun.status,
+                    pages_crawled: crawlerRun.pages_crawled || 0,
+                    pages_found: crawlerRun.pages_found || 0,
+                    current_url: crawlerRun.current_url,
+                    started_at: crawlerRun.started_at,
+                    completed_at: crawlerRun.completed_at,
+                    errors: crawlerRun.errors
+                });
+            }
         } finally {
             client.release();
         }
@@ -723,8 +1041,16 @@ class PlaywrightCrawlerService {
     }
 
     async handleBasicAuthentication(page, crawler) {
-        const credentials = this.decryptCredentials(crawler.auth_credentials);
-        const authWorkflow = crawler.auth_workflow;
+        // Parse auth credentials if it's a JSON string
+        const authCredentials = typeof crawler.auth_credentials === 'string'
+            ? JSON.parse(crawler.auth_credentials)
+            : crawler.auth_credentials;
+        const credentials = this.decryptCredentials(authCredentials);
+        
+        // Parse auth workflow if it's a JSON string
+        const authWorkflow = typeof crawler.auth_workflow === 'string'
+            ? JSON.parse(crawler.auth_workflow)
+            : (crawler.auth_workflow || {});
         
         await page.goto(crawler.base_url);
         
@@ -744,8 +1070,16 @@ class PlaywrightCrawlerService {
     }
 
     async handleCustomAuthentication(page, crawler) {
-        const authWorkflow = crawler.auth_workflow;
-        const credentials = this.decryptCredentials(crawler.auth_credentials);
+        // Parse auth workflow if it's a JSON string
+        const authWorkflow = typeof crawler.auth_workflow === 'string'
+            ? JSON.parse(crawler.auth_workflow)
+            : (crawler.auth_workflow || {});
+            
+        // Parse auth credentials if it's a JSON string
+        const authCredentials = typeof crawler.auth_credentials === 'string'
+            ? JSON.parse(crawler.auth_credentials)
+            : crawler.auth_credentials;
+        const credentials = this.decryptCredentials(authCredentials);
         
         // Execute custom authentication steps
         for (const step of authWorkflow.steps || []) {

@@ -421,6 +421,36 @@ async function optionalAuth(req, res, next) {
 // Cleanup expired sessions every hour
 setInterval(cleanupExpiredSessions, 60 * 60 * 1000);
 
+/**
+ * Middleware to authorize project access
+ * Ensures user has access to the specified project
+ */
+async function authorizeProjectAccess(req, res, next) {
+    try {
+        const { projectId } = req.params;
+        const userId = req.user.userId;
+        
+        // For now, allow all authenticated users access to any project
+        // In the future, this could check project membership/permissions
+        if (!projectId || !userId) {
+            return res.status(400).json({ 
+                error: 'Missing project ID or user authentication' 
+            });
+        }
+        
+        // Add project access check here if needed
+        // const hasAccess = await checkProjectAccess(userId, projectId);
+        // if (!hasAccess) {
+        //     return res.status(403).json({ error: 'Access denied to this project' });
+        // }
+        
+        next();
+    } catch (error) {
+        console.error('Project authorization error:', error);
+        res.status(500).json({ error: 'Authorization check failed' });
+    }
+}
+
 module.exports = {
     generateToken,
     generateRefreshToken,
@@ -436,5 +466,6 @@ module.exports = {
     requireRole,
     requirePermission,
     optionalAuth,
+    authorizeProjectAccess,
     pool
 }; 

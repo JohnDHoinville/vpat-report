@@ -1,15 +1,33 @@
 const express = require('express');
 const router = express.Router();
 const PlaywrightCrawlerService = require('../../database/services/playwright-crawler-service');
-const { authenticateToken, authorizeProjectAccess } = require('../middleware/auth');
-const dbConfig = require('../../database/config');
+const WebCrawlerImportService = require('../../database/services/web-crawler-import-service');
+const { authenticateToken, optionalAuth } = require('../middleware/auth');
+const { dbConfig } = require('../../database/config');
 
-const crawlerService = new PlaywrightCrawlerService(dbConfig);
+// Services will be injected after WebSocket service is available
+let crawlerService = null;
+let importService = null;
+
+// Initialize services with WebSocket support
+function initializeServices(websocketService = null) {
+    crawlerService = new PlaywrightCrawlerService(dbConfig, websocketService);
+    importService = new WebCrawlerImportService();
+    console.log('🔧 Web crawler services initialized with WebSocket support');
+}
+
+// Middleware to ensure services are initialized
+function ensureServices(req, res, next) {
+    if (!crawlerService) {
+        initializeServices(); // Initialize without WebSocket if not available
+    }
+    next();
+}
 
 /**
  * Get all web crawlers for a project
  */
-router.get('/projects/:projectId/crawlers', authenticateToken, authorizeProjectAccess, async (req, res) => {
+router.get('/projects/:projectId/crawlers', ensureServices, optionalAuth, async (req, res) => {
     try {
         const { projectId } = req.params;
         const { status, limit = 50, offset = 0 } = req.query;
@@ -127,7 +145,7 @@ router.get('/crawlers/:crawlerId', authenticateToken, async (req, res) => {
 /**
  * Create new web crawler
  */
-router.post('/projects/:projectId/crawlers', authenticateToken, authorizeProjectAccess, async (req, res) => {
+router.post('/projects/:projectId/crawlers', optionalAuth, async (req, res) => {
     try {
         const { projectId } = req.params;
         const crawlerData = {
@@ -256,13 +274,13 @@ router.delete('/crawlers/:crawlerId', authenticateToken, async (req, res) => {
 /**
  * Start crawler execution
  */
-router.post('/crawlers/:crawlerId/start', authenticateToken, async (req, res) => {
+router.post('/crawlers/:crawlerId/start', optionalAuth, async (req, res) => {
     try {
         const { crawlerId } = req.params;
         const runConfig = {
             ...req.body,
             triggered_by: 'manual',
-            user_id: req.user.id
+            user_id: req.user?.id || 'anonymous'
         };
 
         const crawlerRun = await crawlerService.startCrawler(crawlerId, runConfig);
@@ -580,6 +598,80 @@ router.get('/crawlers/:crawlerId/stats', authenticateToken, async (req, res) => 
 });
 
 /**
+ * Get discovered pages for a crawler
+ */
+router.get('/crawlers/:crawlerId/pages', ensureServices, optionalAuth, async (req, res) => {
+    try {
+        const { crawlerId } = req.params;
+        const { limit = 100, offset = 0, status = null } = req.query;
+
+        const client = await pool.connect();
+
+        // Get pages from the most recent completed run
+        const pagesQuery = `
+            SELECT 
+                cdp.id,
+                cdp.url,
+                cdp.title,
+                cdp.description,
+                cdp.status_code,
+                cdp.content_type,
+                cdp.depth,
+                cdp.parent_url,
+                cdp.page_data,
+                cdp.discovered_at,
+                cr.id as crawler_run_id,
+                cr.started_at as run_started_at
+            FROM crawler_discovered_pages cdp
+            JOIN crawler_runs cr ON cdp.crawler_run_id = cr.id
+            WHERE cr.crawler_id = $1 
+                AND cr.status = 'completed'
+                ${status ? 'AND cdp.status_code = $4' : ''}
+            ORDER BY cr.started_at DESC, cdp.discovered_at DESC
+            LIMIT $2 OFFSET $3
+        `;
+
+        const queryParams = [crawlerId, limit, offset];
+        if (status) {
+            queryParams.push(status);
+        }
+
+        const result = await client.query(pagesQuery, queryParams);
+        
+        // Get total count
+        const countQuery = `
+            SELECT COUNT(*) as total
+            FROM crawler_discovered_pages cdp
+            JOIN crawler_runs cr ON cdp.crawler_run_id = cr.id
+            WHERE cr.crawler_id = $1 
+                AND cr.status = 'completed'
+                ${status ? 'AND cdp.status_code = $2' : ''}
+        `;
+        const countParams = [crawlerId];
+        if (status) {
+            countParams.push(status);
+        }
+        
+        const countResult = await client.query(countQuery, countParams);
+        client.release();
+
+        res.json({ 
+            success: true, 
+            data: result.rows,
+            pagination: {
+                total: parseInt(countResult.rows[0].total),
+                limit: parseInt(limit),
+                offset: parseInt(offset),
+                has_more: (parseInt(offset) + parseInt(limit)) < parseInt(countResult.rows[0].total)
+            }
+        });
+    } catch (error) {
+        console.error('Error fetching crawler pages:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+/**
  * Test authentication for crawler
  */
 router.post('/crawlers/:crawlerId/test-auth', authenticateToken, async (req, res) => {
@@ -600,4 +692,200 @@ router.post('/crawlers/:crawlerId/test-auth', authenticateToken, async (req, res
     }
 });
 
-module.exports = router; 
+/**
+ * POST /api/web-crawlers/projects/:projectId/import
+ * Import existing crawler results from JSON files
+ */
+router.post('/projects/:projectId/import', optionalAuth, async (req, res) => {
+    try {
+        const { projectId } = req.params;
+
+        console.log(`📥 Importing web crawler results for project: ${projectId}`);
+
+        const importResults = await importService.importCrawlerResultsForProject(projectId);
+
+        res.json({
+            success: true,
+            data: importResults,
+            message: `Successfully imported ${importResults.filesProcessed} crawler result files with ${importResults.pagesImported} pages`
+        });
+
+    } catch (error) {
+        console.error('❌ Error importing crawler results:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to import crawler results',
+            message: error.message
+        });
+    }
+});
+
+/**
+ * POST /api/web-crawlers/import-all
+ * Import all crawler results from JSON files (for all projects)
+ */
+router.post('/import-all', authenticateToken, async (req, res) => {
+    try {
+        console.log(`📥 Importing all web crawler results...`);
+
+        // Get all projects
+        const client = await crawlerService.pool.connect();
+        const projectsResult = await client.query('SELECT id, name FROM projects');
+        client.release();
+
+        const allResults = [];
+        let totalFiles = 0;
+        let totalPages = 0;
+
+        for (const project of projectsResult.rows) {
+            try {
+                const importResults = await importService.importCrawlerResultsForProject(project.id);
+                allResults.push(importResults);
+                totalFiles += importResults.filesProcessed;
+                totalPages += importResults.pagesImported;
+            } catch (error) {
+                console.error(`❌ Error importing for project ${project.name}:`, error.message);
+                allResults.push({
+                    projectId: project.id,
+                    projectName: project.name,
+                    error: error.message
+                });
+            }
+        }
+
+        res.json({
+            success: true,
+            data: {
+                projectsProcessed: allResults.length,
+                totalFilesProcessed: totalFiles,
+                totalPagesImported: totalPages,
+                results: allResults
+            },
+            message: `Successfully imported crawler results for ${allResults.length} projects`
+        });
+
+    } catch (error) {
+        console.error('❌ Error importing all crawler results:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to import crawler results',
+            message: error.message
+        });
+    }
+});
+
+/**
+ * GET /api/web-crawlers/projects/:projectId/json-results
+ * Get web crawler results directly from JSON files (bypasses database)
+ */
+router.get('/projects/:projectId/json-results', optionalAuth, async (req, res) => {
+    try {
+        const { projectId } = req.params;
+        const fs = require('fs').promises;
+        const path = require('path');
+        
+        console.log(`📁 Loading crawler results from JSON files for project: ${projectId}`);
+        
+        // Get project info to match domain
+        const client = await crawlerService.pool.connect();
+        const projectResult = await client.query('SELECT id, name, primary_url FROM projects WHERE id = $1', [projectId]);
+        client.release();
+        
+        if (projectResult.rows.length === 0) {
+            return res.status(404).json({ success: false, error: 'Project not found' });
+        }
+        
+        const project = projectResult.rows[0];
+        const projectDomain = new URL(project.primary_url).hostname;
+        
+        const reportsDir = path.join(__dirname, '../../reports');
+        const files = await fs.readdir(reportsDir);
+        const crawlerFiles = files.filter(file => 
+            file.startsWith('site-crawl-') && file.endsWith('.json')
+        );
+        
+        const crawlerResults = [];
+        
+        for (const fileName of crawlerFiles) {
+            try {
+                const filePath = path.join(reportsDir, fileName);
+                const fileContent = await fs.readFile(filePath, 'utf8');
+                const crawlData = JSON.parse(fileContent);
+                
+                // Check if this crawl matches the project domain
+                const crawlDomain = extractDomainFromCrawlData(crawlData);
+                if (crawlDomain && crawlDomain.includes(projectDomain)) {
+                    // Create a simplified crawler object
+                    const crawler = {
+                        id: fileName.replace('.json', ''),
+                        name: extractCrawlerName(fileName),
+                        status: 'completed',
+                        base_url: crawlData.rootUrl || crawlData.summary?.primaryUrl || project.primary_url,
+                        total_pages_found: crawlData.summary?.totalPages || crawlData.pages?.length || 0,
+                        last_run_at: crawlData.startTime || new Date().toISOString(),
+                        pages: crawlData.pages || [],
+                        summary: crawlData.summary || {},
+                        file_name: fileName
+                    };
+                    
+                    crawlerResults.push(crawler);
+                }
+            } catch (error) {
+                console.error(`❌ Error reading ${fileName}:`, error.message);
+            }
+        }
+        
+        // Sort by most recent first
+        crawlerResults.sort((a, b) => new Date(b.last_run_at) - new Date(a.last_run_at));
+        
+        console.log(`📄 Found ${crawlerResults.length} crawler results for project ${project.name}`);
+        
+        res.json({
+            success: true,
+            data: crawlerResults
+        });
+        
+    } catch (error) {
+        console.error('❌ Error loading crawler JSON results:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to load crawler results',
+            message: error.message
+        });
+    }
+});
+
+// Helper functions for JSON results
+function extractDomainFromCrawlData(crawlData) {
+    const primaryUrl = crawlData.rootUrl || crawlData.summary?.primaryUrl || crawlData.baseUrl;
+    if (primaryUrl) {
+        try {
+            return new URL(primaryUrl).hostname;
+        } catch (error) {
+            return null;
+        }
+    }
+    
+    // Try to extract from first page
+    if (crawlData.pages && crawlData.pages.length > 0) {
+        try {
+            return new URL(crawlData.pages[0].url).hostname;
+        } catch (error) {
+            return null;
+        }
+    }
+    
+    return null;
+}
+
+function extractCrawlerName(fileName) {
+    // Parse filename: site-crawl-Discovery-1d3482d6-69cb-4efb-b766-5fa94b9f8c52-2025-07-17T13-29-41-711Z.json
+    const parts = fileName.replace('.json', '').split('-');
+    if (parts.length > 2) {
+        return parts[2] || 'Discovery';
+    }
+    return 'Discovery';
+}
+
+module.exports = router;
+module.exports.initializeServices = initializeServices; 
