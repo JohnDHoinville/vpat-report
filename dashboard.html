@@ -713,6 +713,55 @@
                     </div>
                 </div>
 
+                <!-- Sessions Integration -->
+                <div x-show="selectedProject && webCrawlers.length > 0" class="space-y-4">
+                    <div class="bg-gradient-to-r from-blue-50 to-green-50 rounded-lg border border-blue-200 p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <div>
+                                <h3 class="text-lg font-semibold text-gray-900 flex items-center">
+                                    <i class="fas fa-arrow-right text-blue-600 mr-2"></i>
+                                    Send to Compliance Sessions
+                                </h3>
+                                <p class="text-sm text-gray-600 mt-1">Select a web crawler's discovered pages to create a new compliance testing session</p>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-center space-x-4">
+                            <div class="flex-1">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Select Crawler Data:</label>
+                                <select x-model="selectedCrawlerForSessions" 
+                                        class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="">Choose a crawler...</option>
+                                    <template x-for="crawler in webCrawlers" :key="crawler.id">
+                                        <option :value="crawler.id" x-text="`${crawler.name} (${crawler.total_pages_discovered || 0} pages)`"></option>
+                                    </template>
+                                </select>
+                            </div>
+                            <div class="flex space-x-3">
+                                                            <button @click="previewCrawlerForSessions()" 
+                                    :disabled="!selectedCrawlerForSessions"
+                                    :class="selectedCrawlerForSessions ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-400 cursor-not-allowed'"
+                                    class="text-white px-4 py-2 rounded text-sm transition-colors">
+                                <i class="fas fa-eye mr-1"></i>Preview & Select Pages
+                            </button>
+                            <button @click="sendToSessions()" 
+                                    :disabled="!selectedCrawlerForSessions"
+                                    :class="selectedCrawlerForSessions ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-400 cursor-not-allowed'"
+                                    class="text-white px-4 py-2 rounded text-sm transition-colors">
+                                <i class="fas fa-arrow-right mr-1"></i>Create Session
+                            </button>
+                            </div>
+                        </div>
+                        
+                        <div x-show="selectedCrawlerForSessions" class="mt-4 p-3 bg-white rounded border">
+                            <div class="text-sm text-gray-600">
+                                <strong>Selected:</strong> <span x-text="webCrawlers.find(c => c.id === selectedCrawlerForSessions)?.name"></span>
+                                (<span x-text="webCrawlers.find(c => c.id === selectedCrawlerForSessions)?.total_pages_discovered || 0"></span> pages discovered)
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Crawlers List -->
                 <div x-show="selectedProject && webCrawlers.length > 0" class="space-y-4">
                     <div class="bg-white rounded-lg shadow-md border border-gray-200 p-6">
@@ -1255,9 +1304,16 @@
                     <div class="flex justify-between items-center">
                         <h3 class="text-lg font-semibold text-gray-900">Test Sessions for <span x-text="selectedProject?.name" class="text-purple-600"></span></h3>
                         <div class="flex items-center space-x-4">
-                        <div class="text-sm text-gray-600">
-                            <span x-text="testSessions.length"></span> session(s) created
+                            <div class="text-sm text-gray-600">
+                                <span x-text="testSessions.length"></span> session(s) created
                             </div>
+                            <label class="flex items-center space-x-2 text-sm text-gray-600">
+                                <input type="checkbox" 
+                                       x-model="showArchivedSessions" 
+                                       @change="loadProjectTestSessions()"
+                                       class="rounded border-gray-300 text-purple-600 focus:ring-purple-500">
+                                <span>Show archived</span>
+                            </label>
                             <button x-show="currentlyViewedSession" 
                                     @click="currentlyViewedSession = null; currentViewingMode = null;" 
                                     class="text-blue-600 hover:text-blue-800 text-sm px-3 py-1 rounded bg-blue-50 hover:bg-blue-100 transition-colors">
@@ -1267,8 +1323,10 @@
                     </div>
                     
                     <template x-for="session in testSessions" :key="session.id">
-                        <div class="bg-white rounded-lg shadow-md border border-gray-200 p-6 transition-all duration-200" 
+                        <div class="rounded-lg shadow-md border p-6 transition-all duration-200" 
                              :class="{ 
+                                'bg-white border-gray-200': session.status !== 'archived',
+                                'bg-gray-50 border-gray-300 opacity-75': session.status === 'archived',
                                 'opacity-40 scale-[0.98] pointer-events-none': currentlyViewedSession && currentlyViewedSession.id !== session.id,
                                 'ring-2 ring-blue-500 ring-opacity-50 shadow-lg': currentlyViewedSession && currentlyViewedSession.id === session.id
                              }">
@@ -1857,6 +1915,32 @@
 
             <!-- Testing Sessions Tab -->
             <div x-show="activeTab === 'testing-sessions'" class="space-y-6">
+                <!-- Web Crawler Data Indicator -->
+                <div x-show="sessionsSelectedPages?.length > 0" class="bg-gradient-to-r from-blue-50 to-green-50 border border-blue-200 rounded-lg p-4">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-3">
+                            <i class="fas fa-spider text-blue-600 text-lg"></i>
+                            <div>
+                                <h4 class="text-sm font-semibold text-gray-900">Web Crawler Data Loaded</h4>
+                                <p class="text-xs text-gray-600">
+                                    <span x-text="sessionsSelectedPages.length"></span> pages from 
+                                    <strong x-text="sessionsSourceCrawler?.name"></strong> ready for testing
+                                </p>
+                            </div>
+                        </div>
+                        <div class="flex space-x-2">
+                            <button @click="createSessionFromCrawler()" 
+                                    class="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700 transition-colors">
+                                <i class="fas fa-plus mr-1"></i>Create Session
+                            </button>
+                            <button @click="sessionsSelectedPages = []; sessionsSourceCrawler = null;" 
+                                    class="text-gray-400 hover:text-gray-600">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="flex justify-between items-center">
                     <div>
                         <h2 class="text-2xl font-bold text-gray-900">Compliance Sessions</h2>
@@ -2138,7 +2222,7 @@
                     
                     <!-- Automated Testing Controls -->
                     <div class="flex space-x-2">
-                        <button @click="runAutomatedTestsForAllRequirements()" 
+                        <button @click="runAutomatedTestsForAllRequirements(true)" 
                                 :disabled="loading || !currentSessionDetails"
                                 class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center">
                             <i class="fas fa-robot mr-2"></i>
@@ -4440,7 +4524,7 @@
                         <div x-show="newCrawler.auth_type === 'basic'" class="space-y-4">
                             <div class="bg-green-50 border border-green-200 rounded-lg p-4">
                                 <h5 class="font-medium text-green-900 mb-2">Basic Authentication</h5>
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <div>
                                         <label class="block text-sm font-medium text-green-800 mb-1">Username Selector</label>
                                         <input x-model="newCrawler.auth_workflow.username_selector" type="text" 
@@ -4452,6 +4536,12 @@
                                         <input x-model="newCrawler.auth_workflow.password_selector" type="text" 
                                                class="w-full px-3 py-2 border border-green-300 rounded-md text-sm"
                                                placeholder="input[name='password']">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-green-800 mb-1">Submit Selector</label>
+                                        <input x-model="newCrawler.auth_workflow.submit_selector" type="text" 
+                                               class="w-full px-3 py-2 border border-green-300 rounded-md text-sm"
+                                               placeholder="button[type='submit']">
                                     </div>
                                 </div>
                             </div>
@@ -5036,52 +5126,125 @@
              x-transition:leave-end="opacity-0"
              class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
              @click.self="cancelDeleteSession()">
-            <div class="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div class="bg-white rounded-lg shadow-xl max-w-lg w-full">
                 <div class="px-6 py-4 border-b border-gray-200">
                     <div class="flex items-center">
                         <div class="p-2 bg-red-100 rounded-full mr-3">
                             <i class="fas fa-exclamation-triangle text-red-600"></i>
                         </div>
-                        <h3 class="text-lg font-semibold text-gray-900">Delete Test Session</h3>
+                        <h3 class="text-lg font-semibold text-gray-900">
+                            <span x-show="sessionToDelete?.status !== 'archived'">Delete Test Session</span>
+                            <span x-show="sessionToDelete?.status === 'archived'">Manage Archived Session</span>
+                        </h3>
                     </div>
                 </div>
                 <div class="p-6">
                     <p class="text-gray-600 mb-4">
-                        Are you sure you want to delete the test session 
-                        <strong x-text="sessionToDelete?.name" class="text-gray-900"></strong>?
+                        <span x-show="sessionToDelete?.status !== 'archived'">
+                            What would you like to do with the test session 
+                            <strong x-text="sessionToDelete?.name" class="text-gray-900"></strong>?
+                        </span>
+                        <span x-show="sessionToDelete?.status === 'archived'">
+                            The archived session <strong x-text="sessionToDelete?.name" class="text-gray-900"></strong> 
+                            can be permanently deleted to free up space.
+                        </span>
                     </p>
-                    <div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
-                        <div class="flex">
-                            <i class="fas fa-exclamation-triangle text-red-400 mr-3 mt-1 text-sm"></i>
-                            <div class="text-sm">
-                                <p class="text-red-800 font-medium">This action cannot be undone.</p>
-                                <p class="text-red-700 mt-1">
-                                    This will permanently delete:
-                                </p>
-                                <ul class="text-red-700 mt-2 space-y-1">
-                                    <li>• All test results and findings from this session</li>
-                                    <li>• Session progress and configuration data</li>
-                                    <li>• Associated accessibility reports</li>
-                                    <li>• Manual testing notes and observations</li>
-                                </ul>
+
+                    <!-- Active Session Options -->
+                    <div x-show="sessionToDelete?.status !== 'archived'" class="space-y-4 mb-6">
+                        <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                            <div class="flex items-start">
+                                <i class="fas fa-archive text-yellow-500 mr-3 mt-1"></i>
+                                <div>
+                                    <h4 class="font-medium text-yellow-800">Archive Session (Recommended)</h4>
+                                    <p class="text-yellow-700 text-sm mt-1">
+                                        Hides the session from the main list but preserves all data. 
+                                        Can be restored later if needed.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+                            <div class="flex items-start">
+                                <i class="fas fa-trash text-red-500 mr-3 mt-1"></i>
+                                <div>
+                                    <h4 class="font-medium text-red-800">Permanent Delete</h4>
+                                    <p class="text-red-700 text-sm mt-1">
+                                        Completely removes all test results, findings, and data. This cannot be undone.
+                                    </p>
+                                    <ul class="text-red-600 text-xs mt-2 space-y-1">
+                                        <li>• All automated test results and raw data</li>
+                                        <li>• Manual testing notes and observations</li>
+                                        <li>• Session progress and configuration</li>
+                                    </ul>
+                                </div>
                             </div>
                         </div>
                     </div>
+
+                    <!-- Archived Session Options -->
+                    <div x-show="sessionToDelete?.status === 'archived'" class="mb-6">
+                        <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+                            <div class="flex">
+                                <i class="fas fa-exclamation-triangle text-red-400 mr-3 mt-1 text-sm"></i>
+                                <div class="text-sm">
+                                    <p class="text-red-800 font-medium">Permanent deletion will free up database space</p>
+                                    <p class="text-red-700 mt-1">This will permanently remove:</p>
+                                    <ul class="text-red-700 mt-2 space-y-1">
+                                        <li>• Large JSON test result files</li>
+                                        <li>• All violation data and evidence</li>
+                                        <li>• Session history and audit trail</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="flex justify-end space-x-3">
                         <button @click="cancelDeleteSession()" 
                                 class="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 transition-colors">
                             Cancel
                         </button>
-                        <button @click="confirmDeleteSession()" 
-                                :disabled="loading"
-                                class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors disabled:bg-red-400 disabled:cursor-not-allowed">
-                            <span x-show="!loading" class="flex items-center">
-                                <i class="fas fa-trash mr-2"></i>Delete Session
-                            </span>
-                            <span x-show="loading" class="flex items-center">
-                                <i class="fas fa-spinner fa-spin mr-2"></i>Deleting...
-                            </span>
-                        </button>
+                        
+                        <!-- Active Session Buttons -->
+                        <template x-if="sessionToDelete?.status !== 'archived'">
+                            <div class="flex space-x-3">
+                                <button @click="confirmDeleteSession(false)" 
+                                        :disabled="loading"
+                                        class="px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 transition-colors disabled:bg-yellow-400">
+                                    <span x-show="!loading" class="flex items-center">
+                                        <i class="fas fa-archive mr-2"></i>Archive
+                                    </span>
+                                    <span x-show="loading" class="flex items-center">
+                                        <i class="fas fa-spinner fa-spin mr-2"></i>Archiving...
+                                    </span>
+                                </button>
+                                <button @click="confirmDeleteSession(true)" 
+                                        :disabled="loading"
+                                        class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors disabled:bg-red-400">
+                                    <span x-show="!loading" class="flex items-center">
+                                        <i class="fas fa-trash mr-2"></i>Delete Forever
+                                    </span>
+                                    <span x-show="loading" class="flex items-center">
+                                        <i class="fas fa-spinner fa-spin mr-2"></i>Deleting...
+                                    </span>
+                                </button>
+                            </div>
+                        </template>
+
+                        <!-- Archived Session Button -->
+                        <template x-if="sessionToDelete?.status === 'archived'">
+                            <button @click="confirmDeleteSession(true)" 
+                                    :disabled="loading"
+                                    class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors disabled:bg-red-400">
+                                <span x-show="!loading" class="flex items-center">
+                                    <i class="fas fa-trash mr-2"></i>Delete Permanently
+                                </span>
+                                <span x-show="loading" class="flex items-center">
+                                    <i class="fas fa-spinner fa-spin mr-2"></i>Deleting...
+                                </span>
+                            </button>
+                        </template>
                     </div>
                 </div>
             </div>
@@ -6567,9 +6730,66 @@
 
                     <!-- Requirement Description -->
                     <div class="bg-gray-50 border border-gray-200 rounded-lg p-6">
-                        <h4 class="text-lg font-semibold text-gray-900 mb-3">Requirement Description</h4>
-                        <div class="bg-white border border-gray-200 rounded p-4">
-                            <p class="text-sm text-gray-900" x-text="currentRequirement?.description || 'No description available'"></p>
+                        <div class="flex justify-between items-center mb-3">
+                            <h4 class="text-lg font-semibold text-gray-900">Requirement Description</h4>
+                            <div x-show="currentRequirement?.wcag_link || currentRequirement?.understanding_url">
+                                <a :href="currentRequirement?.wcag_link || currentRequirement?.understanding_url" 
+                                   target="_blank"
+                                   class="inline-flex items-center px-3 py-1 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors">
+                                    <i class="fas fa-external-link-alt mr-2"></i>
+                                    View WCAG Guidelines
+                                </a>
+                            </div>
+                        </div>
+                        
+                        <div class="space-y-4">
+                            <!-- Main Description -->
+                            <div class="bg-white border border-gray-200 rounded p-4">
+                                <p class="text-sm text-gray-900" 
+                                   x-text="currentRequirement?.description || 'No description available'"></p>
+                            </div>
+                            
+                            <!-- Testing Instructions -->
+                            <div x-show="currentRequirement?.testing_instructions && currentRequirement?.testing_instructions !== currentRequirement?.description" 
+                                 class="bg-blue-50 border border-blue-200 rounded p-4">
+                                <h5 class="font-semibold text-blue-900 mb-2">How to Test</h5>
+                                <p class="text-sm text-blue-800" 
+                                   x-text="currentRequirement?.testing_instructions"></p>
+                            </div>
+                            
+                            <!-- Testing Steps -->
+                            <div x-show="currentRequirement?.testing_steps && currentRequirement?.testing_steps.length > 0" 
+                                 class="bg-green-50 border border-green-200 rounded p-4">
+                                <h5 class="font-semibold text-green-900 mb-2">Testing Steps</h5>
+                                <ol class="list-decimal list-inside space-y-1 text-sm text-green-800">
+                                    <template x-for="(step, index) in currentRequirement?.testing_steps || []" :key="index">
+                                        <li x-text="step"></li>
+                                    </template>
+                                </ol>
+                            </div>
+                            
+                            <!-- Common Failures -->
+                            <div x-show="currentRequirement?.common_failures && currentRequirement?.common_failures.length > 0" 
+                                 class="bg-red-50 border border-red-200 rounded p-4">
+                                <h5 class="font-semibold text-red-900 mb-2">Common Failures</h5>
+                                <ul class="list-disc list-inside space-y-1 text-sm text-red-800">
+                                    <template x-for="(failure, index) in currentRequirement?.common_failures || []" :key="index">
+                                        <li x-text="failure"></li>
+                                    </template>
+                                </ul>
+                            </div>
+                            
+                            <!-- Tools Needed -->
+                            <div x-show="currentRequirement?.tools_needed && currentRequirement?.tools_needed.length > 0" 
+                                 class="bg-yellow-50 border border-yellow-200 rounded p-4">
+                                <h5 class="font-semibold text-yellow-900 mb-2">Tools Needed</h5>
+                                <div class="flex flex-wrap gap-2">
+                                    <template x-for="(tool, index) in currentRequirement?.tools_needed || []" :key="index">
+                                        <span class="inline-flex items-center px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded-full"
+                                              x-text="tool.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())"></span>
+                                    </template>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -7621,7 +7841,7 @@
     </div>
 </div>
 
-        <!-- View Crawler Pages Modal -->
+        <!-- View Crawler Pages Modal (Updated) -->
         <div x-show="showCrawlerPages" 
              x-transition:enter="transition ease-out duration-300"
              x-transition:enter-start="opacity-0"
@@ -7630,79 +7850,95 @@
              x-transition:leave-start="opacity-100"
              x-transition:leave-end="opacity-0"
              class="fixed inset-0 bg-black bg-opacity-50 z-[9999] flex items-center justify-center p-4"
-             id="crawler-pages-modal"
-             @click.self="showCrawlerPages = false">
-            <div class="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-y-auto">
-                <div class="px-6 py-4 border-b border-gray-200">
-                    <div class="flex justify-between items-center">
-                        <div>
-                            <h3 class="text-lg font-semibold text-gray-900">Discovered Pages</h3>
-                            <p class="text-sm text-gray-600 mt-1" x-text="`${selectedCrawler?.name} - ${crawlerPages.length} pages found`"></p>
-                        </div>
-                        <div class="flex items-center space-x-3">
-                            <button @click="bulkSelectPagesForTesting('manual')"
-                                    class="bg-blue-600 text-white px-3 py-2 rounded text-sm hover:bg-blue-700 transition-colors">
-                                <i class="fas fa-hand-paper mr-1"></i>Select for Manual Testing
-                            </button>
-                            <button @click="bulkSelectPagesForTesting('automated')"
-                                    class="bg-green-600 text-white px-3 py-2 rounded text-sm hover:bg-green-700 transition-colors">
-                                <i class="fas fa-robot mr-1"></i>Select for Automated Testing
-                            </button>
-                            <button @click="showCrawlerPages = false" 
-                                    class="text-gray-400 hover:text-gray-600">
-                                <i class="fas fa-times text-xl"></i>
-                            </button>
-                        </div>
+             id="crawler-pages-modal-v2"
+             onclick="if (event.target === this) { console.log('🎭 Background clicked via onclick - v2!'); window.forcedCloseModal(); }"
+             data-test="background-v2">
+            <div class="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] flex flex-col">
+                <!-- Header -->
+                <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-start">
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-900">Discovered Pages</h3>
+                        <p class="text-sm text-gray-600 mt-1" x-show="selectedCrawler">
+                            <span x-text="selectedCrawler?.name"></span> - 
+                            <span x-text="crawlerPages.length || 0"></span> pages found
+                        </p>
+                    </div>
+                    <button onclick="console.log('❌ X button clicked via onclick - v2!'); window.forcedCloseModal();" 
+                            class="text-gray-400 hover:text-gray-600"
+                            data-test="close-button-v2">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+
+                <!-- Loading State -->
+                <div x-show="loading" class="flex-1 flex items-center justify-center p-8">
+                    <div class="text-center">
+                        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                        <p class="text-gray-600">Loading discovered pages...</p>
                     </div>
                 </div>
-                
-                <div class="p-6">
-                    <!-- Filters -->
-                    <div class="mb-4 flex flex-wrap gap-2">
-                        <input x-model="crawlerPageSearch" type="text" placeholder="Search pages..." 
-                               class="px-3 py-2 border border-gray-300 rounded-md text-sm">
-                        <select x-model="crawlerPageFilter" 
-                                class="px-3 py-2 border border-gray-300 rounded-md text-sm">
-                            <option value="">All Pages</option>
-                            <option value="forms">Pages with Forms</option>
-                            <option value="auth">Authentication Required</option>
-                            <option value="selected">Selected for Testing</option>
-                        </select>
+
+                <!-- Pages Table -->
+                <div x-show="!loading && crawlerPages.length > 0" class="flex-1 overflow-hidden flex flex-col">
+                    <!-- Filter/Search Bar -->
+                    <div class="px-6 py-3 border-b border-gray-200 bg-gray-50">
+                        <div class="flex items-center justify-between space-x-4">
+                            <div class="flex items-center space-x-4 flex-1">
+                                <input type="text" placeholder="Search pages..." 
+                                       x-model="crawlerPageSearch"
+                                       class="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <div class="flex items-center space-x-2">
+                                    <button @click="selectAllPages()" class="text-sm text-blue-600 hover:text-blue-800 hover:underline">
+                                        Include All
+                                    </button>
+                                    <span class="text-gray-400">|</span>
+                                    <button @click="deselectAllPages()" class="text-sm text-red-600 hover:text-red-800 hover:underline">
+                                        Exclude All
+                                    </button>
+                                    <span class="text-gray-400">|</span>
+                                    <button @click="clearPageSelections()" class="text-sm text-gray-600 hover:text-gray-800 hover:underline">
+                                        Clear
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="text-sm text-gray-600 text-right">
+                                <div><span x-text="getIncludedPagesCount()" class="font-medium text-green-600"></span> included</div>
+                                <div><span x-text="getExcludedPagesCount()" class="font-medium text-red-600"></span> excluded</div>
+                            </div>
+                        </div>
                     </div>
 
-                    <!-- Pages Table -->
-                    <div class="overflow-x-auto">
+                    <!-- Table Container with Scroll -->
+                    <div class="flex-1 overflow-auto">
                         <table class="min-w-full divide-y divide-gray-200">
-                            <thead class="bg-gray-50">
+                            <thead class="bg-gray-50 sticky top-0">
                                 <tr>
-                                    <th class="px-3 py-3 text-left">
-                                        <input type="checkbox" @change="toggleAllPageSelection($event.target.checked)"
-                                               class="rounded border-gray-300">
-                                    </th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">URL</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Forms</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Testing</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-16">Include</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">URL</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Depth</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tests</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="crawler-pages-tbody" class="bg-white divide-y divide-gray-200">
                                 <!-- Debug info row -->
                                 <tr x-show="filteredCrawlerPages && filteredCrawlerPages.length === 0" class="bg-yellow-50">
-                                    <td colspan="7" class="px-6 py-4 text-center text-sm text-gray-500">
+                                    <td colspan="8" class="px-6 py-4 text-center text-sm text-gray-500">
                                         No pages found - filteredCrawlerPages is an empty array
                                     </td>
                                 </tr>
                                 <tr x-show="!filteredCrawlerPages || filteredCrawlerPages === null || filteredCrawlerPages === undefined" class="bg-red-50">
-                                    <td colspan="7" class="px-6 py-4 text-center text-sm text-gray-500">
+                                    <td colspan="8" class="px-6 py-4 text-center text-sm text-gray-500">
                                         Loading pages... (filteredCrawlerPages not yet available)
                                     </td>
                                 </tr>
                                 
                                 <!-- Test row to verify data access -->
                                 <tr x-show="filteredCrawlerPages && filteredCrawlerPages.length > 0" class="bg-blue-50">
-                                    <td colspan="7" class="px-6 py-4 text-center text-sm text-gray-600">
+                                    <td colspan="8" class="px-6 py-4 text-center text-sm text-gray-600">
                                         ✅ Data available: <span x-text="filteredCrawlerPages.length"></span> pages ready to display
                                         <br>First page URL: <span x-text="filteredCrawlerPages[0]?.url || 'No URL'"></span>
                                     </td>
@@ -7737,40 +7973,65 @@
                                             </span>
                                         </td>
                                         <td class="px-6 py-4 text-sm">
-                                            <div class="space-x-2">
-                                                <span x-show="page.selected_for_manual_testing" 
-                                                      class="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">Manual</span>
-                                                <span x-show="page.selected_for_automated_testing" 
-                                                      class="bg-green-100 text-green-800 px-2 py-1 rounded text-xs">Automated</span>
-                                            </div>
-                                        </td>
-                                        <td class="px-6 py-4 text-sm space-x-2">
-                                            <button @click="togglePageTesting(page, 'manual')" 
-                                                    :class="page.selected_for_manual_testing ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'"
-                                                    class="px-2 py-1 rounded text-xs hover:opacity-80 transition-colors">
-                                                Manual
-                                            </button>
-                                            <button @click="togglePageTesting(page, 'automated')" 
-                                                    :class="page.selected_for_automated_testing ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-700'"
-                                                    class="px-2 py-1 rounded text-xs hover:opacity-80 transition-colors">
-                                                Auto
+                                            <button @click="viewPageDetails(page.id)" 
+                                                    class="text-blue-600 hover:text-blue-800">
+                                                <i class="fas fa-eye"></i>
                                             </button>
                                         </td>
+
                                     </tr>
                                 </template>
                             </tbody>
                         </table>
                     </div>
 
-                    <!-- Pagination/Summary -->
-                    <div class="mt-4 flex justify-between items-center text-sm text-gray-600">
-                        <div>
-                            Showing <span x-text="filteredCrawlerPages.length || 0"></span> of <span x-text="crawlerPages.length || 0"></span> pages
+                    <!-- Legend and Summary -->
+                    <div class="px-6 py-3 border-t border-gray-200 bg-gray-50">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center space-x-4 text-xs text-gray-500">
+                                <div class="flex items-center space-x-2">
+                                    <div class="w-3 h-3 bg-white border border-gray-300 rounded"></div>
+                                    <span class="text-xs">Included in testing</span>
+                                </div>
+                                <div class="flex items-center space-x-2">
+                                    <div class="w-3 h-3 bg-red-50 border border-red-200 rounded"></div>
+                                    <span class="text-xs">Excluded from testing</span>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-sm font-medium mb-1">
+                                    <span x-text="getIncludedPagesCount()" class="text-green-600"></span> pages will be tested
+                                </div>
+                                <div class="text-xs text-gray-500" x-show="getExcludedPagesCount() > 0">
+                                    <span x-text="getExcludedPagesCount()"></span> pages excluded
+                                </div>
+                            </div>
                         </div>
-                        <div class="space-x-4">
-                            <span>Manual: <span x-text="crawlerPages.filter(p => p.selected_for_manual_testing).length" class="font-medium"></span></span>
-                            <span>Automated: <span x-text="crawlerPages.filter(p => p.selected_for_automated_testing).length" class="font-medium"></span></span>
+                        <div class="flex justify-between items-center mt-3">
+                            <div class="text-xs text-gray-500">
+                                💡 Tip: Uncheck pages you don't want to include in accessibility testing
+                            </div>
+                            <div class="flex space-x-3">
+                                <button onclick="console.log('🚪 Close button clicked via onclick - v2!'); window.forcedCloseModal();" 
+                                        class="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 transition-colors"
+                                        data-test="footer-close-v2">
+                                    Close
+                                </button>
+                                <button @click="exportCrawlerPages()" 
+                                        class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
+                                    <i class="fas fa-download mr-2"></i>Export Pages
+                                </button>
+                            </div>
                         </div>
+                    </div>
+                </div>
+
+                <!-- No Pages State -->
+                <div x-show="!loading && crawlerPages.length === 0" class="flex-1 flex items-center justify-center p-8">
+                    <div class="text-center">
+                        <i class="fas fa-search text-gray-400 text-4xl mb-4"></i>
+                        <h3 class="text-lg font-medium text-gray-900 mb-2">No pages found</h3>
+                        <p class="text-gray-500">This crawler hasn't discovered any pages yet.</p>
                     </div>
                 </div>
             </div>

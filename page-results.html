@@ -232,20 +232,9 @@
                         this.loading = true;
                         this.error = null;
 
-                        // Get token from localStorage (or from URL parameter)
-                        const urlParams = new URLSearchParams(window.location.search);
-                        const token = localStorage.getItem('token') || urlParams.get('token');
-                        
-                        if (!token) {
-                            this.error = 'Authentication required. Please log in to view page results.';
-                            this.loading = false;
-                            return;
-                        }
-
                         const apiBaseUrl = 'http://localhost:3001/api';
                         const response = await fetch(`${apiBaseUrl}/results/page-results/${sessionId}`, {
                             headers: {
-                                'Authorization': `Bearer ${token}`,
                                 'Content-Type': 'application/json'
                             }
                         });

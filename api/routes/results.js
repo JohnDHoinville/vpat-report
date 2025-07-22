@@ -498,8 +498,7 @@ router.get('/trends', async (req, res) => {
  * Get comprehensive page-level test results for a session
  * Shows which pages passed/failed, tool coverage, violation details
  */
-/* TEMPORARILY COMMENTED OUT DUE TO AUTH MIDDLEWARE ISSUE
-router.get('/page-results/:sessionId', authenticateToken, async (req, res) => {
+router.get('/page-results/:sessionId', async (req, res) => {
     try {
         const sessionId = req.params.sessionId;
         
@@ -584,20 +583,20 @@ router.get('/page-results/:sessionId', authenticateToken, async (req, res) => {
             SELECT 
                 dp.url,
                 atr.tool_name,
-                atv.wcag_criterion,
-                atv.severity,
-                atv.description,
-                atv.element_selector,
-                atv.element_html,
+                v.wcag_criterion,
+                v.severity,
+                v.description,
+                v.element_selector,
+                v.element_html,
                 COUNT(*) as occurrence_count
             FROM automated_test_results atr
-            JOIN automated_test_violations atv ON atr.id = atv.result_id
+            JOIN violations v ON atr.id = v.automated_result_id
             JOIN discovered_pages dp ON atr.page_id = dp.id
             WHERE atr.test_session_id = $1
-            GROUP BY dp.url, atr.tool_name, atv.wcag_criterion, atv.severity, 
-                     atv.description, atv.element_selector, atv.element_html
+            GROUP BY dp.url, atr.tool_name, v.wcag_criterion, v.severity, 
+                     v.description, v.element_selector, v.element_html
             ORDER BY dp.url, 
-                CASE atv.severity 
+                CASE v.severity 
                     WHEN 'critical' THEN 1
                     WHEN 'serious' THEN 2  
                     WHEN 'moderate' THEN 3
@@ -658,7 +657,6 @@ router.get('/page-results/:sessionId', authenticateToken, async (req, res) => {
         });
     }
 });
-*/
 
 /**
  * GET /api/results/compare

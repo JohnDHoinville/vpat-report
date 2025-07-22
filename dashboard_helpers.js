@@ -120,10 +120,16 @@ function dashboard() {
         analytics: {},
         sessions: [],
         availableAuthConfigs: [], // Authentication configurations for discovery
+        showArchivedSessions: false, // Toggle for showing archived sessions
+        
+        // Sessions Integration from Web Crawlers
+        sessionsSelectedPages: [],
+        sessionsSourceCrawler: null,
         
         // Web Crawler Data
         webCrawlers: [],
         selectedCrawler: null,
+        selectedCrawlerForSessions: '', // For Sessions integration
         crawlerPages: [],
         filteredCrawlerPages: [],
         showCreateCrawler: false,
@@ -472,44 +478,9 @@ function dashboard() {
                 console.log('✅ Modal functions restored after 30-second cooldown');
             }, 30000);
             
-            // Force close any potentially stuck modals multiple times - excluding web crawler modals
-            for (let i = 0; i < 8; i++) {
-                setTimeout(() => {
-                    // Testing modals
-                    this.showTestConfigurationModal = false;
-                    this.showTestInstanceModal = false;
-                    this.showViolationInspector = false;
-                    this.showRequirementDetailsModal = false;
-                    this.showTestAssignmentPanel = false;
-                    this.showAutomatedTestModal = false;
-                    this.showManualTestingModal = false;
-                    this.showTesterAssignmentModal = false;
-                    
-                    // Project and discovery modals
-                    this.showCreateProject = false;
-                    this.showStartDiscovery = false;
-                    this.showCreateSession = false;
-                    this.showCreateTestingSession = false;
-                    this.showViewPages = false;
-                    this.showDeleteProject = false;
-                    this.showDeleteDiscovery = false;
-                    this.showDeleteSession = false;
-                    
-                    // Auth and user modals
-                    this.showLogin = false;
-                    this.showProfile = false;
-                    this.showAuthPrompt = false;
-                    this.showChangePassword = false;
-                    this.showSetupAuth = false;
-                    this.showEditAuth = false;
-                    
-                    // Other modals
-                    this.showSessions = false;
-                    this.showCoverageAnalysis = false;
-                    
-                    console.log(`🔒 Force-closed all modals (attempt ${i + 1})`);
-                }, i * 150);
-            }
+            // DISABLED: Aggressive modal cleanup was interfering with normal modal operations
+            // This was causing modals to get stuck and not close properly
+            console.log('🔒 Aggressive modal cleanup DISABLED to prevent interference');
             
             console.log('✅ Modal states reset during initialization');
             
@@ -1680,9 +1651,11 @@ function dashboard() {
             if (!this.selectedProject) return;
             
             try {
-                const data = await this.apiCall(`/projects/${this.selectedProject.id}/sessions`);
+                // Include archived sessions parameter if showing archived
+                const includeArchived = this.showArchivedSessions ? '&include_archived=true' : '';
+                const data = await this.apiCall(`/projects/${this.selectedProject.id}/sessions?limit=100${includeArchived}`);
                 this.testSessions = data.data || [];
-                console.log(`🧪 Loaded ${this.testSessions.length} test sessions for project`);
+                console.log(`🧪 Loaded ${this.testSessions.length} test sessions for project${this.showArchivedSessions ? ' (including archived)' : ''}`);
             } catch (error) {
                 console.error('Failed to load test sessions:', error);
             }
@@ -2254,13 +2227,8 @@ function dashboard() {
         },
 
         viewPageResults(session) {
-            // Open page results in a new window using the page-results.html file
-            if (!this.token) {
-                this.addNotification('Error', 'Please log in to view page results', 'error');
-                return;
-            }
-            
-            const pageResultsUrl = `./page-results.html?sessionId=${session.id}&token=${this.token}`;
+            // Open page results in a new window using the page-results.html file            
+            const pageResultsUrl = `./page-results.html?sessionId=${session.id}`;
             const newWindow = window.open(pageResultsUrl, '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes');
             
             if (newWindow) {
@@ -2274,27 +2242,38 @@ function dashboard() {
             this.showNotification('Manual testing interface coming soon!', 'info');
         },
 
+        startPlaywrightTesting(session) {
+            this.showNotification(`Playwright testing for "${session.name}" - Feature coming soon!`, 'info');
+        },
+
         // Test Session Management
         deleteSession(session) {
             this.sessionToDelete = session;
             this.showDeleteSession = true;
         },
 
-        async confirmDeleteSession() {
+        async confirmDeleteSession(permanent = false) {
             if (!this.sessionToDelete) return;
             
             try {
-                console.log('🗑️ Deleting test session:', this.sessionToDelete.name, this.sessionToDelete.id);
+                const action = permanent ? 'permanently deleting' : 'archiving';
+                console.log(`🗑️ ${action} test session:`, this.sessionToDelete.name, this.sessionToDelete.id);
                 this.loading = true;
                 
-                const response = await this.apiCall(`/sessions/${this.sessionToDelete.id}`, {
+                let url = `/sessions/${this.sessionToDelete.id}`;
+                if (permanent) {
+                    url += '?permanent=true&confirm_permanent=true';
+                }
+                
+                const response = await this.apiCall(url, {
                     method: 'DELETE'
                 });
                 
                 console.log('🗑️ Delete response:', response);
                 
                 if (response.success) {
-                    this.showNotification(`Session "${this.sessionToDelete.name}" deleted successfully!`, 'success');
+                    const actionText = permanent ? 'permanently deleted' : 'archived';
+                    this.showNotification(`Session "${this.sessionToDelete.name}" ${actionText} successfully!`, 'success');
                     
                     // Refresh all session-related data
                     await Promise.all([
@@ -2303,18 +2282,18 @@ function dashboard() {
                         this.loadAnalytics()
                     ]);
                     
-                    console.log('✅ Session deleted and data refreshed');
+                    console.log(`✅ Session ${actionText} and data refreshed`);
                 } else {
-                    console.error('❌ Failed to delete session:', response.error);
-                    this.showNotification(response.error || 'Failed to delete session', 'error');
+                    console.error(`❌ Failed to ${action} session:`, response.error);
+                    this.showNotification(response.error || `Failed to ${action} session`, 'error');
                 }
                 
                 this.showDeleteSession = false;
                 this.sessionToDelete = null;
                 
             } catch (error) {
-                console.error('❌ Failed to delete test session:', error);
-                this.showNotification('Failed to delete test session: ' + (error.message || 'Unknown error'), 'error');
+                console.error(`❌ Failed to ${action} test session:`, error);
+                this.showNotification(`Failed to ${action} test session: ` + (error.message || 'Unknown error'), 'error');
             } finally {
                 this.loading = false;
             }
@@ -8096,9 +8075,21 @@ function dashboard() {
         },
 
         // NEW: Run automated tests for all requirements
-        async runAutomatedTestsForAllRequirements() {
+        async runAutomatedTestsForAllRequirements(userTriggered = false) {
             try {
                 console.log('🚀 Running automated tests for all requirements');
+                
+                // Safety check: Only run if user explicitly triggered this
+                if (!userTriggered) {
+                    console.warn('⚠️ Automated testing blocked - must be user-triggered');
+                    return;
+                }
+                
+                if (!this.currentSessionDetails) {
+                    console.warn('⚠️ No session selected for automated testing');
+                    this.showNotification('Please select a session first', 'warning');
+                    return;
+                }
                 
                 this.loading = true;
                 
@@ -8326,10 +8317,35 @@ function dashboard() {
             }
         },
 
-        viewRequirementDetails(requirement) {
+        async viewRequirementDetails(requirement) {
             console.log('Viewing requirement details:', requirement);
+            this.isLoadingRequirement = true;
             this.currentRequirement = requirement;
             this.showRequirementDetailsModal = true;
+            
+            try {
+                // Fetch detailed WCAG information from the database
+                if (requirement.criterion_number) {
+                    const detailedReq = await this.apiCall(`/requirements/wcag/${requirement.criterion_number}`);
+                    if (detailedReq.success && detailedReq.data) {
+                        // Merge the detailed data with the existing requirement
+                        this.currentRequirement = {
+                            ...requirement,
+                            ...detailedReq.data,
+                            // Keep the original test status and session-specific data
+                            status: requirement.status,
+                            automated_status: requirement.automated_status,
+                            manual_status: requirement.manual_status
+                        };
+                        console.log('Enhanced requirement with detailed WCAG data:', this.currentRequirement);
+                    }
+                }
+            } catch (error) {
+                console.error('Error fetching requirement details:', error);
+                this.showNotification('Failed to load detailed requirement information', 'warning');
+            } finally {
+                this.isLoadingRequirement = false;
+            }
         },
 
         closeRequirementDetailsModal() {
@@ -8520,18 +8536,28 @@ function dashboard() {
          */
         async viewCrawlerPages(crawler) {
             try {
+                // Check if project is selected first
+                if (!this.selectedProject) {
+                    this.showNotification('Please select a project first', 'error');
+                    return;
+                }
+                
+                if (!crawler || !crawler.id) {
+                    this.showNotification('Invalid crawler selected', 'error');
+                    return;
+                }
+                
                 this.loading = true;
                 this.selectedCrawler = crawler;
                 
-                // Load pages from database only
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages`);
+                // Load ALL pages from database (remove default 100 limit)
+                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
                 
-                // Ensure pages have the required properties for the selection interface
+                // Ensure pages have the required properties for the selection interface  
+                // Selection feeds directly to Sessions Tab (not manual/auto - that's decided in Sessions)
                 this.crawlerPages = (data.data || []).map(page => ({
                     ...page,
-                    selected: false,
-                    selected_for_manual_testing: page.selected_for_manual_testing || false,
-                    selected_for_automated_testing: page.selected_for_automated_testing || false,
+                    selected: false, // Simple selection for Sessions Tab
                     has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
                     title: page.title || 'Untitled Page',
                     url: page.url || ''
@@ -8547,24 +8573,26 @@ function dashboard() {
                     this.showCrawlerPages = true;
                     console.log(`🎯 Modal state set: showCrawlerPages = ${this.showCrawlerPages}`);
                     
-                    // Force DOM update after Alpine.js reactivity
-                    this.$nextTick(() => {
-                        const modal = document.querySelector('[x-show="showCrawlerPages"]');
-                        if (modal) {
-                            modal.style.display = 'flex';
-                            modal.style.visibility = 'visible';
-                            modal.style.opacity = '1';
-                            console.log(`🎯 Modal DOM updated: display=${modal.style.display}`);
-                            
-                            // Re-trigger filtering after modal is visible
-                            setTimeout(() => {
-                                console.log(`🔍 Re-triggering filter after modal display`);
-                                this.updateFilteredCrawlerPages();
-                            }, 50);
-                        } else {
-                            console.error('🚨 Modal element not found in DOM');
-                        }
-                    });
+                                    // Force DOM update after Alpine.js reactivity
+                this.$nextTick(() => {
+                    const modal = document.querySelector('#crawler-pages-modal-v2');
+                    if (modal) {
+                        // Reset any forced hiding from previous close
+                        modal.style.display = 'flex';
+                        modal.style.visibility = 'visible';
+                        modal.style.opacity = '1';
+                        modal.style.pointerEvents = 'auto';
+                        console.log(`🎯 Modal DOM updated: display=${modal.style.display}`);
+                        
+                        // Re-trigger filtering after modal is visible
+                        setTimeout(() => {
+                            console.log(`🔍 Re-triggering filter after modal display`);
+                            this.updateFilteredCrawlerPages();
+                        }, 50);
+                    } else {
+                        console.error('🚨 Modal element not found in DOM');
+                    }
+                });
                 }, 100);
 
             } catch (error) {
@@ -8621,22 +8649,485 @@ function dashboard() {
         renderTableRowsDirectly() {
             console.log('🔧 Rendering table rows directly...');
             const tbody = document.querySelector('#crawler-pages-tbody');
+            console.log('🔍 Table body found:', tbody);
+            console.log('🔍 Filtered pages count:', this.filteredCrawlerPages?.length);
+            console.log('🔍 First page URL:', this.filteredCrawlerPages?.[0]?.url);
+            
             if (!tbody || !this.filteredCrawlerPages) {
                 console.error('❌ Could not find table body or no data available');
                 return;
             }
 
-            // Clear existing rows except debug rows
-            const existingRows = tbody.querySelectorAll('tr:not([class*="bg-"]):not([class*="debug"])');
-            existingRows.forEach(row => row.remove());
+            // Clear ALL existing rows (they'll be regenerated)
+            while (tbody.firstChild) {
+                tbody.removeChild(tbody.firstChild);
+            }
+            console.log('🧹 Cleared all existing rows from tbody');
 
             // Render each page as a table row
-            this.filteredCrawlerPages.forEach(page => {
+            this.filteredCrawlerPages.forEach((page, index) => {
                 const row = this.createPageRow(page);
                 tbody.appendChild(row);
             });
             
             console.log(`✅ Rendered ${this.filteredCrawlerPages.length} table rows directly`);
+            console.log('🔍 Total rows in tbody now:', tbody.querySelectorAll('tr').length);
+            
+            // Update header checkbox state and page counts
+            this.updateHeaderCheckbox();
+            this.updatePageCounts();
+        },
+
+        /**
+         * Get status badge CSS class for page status codes
+         */
+        getStatusBadgeClass(statusCode) {
+            if (!statusCode) return 'bg-gray-100 text-gray-800';
+            
+            switch (true) {
+                case statusCode >= 200 && statusCode < 300:
+                    return 'bg-green-100 text-green-800';
+                case statusCode >= 300 && statusCode < 400:
+                    return 'bg-yellow-100 text-yellow-800';
+                case statusCode >= 400 && statusCode < 500:
+                    return 'bg-red-100 text-red-800';
+                case statusCode >= 500:
+                    return 'bg-gray-100 text-gray-800';
+                default:
+                    return 'bg-gray-100 text-gray-800';
+            }
+        },
+
+        /**
+         * Update selection count display
+         */
+        updateSelectionCount() {
+            const selectedCount = this.crawlerPages.filter(p => p.selected).length;
+            const countElement = document.getElementById('selection-count');
+            if (countElement) {
+                countElement.textContent = `${selectedCount} selected`;
+                if (selectedCount > 0) {
+                    countElement.className = 'text-sm font-medium text-green-600';
+                } else {
+                    countElement.className = 'text-sm font-medium text-blue-600';
+                }
+            }
+            return selectedCount;
+        },
+
+        /**
+         * Update header checkbox state based on current selection
+         */
+        updateHeaderCheckbox() {
+            const headerCheckbox = document.querySelector('#crawler-pages-modal-v2 thead input[type="checkbox"]');
+            if (headerCheckbox && this.crawlerPages.length > 0) {
+                const selectedCount = this.crawlerPages.filter(p => p.selected).length;
+                const totalCount = this.crawlerPages.length;
+                
+                if (selectedCount === 0) {
+                    headerCheckbox.checked = false;
+                    headerCheckbox.indeterminate = false;
+                } else if (selectedCount === totalCount) {
+                    headerCheckbox.checked = true;
+                    headerCheckbox.indeterminate = false;
+                } else {
+                    headerCheckbox.checked = false;
+                    headerCheckbox.indeterminate = true;
+                }
+            }
+        },
+
+        /**
+         * Update page counts display
+         */
+        updatePageCounts() {
+            // Update "Showing X of Y pages" text
+            const showingSpan = document.querySelector('#crawler-pages-modal-v2 [x-text*="filteredCrawlerPages.length"]');
+            if (showingSpan) {
+                showingSpan.textContent = this.filteredCrawlerPages.length || 0;
+            }
+            
+            const totalSpan = document.querySelector('#crawler-pages-modal-v2 [x-text*="crawlerPages.length"]');
+            if (totalSpan) {
+                totalSpan.textContent = this.crawlerPages.length || 0;
+            }
+        },
+
+        /**
+         * Toggle page selection for individual checkbox (Alpine.js version)
+         */
+        togglePageSelection(page, checked) {
+            if (page) {
+                page.selected = checked;
+                console.log(`📄 Toggled page selection: ${page.id} = ${checked}`);
+                
+                // Update row visual appearance
+                const row = document.querySelector(`tr[data-page-id="${page.id}"]`);
+                if (row) {
+                    row.className = `hover:bg-gray-50 ${checked ? 'bg-blue-50' : ''}`;
+                }
+                
+                // Update count and header checkbox for user feedback
+                const selectedCount = this.updateSelectionCount();
+                this.updateHeaderCheckbox();
+                console.log(`📊 Total selected pages: ${selectedCount}/${this.crawlerPages.length}`);
+            }
+        },
+
+        /**
+         * Toggle page selection by ID (for direct rendering)
+         */
+        togglePageSelectionById(pageId, checked) {
+            const page = this.crawlerPages.find(p => p.id === pageId);
+            this.togglePageSelection(page, checked);
+        },
+
+        /**
+         * Get selected pages for Sessions Tab
+         */
+        getSelectedPages() {
+            return this.crawlerPages.filter(page => page.selected);
+        },
+
+        /**
+         * Select all pages for testing
+         */
+        selectAllPages() {
+            console.log(`🎯 Selecting all ${this.crawlerPages.length} pages`);
+            this.crawlerPages.forEach(page => {
+                page.selected = true;
+                // Update visual appearance
+                const row = document.querySelector(`tr[data-page-id="${page.id}"]`);
+                if (row) {
+                    row.className = 'hover:bg-gray-50 bg-blue-50';
+                    const checkbox = row.querySelector('.page-checkbox');
+                    if (checkbox) checkbox.checked = true;
+                }
+            });
+            
+            this.updateSelectionCount();
+            this.updateHeaderCheckbox();
+            
+            const selectedCount = this.crawlerPages.filter(p => p.selected).length;
+            console.log(`✅ Selected all pages: ${selectedCount}/${this.crawlerPages.length}`);
+            this.showNotification(`Selected all ${selectedCount} pages for testing`, 'success');
+        },
+
+        /**
+         * Deselect all pages
+         */
+        deselectAllPages() {
+            console.log(`🎯 Deselecting all pages`);
+            this.crawlerPages.forEach(page => {
+                page.selected = false;
+                // Update visual appearance
+                const row = document.querySelector(`tr[data-page-id="${page.id}"]`);
+                if (row) {
+                    row.className = 'hover:bg-gray-50';
+                    const checkbox = row.querySelector('.page-checkbox');
+                    if (checkbox) checkbox.checked = false;
+                }
+            });
+            
+            this.updateSelectionCount();
+            this.updateHeaderCheckbox();
+            
+            console.log(`❌ Deselected all pages`);
+            this.showNotification(`Deselected all pages`, 'info');
+        },
+
+        /**
+         * Toggle all page selection from header checkbox
+         */
+        toggleAllPageSelection(checked) {
+            console.log(`🎯 Toggle all pages: ${checked}`);
+            this.crawlerPages.forEach(page => page.selected = checked);
+            this.updateFilteredCrawlerPages();
+            setTimeout(() => {
+                this.renderTableRowsDirectly();
+                this.updateSelectionCount();
+            }, 100);
+            
+            const selectedCount = this.crawlerPages.filter(p => p.selected).length;
+            console.log(`📊 Toggled all pages: ${selectedCount}/${this.crawlerPages.length}`);
+            this.showNotification(`${checked ? 'Selected' : 'Deselected'} all ${this.crawlerPages.length} pages`, checked ? 'success' : 'info');
+        },
+
+
+
+        /**
+         * View page details (placeholder)
+         */
+        viewPageDetails(pageId) {
+            const page = this.crawlerPages.find(p => p.id === pageId);
+            if (page) {
+                console.log(`👁️ View details for page:`, page);
+                // TODO: Implement page details modal
+                this.showNotification(`Page details: ${page.url}`, 'info');
+            }
+        },
+
+        /**
+         * Preview crawler pages for Sessions integration
+         */
+        async previewCrawlerForSessions() {
+            if (!this.selectedCrawlerForSessions) {
+                this.showNotification('Please select a crawler first', 'error');
+                return;
+            }
+
+            const crawler = this.webCrawlers.find(c => c.id === this.selectedCrawlerForSessions);
+            if (!crawler) {
+                this.showNotification('Selected crawler not found', 'error');
+                return;
+            }
+
+            console.log(`🎯 Previewing pages for Sessions from crawler: ${crawler.name}`);
+            
+            // Use the existing viewCrawlerPages function but for Sessions context
+            await this.viewCrawlerPages(crawler);
+            
+            // Update the modal title to indicate Sessions context
+            setTimeout(() => {
+                const modalTitle = document.querySelector('#crawler-pages-modal h3');
+                if (modalTitle) {
+                    modalTitle.innerHTML = `<i class="fas fa-arrow-right text-blue-600 mr-2"></i>Select Pages for Compliance Sessions`;
+                }
+            }, 100);
+        },
+
+        /**
+         * Send selected pages to Sessions Tab
+         */
+        async sendToSessions() {
+            if (!this.selectedCrawlerForSessions) {
+                this.showNotification('Please select a crawler first', 'error');
+                return;
+            }
+
+            const crawler = this.webCrawlers.find(c => c.id === this.selectedCrawlerForSessions);
+            if (!crawler) {
+                this.showNotification('Selected crawler not found', 'error');
+                return;
+            }
+
+            // Get selected pages (if any preview was done)
+            const selectedPages = this.getSelectedPages();
+            
+            if (selectedPages.length === 0) {
+                // If no pages selected yet, load all pages from this crawler
+                try {
+                    const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages`);
+                    const allPages = data.data || [];
+                    
+                    console.log(`🎯 Sending all ${allPages.length} pages from ${crawler.name} to Sessions`);
+                    
+                    // Store for Sessions Tab
+                    this.sessionsSelectedPages = allPages;
+                    this.sessionsSourceCrawler = crawler;
+                    
+                    // Switch to Sessions Tab
+                    this.activeTab = 'sessions';
+                    this.showNotification(`Loaded ${allPages.length} pages from ${crawler.name} for testing`, 'success');
+                    
+                } catch (error) {
+                    console.error('Failed to load crawler pages:', error);
+                    this.showNotification('Failed to load crawler pages', 'error');
+                }
+            } else {
+                console.log(`🎯 Sending ${selectedPages.length} selected pages from ${crawler.name} to Sessions`);
+                
+                // Store for Sessions Tab  
+                this.sessionsSelectedPages = selectedPages;
+                this.sessionsSourceCrawler = crawler;
+                
+                // Switch to Sessions Tab
+                this.activeTab = 'sessions';
+                this.showNotification(`Loaded ${selectedPages.length} selected pages from ${crawler.name} for testing`, 'success');
+            }
+        },
+
+        /**
+         * Create a new testing session from web crawler data
+         */
+        async createSessionFromCrawler() {
+            if (!this.sessionsSelectedPages?.length || !this.sessionsSourceCrawler) {
+                this.showNotification('No crawler data available', 'error');
+                return;
+            }
+
+            console.log(`🎯 Creating session from ${this.sessionsSourceCrawler.name} with ${this.sessionsSelectedPages.length} pages`);
+            
+            // Pre-fill the create session modal with crawler data
+            this.newTestingSession = {
+                name: `${this.sessionsSourceCrawler.name} - Testing Session`,
+                description: `Accessibility testing session for pages discovered by ${this.sessionsSourceCrawler.name} web crawler`,
+                testing_approach: 'hybrid',
+                project_id: this.selectedProject?.id || '',
+                session_type: 'compliance',
+                requirements_framework: 'wcag21',
+                conformance_level: 'AA',
+                priority: 'high',
+                assigned_tester: '',
+                estimated_hours: Math.ceil(this.sessionsSelectedPages.length * 0.5), // Estimate 30 min per page
+                target_completion_date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 2 weeks from now
+                source_type: 'web_crawler',
+                source_crawler_id: this.sessionsSourceCrawler.id,
+                source_pages: this.sessionsSelectedPages
+            };
+
+            // Show the create session modal
+            this.showCreateTestingSession = true;
+            
+                         this.showNotification(`Pre-filled session with ${this.sessionsSelectedPages.length} pages from ${this.sessionsSourceCrawler.name}`, 'info');
+         },
+
+         /**
+          * Save crawler page selection and close modal
+          */
+         async saveCrawlerPageSelection() {
+             const selectedPages = this.getSelectedPages();
+             
+             if (selectedPages.length === 0) {
+                 this.showNotification('Please select at least one page', 'warning');
+                 return;
+             }
+
+             console.log(`💾 Saving selection of ${selectedPages.length} pages from ${this.selectedCrawler?.name}`);
+             
+             try {
+                 // TODO: API call to save page selections to database
+                 // await this.apiCall(`/web-crawlers/crawlers/${this.selectedCrawler.id}/pages/selections`, {
+                 //     method: 'PUT',
+                 //     body: JSON.stringify({
+                 //         selected_pages: selectedPages.map(p => ({ id: p.id, selected: true }))
+                 //     })
+                 // });
+
+                 this.showNotification(`Saved selection of ${selectedPages.length} pages`, 'success');
+                 this.showCrawlerPages = false;
+                 
+                 // Update the crawler's page count if needed
+                 if (this.selectedCrawler) {
+                     this.selectedCrawler.selected_pages_count = selectedPages.length;
+                 }
+                 
+             } catch (error) {
+                 console.error('Failed to save page selection:', error);
+                 this.showNotification('Failed to save page selection', 'error');
+             }
+         },
+
+                 /**
+         * Close crawler pages modal without saving
+         */
+        closeCrawlerPagesModal() {
+            console.log('❌ Closing pages modal without saving');
+            console.log(`🔧 Current showCrawlerPages state: ${this.showCrawlerPages}`);
+            
+            this.showCrawlerPages = false;
+            this.selectedCrawler = null;
+            this.crawlerPages = [];
+            this.filteredCrawlerPages = [];
+            
+            console.log(`✅ Modal closed - showCrawlerPages set to: ${this.showCrawlerPages}`);
+            
+            // Force DOM update to ensure modal is hidden
+            setTimeout(() => {
+                const modal = document.querySelector('#crawler-pages-modal-v2');
+                if (modal) {
+                    modal.style.display = 'none';
+                    modal.style.visibility = 'hidden';
+                    modal.style.opacity = '0';
+                    console.log('🔧 Modal DOM manually hidden');
+                } else {
+                    console.error('🚨 Modal element not found for hiding');
+                }
+            }, 50);
+            
+            // Optionally reset selections if user cancels
+            // this.crawlerPages.forEach(page => page.selected = false);
+        },
+
+        /**
+         * Get count of included pages (selected for testing)
+         */
+        getIncludedPagesCount() {
+            return this.crawlerPages.filter(page => page.selected).length;
+        },
+
+        /**
+         * Get count of excluded pages (not selected for testing)
+         */
+        getExcludedPagesCount() {
+            return this.crawlerPages.filter(page => !page.selected).length;
+        },
+
+        /**
+         * Clear all page selections
+         */
+        clearPageSelections() {
+            console.log('🎯 Clearing all page selections');
+            this.crawlerPages.forEach(page => {
+                page.selected = false;
+                // Update visual appearance
+                const row = document.querySelector(`tr[data-page-id="${page.id}"]`);
+                if (row) {
+                    row.className = 'hover:bg-gray-50';
+                    const checkbox = row.querySelector('.page-checkbox');
+                    if (checkbox) checkbox.checked = false;
+                }
+            });
+            
+            this.updateSelectionCount();
+            this.updateHeaderCheckbox();
+            this.showNotification('Cleared all page selections', 'info');
+        },
+
+        /**
+         * Export crawler pages data
+         */
+        exportCrawlerPages() {
+            const selectedPages = this.getSelectedPages();
+            const allPages = this.crawlerPages;
+            
+            const exportData = {
+                crawler: this.selectedCrawler?.name,
+                total_pages: allPages.length,
+                selected_pages: selectedPages.length,
+                excluded_pages: allPages.length - selectedPages.length,
+                pages: allPages.map(page => ({
+                    url: page.url,
+                    title: page.title,
+                    status_code: page.status_code,
+                    depth: page.depth || 0,
+                    selected: page.selected,
+                    has_forms: page.has_forms
+                }))
+            };
+            
+            const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+                type: 'application/json'
+            });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `crawler-pages-${this.selectedCrawler?.name || 'export'}-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            this.showNotification(`Exported ${allPages.length} pages data`, 'success');
+        },
+
+        /**
+         * Test page accessibility
+         */
+        testPageAccessibility(page) {
+            console.log('🧪 Testing accessibility for page:', page.url);
+            this.showNotification(`Accessibility testing started for ${page.url}`, 'info');
+            // TODO: Implement actual accessibility testing
         },
 
         /**
@@ -8644,53 +9135,70 @@ function dashboard() {
          */
         createPageRow(page) {
             const row = document.createElement('tr');
-            row.className = 'hover:bg-gray-50';
+            row.className = `hover:bg-gray-50 ${page.selected ? 'bg-blue-50' : ''}`;
+            row.setAttribute('data-page-id', page.id);
+            
+            // Creating row for URL: ${page.url}
             
             row.innerHTML = `
-                <td class="px-3 py-4">
-                    <input type="checkbox" ${page.selected ? 'checked' : ''} 
-                           onchange="window.dashboard.togglePageSelection('${page.id}', this.checked)"
-                           class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                <td class="px-4 py-3 w-16">
+                    <div class="flex items-center justify-center">
+                        <input type="checkbox" ${page.selected ? 'checked' : ''} 
+                               data-page-id="${page.id}"
+                               class="page-checkbox h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                    </div>
                 </td>
-                <td class="px-6 py-4 text-sm text-blue-600 hover:text-blue-800 max-w-md truncate">
-                    <a href="${page.url}" target="_blank" rel="noopener noreferrer">
-                        ${page.url}
-                    </a>
-                </td>
-                <td class="px-6 py-4 text-sm text-gray-900 max-w-xs truncate">${page.title || 'No title'}</td>
-                <td class="px-6 py-4">
+                <td class="px-4 py-3">
                     <span class="px-2 py-1 text-xs font-medium rounded-full ${this.getStatusBadgeClass(page.status_code)}">
                         ${page.status_code || 'Unknown'}
                     </span>
                 </td>
-                <td class="px-6 py-4 text-sm">
-                    <span class="${page.has_forms ? 'text-green-600' : 'text-gray-400'}">
-                        <i class="fas fa-${page.has_forms ? 'check' : 'minus'}"></i>
+                <td class="px-4 py-3">
+                    <a href="${page.url}" target="_blank" rel="noopener noreferrer" 
+                       class="text-sm text-blue-600 hover:text-blue-800 hover:underline truncate block max-w-xs">
+                        ${page.url}
+                        <i class="fas fa-external-link-alt ml-1 text-xs"></i>
+                    </a>
+                </td>
+                <td class="px-4 py-3 text-sm text-gray-900 truncate max-w-xs">${page.title || 'No title'}</td>
+                <td class="px-4 py-3 text-sm">
+                    <span class="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
+                        Application
                     </span>
                 </td>
-                <td class="px-6 py-4 text-sm">
-                    <div class="space-x-2">
-                        <label class="inline-flex items-center">
-                            <input type="checkbox" ${page.selected_for_manual_testing ? 'checked' : ''}
-                                   onchange="window.dashboard.togglePageTesting('${page.id}', 'manual', this.checked)"
-                                   class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
-                            <span class="ml-1 text-xs">Manual</span>
-                        </label>
-                        <label class="inline-flex items-center">
-                            <input type="checkbox" ${page.selected_for_automated_testing ? 'checked' : ''}
-                                   onchange="window.dashboard.togglePageTesting('${page.id}', 'automated', this.checked)"
-                                   class="rounded border-gray-300 text-green-600 focus:ring-green-500">
-                            <span class="ml-1 text-xs">Auto</span>
-                        </label>
+                <td class="px-4 py-3 text-sm text-center">
+                    <span class="w-8 h-2 bg-blue-600 rounded inline-block"></span>
+                </td>
+                <td class="px-4 py-3 text-sm text-center">0 tests</td>
+                <td class="px-4 py-3 text-sm">
+                    <div class="flex items-center space-x-2">
+                        <button class="view-page-details text-blue-600 hover:text-blue-800" data-page-id="${page.id}" title="Visit">
+                            <i class="fas fa-external-link-alt"></i>
+                        </button>
+                        <button class="test-page-accessibility text-green-600 hover:text-green-800" data-page-id="${page.id}" title="Test">
+                            <i class="fas fa-play"></i>
+                        </button>
                     </div>
                 </td>
-                <td class="px-6 py-4 text-sm">
-                    <button onclick="window.dashboard.viewPageDetails('${page.id}')" 
-                            class="text-blue-600 hover:text-blue-800">
-                        <i class="fas fa-eye"></i>
-                    </button>
-                </td>
             `;
+            
+            // Add event listener to the checkbox
+            const checkbox = row.querySelector('.page-checkbox');
+            checkbox.addEventListener('change', (e) => {
+                this.togglePageSelection(page, e.target.checked);
+            });
+            
+            // Add event listener to the view details button
+            const viewButton = row.querySelector('.view-page-details');
+            viewButton.addEventListener('click', (e) => {
+                this.viewPageDetails(page.id);
+            });
+            
+            // Add event listener to the test accessibility button
+            const testButton = row.querySelector('.test-page-accessibility');
+            testButton.addEventListener('click', (e) => {
+                this.testPageAccessibility(page);
+            });
             
             return row;
         },
@@ -8745,8 +9253,13 @@ function dashboard() {
                 this.filteredCrawlerPages = temp;
                 console.log(`🔍 After forced update - filteredCrawlerPages length: ${this.filteredCrawlerPages.length}`);
                 
-                // DIRECT FIX: Render table rows manually since Alpine.js x-for isn't working
-                setTimeout(() => this.renderTableRowsDirectly(), 100);
+                // Fallback: Use direct rendering since Alpine.js x-for is not reliable
+                setTimeout(() => {
+                    console.log(`🎯 Data ready - filteredCrawlerPages length: ${this.filteredCrawlerPages?.length}`);
+                    console.log(`🔧 Enabling direct rendering fallback since Alpine.js template isn't working`);
+                    this.renderTableRowsDirectly(); // Re-enabled for reliable rendering
+                    this.updateSelectionCount();
+                }, 100);
             });
         },
 
@@ -10233,17 +10746,74 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log('🎯 Dashboard Helpers Loaded');
     
     // Immediate modal cleanup on page load
-    setTimeout(() => {
-        if (window.closeModalsNow) {
-            window.closeModalsNow();
-            console.log('🔒 Emergency modal cleanup on page load');
-        }
-    }, 500);
+    // DISABLED: Emergency modal cleanup was interfering with web crawler modals
+    // setTimeout(() => {
+    //     if (window.closeModalsNow) {
+    //         window.closeModalsNow();
+    //         console.log('🔒 Emergency modal cleanup on page load');
+    //     }
+    // }, 500);
     
     // Expose dashboard helper for modal access
     if (typeof window !== 'undefined') {
         window.dashboardHelpers = dashboard();
         console.log('🎯 Dashboard helpers exposed on window');
+        
+                    // WORKAROUND: Expose close function globally for button access
+            window.closeCrawlerModal = function() {
+                console.log('🌐 Global close function called');
+                if (window.dashboardHelpers && window.dashboardHelpers.closeCrawlerPagesModal) {
+                    window.dashboardHelpers.closeCrawlerPagesModal();
+                } else {
+                    console.error('❌ Dashboard helpers not available');
+                }
+            };
+
+            // FORCED CLOSE: Nuclear option for stuck modals
+            window.forcedCloseModal = function() {
+                console.log('🚨 FORCED MODAL CLOSE INITIATED');
+                
+                // Method 1: Try Alpine.js if available
+                try {
+                    if (window.Alpine && window.Alpine.store) {
+                        const dashboard = window.Alpine.store('dashboard');
+                        if (dashboard) {
+                            dashboard.showCrawlerPages = false;
+                            console.log('✅ Alpine.js store updated');
+                        }
+                    }
+                } catch (e) {
+                    console.log('⚠️ Alpine.js method failed:', e.message);
+                }
+                
+                // Method 2: Try dashboard helpers
+                try {
+                    if (window.dashboardHelpers && window.dashboardHelpers.closeCrawlerPagesModal) {
+                        window.dashboardHelpers.closeCrawlerPagesModal();
+                        console.log('✅ Dashboard helpers method executed');
+                    }
+                } catch (e) {
+                    console.log('⚠️ Dashboard helpers method failed:', e.message);
+                }
+                
+                // Method 3: Direct DOM manipulation (hide, don't remove)
+                setTimeout(() => {
+                    const modal = document.querySelector('#crawler-pages-modal-v2');
+                    if (modal) {
+                        modal.style.display = 'none !important';
+                        modal.style.visibility = 'hidden';
+                        modal.style.opacity = '0';
+                        modal.style.pointerEvents = 'none';
+                        // Don't remove - just hide it so it can be shown again
+                        console.log('🔥 Modal forcibly hidden (not removed)');
+                    } else {
+                        console.log('❓ Modal element not found in DOM');
+                    }
+                }, 100);
+                
+                console.log('🚨 FORCED CLOSE COMPLETE');
+            };
+        console.log('🔧 Global close function exposed');
         
         // Add global function to force close all modals (debugging tool)
         window.forceCloseAllModals = function() {

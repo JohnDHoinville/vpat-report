@@ -437,7 +437,7 @@ router.get('/:violationId', async (req, res) => {
                     description,
                     level,
                     understanding_url,
-                    manual_test_procedures
+                    manual_test_procedure
                 FROM wcag_requirements 
                 WHERE criterion_number = $1
             `;
@@ -1109,21 +1109,21 @@ router.get('/session/:sessionId/all-results', async (req, res) => {
 
             countQuery = `
                 SELECT COUNT(*) as total FROM (
-                    SELECT v.id FROM violations v
+                    SELECT v.id::text as result_id FROM violations v
                     LEFT JOIN automated_test_results atr ON v.automated_result_id = atr.id
                     LEFT JOIN manual_test_results mtr ON v.manual_result_id = mtr.id
                     WHERE (atr.test_session_id = $1 OR mtr.test_session_id = $1)
                     
                     UNION ALL
                     
-                    SELECT mtr.id FROM manual_test_results mtr
+                    SELECT mtr.id::text as result_id FROM manual_test_results mtr
                     WHERE mtr.test_session_id = $1 AND mtr.result = 'pass'
                     
                     UNION ALL
                     
                     -- Count automated pass entries based on passes_count
                     SELECT 
-                        (atr.id::text || '-' || generate_series.num) as synthetic_id
+                        (atr.id::text || '-' || generate_series.num) as result_id
                     FROM automated_test_results atr
                     CROSS JOIN generate_series(1, LEAST(atr.passes_count, 10)) as generate_series(num)
                     WHERE atr.test_session_id = $1 AND atr.passes_count > 0

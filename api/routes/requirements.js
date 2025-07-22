@@ -570,4 +570,89 @@ router.post('/validate', authenticateToken, async (req, res) => {
     }
 });
 
+/**
+ * GET /api/requirements/wcag/:criterionNumber
+ * Get detailed WCAG requirement information including description, testing procedures, and links
+ */
+router.get('/wcag/:criterionNumber', async (req, res) => {
+    try {
+        const { criterionNumber } = req.params;
+        
+        console.log(`📋 Fetching detailed WCAG info for criterion: ${criterionNumber}`);
+        
+        const query = `
+            SELECT 
+                wr.id,
+                wr.wcag_version,
+                wr.level,
+                wr.criterion_number,
+                wr.title,
+                wr.description,
+                wr.understanding_url,
+                wr.manual_test_procedure,
+                wr.tool_mappings,
+                wr.applies_to_page_types,
+                wr.guideline_title,
+                wr.test_method,
+                wr.created_at
+            FROM wcag_requirements wr
+            WHERE wr.criterion_number = $1
+            LIMIT 1
+        `;
+        
+        const result = await pool.query(query, [criterionNumber]);
+        
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'WCAG requirement not found',
+                criterion_number: criterionNumber
+            });
+        }
+        
+        const requirement = result.rows[0];
+        
+        // Enhance the response with formatted data
+        const enhancedRequirement = {
+            ...requirement,
+            // Extract testing instructions from manual_test_procedure
+            testing_instructions: requirement.manual_test_procedure?.overview || 
+                                requirement.manual_test_procedure?.steps?.join('\n') || 
+                                requirement.description,
+            
+            // Format the test method for display
+            test_method_display: requirement.test_method === 'both' ? 'Both' : 
+                               requirement.test_method === 'automated' ? 'Automated' : 'Manual',
+            
+            // Generate WCAG link if not provided
+            wcag_link: requirement.understanding_url || 
+                      `https://www.w3.org/WAI/WCAG21/Understanding/${criterionNumber.replace(/\./g, '-')}.html`,
+            
+            // Extract common failures if available
+            common_failures: requirement.manual_test_procedure?.common_failures || [],
+            
+            // Extract testing steps if available
+            testing_steps: requirement.manual_test_procedure?.steps || [],
+            
+            // Extract tools needed
+            tools_needed: requirement.manual_test_procedure?.tools_needed || []
+        };
+        
+        console.log(`✅ Found detailed WCAG requirement: ${requirement.title}`);
+        
+        res.json({
+            success: true,
+            data: enhancedRequirement
+        });
+        
+    } catch (error) {
+        console.error('❌ Error fetching WCAG requirement details:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch WCAG requirement details',
+            details: error.message
+        });
+    }
+});
+
 module.exports = router; 

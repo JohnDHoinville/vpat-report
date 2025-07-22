@@ -71,7 +71,10 @@ function dashboard() {
                 username: '',
                 password: '',
                 successUrl: '',
-                name: ''
+                name: '',
+                usernameSelector: 'input[type=text]',
+                passwordSelector: 'input[type=password]',
+                submitSelector: 'button[type=submit]'
             },
             advanced: {
                 type: 'api_key',

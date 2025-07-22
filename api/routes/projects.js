@@ -590,7 +590,8 @@ router.get('/:id/sessions', async (req, res) => {
             limit = 50,
             status,
             sort = 'created_at',
-            order = 'DESC'
+            order = 'DESC',
+            include_archived = false
         } = req.query;
 
         // Check if project exists
@@ -616,6 +617,9 @@ router.get('/:id/sessions', async (req, res) => {
             whereClause += ` AND status = $${paramIndex}`;
             queryParams.push(status);
             paramIndex++;
+        } else if (include_archived !== 'true') {
+            // By default, exclude archived sessions unless specifically requested
+            whereClause += ` AND status != 'archived'`;
         }
 
         // Validate sort

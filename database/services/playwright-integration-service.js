@@ -509,6 +509,74 @@ class PlaywrightIntegrationService {
             throw error;
         }
     }
+
+    /**
+     * Run Playwright tests for a session
+     * @param {Object} config - Test configuration
+     * @param {string} config.sessionId - Test session ID
+     * @param {string} config.testRunId - Frontend test run ID
+     * @param {Array} config.testTypes - Types of tests to run
+     * @param {Array} config.browsers - Browsers to test
+     * @param {Array} config.viewports - Viewports to test
+     * @param {string} config.baseUrl - Base URL for testing
+     */
+    async runPlaywrightTests(config) {
+        try {
+            console.log(`🎭 Starting Playwright tests for session: ${config.sessionId}`);
+            
+            console.log(`📋 Test Configuration:`, {
+                sessionId: config.sessionId,
+                testRunId: config.testRunId,
+                testTypes: config.testTypes,
+                browsers: config.browsers,
+                viewports: config.viewports,
+                baseUrl: config.baseUrl
+            });
+
+            // Use the existing SimpleTestingService to run real automated tests
+            const SimpleTestingService = require('./simple-testing-service');
+            const testingService = new SimpleTestingService();
+            
+            // Map test types to SimpleTestingService format
+            const testTypes = config.testTypes?.map(type => {
+                // Map from frontend names to tool names
+                switch(type) {
+                    case 'basic': return 'axe';
+                    case 'keyboard': return 'axe'; 
+                    case 'screen-reader': return 'axe';
+                    case 'form': return 'axe';
+                    default: return 'axe';
+                }
+            }) || ['axe', 'pa11y'];
+            
+            // Remove duplicates
+            const uniqueTestTypes = [...new Set(testTypes)];
+            
+            console.log(`🚀 Starting real automated tests with tools: ${uniqueTestTypes.join(', ')}`);
+            
+            // Start automated testing with the configured options
+            const testResult = await testingService.startAutomatedTesting(config.sessionId, {
+                testTypes: uniqueTestTypes,
+                maxPages: 50, // Reasonable limit for automated testing
+                baseUrl: config.baseUrl
+            });
+            
+            console.log(`✅ Playwright tests initiated successfully`);
+            console.log(`🔄 Tests will run asynchronously and results will be stored when complete`);
+            
+            return {
+                success: true,
+                message: 'Automated tests initiated successfully',
+                testRunId: config.testRunId,
+                status: 'running',
+                testResult: testResult
+            };
+            
+        } catch (error) {
+            console.error('❌ Error starting Playwright tests:', error);
+            throw error;
+        }
+    }
 }
 
 module.exports = PlaywrightIntegrationService; 

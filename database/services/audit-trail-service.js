@@ -17,12 +17,16 @@ class AuditTrailService {
      * @param {string} testInstanceId - Test instance UUID
      * @param {Object} automatedResult - Automated test result
      * @param {string} wcagCriterion - WCAG criterion being tested
+     * @param {Object} existingClient - Optional database client (for transactions)
      */
-    async processAutomatedResult(testInstanceId, automatedResult, wcagCriterion) {
-        const client = await this.pool.connect();
+    async processAutomatedResult(testInstanceId, automatedResult, wcagCriterion, existingClient = null) {
+        const shouldManageConnection = !existingClient;
+        const client = existingClient || await this.pool.connect();
         
         try {
-            await client.query('BEGIN');
+            if (shouldManageConnection) {
+                await client.query('BEGIN');
+            }
             
             console.log(`📋 Processing automated result for test instance ${testInstanceId}`);
             
@@ -94,7 +98,9 @@ class AuditTrailService {
                 console.log(`📝 Added to review queue: ${reviewQueueId}`);
             }
             
-            await client.query('COMMIT');
+            if (shouldManageConnection) {
+                await client.query('COMMIT');
+            }
             
             console.log(`✅ Processed automated result: ${finalStatus}${needsReview ? ' (review required)' : ''}`);
             
@@ -107,12 +113,16 @@ class AuditTrailService {
             };
             
         } catch (error) {
-            await client.query('ROLLBACK');
+            if (shouldManageConnection) {
+                await client.query('ROLLBACK');
+            }
             console.error('❌ Error processing automated result:', error);
             throw error;
         } finally {
             await this.clearAuditContext(client);
-            client.release();
+            if (shouldManageConnection) {
+                client.release();
+            }
         }
     }
 

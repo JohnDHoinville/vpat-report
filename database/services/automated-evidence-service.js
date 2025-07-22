@@ -443,6 +443,124 @@ class AutomatedEvidenceService {
         }
         return 'medium';
     }
+
+    /**
+     * Summarize impact of violations
+     */
+    summarizeImpact(violations) {
+        if (!violations || violations.length === 0) return 'none';
+        
+        const impacts = violations.map(v => v.impact || 'minor');
+        const uniqueImpacts = [...new Set(impacts)];
+        
+        if (uniqueImpacts.includes('critical')) return 'critical';
+        if (uniqueImpacts.includes('serious')) return 'serious';
+        if (uniqueImpacts.includes('moderate')) return 'moderate';
+        return 'minor';
+    }
+
+    /**
+     * Identify affected areas from violation details
+     */
+    identifyAffectedAreas(violationDetails) {
+        const areas = new Set();
+        
+        violationDetails.forEach(violation => {
+            if (violation.selector) {
+                // Extract area type from selector
+                if (violation.selector.includes('form') || violation.selector.includes('input')) {
+                    areas.add('forms');
+                } else if (violation.selector.includes('nav') || violation.selector.includes('menu')) {
+                    areas.add('navigation');
+                } else if (violation.selector.includes('img') || violation.selector.includes('picture')) {
+                    areas.add('images');
+                } else if (violation.selector.includes('button') || violation.selector.includes('link')) {
+                    areas.add('interactive_elements');
+                } else {
+                    areas.add('content');
+                }
+            }
+        });
+        
+        return Array.from(areas);
+    }
+
+    /**
+     * Assess remediation priority
+     */
+    assessRemediationPriority(violations) {
+        if (!violations || violations.length === 0) return 'low';
+        
+        const criticalCount = violations.filter(v => v.impact === 'critical').length;
+        const seriousCount = violations.filter(v => v.impact === 'serious').length;
+        
+        if (criticalCount > 0) return 'urgent';
+        if (seriousCount > 0) return 'high';
+        if (violations.length > 10) return 'medium';
+        return 'low';
+    }
+
+    /**
+     * Determine if human review is required
+     */
+    shouldRequireReview(wcagCriterion, resultType, tool) {
+        // Certain criteria always need review
+        const alwaysReviewCriteria = ['1.4.3', '2.4.4', '3.1.1'];
+        if (alwaysReviewCriteria.includes(wcagCriterion)) return true;
+        
+        // Failed tests typically need review
+        if (resultType === 'fail') return true;
+        
+        return false;
+    }
+
+    /**
+     * Get reason for review requirement
+     */
+    getReviewReason(wcagCriterion, resultType, tool) {
+        if (resultType === 'fail') {
+            return 'Automated test detected violations that require human verification';
+        }
+        
+        const contextualCriteria = ['1.4.3', '2.4.4', '3.1.1'];
+        if (contextualCriteria.includes(wcagCriterion)) {
+            return 'This criterion requires contextual evaluation beyond automated testing';
+        }
+        
+        return 'Standard review recommended';
+    }
+
+    /**
+     * Calculate complexity score for violations
+     */
+    calculateComplexityScore(wcagCriterion, violationDetails) {
+        let score = 0;
+        
+        // Base complexity by criterion
+        const complexCriteria = ['1.4.3', '2.4.4', '3.1.1', '4.1.3'];
+        if (complexCriteria.includes(wcagCriterion)) score += 3;
+        else score += 1;
+        
+        // Add complexity based on number of violations
+        if (violationDetails.length > 10) score += 2;
+        else if (violationDetails.length > 5) score += 1;
+        
+        // Add complexity for diverse selectors
+        const uniqueSelectors = new Set(violationDetails.map(v => v.selector));
+        if (uniqueSelectors.size > 5) score += 1;
+        
+        return Math.min(score, 5); // Cap at 5
+    }
+
+    /**
+     * Calculate false positive risk
+     */
+    calculateFalsePositiveRisk(tool, wcagCriterion, resultType) {
+        // axe has lower false positive rates
+        if (tool === 'axe') return resultType === 'fail' ? 'low' : 'very_low';
+        if (tool === 'pa11y') return resultType === 'fail' ? 'medium' : 'low';
+        return 'medium';
+    }
 }
 
 module.exports = AutomatedEvidenceService; 

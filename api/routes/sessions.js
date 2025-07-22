@@ -3196,7 +3196,7 @@ router.post('/:sessionId/start-playwright', authenticateToken, async (req, res) 
             browsers,
             viewports,
             testTypes,
-            initiatedBy: req.user?.username || 'api-user',
+            initiatedBy: req.user?.id || null,
             metadata: {
                 triggeredViaApi: true,
                 authConfigId,

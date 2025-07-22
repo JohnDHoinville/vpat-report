@@ -432,17 +432,21 @@ class SimpleTestingService {
 
             console.log(`📊 Storing test result - Tool: ${toolName}, Violations: ${violationsCount}, Warnings: ${warningsCount}, Passes: ${passesCount}${authInfo.auth_role ? ` (as ${authInfo.auth_role})` : ''}`);
 
-            // Store main test result with authentication info
+            // Store main test result with authentication info - use proper UPSERT
             const testResult = await client.query(
                 `INSERT INTO automated_test_results 
                  (test_session_id, page_id, tool_name, tool_version, raw_results, 
                   violations_count, warnings_count, passes_count, test_duration_ms, auth_config_id, auth_role)
                  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
                  ON CONFLICT (test_session_id, page_id, tool_name) DO UPDATE SET
+                 tool_version = EXCLUDED.tool_version,
                  raw_results = EXCLUDED.raw_results,
                  violations_count = EXCLUDED.violations_count,
                  warnings_count = EXCLUDED.warnings_count,
                  passes_count = EXCLUDED.passes_count,
+                 test_duration_ms = EXCLUDED.test_duration_ms,
+                 auth_config_id = EXCLUDED.auth_config_id,
+                 auth_role = EXCLUDED.auth_role,
                  executed_at = CURRENT_TIMESTAMP
                  RETURNING *`,
                 [
@@ -639,6 +643,8 @@ class SimpleTestingService {
             
             const requirementId = requirementQuery.rows[0].id;
             
+            // testResultId should always be valid now due to proper conflict handling
+            
             // Check if test instance already exists
             const existingQuery = await client.query(
                 `SELECT id FROM test_instances 
@@ -708,7 +714,7 @@ class SimpleTestingService {
                             `Automated ${status} detected by ${toolName}: ${violationData.description || violationData.help}` :
                             `Automated test passed by ${toolName} for WCAG ${wcagCriterion}`,
                         JSON.stringify(basicEvidence),
-                        testResultId,
+                        testResultId, // automated_result_id - guaranteed to exist
                         new Date(), // started_at
                         new Date(), // completed_at
                         new Date(), // created_at
@@ -720,7 +726,7 @@ class SimpleTestingService {
                 
                 // Process with audit trail if available
                 if (automatedResult) {
-                    await this.auditTrailService.processAutomatedResult(testInstanceId, automatedResult, wcagCriterion);
+                    await this.auditTrailService.processAutomatedResult(testInstanceId, automatedResult, wcagCriterion, client);
                 }
             }
             
@@ -763,6 +769,50 @@ class SimpleTestingService {
         };
         
         return mappings[toolName] || [];
+    }
+
+    /**
+     * Extract violations from test result based on tool type
+     * @private
+     */
+    extractViolationsFromResult(result) {
+        if (!result) return [];
+        
+        // Handle different tool result formats
+        if (result.violations && Array.isArray(result.violations)) {
+            // axe-core format
+            return result.violations;
+        }
+        
+        if (result.issues && Array.isArray(result.issues)) {
+            // pa11y format
+            return result.issues;
+        }
+        
+        if (result.audits) {
+            // Lighthouse format - extract failed audits
+            const violations = [];
+            for (const [auditId, audit] of Object.entries(result.audits)) {
+                if (audit.score !== null && audit.score < 1 && audit.details) {
+                    violations.push({
+                        id: auditId,
+                        description: audit.description,
+                        impact: audit.score < 0.5 ? 'serious' : 'moderate',
+                        help: audit.title,
+                        tags: audit.scoreDisplayMode === 'binary' ? ['wcag'] : [],
+                        nodes: audit.details.items || []
+                    });
+                }
+            }
+            return violations;
+        }
+        
+        // If result is directly an array of violations
+        if (Array.isArray(result)) {
+            return result;
+        }
+        
+        return [];
     }
 
     /**
