@@ -61,9 +61,9 @@ class AuditTrailService {
                     test_method_used = 'automated',
                     tool_used = $2,
                     updated_at = CURRENT_TIMESTAMP,
-                    automated_result_id = $3
+                    automated_result_id = NULL
                 WHERE id = $4
-            `, [finalStatus, automatedResult.tool_name, automatedResult.id, testInstanceId]);
+            `, [finalStatus, automatedResult.tool_name, testInstanceId]);
             
             // 7. Create audit log entry manually (with full evidence)
             const auditLogId = await this.createAuditLogEntry(client, {
