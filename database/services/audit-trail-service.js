@@ -442,9 +442,9 @@ class AuditTrailService {
                 due_date
             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 
                 CURRENT_TIMESTAMP + (CASE 
-                    WHEN $7 = 'critical' THEN INTERVAL '4 hours'
-                    WHEN $7 = 'high' THEN INTERVAL '12 hours' 
-                    WHEN $7 = 'medium' THEN INTERVAL '24 hours'
+                    WHEN $7::text = 'critical' THEN INTERVAL '4 hours'
+                    WHEN $7::text = 'high' THEN INTERVAL '12 hours' 
+                    WHEN $7::text = 'medium' THEN INTERVAL '24 hours'
                     ELSE INTERVAL '48 hours'
                 END))
             RETURNING id
