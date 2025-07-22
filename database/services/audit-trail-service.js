@@ -62,7 +62,7 @@ class AuditTrailService {
                     tool_used = $2,
                     updated_at = CURRENT_TIMESTAMP,
                     automated_result_id = NULL
-                WHERE id = $4
+                WHERE id = $3
             `, [finalStatus, automatedResult.tool_name, testInstanceId]);
             
             // 7. Create audit log entry manually (with full evidence)
