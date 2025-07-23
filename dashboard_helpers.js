@@ -133,14 +133,10 @@ function dashboard() {
         crawlerPages: [],
         filteredCrawlerPages: [],
         showCreateCrawler: false,
-        showCrawlerPagesModal: false,
-
+        showCrawlerPages: false,
         showAdvancedCrawlerOptions: false,
         crawlerPageSearch: '',
         crawlerPageFilter: '',
-        showAddUrlForm: false,
-        newPageUrl: '',
-        newPageTitle: '',
         newCrawler: {
             name: '',
             description: '',
@@ -1458,7 +1454,7 @@ function dashboard() {
             this.loadProjectDiscoveries();
             this.loadProjectTestSessions();
             this.loadProjectAuthConfigs();
-            this.loadWebCrawlers();
+            this.loadSelectedDiscoveries();
             // Switch to discovery tab after selection
             this.activeTab = 'discovery';
         },
@@ -1992,7 +1988,7 @@ function dashboard() {
             try {
                 const data = await this.apiCall(`/projects/${this.selectedProject.id}/discoveries/${discovery.id}/pages`);
                 this.discoveredPages = data.pages || [];
-                console.log(`📄 Loaded ${this.crawlerPages.length} discovered pages`);
+                console.log(`📄 Loaded ${this.discoveredPages.length} discovered pages`);
                 
                 // Clean up any stale excluded page references
                 this.cleanupExcludedPages();
@@ -2047,7 +2043,7 @@ function dashboard() {
         },
 
         getIncludedPagesCount() {
-            return this.crawlerPages.length - this.excludedPages.length;
+            return this.discoveredPages.length - this.excludedPages.length;
         },
 
         getExcludedPagesCount() {
@@ -2071,7 +2067,7 @@ function dashboard() {
         },
         
         cleanupExcludedPages() {
-            if (this.crawlerPages.length > 0 && this.excludedPages.length > 0) {
+            if (this.discoveredPages.length > 0 && this.excludedPages.length > 0) {
                 const validPageIds = this.discoveredPages.map(page => page.id);
                 const originalLength = this.excludedPages.length;
                 this.excludedPages = this.excludedPages.filter(pageId => validPageIds.includes(pageId));
@@ -2138,17 +2134,17 @@ function dashboard() {
         },
 
         // Helper functions for page counts
-        getCrawlerPageCounts(crawler) {
+        getDiscoveryPageCounts(discovery) {
             // Get excluded pages for this specific discovery without affecting current state
-            const key = `excludedPages_crawler_${crawler.id}`;
+            const key = `excludedPages_${discovery.id}`;
             const saved = localStorage.getItem(key);
             const excludedPages = saved ? JSON.parse(saved) : [];
             
-            let totalPages = crawler.total_pages_found || 0;
+            let totalPages = discovery.total_pages_found || 0;
             
             // If we're currently viewing this discovery's pages, use the actual loaded data for accuracy
-            if (this.selectedCrawler && this.selectedCrawler.id === crawler.id && this.crawlerPages.length > 0) {
-                totalPages = this.crawlerPages.length;
+            if (this.selectedDiscovery && this.selectedDiscovery.id === discovery.id && this.discoveredPages.length > 0) {
+                totalPages = this.discoveredPages.length;
             }
             
             // Ensure excluded count doesn't exceed total pages (data consistency issue)
@@ -2162,67 +2158,38 @@ function dashboard() {
             };
         },
 
-        getSelectedCrawlersPageCounts() {
-            // Only count crawlers for the SELECTED PROJECT
-            if (!this.selectedProject) {
-                return {
-                    total: 0,
-                    included: 0,
-                    excluded: 0,
-                    selectedCrawlers: 0
-                };
-            }
-
+        getSelectedDiscoveriesPageCounts() {
             let totalPages = 0;
             let totalIncluded = 0;
             let totalExcluded = 0;
-            let selectedCrawlerCount = 0;
 
-            // Get completed crawlers for the selected project that have pages
-            const projectCrawlers = this.webCrawlers.filter(c => 
-                c.project_id === this.selectedProject.id &&
-                (c.status === 'completed' || c.status === 'active') &&
-                c.total_pages_found > 0
-            );
-
-            projectCrawlers.forEach(crawler => {
-                selectedCrawlerCount++;
-                const counts = this.getCrawlerPageCounts(crawler);
-                totalPages += counts.total;
-                totalIncluded += counts.included;
-                totalExcluded += counts.excluded;
+            this.selectedDiscoveries.forEach(discoveryId => {
+                const discovery = this.discoveries.find(d => d.id === discoveryId);
+                if (discovery && discovery.status === 'completed') {
+                    const counts = this.getDiscoveryPageCounts(discovery);
+                    totalPages += counts.total;
+                    totalIncluded += counts.included;
+                    totalExcluded += counts.excluded;
+                }
             });
 
             return {
                 total: totalPages,
                 included: totalIncluded,
                 excluded: totalExcluded,
-                selectedCrawlers: selectedCrawlerCount
+                selectedDiscoveries: this.selectedDiscoveries.length
             };
         },
 
-        // Get all crawlers page counts - FIXED VERSION
-        getAllCrawlersPageCounts() {
-            // Only count crawlers for the SELECTED PROJECT
-            if (!this.selectedProject) {
-                return {
-                    total: 0,
-                    included: 0,
-                    excluded: 0
-                };
-            }
-
+        getAllDiscoveriesPageCounts() {
             let totalPages = 0;
             let totalIncluded = 0;
             let totalExcluded = 0;
 
-            this.webCrawlers
-                .filter(c => 
-                    c.project_id === this.selectedProject.id &&
-                    (c.status === 'completed' || c.status === 'active')
-                )
-                .forEach(crawler => {
-                    const counts = this.getCrawlerPageCounts(crawler);
+            this.discoveries
+                .filter(d => d.status === 'completed')
+                .forEach(discovery => {
+                    const counts = this.getDiscoveryPageCounts(discovery);
                     totalPages += counts.total;
                     totalIncluded += counts.included;
                     totalExcluded += counts.excluded;
@@ -2238,17 +2205,17 @@ function dashboard() {
         // Refresh Testing tab data when selections change
         refreshTestingTabData() {
             // Force reactivity update by creating new objects
-            this.webCrawlers = [...this.webCrawlers];
+            this.selectedDiscoveries = [...this.selectedDiscoveries];
             
             // Reload selected discoveries from localStorage to ensure consistency
-            this.loadWebCrawlers();
+            this.loadSelectedDiscoveries();
             
             // Force refresh of discoveries array to trigger reactivity in displays
-            // Web crawlers are already reloaded
+            this.discoveries = [...this.discoveries];
             
             // Force recalculation of page counts by calling the function
             // This ensures the Testing tab shows up-to-date counts
-            const currentCounts = this.getSelectedCrawlersPageCounts();
+            const currentCounts = this.getSelectedDiscoveriesPageCounts();
             
             console.log(`🔄 Testing tab data refreshed: ${currentCounts.selectedDiscoveries} discoveries, ${currentCounts.included} pages for testing`);
         },
@@ -2381,7 +2348,7 @@ function dashboard() {
                 return 'Need Discovery';
             }
             
-            const selectedCounts = this.getSelectedCrawlersPageCounts();
+            const selectedCounts = this.getSelectedDiscoveriesPageCounts();
             if (selectedCounts.selectedDiscoveries === 0) {
                 return 'Select Discoveries';
             }
@@ -2426,7 +2393,7 @@ function dashboard() {
                 return `bg-gray-400 ${baseClass}`;
             }
             
-            const selectedCounts = this.getSelectedCrawlersPageCounts();
+            const selectedCounts = this.getSelectedDiscoveriesPageCounts();
             if (selectedCounts.selectedDiscoveries === 0 || selectedCounts.included === 0) {
                 return `bg-gray-400 ${baseClass}`;
             }
@@ -2451,7 +2418,7 @@ function dashboard() {
                 return;
             }
 
-            const selectedCounts = this.getSelectedCrawlersPageCounts();
+            const selectedCounts = this.getSelectedDiscoveriesPageCounts();
             if (selectedCounts.selectedDiscoveries === 0) {
                 this.showNotification('Please select completed discoveries for testing', 'warning');
                 return;
@@ -6803,56 +6770,6 @@ function dashboard() {
             viewMode: 'timeline' // 'timeline', 'table', 'chart'
         },
 
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
-            }
-        },
-
         /**
          * Open audit timeline for a session
          */
@@ -6873,56 +6790,6 @@ function dashboard() {
             if (modal) {
                 modal.classList.remove('hidden');
                 modal.classList.add('flex');
-            }
-        },
-
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
             }
         },
 
@@ -6972,112 +6839,12 @@ function dashboard() {
             }
         },
 
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
-            }
-        },
-
         /**
          * Apply audit timeline filters
          */
         async applyAuditTimelineFilters() {
             this.auditTimeline.pagination.offset = 0; // Reset to first page
             await this.loadAuditTimeline();
-        },
-
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
-            }
         },
 
         /**
@@ -7098,56 +6865,6 @@ function dashboard() {
             };
         },
 
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
-            }
-        },
-
         /**
          * Load more timeline items (pagination)
          */
@@ -7163,56 +6880,6 @@ function dashboard() {
             this.auditTimeline.timeline = [...currentTimeline, ...this.auditTimeline.timeline];
         },
 
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
-            }
-        },
-
         /**
          * Toggle timeline item expansion
          */
@@ -7224,111 +6891,11 @@ function dashboard() {
             }
         },
 
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
-            }
-        },
-
         /**
          * Check if timeline item is expanded
          */
         isTimelineItemExpanded(auditId) {
             return this.auditTimeline.expandedItems.has(auditId);
-        },
-
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
-            }
         },
 
         /**
@@ -7345,56 +6912,6 @@ function dashboard() {
             }
         },
 
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
-            }
-        },
-
         /**
          * Close timeline item details
          */
@@ -7405,56 +6922,6 @@ function dashboard() {
             if (modal) {
                 modal.classList.add('hidden');
                 modal.classList.remove('flex');
-            }
-        },
-
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
             }
         },
 
@@ -7473,56 +6940,6 @@ function dashboard() {
             if (modal) {
                 modal.classList.add('hidden');
                 modal.classList.remove('flex');
-            }
-        },
-
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
             }
         },
 
@@ -7548,56 +6965,6 @@ function dashboard() {
             return actionTypes[actionType] || actionType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
         },
 
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
-            }
-        },
-
         /**
          * Get action type icon
          */
@@ -7618,56 +6985,6 @@ function dashboard() {
                 'automated_update': '🤖'
             };
             return icons[actionType] || '📋';
-        },
-
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
-            }
         },
 
         /**
@@ -7692,56 +7009,6 @@ function dashboard() {
             return colors[actionType] || 'text-gray-600 bg-gray-50';
         },
 
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
-            }
-        },
-
         /**
          * Format relative time
          */
@@ -7762,56 +7029,6 @@ function dashboard() {
             return this.formatDate(timestamp);
         },
 
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
-            }
-        },
-
         /**
          * Format timeline duration
          */
@@ -7826,56 +7043,6 @@ function dashboard() {
             if (hours > 0) return `${hours}h ${mins % 60}m`;
             if (mins > 0) return `${mins}m ${seconds % 60}s`;
             return `${seconds}s`;
-        },
-
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
-            }
         },
 
         /**
@@ -7912,56 +7079,6 @@ function dashboard() {
             });
 
             return grouped;
-        },
-
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
-            }
         },
 
         /**
@@ -8001,56 +7118,6 @@ function dashboard() {
                         month: 'long', 
                         day: 'numeric' 
                     });
-            }
-        },
-
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
             }
         },
 
@@ -8141,56 +7208,6 @@ function dashboard() {
             }
         },
 
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
-            }
-        },
-
         /**
          * Initialize activity feed for a session
          */
@@ -8207,56 +7224,6 @@ function dashboard() {
             // Start auto-refresh if enabled
             if (this.activityFeed.autoRefresh) {
                 this.startActivityFeedAutoRefresh();
-            }
-        },
-
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
             }
         },
 
@@ -8318,56 +7285,6 @@ function dashboard() {
             }
         },
 
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
-            }
-        },
-
         /**
          * Start auto-refresh for activity feed
          */
@@ -8384,56 +7301,6 @@ function dashboard() {
             }, this.activityFeed.refreshInterval);
         },
 
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
-            }
-        },
-
         /**
          * Stop auto-refresh for activity feed
          */
@@ -8441,56 +7308,6 @@ function dashboard() {
             if (this.activityFeedInterval) {
                 clearInterval(this.activityFeedInterval);
                 this.activityFeedInterval = null;
-            }
-        },
-
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
             }
         },
 
@@ -8506,56 +7323,6 @@ function dashboard() {
             }
         },
 
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
-            }
-        },
-
         /**
          * Close activity feed
          */
@@ -8567,56 +7334,6 @@ function dashboard() {
             this.activityFeed.summary = null;
             this.activityFeed.unreadCount = 0;
             this.stopActivityFeedAutoRefresh();
-        },
-
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
-            }
         },
 
         /**
@@ -8634,112 +7351,12 @@ function dashboard() {
             this.activityFeed.activities = [...currentActivities, ...this.activityFeed.activities];
         },
 
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
-            }
-        },
-
         /**
          * Apply activity feed filters
          */
         async applyActivityFeedFilters() {
             this.activityFeed.pagination.offset = 0;
             await this.loadActivityFeed();
-        },
-
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
-            }
         },
 
         /**
@@ -8752,56 +7369,6 @@ function dashboard() {
                 users: []
             };
             this.applyActivityFeedFilters();
-        },
-
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
-            }
         },
 
         /**
@@ -8817,111 +7384,11 @@ function dashboard() {
             }
         },
 
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
-            }
-        },
-
         /**
          * Get activity feed badge count
          */
         getActivityFeedBadgeCount() {
             return this.activityFeed.unreadCount > 99 ? '99+' : this.activityFeed.unreadCount.toString();
-        },
-
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
-            }
         },
 
         /**
@@ -8944,56 +7411,6 @@ function dashboard() {
             return time.toLocaleDateString();
         },
 
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
-            }
-        },
-
         /**
          * Get activity icon class
          */
@@ -9010,56 +7427,6 @@ function dashboard() {
                 'rejected': 'fas fa-thumbs-down text-red-600'
             };
             return icons[actionType] || 'fas fa-circle text-gray-600';
-        },
-
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
-            }
         },
 
         /**
@@ -9089,56 +7456,6 @@ function dashboard() {
             }
         },
 
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
-            }
-        },
-
         /**
          * Navigate to test from activity
          */
@@ -9147,56 +7464,6 @@ function dashboard() {
                 // Open the test instance modal
                 await this.openTestInstanceModal({ id: activity.test_instance_id });
                 this.closeActivityFeed();
-            }
-        },
-
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
             }
         },
 
@@ -10091,56 +8358,6 @@ function dashboard() {
         // WEB CRAWLER MANAGEMENT
         // =============================================================================
 
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
-            }
-        },
-
         /**
          * Load web crawlers for the selected project
          */
@@ -10165,56 +8382,6 @@ function dashboard() {
                 this.webCrawlers = [];
                 this.showNotification('Failed to load web crawlers', 'error');
             } finally {
-                this.loading = false;
-            }
-        },
-
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
                 this.loading = false;
             }
         },
@@ -10265,56 +8432,6 @@ function dashboard() {
             }
 
             this.showCreateCrawler = true;
-        },
-
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
-            }
         },
 
         /**
@@ -10377,56 +8494,6 @@ function dashboard() {
             }
         },
 
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
-            }
-        },
-
         /**
          * Start a web crawler
          */
@@ -10464,58 +8531,8 @@ function dashboard() {
             }
         },
 
-
         /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
-            }
-        },
-
-        /**
-         * Load pages discovered by a crawler (simplified - no modal)
+         * View pages discovered by a crawler
          */
         async viewCrawlerPages(crawler) {
             try {
@@ -10530,168 +8547,63 @@ function dashboard() {
                     return;
                 }
                 
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
+                this.loading = true;
                 this.selectedCrawler = crawler;
                 
-                // Load pages from database and update the crawler pages data
+                // Load ALL pages from database (remove default 100 limit)
                 const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
                 
-                // Store pages for use in Sessions tab
+                // Ensure pages have the required properties for the selection interface  
+                // Selection feeds directly to Sessions Tab (not manual/auto - that's decided in Sessions)
                 this.crawlerPages = (data.data || []).map(page => ({
                     ...page,
-                    selected: false, // For Sessions Tab selection
+                    selected: false, // Simple selection for Sessions Tab
                     has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
                     title: page.title || 'Untitled Page',
                     url: page.url || ''
                 }));
                 
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for use in Sessions tab`);
+                console.log(`📄 Loaded ${this.crawlerPages.length} pages from database for crawler ${crawler.name}`);
+                console.log(`🔧 Sample page structure:`, this.crawlerPages[0]);
+                
                 this.updateFilteredCrawlerPages();
                 
-                // Show notification instead of modal
-                this.showNotification(`Loaded ${this.crawlerPages.length} pages from ${crawler.name}. Go to Sessions tab to create testing sessions.`, 'success');
+                // Force modal to show with explicit DOM manipulation to bypass emergency cleanup
+                setTimeout(() => {
+                    this.showCrawlerPages = true;
+                    console.log(`🎯 Modal state set: showCrawlerPages = ${this.showCrawlerPages}`);
+                    
+                                    // Force DOM update after Alpine.js reactivity
+                this.$nextTick(() => {
+                    const modal = document.querySelector('#crawler-pages-modal-v2');
+                    if (modal) {
+                        // Reset any forced hiding from previous close
+                        modal.style.display = 'flex';
+                        modal.style.visibility = 'visible';
+                        modal.style.opacity = '1';
+                        modal.style.pointerEvents = 'auto';
+                        console.log(`🎯 Modal DOM updated: display=${modal.style.display}`);
+                        
+                        // Re-trigger filtering after modal is visible
+                        setTimeout(() => {
+                            console.log(`🔍 Re-triggering filter after modal display`);
+                            this.updateFilteredCrawlerPages();
+                        }, 50);
+                    } else {
+                        console.error('🚨 Modal element not found in DOM');
+                    }
+                });
+                }, 100);
 
             } catch (error) {
                 console.error('Failed to load crawler pages:', error);
                 this.showNotification('Failed to load crawler pages', 'error');
-            }
-        },
-
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
+            } finally {
                 this.loading = false;
             }
-
-        selectAllPages() {
-            this.filteredCrawlerPages.forEach(page => {
-                page.selected = true;
-                page.excluded = false;
-            });
-        },
-
-        excludeAllPages() {
-            this.filteredCrawlerPages.forEach(page => {
-                page.selected = false;
-                page.excluded = true;
-            });
-        },
-
-        togglePageSelection(page, selected) {
-            page.selected = selected;
-            page.excluded = !selected;
-        },
-
-        savePageSelections() {
-            if (!this.selectedCrawler) {
-                this.showNotification("No crawler selected", "error");
-                return;
-            }
-            
-            const excludedPages = this.crawlerPages
-                .filter(page => page.excluded || !page.selected)
-                .map(page => page.id);
-            
-            const excludedKey = `crawler_${this.selectedCrawler.id}_excluded_pages`;
-            localStorage.setItem(excludedKey, JSON.stringify(excludedPages));
-            
-            const selectedCount = this.crawlerPages.filter(page => page.selected).length;
-            
-            this.showNotification(`Page selection saved: ${selectedCount} pages selected for testing`, "success");
-            this.showCrawlerPagesModal = false;
-            this.loadWebCrawlers();
-        },
         },
 
         /**
-
-        addCustomUrl() {
-            if (!this.newPageUrl || this.newPageUrl.trim() === "") {
-                this.showNotification("Please enter a valid URL", "error");
-                return;
-            }
-            
-            const existingPage = this.crawlerPages.find(page => page.url === this.newPageUrl);
-            if (existingPage) {
-                this.showNotification("This URL already exists", "warning");
-                return;
-            }
-            
-            const newPage = {
-                id: `custom_${Date.now()}`,
-                url: this.newPageUrl,
-                title: this.newPageTitle || "Custom Page",
-                selected: true,
-                excluded: false,
-                custom: true,
-                status_code: null
-            };
-            
-            this.crawlerPages.unshift(newPage);
-            this.filteredCrawlerPages = [...this.crawlerPages];
-            
-            this.newPageUrl = "";
-            this.newPageTitle = "";
-            this.showAddUrlForm = false;
-            
-            this.showNotification("Custom URL added successfully", "success");
-        },
-
-        filterCrawlerPages() {
-            if (!this.crawlerPageSearch || this.crawlerPageSearch.trim() === "") {
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                return;
-            }
-            
-            const searchTerm = this.crawlerPageSearch.toLowerCase();
-            this.filteredCrawlerPages = this.crawlerPages.filter(page => 
-                page.url.toLowerCase().includes(searchTerm) ||
-                (page.title && page.title.toLowerCase().includes(searchTerm))
-            );
-        },
          * Edit an existing crawler
          */
         async editCrawler(crawler) {
@@ -10702,56 +8614,6 @@ function dashboard() {
                 url_patterns_json: JSON.stringify(crawler.url_patterns || [], null, 2)
             };
             this.showCreateCrawler = true;
-        },
-
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
-            }
         },
 
         /**
@@ -10780,56 +8642,6 @@ function dashboard() {
         },
 
 
-
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
-            }
-        },
 
         /**
          * Render table rows directly when Alpine.js x-for fails
@@ -10866,56 +8678,6 @@ function dashboard() {
             this.updatePageCounts();
         },
 
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
-            }
-        },
-
         /**
          * Get status badge CSS class for page status codes
          */
@@ -10936,56 +8698,6 @@ function dashboard() {
             }
         },
 
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
-            }
-        },
-
         /**
          * Update selection count display
          */
@@ -11001,56 +8713,6 @@ function dashboard() {
                 }
             }
             return selectedCount;
-        },
-
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
-            }
         },
 
         /**
@@ -11075,56 +8737,6 @@ function dashboard() {
             }
         },
 
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
-            }
-        },
-
         /**
          * Update page counts display
          */
@@ -11138,56 +8750,6 @@ function dashboard() {
             const totalSpan = document.querySelector('#crawler-pages-modal-v2 [x-text*="crawlerPages.length"]');
             if (totalSpan) {
                 totalSpan.textContent = this.crawlerPages.length || 0;
-            }
-        },
-
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
             }
         },
 
@@ -11212,56 +8774,6 @@ function dashboard() {
             }
         },
 
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
-            }
-        },
-
         /**
          * Toggle page selection by ID (for direct rendering)
          */
@@ -11270,111 +8782,11 @@ function dashboard() {
             this.togglePageSelection(page, checked);
         },
 
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
-            }
-        },
-
         /**
          * Get selected pages for Sessions Tab
          */
         getSelectedPages() {
             return this.crawlerPages.filter(page => page.selected);
-        },
-
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
-            }
         },
 
         /**
@@ -11401,56 +8813,6 @@ function dashboard() {
             this.showNotification(`Selected all ${selectedCount} pages for testing`, 'success');
         },
 
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
-            }
-        },
-
         /**
          * Deselect all pages
          */
@@ -11474,56 +8836,6 @@ function dashboard() {
             this.showNotification(`Deselected all pages`, 'info');
         },
 
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
-            }
-        },
-
         /**
          * Toggle all page selection from header checkbox
          */
@@ -11543,56 +8855,6 @@ function dashboard() {
 
 
 
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
-            }
-        },
-
         /**
          * View page details (placeholder)
          */
@@ -11602,56 +8864,6 @@ function dashboard() {
                 console.log(`👁️ View details for page:`, page);
                 // TODO: Implement page details modal
                 this.showNotification(`Page details: ${page.url}`, 'info');
-            }
-        },
-
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
             }
         },
 
@@ -11682,56 +8894,6 @@ function dashboard() {
                     modalTitle.innerHTML = `<i class="fas fa-arrow-right text-blue-600 mr-2"></i>Select Pages for Compliance Sessions`;
                 }
             }, 100);
-        },
-
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
-            }
         },
 
         /**
@@ -11785,56 +8947,6 @@ function dashboard() {
             }
         },
 
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
-            }
-        },
-
         /**
          * Create a new testing session from web crawler data
          */
@@ -11870,56 +8982,6 @@ function dashboard() {
                          this.showNotification(`Pre-filled session with ${this.sessionsSelectedPages.length} pages from ${this.sessionsSourceCrawler.name}`, 'info');
          },
 
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
-            }
-        },
-
          /**
           * Save crawler page selection and close modal
           */
@@ -11943,6 +9005,7 @@ function dashboard() {
                  // });
 
                  this.showNotification(`Saved selection of ${selectedPages.length} pages`, 'success');
+                 this.showCrawlerPages = false;
                  
                  // Update the crawler's page count if needed
                  if (this.selectedCrawler) {
@@ -11955,56 +9018,6 @@ function dashboard() {
              }
          },
 
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
-            }
-        },
-
                  /**
          * Close crawler pages modal without saving
          */
@@ -12012,7 +9025,7 @@ function dashboard() {
             console.log('❌ Closing pages modal without saving');
             console.log(`🔧 Current showCrawlerPages state: ${this.showCrawlerPages}`);
             
-                             // showCrawlerPages removed
+            this.showCrawlerPages = false;
             this.selectedCrawler = null;
             this.crawlerPages = [];
             this.filteredCrawlerPages = [];
@@ -12036,56 +9049,6 @@ function dashboard() {
             // this.crawlerPages.forEach(page => page.selected = false);
         },
 
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
-            }
-        },
-
         /**
          * Get count of included pages (selected for testing)
          */
@@ -12093,111 +9056,11 @@ function dashboard() {
             return this.crawlerPages.filter(page => page.selected).length;
         },
 
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
-            }
-        },
-
         /**
          * Get count of excluded pages (not selected for testing)
          */
         getExcludedPagesCount() {
             return this.crawlerPages.filter(page => !page.selected).length;
-        },
-
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
-            }
         },
 
         /**
@@ -12219,56 +9082,6 @@ function dashboard() {
             this.updateSelectionCount();
             this.updateHeaderCheckbox();
             this.showNotification('Cleared all page selections', 'info');
-        },
-
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
-            }
         },
 
         /**
@@ -12308,56 +9121,6 @@ function dashboard() {
             this.showNotification(`Exported ${allPages.length} pages data`, 'success');
         },
 
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
-            }
-        },
-
         /**
          * Test page accessibility
          */
@@ -12365,56 +9128,6 @@ function dashboard() {
             console.log('🧪 Testing accessibility for page:', page.url);
             this.showNotification(`Accessibility testing started for ${page.url}`, 'info');
             // TODO: Implement actual accessibility testing
-        },
-
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
-            }
         },
 
         /**
@@ -12490,56 +9203,6 @@ function dashboard() {
             return row;
         },
 
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
-            }
-        },
-
         /**
          * Update filtered crawler pages based on search and filter
          */
@@ -12600,56 +9263,6 @@ function dashboard() {
             });
         },
 
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
-            }
-        },
-
         /**
          * Toggle page selection for testing
          */
@@ -12677,56 +9290,6 @@ function dashboard() {
             } catch (error) {
                 console.error('Failed to update page testing selection:', error);
                 this.showNotification('Failed to update page selection', 'error');
-            }
-        },
-
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
             }
         },
 
@@ -12772,111 +9335,11 @@ function dashboard() {
             }
         },
 
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
-            }
-        },
-
         /**
          * Toggle page selection in the UI
          */
         togglePageSelection(page, selected) {
             page.selected = selected;
-        },
-
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
-            }
         },
 
         /**
@@ -12886,56 +9349,6 @@ function dashboard() {
             this.filteredCrawlerPages.forEach(page => {
                 page.selected = selectAll;
             });
-        },
-
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
-            }
         },
 
         /**
@@ -12966,56 +9379,6 @@ function dashboard() {
                 case 'basic': return 'Username/Password';
                 case 'custom': return 'Custom';
                 default: return 'None';
-            }
-        },
-
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
             }
         },
 
@@ -14029,110 +10392,10 @@ function generateAuditReportPDF(sessionId) {
     });
 }
 
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
-            }
-        },
-
 /**
  * REQUIREMENT TOOLTIP UTILITIES
  * Functions to generate official WCAG and Section 508 URLs and create tooltips
  */
-
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
-            }
-        },
 
 /**
  * Generate official WCAG URL based on criterion number
@@ -14216,56 +10479,6 @@ function generateWCAGUrl(criterionNumber, version = '2.1') {
     return `https://www.w3.org/WAI/WCAG21/Understanding/`;
 }
 
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
-            }
-        },
-
 /**
  * Generate official Section 508 URL based on criterion number
  * @param {string} criterionNumber - Section 508 criterion (e.g., "1194.22(a)", "502.2.1")
@@ -14287,56 +10500,6 @@ function generateSection508Url(criterionNumber) {
     // Fallback to general Section 508 documentation
     return 'https://www.section508.gov/';
 }
-
-
-        /**
-         * Load pages for display in modal
-         */
-        async loadCrawlerPages(crawler) {
-            try {
-                if (!this.selectedProject) {
-                    this.showNotification("Please select a project first", "error");
-                    return;
-                }
-                
-                if (!crawler || !crawler.id) {
-                    this.showNotification("Invalid crawler selected", "error");
-                    return;
-                }
-                
-                console.log(`📄 Loading pages for crawler: ${crawler.name}`);
-                this.selectedCrawler = crawler;
-                this.loading = true;
-                
-                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`);
-                
-                const excludedKey = `crawler_${crawler.id}_excluded_pages`;
-                const excludedPages = JSON.parse(localStorage.getItem(excludedKey) || "[]");
-                
-                this.crawlerPages = (data.data || []).map(page => {
-                    const isExcluded = excludedPages.includes(page.id);
-                    return {
-                        ...page,
-                        selected: !isExcluded,
-                        excluded: isExcluded,
-                        has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
-                        title: page.title || "Untitled Page",
-                        url: page.url || ""
-                    };
-                });
-                
-                this.filteredCrawlerPages = [...this.crawlerPages];
-                this.loading = false;
-                this.showCrawlerPagesModal = true;
-                
-                console.log(`✅ Loaded ${this.crawlerPages.length} pages for crawler: ${crawler.name}`);
-
-            } catch (error) {
-                console.error("Failed to load crawler pages:", error);
-                this.showNotification("Failed to load crawler pages", "error");
-                this.loading = false;
-            }
-        },
 
 /**
  * Create a tooltip with requirement information and official link
