@@ -3,211 +3,594 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Accessibility Testing Platform</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <title>VPAT Dashboard - Accessibility Testing Platform</title>
+    
+    <!-- Alpine.js Core -->
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    
+    <!-- Socket.IO for WebSocket -->
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    
+    <!-- Chart.js for Analytics -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Core Styles -->
     <style>
-        /* Custom scrollbar styles */
-        .scrollbar-thin::-webkit-scrollbar {
-            width: 6px;
-        }
-        .scrollbar-thin::-webkit-scrollbar-track {
-            background: #f1f1f1;
-        }
-        .scrollbar-thin::-webkit-scrollbar-thumb {
-            background: #c1c1c1;
-            border-radius: 3px;
-        }
-        .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-            background: #a8a8a8;
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
         
-        /* Animation for progress bars */
-        @keyframes progress {
-            0% { width: 0%; }
-        }
-        .progress-bar {
-            animation: progress 2s ease-in-out;
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
         }
         
-        /* Custom Alpine.js transition classes */
-        .fade-enter-active, .fade-leave-active {
-            transition: opacity 0.5s;
+        .dashboard-container {
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
         }
-        .fade-enter, .fade-leave-to {
-            opacity: 0;
+        
+        /* Sidebar Styles */
+        .sidebar {
+            width: 280px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-right: 1px solid rgba(255, 255, 255, 0.2);
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        
+        .sidebar-header {
+            padding: 2rem 1.5rem;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+        }
+        
+        .sidebar-logo {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .sidebar-logo-icon {
+            width: 3rem;
+            height: 3rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            color: white;
+        }
+        
+        .sidebar-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #1a202c;
+            margin: 0;
+        }
+        
+        .sidebar-subtitle {
+            font-size: 0.875rem;
+            color: #718096;
+            margin: 0;
+        }
+        
+        /* Navigation Styles */
+        .sidebar-nav {
+            flex: 1;
+            padding: 1.5rem 0;
+            overflow-y: auto;
+        }
+        
+        .nav-item {
+            display: flex;
+            align-items: center;
+            padding: 0.875rem 1.5rem;
+            color: #4a5568;
+            text-decoration: none;
+            transition: all 0.2s ease;
+            border-left: 4px solid transparent;
+            gap: 0.75rem;
+            font-weight: 500;
+        }
+        
+        .nav-item:hover {
+            background: rgba(102, 126, 234, 0.1);
+            color: #667eea;
+            border-left-color: rgba(102, 126, 234, 0.3);
+        }
+        
+        .nav-item.active {
+            background: rgba(102, 126, 234, 0.15);
+            color: #667eea;
+            border-left-color: #667eea;
+            font-weight: 600;
+        }
+        
+        .nav-icon {
+            font-size: 1.125rem;
+            width: 1.5rem;
+            text-align: center;
+        }
+        
+        /* Main Content Styles */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 1.5rem 2rem;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .page-title {
+            font-size: 1.875rem;
+            font-weight: 700;
+            color: #1a202c;
+            margin: 0;
+        }
+        
+        .page-subtitle {
+            font-size: 1rem;
+            color: #718096;
+            margin: 0.25rem 0 0 0;
+        }
+        
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.875rem;
+            color: #4a5568;
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+        
+        .status-connected {
+            background: #48bb78;
+        }
+        
+        .status-disconnected {
+            background: #f56565;
+        }
+        
+        /* Content Area */
+        .content-area {
+            flex: 1;
+            padding: 2rem;
+            overflow-y: auto;
+            background: rgba(255, 255, 255, 0.1);
+        }
+        
+        /* Component Container */
+        .component-container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 1rem;
+            padding: 2rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        /* Loading States */
+        .loading-spinner {
+            width: 2rem;
+            height: 2rem;
+            border: 3px solid rgba(102, 126, 234, 0.3);
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 2rem auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .loading-text {
+            text-align: center;
+            color: #4a5568;
+            margin-top: 1rem;
+        }
+        
+        /* Notifications */
+        .notifications-container {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            max-width: 400px;
+        }
+        
+        .notification {
+            background: white;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+            border-left: 4px solid;
+            transform: translateX(100%);
+            transition: transform 0.3s ease;
+        }
+        
+        .notification.show {
+            transform: translateX(0);
+        }
+        
+        .notification.success {
+            border-left-color: #48bb78;
+        }
+        
+        .notification.error {
+            border-left-color: #f56565;
+        }
+        
+        .notification.warning {
+            border-left-color: #ed8936;
+        }
+        
+        .notification.info {
+            border-left-color: #4299e1;
+        }
+        
+        .notification-title {
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+        
+        .notification-message {
+            font-size: 0.875rem;
+            color: #4a5568;
         }
     </style>
 </head>
-<body class="bg-gray-50 min-h-screen" x-data="dashboard()">
-    <div class="min-h-screen flex flex-col">
-        
-        <!-- Include Header Component -->
-        <div id="header-component"></div>
-        
-        <!-- Include Navigation Component -->
-        <div id="navigation-component"></div>
+<body>
+    <div class="dashboard-container" x-data="dashboard()" x-init="init()">
+        <!-- Sidebar Navigation -->
+        <div class="sidebar">
+            <!-- Logo/Header -->
+            <div class="sidebar-header">
+                <div class="sidebar-logo">
+                    <div class="sidebar-logo-icon">
+                        <span>♿</span>
+                    </div>
+                    <div>
+                        <h1 class="sidebar-title">VPAT Dashboard</h1>
+                        <p class="sidebar-subtitle">Accessibility Testing</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Navigation -->
+            <nav class="sidebar-nav">
+                <a href="#" @click.prevent="switchTab('projects')" 
+                   :class="activeTab === 'projects' ? 'nav-item active' : 'nav-item'">
+                    <span class="nav-icon">📁</span>
+                    Projects
+                </a>
+                
+                <a href="#" @click.prevent="switchTab('authentication')" 
+                   :class="activeTab === 'authentication' ? 'nav-item active' : 'nav-item'">
+                    <span class="nav-icon">🔐</span>
+                    Authentication
+                </a>
+                
+                <a href="#" @click.prevent="switchTab('web-crawler')" 
+                   :class="activeTab === 'web-crawler' ? 'nav-item active' : 'nav-item'">
+                    <span class="nav-icon">🕸️</span>
+                    Web Crawler
+                </a>
+                
+                <a href="#" @click.prevent="switchTab('automated-testing')" 
+                   :class="activeTab === 'automated-testing' ? 'nav-item active' : 'nav-item'">
+                    <span class="nav-icon">🔧</span>
+                    Automated Testing
+                </a>
+                
+                <a href="#" @click.prevent="switchTab('manual-testing')" 
+                   :class="activeTab === 'manual-testing' ? 'nav-item active' : 'nav-item'">
+                    <span class="nav-icon">🧪</span>
+                    Manual Testing
+                </a>
+                
+                <a href="#" @click.prevent="switchTab('compliance-sessions')" 
+                   :class="activeTab === 'compliance-sessions' ? 'nav-item active' : 'nav-item'">
+                    <span class="nav-icon">📋</span>
+                    Compliance Sessions
+                </a>
+                
+                <a href="#" @click.prevent="switchTab('results')" 
+                   :class="activeTab === 'results' ? 'nav-item active' : 'nav-item'">
+                    <span class="nav-icon">📊</span>
+                    Results
+                </a>
+                
+                <a href="#" @click.prevent="switchTab('analytics')" 
+                   :class="activeTab === 'analytics' ? 'nav-item active' : 'nav-item'">
+                    <span class="nav-icon">📈</span>
+                    Analytics
+                </a>
+            </nav>
+            
+            <!-- Footer Status -->
+            <div style="padding: 1.5rem; border-top: 1px solid rgba(0, 0, 0, 0.1);">
+                <div style="background: rgba(102, 126, 234, 0.1); border-radius: 0.5rem; padding: 0.75rem;">
+                    <div class="status-indicator">
+                        <div :class="apiConnected ? 'status-dot status-connected' : 'status-dot status-disconnected'"></div>
+                        <span x-text="apiConnected ? 'System Online' : 'System Offline'"></span>
+                    </div>
+                    <div style="font-size: 0.75rem; color: #718096; margin-top: 0.25rem;">
+                        v2.0.0 • Modular Alpine.js
+                    </div>
+                </div>
+            </div>
+        </div>
         
         <!-- Main Content Area -->
-        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1">
-            
-            <!-- Notification Area -->
-            <div x-show="notification.show" 
-                 x-transition:enter="transition ease-out duration-300"
-                 x-transition:enter-start="opacity-0 transform translate-y-2"
-                 x-transition:enter-end="opacity-100 transform translate-y-0"
-                 x-transition:leave="transition ease-in duration-200"
-                 x-transition:leave-start="opacity-100 transform translate-y-0"
-                 x-transition:leave-end="opacity-0 transform translate-y-2"
-                 class="fixed top-4 right-4 z-50 max-w-sm w-full">
-                <div :class="notification.type === 'error' ? 'bg-red-50 border-red-200 text-red-800' : 
-                            notification.type === 'success' ? 'bg-green-50 border-green-200 text-green-800' : 
-                            notification.type === 'warning' ? 'bg-yellow-50 border-yellow-200 text-yellow-800' : 
-                            'bg-blue-50 border-blue-200 text-blue-800'"
-                     class="border rounded-lg p-4 shadow-lg">
-                    <div class="flex items-start">
-                        <div class="flex-shrink-0">
-                            <i :class="notification.type === 'error' ? 'fas fa-exclamation-circle text-red-400' : 
-                                      notification.type === 'success' ? 'fas fa-check-circle text-green-400' : 
-                                      notification.type === 'warning' ? 'fas fa-exclamation-triangle text-yellow-400' : 
-                                      'fas fa-info-circle text-blue-400'"></i>
-                        </div>
-                        <div class="ml-3 flex-1">
-                            <p class="text-sm font-medium" x-text="notification.title"></p>
-                            <p class="mt-1 text-sm" x-text="notification.message"></p>
-                        </div>
-                        <div class="ml-4 flex-shrink-0">
-                            <button @click="hideNotification()" class="inline-flex rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2">
-                                <i class="fas fa-times text-gray-400 hover:text-gray-600"></i>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Dynamic Content Views -->
-            <div id="view-content">
-                <!-- Views will be loaded here dynamically -->
-                <div x-show="activeTab === 'projects'" x-transition>
-                    <div class="text-center py-12">
-                        <i class="fas fa-folder text-6xl text-gray-300 mb-4"></i>
-                        <h3 class="text-lg font-medium text-gray-900 mb-2">Projects View</h3>
-                        <p class="text-gray-600">Project management functionality will be loaded here.</p>
-                    </div>
-                </div>
-                
-                <div x-show="activeTab === 'authentication'" x-transition>
-                    <div class="text-center py-12">
-                        <i class="fas fa-shield-alt text-6xl text-gray-300 mb-4"></i>
-                        <h3 class="text-lg font-medium text-gray-900 mb-2">Authentication View</h3>
-                        <p class="text-gray-600">Authentication configuration will be loaded here.</p>
-                    </div>
-                </div>
-                
-                <div x-show="activeTab === 'discovery'" x-transition>
-                    <div class="text-center py-12">
-                        <i class="fas fa-search text-6xl text-gray-300 mb-4"></i>
-                        <h3 class="text-lg font-medium text-gray-900 mb-2">Site Discovery View</h3>
-                        <p class="text-gray-600">Site discovery functionality will be loaded here.</p>
-                    </div>
-                </div>
-                
-                <div x-show="activeTab === 'testing-sessions'" x-transition>
-                    <div class="text-center py-12">
-                        <i class="fas fa-tasks text-6xl text-gray-300 mb-4"></i>
-                        <h3 class="text-lg font-medium text-gray-900 mb-2">Compliance Sessions View</h3>
-                        <p class="text-gray-600">Testing sessions management will be loaded here.</p>
-                    </div>
-                </div>
-                
-                <div x-show="activeTab === 'testing'" x-transition>
-                    <div class="text-center py-12">
-                        <i class="fas fa-robot text-6xl text-gray-300 mb-4"></i>
-                        <h3 class="text-lg font-medium text-gray-900 mb-2">Automated Testing View</h3>
-                        <p class="text-gray-600">Automated testing functionality will be loaded here.</p>
-                    </div>
-                </div>
-                
-                <div x-show="activeTab === 'manual-testing'" x-transition>
-                    <div class="text-center py-12">
-                        <i class="fas fa-hand-paper text-6xl text-gray-300 mb-4"></i>
-                        <h3 class="text-lg font-medium text-gray-900 mb-2">Manual Testing View</h3>
-                        <p class="text-gray-600">Manual testing functionality will be loaded here.</p>
-                    </div>
-                </div>
-                
-                <div x-show="activeTab === 'results'" x-transition>
-                    <div class="text-center py-12">
-                        <i class="fas fa-chart-bar text-6xl text-gray-300 mb-4"></i>
-                        <h3 class="text-lg font-medium text-gray-900 mb-2">Results View</h3>
-                        <p class="text-gray-600">Test results and reports will be loaded here.</p>
-                    </div>
-                </div>
-                
-                <div x-show="activeTab === 'analytics'" x-transition>
-                    <div class="text-center py-12">
-                        <i class="fas fa-analytics text-6xl text-gray-300 mb-4"></i>
-                        <h3 class="text-lg font-medium text-gray-900 mb-2">Analytics View</h3>
-                        <p class="text-gray-600">Analytics and reporting will be loaded here.</p>
-                    </div>
-                </div>
-            </div>
-        </main>
-        
-        <!-- Include Modal Components -->
-        <div id="auth-modals-component"></div>
-        <div id="project-modals-component"></div>
-        
-        <!-- Footer -->
-        <footer class="bg-white border-t mt-auto">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-                <div class="flex justify-between items-center text-sm text-gray-600">
+        <div class="main-content">
+            <!-- Header -->
+            <div class="header">
+                <div class="header-content">
+                    <!-- Left: Page Title -->
                     <div>
-                        <span>© 2025 Accessibility Testing Platform</span>
+                        <h1 class="page-title" x-text="getPageTitle()"></h1>
+                        <p class="page-subtitle" x-text="getPageDescription()"></p>
                     </div>
-                    <div class="flex items-center space-x-4">
-                        <span>Version 1.0.0</span>
-                        <span>•</span>
-                        <a href="#" class="hover:text-gray-900">Documentation</a>
-                        <span>•</span>
-                        <a href="#" class="hover:text-gray-900">Support</a>
+                    
+                    <!-- Right: Status & Info -->
+                    <div class="header-right">
+                        <!-- Connection Status -->
+                        <div class="status-indicator">
+                            <div :class="apiConnected ? 'status-dot status-connected' : 'status-dot status-disconnected'"></div>
+                            <span x-text="apiConnected ? 'API Connected' : 'API Disconnected'"></span>
+                        </div>
+                        
+                        <div class="status-indicator">
+                            <div :class="wsConnected ? 'status-dot status-connected' : 'status-dot status-disconnected'"></div>
+                            <span x-text="wsConnected ? 'Live Updates' : 'No Live Updates'"></span>
+                        </div>
                     </div>
                 </div>
             </div>
-        </footer>
+            
+            <!-- Dynamic Content Area -->
+            <div class="content-area">
+                <div class="component-container">
+                    <!-- Loading State -->
+                    <div x-show="loading" class="loading-text">
+                        <div class="loading-spinner"></div>
+                        <p>Loading dashboard components...</p>
+                    </div>
+                    
+                    <!-- Projects Component -->
+                    <div x-show="activeTab === 'projects' && !loading" id="projects-component">
+                        <div x-data="projectsComponent()" x-init="init()">
+                            <!-- Projects Component Content will be loaded here -->
+                            <div x-html="Alpine.store('components').projects"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Authentication Component -->
+                    <div x-show="activeTab === 'authentication' && !loading" id="authentication-component">
+                        <div style="text-align: center; padding: 2rem;">
+                            <h3>Authentication Component</h3>
+                            <p>Component will be loaded here...</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Web Crawler Component -->
+                    <div x-show="activeTab === 'web-crawler' && !loading" id="web-crawler-component">
+                        <div style="text-align: center; padding: 2rem;">
+                            <h3>Web Crawler Component</h3>
+                            <p>Component will be loaded here...</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Other Components Placeholder -->
+                    <div x-show="['automated-testing', 'manual-testing', 'compliance-sessions', 'results', 'analytics'].includes(activeTab) && !loading">
+                        <div style="text-align: center; padding: 2rem;">
+                            <h3 x-text="getPageTitle()"></h3>
+                            <p>Component coming in Phase 3 & 4...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Notifications Container -->
+        <div class="notifications-container">
+            <template x-for="notification in notifications" :key="notification.id">
+                <div :class="`notification ${notification.type} ${notification.visible ? 'show' : ''}`">
+                    <div class="notification-title" x-text="notification.title"></div>
+                    <div class="notification-message" x-text="notification.message"></div>
+                </div>
+            </template>
+        </div>
     </div>
-
-    <!-- Scripts -->
-    <script src="../dashboard_helpers.js"></script>
-    <script src="js/dashboard.js"></script>
+    
+    <!-- Core JavaScript Modules -->
+    <script src="js/core/alpine-core.js"></script>
+    <script src="js/core/api-client.js"></script>
+    <script src="js/core/websocket-manager.js"></script>
+    
+    <!-- Component JavaScript Modules -->
+    <script src="js/components/projects.js"></script>
     
     <script>
-        // Load components dynamically
-        async function loadComponent(componentId, filePath) {
-            try {
-                const response = await fetch(filePath);
-                const html = await response.text();
-                document.getElementById(componentId).innerHTML = html;
-            } catch (error) {
-                console.error(`Failed to load component ${componentId}:`, error);
-            }
-        }
-        
-        // Load all components when page loads
-        document.addEventListener('DOMContentLoaded', async () => {
-            await Promise.all([
-                loadComponent('header-component', 'components/header.html'),
-                loadComponent('navigation-component', 'components/navigation.html'),
-                loadComponent('auth-modals-component', 'components/auth-modals.html'),
-                loadComponent('project-modals-component', 'components/project-modals.html')
-            ]);
+        // Component Loader System
+        Alpine.store('components', {
+            projects: null,
             
-            // Initialize Alpine.js data after components are loaded
-            if (window.Alpine) {
-                window.Alpine.initTree(document.body);
+            async loadComponent(name) {
+                try {
+                    const response = await fetch(`components/${name}-tab.html`);
+                    if (response.ok) {
+                        this[name] = await response.text();
+                        console.log(`✅ Loaded component: ${name}`);
+                    } else {
+                        console.warn(`Failed to load component: ${name}`);
+                    }
+                } catch (error) {
+                    console.error(`Error loading component ${name}:`, error);
+                }
             }
         });
+        
+        // Load components on page ready
+        document.addEventListener('DOMContentLoaded', async () => {
+            const componentStore = Alpine.store('components');
+            await componentStore.loadComponent('projects');
+        });
+        
+        // Alpine.js Dashboard Extensions
+        function dashboard() {
+            const dashboardStore = window.dashboard ? window.dashboard() : {};
+            
+            return {
+                ...dashboardStore,
+                
+                // Page title and description helpers
+                getPageTitle() {
+                    const titles = {
+                        'projects': 'Projects Overview',
+                        'authentication': 'Authentication Configuration',
+                        'web-crawler': 'Web Crawler',
+                        'automated-testing': 'Automated Testing',
+                        'manual-testing': 'Manual Testing',
+                        'compliance-sessions': 'Compliance Sessions',
+                        'results': 'Results & Analytics',
+                        'analytics': 'Advanced Analytics'
+                    };
+                    return titles[this.activeTab] || 'Dashboard';
+                },
+                
+                getPageDescription() {
+                    const descriptions = {
+                        'projects': 'Manage your accessibility testing projects and their configurations',
+                        'authentication': 'Configure SAML, SSO, and user authentication methods',
+                        'web-crawler': 'Advanced Playwright-based crawling with authentication support',
+                        'automated-testing': 'Run automated accessibility tests (axe, pa11y, lighthouse)',
+                        'manual-testing': 'Conduct comprehensive manual accessibility evaluations',
+                        'compliance-sessions': 'Manage and monitor your compliance testing sessions',
+                        'results': 'View test results and compliance analytics',
+                        'analytics': 'Advanced reporting and trend analysis'
+                    };
+                    return descriptions[this.activeTab] || 'Manage and monitor accessibility compliance testing';
+                },
+                
+                // Enhanced initialization
+                async init() {
+                    try {
+                        console.log('🚀 Initializing Modular Alpine.js Dashboard...');
+                        
+                        // Initialize core Alpine.js functionality
+                        await this.checkApiConnection();
+                        
+                        // Initialize WebSocket if available
+                        if (window.createWebSocketManager) {
+                            const wsManager = window.createWebSocketManager();
+                            await wsManager.initializeWebSocket(this.token, this);
+                        }
+                        
+                        // Load initial data
+                        await this.loadInitialData();
+                        
+                        this.loading = false;
+                        console.log('✅ Modular Dashboard initialized successfully');
+                        
+                    } catch (error) {
+                        console.error('❌ Dashboard initialization failed:', error);
+                        this.addNotification('error', 'Initialization Error', 'Failed to initialize dashboard');
+                        this.loading = false;
+                    }
+                },
+                
+                // Tab switching with component loading
+                async switchTab(tabName) {
+                    console.log(`🔄 Switching to tab: ${tabName}`);
+                    this.activeTab = tabName;
+                    
+                    // Load tab-specific data if needed
+                    switch (tabName) {
+                        case 'projects':
+                            if (this.projects.length === 0) {
+                                await this.loadProjects();
+                            }
+                            break;
+                        case 'web-crawler':
+                            if (this.selectedProject && this.webCrawlers.length === 0) {
+                                await this.loadWebCrawlers();
+                            }
+                            break;
+                        // Add other tab-specific loading as needed
+                    }
+                },
+                
+                // API integration using our modular API client
+                async loadProjects() {
+                    if (window.createApiClient) {
+                        const apiClient = window.createApiClient();
+                        try {
+                            const result = await apiClient.loadProjects();
+                            this.projects = result.data || result.projects || [];
+                            console.log(`📁 Loaded ${this.projects.length} projects`);
+                        } catch (error) {
+                            console.error('Failed to load projects:', error);
+                            this.addNotification('error', 'Error', 'Failed to load projects');
+                        }
+                    }
+                },
+                
+                async loadWebCrawlers() {
+                    if (window.createApiClient && this.selectedProject) {
+                        const apiClient = window.createApiClient();
+                        try {
+                            const result = await apiClient.loadWebCrawlers(this.selectedProject.id);
+                            this.webCrawlers = result.data || [];
+                            console.log(`🕸️ Loaded ${this.webCrawlers.length} web crawlers`);
+                        } catch (error) {
+                            console.error('Failed to load web crawlers:', error);
+                            this.addNotification('error', 'Error', 'Failed to load web crawlers');
+                        }
+                    }
+                }
+            };
+        }
     </script>
 </body>
 </html> 
