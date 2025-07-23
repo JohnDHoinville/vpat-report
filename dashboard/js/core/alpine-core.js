@@ -349,6 +349,34 @@ function dashboard() {
         // WebSocket initialization placeholder (will be extended)
         async initializeWebSocket() {
             console.log('WebSocket initialization will be handled by websocket-manager.js');
+        },
+
+        getPageTitle() {
+            const titles = {
+                'projects': 'Projects',
+                'authentication': 'Authentication',
+                'web-crawler': 'Web Crawler',
+                'automated-testing': 'Automated Testing',
+                'manual-testing': 'Manual Testing',
+                'compliance-sessions': 'Compliance Sessions',
+                'results': 'Results',
+                'analytics': 'Analytics'
+            };
+            return titles[this.activeTab] || 'Dashboard';
+        },
+        
+        getPageDescription() {
+            const descriptions = {
+                'projects': 'Manage your accessibility testing projects',
+                'authentication': 'Configure authentication methods and user access',
+                'web-crawler': 'Discover and crawl web pages using Playwright automation',
+                'automated-testing': 'Run automated accessibility tests with axe, pa11y, and lighthouse',
+                'manual-testing': 'Conduct comprehensive manual accessibility evaluations',
+                'compliance-sessions': 'Manage structured testing sessions with deep compliance features',
+                'results': 'View and analyze test results and compliance reports',
+                'analytics': 'Advanced analytics and accessibility insights'
+            };
+            return descriptions[this.activeTab] || 'Accessibility Testing Platform';
         }
     }
 }

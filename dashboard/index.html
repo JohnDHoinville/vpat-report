@@ -296,55 +296,48 @@
                 </div>
             </div>
             
-            <!-- Navigation -->
-            <nav class="sidebar-nav">
-                <a href="#" @click.prevent="switchTab('projects')" 
-                   :class="activeTab === 'projects' ? 'nav-item active' : 'nav-item'">
-                    <span class="nav-icon">📁</span>
-                    Projects
-                </a>
-                
-                <a href="#" @click.prevent="switchTab('authentication')" 
-                   :class="activeTab === 'authentication' ? 'nav-item active' : 'nav-item'">
-                    <span class="nav-icon">🔐</span>
-                    Authentication
-                </a>
-                
-                <a href="#" @click.prevent="switchTab('web-crawler')" 
-                   :class="activeTab === 'web-crawler' ? 'nav-item active' : 'nav-item'">
-                    <span class="nav-icon">🕸️</span>
-                    Web Crawler
-                </a>
-                
-                <a href="#" @click.prevent="switchTab('automated-testing')" 
-                   :class="activeTab === 'automated-testing' ? 'nav-item active' : 'nav-item'">
-                    <span class="nav-icon">🔧</span>
-                    Automated Testing
-                </a>
-                
-                <a href="#" @click.prevent="switchTab('manual-testing')" 
-                   :class="activeTab === 'manual-testing' ? 'nav-item active' : 'nav-item'">
-                    <span class="nav-icon">🧪</span>
-                    Manual Testing
-                </a>
-                
-                <a href="#" @click.prevent="switchTab('compliance-sessions')" 
-                   :class="activeTab === 'compliance-sessions' ? 'nav-item active' : 'nav-item'">
-                    <span class="nav-icon">📋</span>
-                    Compliance Sessions
-                </a>
-                
-                <a href="#" @click.prevent="switchTab('results')" 
-                   :class="activeTab === 'results' ? 'nav-item active' : 'nav-item'">
-                    <span class="nav-icon">📊</span>
-                    Results
-                </a>
-                
-                <a href="#" @click.prevent="switchTab('analytics')" 
-                   :class="activeTab === 'analytics' ? 'nav-item active' : 'nav-item'">
-                    <span class="nav-icon">📈</span>
-                    Analytics
-                </a>
+            <!-- Navigation Tabs -->
+            <nav class="flex space-x-8" aria-label="Tabs">
+                <button @click="switchTab('projects')" 
+                        :class="activeTab === 'projects' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
+                        class="py-4 px-1 border-b-2 font-medium text-sm transition-colors">
+                    <i class="fas fa-folder mr-2"></i>Projects
+                </button>
+                <button @click="switchTab('authentication')" 
+                        :class="activeTab === 'authentication' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
+                        class="py-4 px-1 border-b-2 font-medium text-sm transition-colors">
+                    <i class="fas fa-key mr-2"></i>Authentication
+                </button>
+                <button @click="switchTab('web-crawler')" 
+                        :class="activeTab === 'web-crawler' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
+                        class="py-4 px-1 border-b-2 font-medium text-sm transition-colors">
+                    <i class="fas fa-spider mr-2"></i>Web Crawler
+                </button>
+                <button @click="switchTab('automated-testing')" 
+                        :class="activeTab === 'automated-testing' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
+                        class="py-4 px-1 border-b-2 font-medium text-sm transition-colors">
+                    <i class="fas fa-robot mr-2"></i>Automated Testing
+                </button>
+                <button @click="switchTab('manual-testing')" 
+                        :class="activeTab === 'manual-testing' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
+                        class="py-4 px-1 border-b-2 font-medium text-sm transition-colors">
+                    <i class="fas fa-hand-paper mr-2"></i>Manual Testing
+                </button>
+                <button @click="switchTab('compliance-sessions')" 
+                        :class="activeTab === 'compliance-sessions' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
+                        class="py-4 px-1 border-b-2 font-medium text-sm transition-colors">
+                    <i class="fas fa-tasks mr-2"></i>Compliance Sessions
+                </button>
+                <button @click="switchTab('results')" 
+                        :class="activeTab === 'results' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
+                        class="py-4 px-1 border-b-2 font-medium text-sm transition-colors">
+                    <i class="fas fa-chart-bar mr-2"></i>Results
+                </button>
+                <button @click="switchTab('analytics')" 
+                        :class="activeTab === 'analytics' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
+                        class="py-4 px-1 border-b-2 font-medium text-sm transition-colors">
+                    <i class="fas fa-chart-line mr-2"></i>Analytics
+                </button>
             </nav>
             
             <!-- Footer Status -->
@@ -437,8 +430,16 @@
                         </div>
                     </div>
                     
+                    <!-- Compliance Sessions Component -->
+                    <div x-show="activeTab === 'compliance-sessions' && !loading" id="compliance-sessions-component">
+                        <div x-data="complianceSessionsComponent()" x-init="init()">
+                            <!-- Compliance Sessions Component Content will be loaded here -->
+                            <div x-html="Alpine.store('components')['compliance-sessions']"></div>
+                        </div>
+                    </div>
+                    
                     <!-- Other Components Placeholder -->
-                    <div x-show="['compliance-sessions', 'results', 'analytics'].includes(activeTab) && !loading">
+                    <div x-show="['results', 'analytics'].includes(activeTab) && !loading">
                         <div style="text-align: center; padding: 2rem;">
                             <h3 x-text="getPageTitle()"></h3>
                             <p>Component coming in Phase 3 & 4...</p>
@@ -470,6 +471,7 @@
     <script src="js/components/web-crawler.js"></script>
     <script src="js/components/automated-testing.js"></script>
     <script src="js/components/manual-testing.js"></script>
+    <script src="js/components/compliance-sessions.js"></script>
     
     <script>
         // Component Loader System
@@ -479,6 +481,7 @@
             'web-crawler': null,
             'automated-testing': null,
             'manual-testing': null,
+            'compliance-sessions': null,
             
             async loadComponent(name) {
                 try {
@@ -503,6 +506,7 @@
             await componentStore.loadComponent('web-crawler');
             await componentStore.loadComponent('automated-testing');
             await componentStore.loadComponent('manual-testing');
+            await componentStore.loadComponent('compliance-sessions');
         });
         
         // Alpine.js Dashboard Extensions
