@@ -281,11 +281,6 @@
                             class="py-4 px-1 border-b-2 font-medium text-sm transition-colors">
                         <i class="fas fa-spider mr-2"></i>Web Crawler
                     </button>
-                    <button @click="activeTab = 'discovery'" 
-                            :class="activeTab === 'discovery' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
-                            class="py-4 px-1 border-b-2 font-medium text-sm transition-colors">
-                        <i class="fas fa-search mr-2"></i>Site Discovery
-                    </button>
                     <button @click="activeTab = 'testing-sessions'; refreshTestingSessionsTabData()" 
                             :class="activeTab === 'testing-sessions' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
                             class="py-4 px-1 border-b-2 font-medium text-sm transition-colors">
@@ -869,282 +864,6 @@
                 </div>
             </div>
 
-            <!-- Site Discovery Tab -->
-            <div x-show="activeTab === 'discovery'" class="space-y-6">
-                <div class="flex justify-between items-center">
-                    <div>
-                        <h2 class="text-2xl font-bold text-gray-900">Site Discovery</h2>
-                        <p class="text-gray-600">Discover and catalog pages for accessibility testing</p>
-                    </div>
-                    <button @click="openStartDiscoveryModal()" 
-                            :disabled="!selectedProject"
-                            class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed">
-                        <i class="fas fa-search mr-2"></i>Start Discovery
-                    </button>
-                </div>
-
-                <!-- Project Selection Notice -->
-                <div x-show="!selectedProject" class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                    <div class="flex">
-                        <i class="fas fa-exclamation-triangle text-yellow-400 mr-3 mt-1"></i>
-                        <div>
-                            <h3 class="text-sm font-medium text-yellow-800">Select a Project</h3>
-                            <p class="text-sm text-yellow-700 mt-1">Please select a project from the Projects tab to start site discovery.</p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Real-time Progress Indicator -->
-                <div x-show="selectedProject && discoveryProgress.active" class="bg-blue-50 border border-blue-200 rounded-lg p-6">
-                    <div class="flex items-center justify-between mb-4">
-                        <div class="flex items-center space-x-3">
-                            <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-                            <div>
-                                <h3 class="text-lg font-semibold text-blue-900">Site Discovery in Progress</h3>
-                                <p class="text-blue-700" x-text="discoveryProgress.message"></p>
-                            </div>
-                        </div>
-                        <div class="text-right">
-                            <div class="text-2xl font-bold text-blue-600" x-text="discoveryProgress.percentage + '%'"></div>
-                            <div class="text-sm text-blue-500" x-text="discoveryProgress.pagesFound + ' pages found'"></div>
-                        </div>
-                    </div>
-                    <div class="w-full bg-blue-200 rounded-full h-3 mb-4">
-                        <div class="bg-blue-600 h-3 rounded-full transition-all duration-300" 
-                             :style="`width: ${discoveryProgress.percentage}%`"></div>
-                    </div>
-                    <div class="flex justify-between text-sm text-blue-600">
-                        <span>Current URL: <span class="font-mono text-xs" x-text="discoveryProgress.currentUrl"></span></span>
-                        <span>Depth: <span x-text="discoveryProgress.depth"></span></span>
-                    </div>
-                </div>
-
-                <!-- Discovery Sessions -->
-                <div x-show="selectedProject" class="space-y-4">
-                    <div class="bg-white rounded-lg shadow-md border border-gray-200 p-6">
-                        <div class="flex items-center justify-between mb-4">
-                            <h3 class="text-lg font-semibold">Discovery Sessions for <span x-text="selectedProject?.name" class="text-blue-600"></span></h3>
-                            <div class="flex space-x-2">
-                                <button @click="recoverAllDiscoveries()" 
-                                        :disabled="loading"
-                                        class="bg-yellow-600 text-white px-3 py-2 rounded text-sm hover:bg-yellow-700 transition-colors disabled:opacity-50"
-                                        title="Recover all stuck discoveries in this project">
-                                    <i class="fas fa-wrench mr-1"></i>Recover All
-                                </button>
-                                <button @click="cleanupDiscoveryData()" 
-                                        :disabled="loading"
-                                        class="bg-purple-600 text-white px-3 py-2 rounded text-sm hover:bg-purple-700 transition-colors disabled:opacity-50"
-                                        title="Clean up orphaned discovery data">
-                                    <i class="fas fa-broom mr-1"></i>Cleanup
-                                </button>
-                                <button @click="openStartDiscoveryModal()" 
-                                        :disabled="loading"
-                                        class="bg-green-600 text-white px-3 py-2 rounded text-sm hover:bg-green-700 transition-colors disabled:opacity-50">
-                                    <i class="fas fa-plus mr-1"></i>New Discovery
-                                </button>
-                            </div>
-                        </div>
-                        
-                        <!-- Pending Discoveries Alert -->
-                        <div x-show="discoveries.filter(d => ['pending', 'in_progress'].includes(d.status)).length > 0" 
-                             class="mb-4 p-4 bg-orange-50 border border-orange-200 rounded-lg">
-                            <div class="flex items-center justify-between">
-                                <div class="flex items-center space-x-3">
-                                    <i class="fas fa-exclamation-triangle text-orange-600"></i>
-                                    <div>
-                                        <h4 class="font-medium text-orange-900">Pending Discoveries Found</h4>
-                                        <p class="text-sm text-orange-700">
-                                            <span x-text="discoveries.filter(d => ['pending', 'in_progress'].includes(d.status)).length"></span> 
-                                            discovery(ies) may be stuck. Consider recovering them.
-                                        </p>
-                                    </div>
-                                </div>
-                                <button @click="recoverAllDiscoveries()" 
-                                        class="bg-orange-600 text-white px-3 py-2 rounded text-sm hover:bg-orange-700 transition-colors">
-                                    <i class="fas fa-wrench mr-1"></i>Recover All
-                                </button>
-                            </div>
-                        </div>
-                        
-                        <!-- Discovery Selection Controls -->
-                        <div x-show="discoveries.filter(d => d.status === 'completed').length > 0" class="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                            <div class="flex items-center justify-between">
-                                <div class="flex items-center space-x-3">
-                                    <i class="fas fa-check-circle text-blue-600"></i>
-                                    <div>
-                                        <h4 class="font-medium text-blue-900">Testing Selection</h4>
-                                        <p class="text-sm text-blue-700">Select discoveries to include in testing sessions</p>
-                                    </div>
-                                </div>
-                                <div class="flex space-x-2">
-                                    <button @click="selectAllDiscoveries()" class="text-blue-600 hover:text-blue-800 text-sm underline">
-                                        Select All
-                                    </button>
-                                    <span class="text-blue-400">|</span>
-                                    <button @click="deselectAllDiscoveries()" class="text-blue-600 hover:text-blue-800 text-sm underline">
-                                        Deselect All
-                                    </button>
-                                </div>
-                            </div>
-                            
-                            <!-- Summary Counts -->
-                            <div class="mt-3 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                                <div class="text-center">
-                                    <div class="text-lg font-bold text-blue-600" x-text="getSelectedDiscoveriesPageCounts().selectedDiscoveries"></div>
-                                    <div class="text-blue-700">Selected Discoveries</div>
-                                </div>
-                                <div class="text-center">
-                                    <div class="text-lg font-bold text-green-600" x-text="getSelectedDiscoveriesPageCounts().included"></div>
-                                    <div class="text-green-700">Pages for Testing</div>
-                                </div>
-                                <div class="text-center">
-                                    <div class="text-lg font-bold text-red-600" x-text="getSelectedDiscoveriesPageCounts().excluded"></div>
-                                    <div class="text-red-700">Excluded Pages</div>
-                                </div>
-                                <div class="text-center">
-                                    <div class="text-lg font-bold text-gray-600" x-text="getSelectedDiscoveriesPageCounts().total"></div>
-                                    <div class="text-gray-700">Total Pages</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="space-y-4">
-                            <template x-for="discovery in discoveries" :key="discovery.id">
-                                <div class="border border-gray-200 rounded-lg p-4" 
-                                     :class="discovery.status === 'completed' && isDiscoverySelected(discovery.id) ? 'bg-green-50 border-green-300' : ''">
-                                    <div class="flex justify-between items-start mb-3">
-                                        <div class="flex items-start space-x-3">
-                                            <!-- Selection Checkbox -->
-                                            <div x-show="discovery.status === 'completed'" class="flex items-center pt-1">
-                                                <input type="checkbox" 
-                                                       :checked="isDiscoverySelected(discovery.id)"
-                                                       @change="toggleDiscoverySelection(discovery.id)"
-                                                       class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2">
-                                            </div>
-                                            <div>
-                                                <h4 class="font-medium text-gray-900" x-text="discovery.domain"></h4>
-                                                <p class="text-sm text-gray-600" x-text="discovery.primary_url"></p>
-                                            </div>
-                                        </div>
-                                        <span :class="getStatusBadgeClass(discovery.status)" 
-                                              class="px-2 py-1 text-xs font-medium rounded-full" 
-                                              x-text="discovery.status"></span>
-                                    </div>
-                                    
-                                    <!-- Enhanced Page Count Display -->
-                                    <div x-show="discovery.status === 'completed'" class="mb-3 p-3 bg-gray-50 rounded-lg">
-                                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                                            <div class="text-center">
-                                                <div class="text-lg font-bold text-gray-600" x-text="discovery.total_pages_found || 0"></div>
-                                                <div class="text-gray-500">Total Pages</div>
-                                            </div>
-                                            <div class="text-center">
-                                                <div class="text-lg font-bold text-green-600" x-text="getDiscoveryPageCounts(discovery).included"></div>
-                                                <div class="text-green-700">For Testing</div>
-                                            </div>
-                                            <div class="text-center">
-                                                <div class="text-lg font-bold text-red-600" x-text="getDiscoveryPageCounts(discovery).excluded"></div>
-                                                <div class="text-red-700">Excluded</div>
-                                            </div>
-                                            <div class="text-center">
-                                                <div class="text-lg font-bold text-blue-600" x-text="discovery.crawl_depth"></div>
-                                                <div class="text-blue-700">Depth</div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    
-                                    <!-- Standard info for non-completed -->
-                                    <div x-show="discovery.status !== 'completed'" class="grid grid-cols-3 gap-4 text-sm">
-                                        <div>
-                                            <span class="text-gray-500">Pages Found:</span>
-                                            <span class="font-medium ml-2" x-text="discovery.total_pages_found || 0"></span>
-                                        </div>
-                                        <div>
-                                            <span class="text-gray-500">Depth:</span>
-                                            <span class="font-medium ml-2" x-text="discovery.crawl_depth"></span>
-                                        </div>
-                                        <div>
-                                            <span class="text-gray-500">Started:</span>
-                                            <span class="font-medium ml-2" x-text="formatDate(discovery.started_at)"></span>
-                                        </div>
-                                    </div>
-                                    
-                                    <!-- Actions for completed discoveries -->
-                                    <div x-show="discovery.status === 'completed'" class="mt-3 flex justify-between items-center">
-                                        <div class="flex space-x-2">
-                                            <button @click="viewDiscoveryPages(discovery)" class="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700 transition-colors">
-                                                <i class="fas fa-list mr-1"></i>View Pages
-                                            </button>
-                                            <button @click="deleteDiscovery(discovery)" class="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700 transition-colors">
-                                                <i class="fas fa-trash mr-1"></i>Delete
-                                            </button>
-                                        </div>
-                                        <div x-show="isDiscoverySelected(discovery.id)" class="flex items-center text-green-600 text-sm font-medium">
-                                            <i class="fas fa-check-circle mr-1"></i>
-                                            Selected for Testing
-                                        </div>
-                                    </div>
-
-                                    <!-- Actions for failed discoveries -->
-                                    <div x-show="discovery.status === 'failed'" class="mt-3 flex justify-between items-center">
-                                        <div class="flex space-x-2">
-                                            <button @click="deleteDiscovery(discovery)" class="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700 transition-colors">
-                                                <i class="fas fa-trash mr-1"></i>Delete
-                                            </button>
-                                            <button @click="openStartDiscoveryModal()" class="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700 transition-colors">
-                                                <i class="fas fa-redo mr-1"></i>Retry Discovery
-                                            </button>
-                                        </div>
-                                        <div class="flex items-center text-red-600 text-sm font-medium">
-                                            <i class="fas fa-exclamation-circle mr-1"></i>
-                                            Discovery Failed
-                                        </div>
-                                    </div>
-
-                                    <!-- Actions for pending/stuck discoveries -->
-                                    <div x-show="['pending', 'in_progress'].includes(discovery.status)" class="mt-3">
-                                        <div class="flex items-center justify-between">
-                                            <div class="flex items-center text-orange-600 text-sm font-medium">
-                                                <div x-show="discovery.status === 'in_progress'" class="animate-spin rounded-full h-3 w-3 border-b-2 border-orange-600 mr-2"></div>
-                                                <i x-show="discovery.status === 'pending'" class="fas fa-clock mr-2"></i>
-                                                <span x-text="discovery.status === 'pending' ? 'Discovery pending...' : 'Discovery in progress...'"></span>
-                                        </div>
-                                            <div class="flex space-x-2">
-                                                <button @click="recoverDiscovery(discovery.id)" 
-                                                        class="bg-yellow-600 text-white px-3 py-1 rounded text-sm hover:bg-yellow-700 transition-colors"
-                                                        title="Attempt to recover this discovery">
-                                                    <i class="fas fa-wrench mr-1"></i>Recover
-                                                </button>
-                                                <button @click="deleteDiscovery(discovery)" 
-                                                        class="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700 transition-colors"
-                                                        title="Delete this stuck discovery">
-                                                    <i class="fas fa-trash mr-1"></i>Delete
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <!-- Actions for other statuses (cancelled, etc.) -->
-                                    <div x-show="!['completed', 'failed', 'pending', 'in_progress'].includes(discovery.status)" class="mt-3">
-                                        <div x-show="discovery.status === 'cancelled'" class="flex justify-between items-center">
-                                            <div class="flex space-x-2">
-                                                <button @click="deleteDiscovery(discovery)" class="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700 transition-colors">
-                                                    <i class="fas fa-trash mr-1"></i>Delete
-                                                </button>
-                                            </div>
-                                            <div class="flex items-center text-gray-600 text-sm font-medium">
-                                                <i class="fas fa-ban mr-1"></i>
-                                                Discovery Cancelled
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </template>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
             <!-- Testing Tab -->
             <div x-show="activeTab === 'testing'" class="space-y-6">
                 <div class="flex justify-between items-center">
@@ -1182,7 +901,7 @@
                             </div>
                             <div>
                                 <h3 class="text-lg font-semibold text-blue-900">Testing Scope</h3>
-                                <p class="text-blue-700">Pages selected for testing from Site Discovery</p>
+                                <p class="text-blue-700">Pages selected for testing from Web Crawler</p>
                             </div>
                         </div>
                         <div class="text-right">
@@ -1194,8 +913,8 @@
                     <!-- Enhanced Testing Scope Display -->
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                         <div class="bg-white p-3 rounded-lg text-center">
-                            <div class="text-lg font-bold text-blue-600" x-text="getSelectedDiscoveriesPageCounts().selectedDiscoveries"></div>
-                            <div class="text-sm text-blue-700">Selected Discoveries</div>
+                            <div class="text-lg font-bold text-blue-600" x-text="getSelectedDiscoveriesPageCounts().selectedCrawlers"></div>
+                            <div class="text-sm text-blue-700">Selected Crawlers</div>
                         </div>
                         <div class="bg-white p-3 rounded-lg text-center">
                             <div class="text-lg font-bold text-green-600" x-text="getSelectedDiscoveriesPageCounts().included"></div>
@@ -1215,11 +934,11 @@
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                         <div class="flex justify-between items-center p-2 bg-white rounded">
                             <span class="text-blue-700">Completed Discoveries:</span>
-                            <span class="font-medium text-blue-900" x-text="discoveries.filter(d => d.status === 'completed').length"></span>
+                            <span class="font-medium text-blue-900" x-text="webCrawlers.filter(c => c.project_id === selectedProject?.id && (c.status === 'completed' || c.status === 'active') && c.total_pages_found > 0).length"></span>
                         </div>
                         <div class="flex justify-between items-center p-2 bg-white rounded">
                             <span class="text-blue-700">Active Discoveries:</span>
-                            <span class="font-medium text-blue-900" x-text="discoveries.filter(d => d.status === 'in_progress').length"></span>
+                            <span class="font-medium text-blue-900" x-text="webCrawlers.filter(c => c.project_id === selectedProject?.id && c.status === 'running').length"></span>
                         </div>
                         <div class="flex justify-between items-center p-2 bg-white rounded">
                             <span class="text-blue-700">All Pages Found:</span>
@@ -1228,22 +947,22 @@
                     </div>
                     
                     <!-- Warning Messages -->
-                    <div x-show="discoveries.filter(d => d.status === 'completed').length === 0" class="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <div x-show="webCrawlers.filter(c => c.project_id === selectedProject?.id && (c.status === 'completed' || c.status === 'active') && c.total_pages_found > 0).length === 0" class="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
                         <div class="flex items-center">
                             <i class="fas fa-info-circle text-yellow-600 mr-2"></i>
                             <div>
                                 <p class="text-sm text-yellow-800">
                                     <strong>No completed discoveries found.</strong> 
-                                    Run Site Discovery first to find pages for testing.
+                                    Use Web Crawler to discover pages for testing.
                                 </p>
-                                <button @click="activeTab = 'discovery'" class="mt-2 text-sm text-yellow-700 hover:text-yellow-900 underline">
-                                    Go to Site Discovery →
+                                <button @click="activeTab = 'web-crawler'" class="mt-2 text-sm text-yellow-700 hover:text-yellow-900 underline">
+                                    Go to Web Crawler →
                                 </button>
                             </div>
                         </div>
                     </div>
                     
-                    <div x-show="discoveries.filter(d => d.status === 'completed').length > 0 && getSelectedDiscoveriesPageCounts().selectedDiscoveries === 0" class="mt-4 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                    <div x-show="webCrawlers.filter(c => c.project_id === selectedProject?.id && (c.status === 'completed' || c.status === 'active') && c.total_pages_found > 0).length > 0 && getSelectedDiscoveriesPageCounts().selectedCrawlers === 0" class="mt-4 p-4 bg-orange-50 border border-orange-200 rounded-lg">
                         <div class="flex items-center">
                             <i class="fas fa-exclamation-triangle text-orange-600 mr-2"></i>
                             <div>
@@ -1251,14 +970,14 @@
                                     <strong>No discoveries selected for testing.</strong> 
                                     Select completed discoveries to enable testing.
                                 </p>
-                                <button @click="activeTab = 'discovery'" class="mt-2 text-sm text-orange-700 hover:text-orange-900 underline">
-                                    Go to Site Discovery →
+                                <button @click="activeTab = 'web-crawler'" class="mt-2 text-sm text-orange-700 hover:text-orange-900 underline">
+                                    Go to Web Crawler →
                                 </button>
                             </div>
                         </div>
                     </div>
                     
-                    <div x-show="getSelectedDiscoveriesPageCounts().selectedDiscoveries > 0 && getSelectedDiscoveriesPageCounts().included === 0" class="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                    <div x-show="getSelectedDiscoveriesPageCounts().selectedCrawlers > 0 && getSelectedDiscoveriesPageCounts().included === 0" class="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
                         <div class="flex items-center">
                             <i class="fas fa-times-circle text-red-600 mr-2"></i>
                             <div>
@@ -1266,7 +985,7 @@
                                     <strong>All pages excluded from testing.</strong> 
                                     Include some pages to enable testing.
                                 </p>
-                                <button @click="activeTab = 'discovery'" class="mt-2 text-sm text-red-700 hover:text-red-900 underline">
+                                <button @click="activeTab = 'web-crawler'" class="mt-2 text-sm text-red-700 hover:text-red-900 underline">
                                     Review Page Selections →
                                 </button>
                             </div>
@@ -1429,13 +1148,13 @@
                             <div class="mb-4 p-3 bg-gray-50 border border-gray-200 rounded-lg">
                                 <div class="flex items-center justify-between mb-2">
                                     <h4 class="text-sm font-medium text-gray-700">Testing Scope</h4>
-                                    <button @click="activeTab = 'discovery'; refreshTestingTabData()" class="text-blue-600 hover:text-blue-800 text-xs underline">
+                                    <button @click="activeTab = 'web-crawler'; refreshTestingTabData()" class="text-blue-600 hover:text-blue-800 text-xs underline">
                                         Manage Selection
                                     </button>
                                 </div>
                                 <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
                                     <div class="text-center p-2 bg-white rounded">
-                                        <div class="font-bold text-blue-600" x-text="getSelectedDiscoveriesPageCounts().selectedDiscoveries"></div>
+                                        <div class="font-bold text-blue-600" x-text="getSelectedDiscoveriesPageCounts().selectedCrawlers"></div>
                                         <div class="text-gray-600">Discoveries</div>
                                     </div>
                                     <div class="text-center p-2 bg-white rounded">
@@ -4658,404 +4377,6 @@
             </div>
         </div>
 
-        <!-- Start Discovery Modal -->
-        <div x-show="showStartDiscovery" 
-             x-transition:enter="transition ease-out duration-300"
-             x-transition:enter-start="opacity-0"
-             x-transition:enter-end="opacity-100"
-             x-transition:leave="transition ease-in duration-200"
-             x-transition:leave-start="opacity-100"
-             x-transition:leave-end="opacity-0"
-             class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
-             @click.self="showStartDiscovery = false">
-            <div class="bg-white rounded-lg shadow-xl max-w-md w-full">
-                <div class="px-6 py-4 border-b border-gray-200">
-                    <h3 class="text-lg font-semibold text-gray-900">Start Site Discovery</h3>
-                    <p class="text-sm text-gray-600 mt-1">For project: <span x-text="selectedProject?.name" class="font-medium"></span></p>
-                </div>
-                <form @submit.prevent="startDiscovery()" class="p-6 space-y-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Primary URL</label>
-                        <input x-model="newDiscovery.primary_url" type="text" required 
-                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                               :placeholder="selectedProject?.primary_url || 'example.com or https://example.com'">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Crawl Depth</label>
-                        <select x-model="newDiscovery.maxDepth" 
-                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500">
-                            <option value="1">1 level (homepage only)</option>
-                            <option value="2">2 levels</option>
-                            <option value="3">3 levels (recommended)</option>
-                            <option value="4">4 levels</option>
-                            <option value="5">5 levels (thorough)</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Max Pages</label>
-                        <select x-model="newDiscovery.maxPages" 
-                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500">
-                            <option value="25">25 pages (quick)</option>
-                            <option value="50">50 pages (standard)</option>
-                            <option value="100">100 pages (comprehensive)</option>
-                            <option value="250">250 pages (thorough)</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Authentication</label>
-                        <select x-model="newDiscovery.auth_config_id" 
-                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500">
-                            <option value="">No authentication (public site)</option>
-                            <template x-for="authConfig in availableAuthConfigs" :key="authConfig.id">
-                                <option :value="authConfig.id" x-text="`${authConfig.name} (${authConfig.username || 'configured'})`"></option>
-                            </template>
-                        </select>
-                        <p class="text-xs text-gray-500 mt-1">Select authentication to access protected areas of the site</p>
-                    </div>
-                    <div class="flex items-center">
-                        <input x-model="newDiscovery.respectRobots" type="checkbox" id="respectRobots"
-                               class="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded">
-                        <label for="respectRobots" class="ml-2 block text-sm text-gray-700">
-                            Respect robots.txt (⚠️ many authenticated sites block crawlers)
-                        </label>
-                    </div>
-                    <div class="flex items-center">
-                        <input x-model="newDiscovery.excludePublicPages" type="checkbox" id="excludePublicPages"
-                               class="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded">
-                        <label for="excludePublicPages" class="ml-2 block text-sm text-gray-700">
-                            Exclude public pages (authenticated content only)
-                        </label>
-                    </div>
-                    <div x-show="newDiscovery.excludePublicPages" class="text-xs text-orange-600 bg-orange-50 border border-orange-200 rounded-lg p-3">
-                        <i class="fas fa-info-circle mr-1"></i>
-                        <strong>Note:</strong> This will only discover pages that require authentication. For sites without configured authentication, only known authenticated routes will be discovered.
-                    </div>
-                    
-                    <div class="flex items-center">
-                        <input x-model="newDiscovery.dynamicAuth" type="checkbox" id="dynamicAuth"
-                               class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
-                        <label for="dynamicAuth" class="ml-2 block text-sm text-gray-700">
-                            Dynamic authentication (prompt for login when needed)
-                        </label>
-                    </div>
-                    <div x-show="newDiscovery.dynamicAuth" class="text-xs text-blue-600 bg-blue-50 border border-blue-200 rounded-lg p-3">
-                        <i class="fas fa-magic mr-1"></i>
-                        <strong>Dynamic Auth:</strong> The crawler will automatically detect login pages and prompt you for credentials in real-time. Perfect for sites where you don't have pre-configured authentication.
-                    </div>
-                    <div class="flex justify-end space-x-3 pt-4">
-                        <button type="button" @click="showStartDiscovery = false" 
-                                class="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 transition-colors">
-                            Cancel
-                        </button>
-                        <button type="submit" :disabled="loading"
-                                class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors disabled:bg-gray-400">
-                            <span x-show="!loading">Start Discovery</span>
-                            <span x-show="loading">Starting...</span>
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-
-        <!-- View Discovery Pages Modal -->
-        <div x-show="showViewPages" 
-             x-transition:enter="transition ease-out duration-300"
-             x-transition:enter-start="opacity-0"
-             x-transition:enter-end="opacity-100"
-             x-transition:leave="transition ease-in duration-200"
-             x-transition:leave-start="opacity-100"
-             x-transition:leave-end="opacity-0"
-             class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
-             @click.self="closeViewPagesModal()">
-            <div class="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] flex flex-col">
-                <!-- Header -->
-                <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-start">
-                    <div>
-                        <h3 class="text-lg font-semibold text-gray-900">Discovered Pages</h3>
-                        <p class="text-sm text-gray-600 mt-1" x-show="selectedDiscovery">
-                            <span x-text="selectedDiscovery?.domain"></span> - 
-                            <span x-text="selectedDiscovery?.total_pages_found || discoveredPages.length"></span> pages found
-                        </p>
-                    </div>
-                    <button @click="closeViewPagesModal()" class="text-gray-400 hover:text-gray-600">
-                        <i class="fas fa-times text-xl"></i>
-                    </button>
-                </div>
-
-                <!-- Loading State -->
-                <div x-show="pagesLoading" class="flex-1 flex items-center justify-center p-8">
-                    <div class="text-center">
-                        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                        <p class="text-gray-600">Loading discovered pages...</p>
-                    </div>
-                </div>
-
-                <!-- Pages Table -->
-                <div x-show="!pagesLoading && discoveredPages.length > 0" class="flex-1 overflow-hidden flex flex-col">
-                    <!-- Filter/Search Bar -->
-                    <div class="px-6 py-3 border-b border-gray-200 bg-gray-50">
-                        <div class="flex items-center justify-between space-x-4">
-                            <div class="flex items-center space-x-4 flex-1">
-                                <input type="text" placeholder="Search pages..." 
-                                       class="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                <div class="flex items-center space-x-2">
-                                    <button @click="selectAllPages()" class="text-sm text-blue-600 hover:text-blue-800 hover:underline">
-                                        Include All
-                                    </button>
-                                    <span class="text-gray-400">|</span>
-                                    <button @click="excludeAllPages()" class="text-sm text-red-600 hover:text-red-800 hover:underline">
-                                        Exclude All
-                                    </button>
-                                    <span class="text-gray-400">|</span>
-                                    <button @click="clearExcludedPages()" class="text-sm text-gray-600 hover:text-gray-800 hover:underline">
-                                        Clear
-                                    </button>
-                                </div>
-                            </div>
-                            <div class="text-sm text-gray-600 text-right">
-                                <div><span x-text="getIncludedPagesCount()" class="font-medium text-green-600"></span> included</div>
-                                <div><span x-text="getExcludedPagesCount()" class="font-medium text-red-600"></span> excluded</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Table Container with Scroll -->
-                    <div class="flex-1 overflow-auto">
-                        <table class="min-w-full divide-y divide-gray-200">
-                            <thead class="bg-gray-50 sticky top-0">
-                                <tr>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-16">Include</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">URL</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Depth</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tests</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody class="bg-white divide-y divide-gray-200">
-                                <template x-for="page in discoveredPages" :key="page.id">
-                                    <tr class="hover:bg-gray-50" :class="{ 'bg-red-50': isPageExcluded(page.id) }">
-                                        <td class="px-4 py-3 w-16">
-                                            <div class="flex items-center justify-center">
-                                                <input type="checkbox" 
-                                                       :checked="!isPageExcluded(page.id)"
-                                                       @change="togglePageExclusion(page.id)"
-                                                       class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
-                                            </div>
-                                        </td>
-                                        <td class="px-4 py-3">
-                                            <span :class="{
-                                                'bg-green-100 text-green-800': page.http_status >= 200 && page.http_status < 300,
-                                                'bg-yellow-100 text-yellow-800': page.http_status >= 300 && page.http_status < 400,
-                                                'bg-red-100 text-red-800': page.http_status >= 400,
-                                                'bg-gray-100 text-gray-800': !page.http_status
-                                            }" class="px-2 py-1 text-xs font-medium rounded-full" x-text="page.http_status || 'Unknown'"></span>
-                                        </td>
-                                        <td class="px-4 py-3">
-                                            <div class="flex items-center">
-                                                <div class="flex-shrink-0 w-8 h-8">
-                                                    <div :class="{
-                                                        'bg-green-100 text-green-600': page.page_type === 'homepage',
-                                                        'bg-blue-100 text-blue-600': page.page_type === 'content',
-                                                        'bg-purple-100 text-purple-600': page.page_type === 'form',
-                                                        'bg-orange-100 text-orange-600': page.page_type === 'navigation',
-                                                        'bg-red-100 text-red-600': page.page_type === 'application',
-                                                        'bg-gray-100 text-gray-600': !['homepage', 'content', 'form', 'navigation', 'application'].includes(page.page_type)
-                                                    }" class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium">
-                                                        <i :class="{
-                                                            'fas fa-home': page.page_type === 'homepage',
-                                                            'fas fa-file-alt': page.page_type === 'content',
-                                                            'fas fa-edit': page.page_type === 'form',
-                                                            'fas fa-sitemap': page.page_type === 'navigation',
-                                                            'fas fa-cogs': page.page_type === 'application',
-                                                            'fas fa-globe': !['homepage', 'content', 'form', 'navigation', 'application'].includes(page.page_type)
-                                                        }"></i>
-                                                    </div>
-                                                </div>
-                                                <div class="ml-3 min-w-0 flex-1">
-                                                    <a :href="page.url" target="_blank" 
-                                                       class="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline truncate block">
-                                                        <span x-text="page.url"></span>
-                                                        <i class="fas fa-external-link-alt ml-1 text-xs"></i>
-                                                    </a>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td class="px-4 py-3 text-sm text-gray-900">
-                                            <div class="max-w-xs truncate" :title="page.title" x-text="page.title || 'No title'"></div>
-                                        </td>
-                                        <td class="px-4 py-3">
-                                            <span :class="{
-                                                'bg-green-100 text-green-800': page.page_type === 'homepage',
-                                                'bg-blue-100 text-blue-800': page.page_type === 'content',
-                                                'bg-purple-100 text-purple-800': page.page_type === 'form',
-                                                'bg-orange-100 text-orange-800': page.page_type === 'navigation',
-                                                'bg-red-100 text-red-800': page.page_type === 'application',
-                                                'bg-gray-100 text-gray-800': !['homepage', 'content', 'form', 'navigation', 'application'].includes(page.page_type)
-                                            }" class="px-2 py-1 text-xs font-medium rounded-full capitalize" x-text="page.page_type || 'other'"></span>
-                                        </td>
-                                        <td class="px-4 py-3 text-sm text-gray-500">
-                                            <div class="flex items-center">
-                                                <span class="mr-1" x-text="page.depth"></span>
-                                                <div class="w-16 bg-gray-200 rounded-full h-1">
-                                                    <div class="bg-blue-600 h-1 rounded-full" :style="`width: ${Math.min(100, (page.depth / 5) * 100)}%`"></div>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td class="px-4 py-3 text-sm text-gray-500">
-                                            <div class="flex items-center">
-                                                <span x-text="page.test_count || 0"></span>
-                                                <span class="ml-1 text-xs">tests</span>
-                                            </div>
-                                        </td>
-                                        <td class="px-4 py-3 text-sm">
-                                            <div class="flex space-x-2">
-                                                <button class="text-blue-600 hover:text-blue-800 text-xs" 
-                                                        @click="window.open(page.url, '_blank')">
-                                                    <i class="fas fa-external-link-alt mr-1"></i>Visit
-                                                </button>
-                                                <button class="text-green-600 hover:text-green-800 text-xs"
-                                                        @click="showNotification('Test this page feature coming soon!', 'info')">
-                                                    <i class="fas fa-flask mr-1"></i>Test
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                </template>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <!-- Empty State -->
-                <div x-show="!pagesLoading && discoveredPages.length === 0" class="flex-1 flex items-center justify-center p-8">
-                    <div class="text-center">
-                        <i class="fas fa-search text-gray-400 text-4xl mb-4"></i>
-                        <h3 class="text-lg font-medium text-gray-900 mb-2">No Pages Found</h3>
-                        <p class="text-gray-600">This discovery session hasn't found any pages yet.</p>
-                    </div>
-                </div>
-
-                <!-- All Pages Excluded State -->
-                <div x-show="!pagesLoading && discoveredPages.length > 0 && getIncludedPagesCount() === 0" class="flex-1 flex items-center justify-center p-8">
-                    <div class="text-center">
-                        <i class="fas fa-ban text-red-400 text-4xl mb-4"></i>
-                        <h3 class="text-lg font-medium text-gray-900 mb-2">All Pages Excluded</h3>
-                        <p class="text-gray-600 mb-4">You've excluded all pages from testing. No pages will be tested in this discovery session.</p>
-                        <button @click="selectAllPages()" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors">
-                            <i class="fas fa-check mr-2"></i>Include All Pages
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Footer -->
-                <div class="px-6 py-4 border-t border-gray-200 bg-gray-50">
-                    <div class="flex justify-between items-start mb-3">
-                        <div class="text-sm text-gray-600">
-                            <div x-show="selectedDiscovery" class="mb-2">
-                                Discovery completed: <span x-text="formatDate(selectedDiscovery?.completed_at)"></span>
-                            </div>
-                            <div class="flex items-center space-x-4">
-                                <div class="flex items-center space-x-2">
-                                    <div class="w-3 h-3 bg-white border border-gray-300 rounded"></div>
-                                    <span class="text-xs">Included in testing</span>
-                                </div>
-                                <div class="flex items-center space-x-2">
-                                    <div class="w-3 h-3 bg-red-50 border border-red-200 rounded"></div>
-                                    <span class="text-xs">Excluded from testing</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="text-right">
-                            <div class="text-sm font-medium mb-1">
-                                <span x-text="getIncludedPagesCount()" class="text-green-600"></span> pages will be tested
-                            </div>
-                            <div class="text-xs text-gray-500" x-show="getExcludedPagesCount() > 0">
-                                <span x-text="getExcludedPagesCount()"></span> pages excluded
-                            </div>
-                        </div>
-                    </div>
-                    <div class="flex justify-between items-center">
-                        <div class="text-xs text-gray-500">
-                            💡 Tip: Uncheck pages you don't want to include in accessibility testing
-                        </div>
-                        <div class="flex space-x-3">
-                            <button @click="showViewPages = false" 
-                                    class="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 transition-colors">
-                                Close
-                            </button>
-                            <button class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-                                    @click="showNotification('Export pages feature coming soon!', 'info')">
-                                <i class="fas fa-download mr-2"></i>Export Pages
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Delete Discovery Confirmation Modal -->
-        <div x-show="showDeleteDiscovery" 
-             x-transition:enter="transition ease-out duration-300"
-             x-transition:enter-start="opacity-0"
-             x-transition:enter-end="opacity-100"
-             x-transition:leave="transition ease-in duration-200"
-             x-transition:leave-start="opacity-100"
-             x-transition:leave-end="opacity-0"
-             class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
-             @click.self="cancelDeleteDiscovery()">
-            <div class="bg-white rounded-lg shadow-xl max-w-md w-full">
-                <div class="px-6 py-4 border-b border-gray-200">
-                    <div class="flex items-center">
-                        <div class="p-2 bg-red-100 rounded-full mr-3">
-                            <i class="fas fa-exclamation-triangle text-red-600"></i>
-                        </div>
-                        <h3 class="text-lg font-semibold text-gray-900">Delete Site Discovery</h3>
-                    </div>
-                </div>
-                <div class="p-6">
-                    <p class="text-gray-600 mb-4">
-                        Are you sure you want to delete the site discovery for 
-                        <strong x-text="discoveryToDelete?.domain" class="text-gray-900"></strong>?
-                    </p>
-                    <div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
-                        <div class="flex">
-                            <i class="fas fa-exclamation-triangle text-red-400 mr-3 mt-1 text-sm"></i>
-                            <div class="text-sm">
-                                <p class="text-red-800 font-medium">This action cannot be undone.</p>
-                                <p class="text-red-700 mt-1">
-                                    This will permanently delete:
-                                </p>
-                                <ul class="text-red-700 mt-2 space-y-1">
-                                    <li>• All discovered pages (<span x-text="discoveryToDelete?.total_pages_found || 0"></span> pages)</li>
-                                    <li>• Discovery session data and metadata</li>
-                                    <li>• Associated test results (if any)</li>
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="flex justify-end space-x-3">
-                        <button @click="cancelDeleteDiscovery()" 
-                                class="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 transition-colors">
-                            Cancel
-                        </button>
-                        <button @click="confirmDeleteDiscovery()" 
-                                :disabled="loading"
-                                class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors disabled:bg-red-400 disabled:cursor-not-allowed">
-                            <span x-show="!loading" class="flex items-center">
-                                <i class="fas fa-trash mr-2"></i>Delete Discovery
-                            </span>
-                            <span x-show="loading" class="flex items-center">
-                                <i class="fas fa-spinner fa-spin mr-2"></i>Deleting...
-                            </span>
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
         <!-- Delete Project Confirmation Modal -->
         <div x-show="showDeleteProject" 
              x-transition:enter="transition ease-out duration-300"
@@ -5089,7 +4410,7 @@
                                     This will permanently delete:
                                 </p>
                                 <ul class="text-red-700 mt-2 space-y-1">
-                                    <li>• All site discovery sessions and discovered pages</li>
+                                    <li>• All web crawler sessions and discovered pages</li>
                                     <li>• All test sessions and results</li>
                                     <li>• All project data and configuration</li>
                                 </ul>
@@ -5280,10 +4601,10 @@
                     </div>
                     
                     <!-- Enhanced scope display -->
-                    <div x-show="discoveries.filter(d => d.status === 'completed').length > 0" class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+                    <div x-show="webCrawlers.filter(c => c.project_id === selectedProject?.id && (c.status === 'completed' || c.status === 'active') && c.total_pages_found > 0).length > 0" class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
                         <div class="bg-white p-2 rounded text-center">
-                            <div class="text-sm font-bold text-blue-600" x-text="getSelectedDiscoveriesPageCounts().selectedDiscoveries"></div>
-                            <div class="text-xs text-blue-700">Selected Discoveries</div>
+                            <div class="text-sm font-bold text-blue-600" x-text="getSelectedDiscoveriesPageCounts().selectedCrawlers"></div>
+                            <div class="text-xs text-blue-700">Selected Crawlers</div>
                         </div>
                         <div class="bg-white p-2 rounded text-center">
                             <div class="text-sm font-bold text-green-600" x-text="getSelectedDiscoveriesPageCounts().included"></div>
@@ -5300,23 +4621,23 @@
                     </div>
                     
                     <!-- Warning messages -->
-                    <div x-show="discoveries.filter(d => d.status === 'completed').length === 0" class="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <div x-show="webCrawlers.filter(c => c.project_id === selectedProject?.id && (c.status === 'completed' || c.status === 'active') && c.total_pages_found > 0).length === 0" class="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
                         <div class="flex items-center">
                             <i class="fas fa-exclamation-triangle text-yellow-600 mr-2"></i>
                             <div>
                                 <p class="text-sm text-yellow-800">
                                     <strong>No completed discoveries found.</strong> 
-                                    Run Site Discovery first to find pages.
+                                    Use Web Crawler to discover pages first.
                                 </p>
-                                <button @click="showCreateSession = false; activeTab = 'discovery'" 
+                                <button @click="showCreateSession = false; activeTab = 'web-crawler'" 
                                         class="mt-2 text-sm text-yellow-700 hover:text-yellow-900 underline">
-                                    Go to Site Discovery →
+                                    Go to Web Crawler →
                                 </button>
                             </div>
                         </div>
                     </div>
                     
-                    <div x-show="discoveries.filter(d => d.status === 'completed').length > 0 && getSelectedDiscoveriesPageCounts().selectedDiscoveries === 0" class="p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                    <div x-show="webCrawlers.filter(c => c.project_id === selectedProject?.id && (c.status === 'completed' || c.status === 'active') && c.total_pages_found > 0).length > 0 && getSelectedDiscoveriesPageCounts().selectedCrawlers === 0" class="p-3 bg-orange-50 border border-orange-200 rounded-lg">
                         <div class="flex items-center">
                             <i class="fas fa-exclamation-triangle text-orange-600 mr-2"></i>
                             <div>
@@ -5324,7 +4645,7 @@
                                     <strong>No discoveries selected for testing.</strong> 
                                     Select completed discoveries first.
                                 </p>
-                                <button @click="showCreateSession = false; activeTab = 'discovery'" 
+                                <button @click="showCreateSession = false; activeTab = 'web-crawler'" 
                                         class="mt-2 text-sm text-orange-700 hover:text-orange-900 underline">
                                     Select Discoveries →
                                 </button>
@@ -5332,7 +4653,7 @@
                         </div>
                     </div>
                     
-                    <div x-show="getSelectedDiscoveriesPageCounts().selectedDiscoveries > 0 && getSelectedDiscoveriesPageCounts().included === 0" class="p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <div x-show="getSelectedDiscoveriesPageCounts().selectedCrawlers > 0 && getSelectedDiscoveriesPageCounts().included === 0" class="p-3 bg-red-50 border border-red-200 rounded-lg">
                         <div class="flex items-center">
                             <i class="fas fa-times-circle text-red-600 mr-2"></i>
                             <div>
@@ -5340,7 +4661,7 @@
                                     <strong>All pages excluded from testing.</strong> 
                                     Include some pages to enable testing.
                                 </p>
-                                <button @click="showCreateSession = false; activeTab = 'discovery'" 
+                                <button @click="showCreateSession = false; activeTab = 'web-crawler'" 
                                         class="mt-2 text-sm text-red-700 hover:text-red-900 underline">
                                     Review Page Selections →
                                 </button>
@@ -5349,7 +4670,7 @@
                     </div>
                     
                     <div x-show="getSelectedDiscoveriesPageCounts().included > 0" class="text-sm text-blue-700">
-                        <p>This session will test <strong x-text="getSelectedDiscoveriesPageCounts().included"></strong> pages from <strong x-text="getSelectedDiscoveriesPageCounts().selectedDiscoveries"></strong> selected discovery session(s).</p>
+                        <p>This session will test <strong x-text="getSelectedDiscoveriesPageCounts().included"></strong> pages from <strong x-text="getSelectedDiscoveriesPageCounts().selectedCrawlers"></strong> selected discovery session(s).</p>
                         <p class="text-xs mt-1 text-blue-600">
                             <span x-text="getSelectedDiscoveriesPageCounts().excluded"></span> pages excluded • 
                             <span x-text="getAllDiscoveriesPageCounts().total - getSelectedDiscoveriesPageCounts().total"></span> pages in unselected discoveries
@@ -6082,59 +5403,38 @@
         </div>
 
         <!-- Real-time Progress Indicators -->
-        <div x-show="discoveryProgress.active || testingProgress.active || crawlerProgress.active" 
+        <div x-show="testingProgress.active || crawlerProgress.active" 
              class="fixed bottom-4 right-4 bg-white rounded-lg shadow-lg border border-gray-200 p-4 max-w-sm z-40"
              x-transition:enter="transition ease-out duration-300"
              x-transition:enter-start="opacity-0 transform translate-y-2"
              x-transition:enter-end="opacity-100 transform translate-y-0">
             
             <!-- Discovery Progress -->
-            <div x-show="discoveryProgress.active" class="space-y-3">
-                <div class="flex items-center justify-between">
-                    <div class="flex items-center space-x-2">
-                        <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                        <span class="font-medium text-gray-900">Site Discovery</span>
-                    </div>
-                    <span class="text-sm font-semibold text-blue-600" x-text="`${discoveryProgress.percentage}%`"></span>
                 </div>
                 
                 <div class="w-full bg-gray-200 rounded-full h-2">
                     <div class="bg-blue-600 h-2 rounded-full transition-all duration-500"
-                         :style="`width: ${discoveryProgress.percentage}%`"></div>
                 </div>
                 
                 <div class="space-y-1">
-                    <div class="text-sm text-gray-600" x-text="discoveryProgress.message"></div>
                     <div class="text-xs text-gray-500 grid grid-cols-2 gap-2">
-                        <span>Pages: <span class="font-medium" x-text="discoveryProgress.pagesFound"></span></span>
-                        <span>Depth: <span class="font-medium" x-text="`${discoveryProgress.depth}/${discoveryProgress.maxDepth}`"></span></span>
                     </div>
-                    <div x-show="discoveryProgress.estimatedTimeRemaining" class="text-xs text-gray-500">
-                        ETA: <span class="font-medium" x-text="formatProgressTime(discoveryProgress.estimatedTimeRemaining)"></span>
                     </div>
                 </div>
                 
                 <!-- Discovery Statistics -->
-                <div x-show="discoveryProgress.statistics && discoveryProgress.statistics.urlsQueued > 0" 
                      class="bg-gray-50 rounded p-2 space-y-1">
                     <div class="text-xs font-medium text-gray-700">Statistics</div>
                     <div class="text-xs text-gray-600 grid grid-cols-2 gap-1">
-                        <span>Queued: <span class="font-medium" x-text="discoveryProgress.statistics.urlsQueued"></span></span>
-                        <span>Processed: <span class="font-medium" x-text="discoveryProgress.statistics.urlsProcessed"></span></span>
-                        <span>Skipped: <span class="font-medium" x-text="discoveryProgress.statistics.urlsSkipped"></span></span>
-                        <span>Avg Load: <span class="font-medium" x-text="`${discoveryProgress.statistics.averageLoadTime}ms`"></span></span>
                     </div>
                 </div>
                 
                 <!-- Discovery Errors -->
-                <div x-show="discoveryProgress.errors && discoveryProgress.errors.length > 0" 
                      class="bg-red-50 border border-red-200 rounded p-2">
                     <div class="text-xs font-medium text-red-700 mb-1">
                         <i class="fas fa-exclamation-triangle mr-1"></i>
-                        <span x-text="`${discoveryProgress.errors.length} Error(s)`"></span>
                     </div>
                     <div class="text-xs text-red-600 max-h-16 overflow-y-auto">
-                        <template x-for="error in discoveryProgress.errors.slice(-3)" :key="error.timestamp">
                             <div x-text="error.message" class="truncate"></div>
                         </template>
                     </div>
@@ -6269,7 +5569,7 @@
             </div>
             
             <!-- Close Button -->
-            <button @click="discoveryProgress.active = false; testingProgress.active = false; crawlerProgress.active = false" 
+            <button @click="testingProgress.active = false; crawlerProgress.active = false" 
                     class="absolute top-2 right-2 text-gray-400 hover:text-gray-600 text-sm">
                 <i class="fas fa-times"></i>
             </button>

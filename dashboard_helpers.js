@@ -1454,7 +1454,7 @@ function dashboard() {
             this.loadProjectDiscoveries();
             this.loadProjectTestSessions();
             this.loadProjectAuthConfigs();
-            this.loadSelectedDiscoveries();
+            this.loadWebCrawlers();
             // Switch to discovery tab after selection
             this.activeTab = 'discovery';
         },
@@ -1988,7 +1988,7 @@ function dashboard() {
             try {
                 const data = await this.apiCall(`/projects/${this.selectedProject.id}/discoveries/${discovery.id}/pages`);
                 this.discoveredPages = data.pages || [];
-                console.log(`📄 Loaded ${this.discoveredPages.length} discovered pages`);
+                console.log(`📄 Loaded ${this.crawlerPages.length} discovered pages`);
                 
                 // Clean up any stale excluded page references
                 this.cleanupExcludedPages();
@@ -2043,7 +2043,7 @@ function dashboard() {
         },
 
         getIncludedPagesCount() {
-            return this.discoveredPages.length - this.excludedPages.length;
+            return this.crawlerPages.length - this.excludedPages.length;
         },
 
         getExcludedPagesCount() {
@@ -2067,7 +2067,7 @@ function dashboard() {
         },
         
         cleanupExcludedPages() {
-            if (this.discoveredPages.length > 0 && this.excludedPages.length > 0) {
+            if (this.crawlerPages.length > 0 && this.excludedPages.length > 0) {
                 const validPageIds = this.discoveredPages.map(page => page.id);
                 const originalLength = this.excludedPages.length;
                 this.excludedPages = this.excludedPages.filter(pageId => validPageIds.includes(pageId));
@@ -2134,17 +2134,17 @@ function dashboard() {
         },
 
         // Helper functions for page counts
-        getDiscoveryPageCounts(discovery) {
+        getCrawlerPageCounts(crawler) {
             // Get excluded pages for this specific discovery without affecting current state
-            const key = `excludedPages_${discovery.id}`;
+            const key = `excludedPages_crawler_${crawler.id}`;
             const saved = localStorage.getItem(key);
             const excludedPages = saved ? JSON.parse(saved) : [];
             
-            let totalPages = discovery.total_pages_found || 0;
+            let totalPages = crawler.total_pages_found || 0;
             
             // If we're currently viewing this discovery's pages, use the actual loaded data for accuracy
-            if (this.selectedDiscovery && this.selectedDiscovery.id === discovery.id && this.discoveredPages.length > 0) {
-                totalPages = this.discoveredPages.length;
+            if (this.selectedCrawler && this.selectedCrawler.id === crawler.id && this.crawlerPages.length > 0) {
+                totalPages = this.crawlerPages.length;
             }
             
             // Ensure excluded count doesn't exceed total pages (data consistency issue)
@@ -2158,38 +2158,62 @@ function dashboard() {
             };
         },
 
-        getSelectedDiscoveriesPageCounts() {
+        getSelectedCrawlersPageCounts() {
+            // Only count crawlers for the SELECTED PROJECT
+            if (!this.selectedProject) {
+                return {
+                    total: 0,
+                    included: 0,
+                    excluded: 0,
+                    selectedCrawlers: 0
+                };
+            }
+
             let totalPages = 0;
             let totalIncluded = 0;
             let totalExcluded = 0;
+            let selectedCrawlerCount = 0;
 
-            this.selectedDiscoveries.forEach(discoveryId => {
-                const discovery = this.discoveries.find(d => d.id === discoveryId);
-                if (discovery && discovery.status === 'completed') {
-                    const counts = this.getDiscoveryPageCounts(discovery);
-                    totalPages += counts.total;
-                    totalIncluded += counts.included;
-                    totalExcluded += counts.excluded;
-                }
+            // Get completed crawlers for the selected project that have pages
+            const projectCrawlers = this.webCrawlers.filter(c => 
+                c.project_id === this.selectedProject.id &&
+                (c.status === 'completed' || c.status === 'active') &&
+                c.total_pages_found > 0
+            );
+
+            projectCrawlers.forEach(crawler => {
+                selectedCrawlerCount++;
+                const counts = this.getCrawlerPageCounts(crawler);
+                totalPages += counts.total;
+                totalIncluded += counts.included;
+                totalExcluded += counts.excluded;
             });
 
             return {
                 total: totalPages,
                 included: totalIncluded,
                 excluded: totalExcluded,
-                selectedDiscoveries: this.selectedDiscoveries.length
-            };
-        },
+                selectedCrawlers: selectedCrawlerCount
+            // Only count crawlers for the SELECTED PROJECT
+            if (!this.selectedProject) {
+                return {
+                    total: 0,
+                    included: 0,
+                    excluded: 0
+                };
+            }
 
-        getAllDiscoveriesPageCounts() {
             let totalPages = 0;
             let totalIncluded = 0;
             let totalExcluded = 0;
 
-            this.discoveries
-                .filter(d => d.status === 'completed')
-                .forEach(discovery => {
-                    const counts = this.getDiscoveryPageCounts(discovery);
+            this.webCrawlers
+                .filter(c => 
+                    c.project_id === this.selectedProject.id &&
+                    (c.status === 'completed' || c.status === 'active')
+                )
+                .forEach(crawler => {
+                    const counts = this.getCrawlerPageCounts(crawler);
                     totalPages += counts.total;
                     totalIncluded += counts.included;
                     totalExcluded += counts.excluded;
@@ -2199,23 +2223,25 @@ function dashboard() {
                 total: totalPages,
                 included: totalIncluded,
                 excluded: totalExcluded
+            };                included: totalIncluded,
+                excluded: totalExcluded
             };
         },
 
         // Refresh Testing tab data when selections change
         refreshTestingTabData() {
             // Force reactivity update by creating new objects
-            this.selectedDiscoveries = [...this.selectedDiscoveries];
+            this.webCrawlers = [...this.webCrawlers];
             
             // Reload selected discoveries from localStorage to ensure consistency
-            this.loadSelectedDiscoveries();
+            this.loadWebCrawlers();
             
             // Force refresh of discoveries array to trigger reactivity in displays
-            this.discoveries = [...this.discoveries];
+            // Web crawlers are already reloaded
             
             // Force recalculation of page counts by calling the function
             // This ensures the Testing tab shows up-to-date counts
-            const currentCounts = this.getSelectedDiscoveriesPageCounts();
+            const currentCounts = this.getSelectedCrawlersPageCounts();
             
             console.log(`🔄 Testing tab data refreshed: ${currentCounts.selectedDiscoveries} discoveries, ${currentCounts.included} pages for testing`);
         },
@@ -2348,7 +2374,7 @@ function dashboard() {
                 return 'Need Discovery';
             }
             
-            const selectedCounts = this.getSelectedDiscoveriesPageCounts();
+            const selectedCounts = this.getSelectedCrawlersPageCounts();
             if (selectedCounts.selectedDiscoveries === 0) {
                 return 'Select Discoveries';
             }
@@ -2393,7 +2419,7 @@ function dashboard() {
                 return `bg-gray-400 ${baseClass}`;
             }
             
-            const selectedCounts = this.getSelectedDiscoveriesPageCounts();
+            const selectedCounts = this.getSelectedCrawlersPageCounts();
             if (selectedCounts.selectedDiscoveries === 0 || selectedCounts.included === 0) {
                 return `bg-gray-400 ${baseClass}`;
             }
@@ -2418,7 +2444,7 @@ function dashboard() {
                 return;
             }
 
-            const selectedCounts = this.getSelectedDiscoveriesPageCounts();
+            const selectedCounts = this.getSelectedCrawlersPageCounts();
             if (selectedCounts.selectedDiscoveries === 0) {
                 this.showNotification('Please select completed discoveries for testing', 'warning');
                 return;
