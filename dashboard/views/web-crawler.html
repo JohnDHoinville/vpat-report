@@ -1,0 +1,388 @@
+<!-- Web Crawler Tab Component -->
+<div class="web-crawler-tab" >
+    <div class="space-y-6">
+        <!-- Header Section -->
+        <div class="flex justify-between items-center">
+            <div>
+                <h2 class="text-2xl font-bold text-gray-900">Web Crawler</h2>
+                <p class="text-gray-600">Advanced Playwright-based crawling with SAML authentication support</p>
+            </div>
+            <div class="flex space-x-2">
+                <button @click="loadWebCrawlers()" 
+                        class="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors">
+                    <i class="fas fa-refresh mr-2"></i>Refresh
+                </button>
+                <button @click="showCreateCrawler = true" 
+                        :disabled="!selectedProject"
+                        class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed">
+                    <i class="fas fa-plus mr-2"></i>New Crawler
+                </button>
+            </div>
+        </div>
+
+        <!-- Project Selection Notice -->
+        <div x-show="!selectedProject" class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <div class="flex">
+                <i class="fas fa-exclamation-triangle text-yellow-400 mr-3 mt-1"></i>
+                <div>
+                    <h3 class="text-sm font-medium text-yellow-800">Select a Project</h3>
+                    <p class="text-sm text-yellow-700 mt-1">Please select a project from the Projects tab to manage web crawlers.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Setup Cards (when no crawlers exist) -->
+        <div x-show="selectedProject && webCrawlers.length === 0" class="space-y-6">
+            <div>
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">Quick Setup</h3>
+                <p class="text-gray-600 mb-6">Choose a crawler template to get started quickly</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="bg-white rounded-lg shadow-md border border-gray-200 p-6 hover:shadow-lg transition-shadow cursor-pointer" 
+                     @click="quickSetupCrawler('saml')">
+                    <div class="flex items-center mb-4">
+                        <div class="p-3 bg-blue-100 rounded-lg">
+                            <i class="fas fa-university text-blue-600 text-xl"></i>
+                        </div>
+                        <div class="ml-4">
+                            <h3 class="text-lg font-semibold text-gray-900">SAML Sites</h3>
+                            <p class="text-sm text-gray-600">Enterprise authentication</p>
+                        </div>
+                    </div>
+                    <p class="text-gray-600 text-sm">Perfect for university portals, corporate intranets, and enterprise applications with SAML/SSO authentication.</p>
+                    <div class="mt-4 text-blue-600 text-sm font-medium">Quick Setup →</div>
+                </div>
+
+                <div class="bg-white rounded-lg shadow-md border border-gray-200 p-6 hover:shadow-lg transition-shadow cursor-pointer" 
+                     @click="quickSetupCrawler('public')">
+                    <div class="flex items-center mb-4">
+                        <div class="p-3 bg-green-100 rounded-lg">
+                            <i class="fas fa-globe text-green-600 text-xl"></i>
+                        </div>
+                        <div class="ml-4">
+                            <h3 class="text-lg font-semibold text-gray-900">Public Sites</h3>
+                            <p class="text-sm text-gray-600">No authentication needed</p>
+                        </div>
+                    </div>
+                    <p class="text-gray-600 text-sm">For public websites, marketing sites, and content portals that don't require authentication.</p>
+                    <div class="mt-4 text-green-600 text-sm font-medium">Quick Setup →</div>
+                </div>
+
+                <div class="bg-white rounded-lg shadow-md border border-gray-200 p-6 hover:shadow-lg transition-shadow cursor-pointer" 
+                     @click="quickSetupCrawler('advanced')">
+                    <div class="flex items-center mb-4">
+                        <div class="p-3 bg-purple-100 rounded-lg">
+                            <i class="fas fa-cogs text-purple-600 text-xl"></i>
+                        </div>
+                        <div class="ml-4">
+                            <h3 class="text-lg font-semibold text-gray-900">Advanced Setup</h3>
+                            <p class="text-sm text-gray-600">Custom configuration</p>
+                        </div>
+                    </div>
+                    <p class="text-gray-600 text-sm">For complex sites requiring custom authentication flows, wait conditions, or data extraction rules.</p>
+                    <div class="mt-4 text-purple-600 text-sm font-medium">Advanced Setup →</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Real-time Crawler Progress -->
+        <div x-show="crawlerProgress.active" class="bg-white rounded-lg shadow-md border border-purple-200 p-6">
+            <div class="space-y-3">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-2">
+                        <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-600"></div>
+                        <span class="font-medium text-gray-900">Web Crawler Active</span>
+                    </div>
+                    <span class="text-sm font-semibold text-purple-600" x-text="`${crawlerProgress.percentage || 0}%`"></span>
+                </div>
+                
+                <div class="w-full bg-gray-200 rounded-full h-2">
+                    <div class="bg-purple-600 h-2 rounded-full transition-all duration-500"
+                         :style="`width: ${crawlerProgress.percentage || 0}%`"></div>
+                </div>
+                
+                <div class="space-y-1">
+                    <div class="text-sm text-gray-600" x-text="crawlerProgress.message || 'Crawling in progress...'"></div>
+                    <div class="text-xs text-gray-500 grid grid-cols-2 gap-2">
+                        <span>Pages: <span class="font-medium" x-text="crawlerProgress.pagesFound || 0"></span></span>
+                        <span>Status: <span class="font-medium" x-text="crawlerProgress.status || 'running'"></span></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sessions Integration -->
+        <div x-show="selectedProject && webCrawlers.length > 0" class="space-y-4">
+            <div class="bg-gradient-to-r from-blue-50 to-green-50 rounded-lg border border-blue-200 p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-900 flex items-center">
+                            <i class="fas fa-arrow-right text-blue-600 mr-2"></i>
+                            Send to Compliance Sessions
+                        </h3>
+                        <p class="text-sm text-gray-600 mt-1">Select a web crawler's discovered pages to create a new compliance testing session</p>
+                    </div>
+                </div>
+                
+                <div class="flex items-center space-x-4">
+                    <div class="flex-1">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Select Crawler Data:</label>
+                        <select x-model="selectedCrawlerForSessions" 
+                                class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                            <option value="">Choose a crawler...</option>
+                            <template x-for="crawler in webCrawlers" :key="crawler.id">
+                                <option :value="crawler.id" x-text="`${crawler.name} (${crawler.total_pages_discovered || 0} pages)`"></option>
+                            </template>
+                        </select>
+                    </div>
+                    <div class="flex space-x-3">
+                        <button @click="previewCrawlerForSessions()" 
+                                :disabled="!selectedCrawlerForSessions"
+                                :class="selectedCrawlerForSessions ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-400 cursor-not-allowed'"
+                                class="text-white px-4 py-2 rounded text-sm transition-colors">
+                            <i class="fas fa-eye mr-1"></i>Preview & Select Pages
+                        </button>
+                        <button @click="sendToSessions()" 
+                                :disabled="!selectedCrawlerForSessions"
+                                :class="selectedCrawlerForSessions ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-400 cursor-not-allowed'"
+                                class="text-white px-4 py-2 rounded text-sm transition-colors">
+                            <i class="fas fa-send mr-1"></i>Send to Sessions
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Crawlers List -->
+        <div x-show="selectedProject && webCrawlers.length > 0" class="space-y-4">
+            <div class="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold">Web Crawlers for <span x-text="selectedProject?.name" class="text-blue-600"></span></h3>
+                    <div class="flex space-x-2">
+                        <button @click="showCreateCrawler = true" 
+                                class="bg-purple-600 text-white px-3 py-2 rounded text-sm hover:bg-purple-700 transition-colors">
+                            <i class="fas fa-plus mr-1"></i>New Crawler
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Crawlers Table -->
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Crawler</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Base URL</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Auth Type</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pages Found</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Run</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            <template x-for="crawler in webCrawlers" :key="crawler.id">
+                                <tr class="hover:bg-gray-50">
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="flex items-center">
+                                            <div class="flex-shrink-0 h-10 w-10">
+                                                <div :class="getCrawlerStatusColor(crawler.status)" 
+                                                     class="h-10 w-10 rounded-full flex items-center justify-center text-white">
+                                                    <i class="fas fa-spider"></i>
+                                                </div>
+                                            </div>
+                                            <div class="ml-4">
+                                                <div class="text-sm font-medium text-gray-900" x-text="crawler.name"></div>
+                                                <div class="text-sm text-gray-500" x-text="crawler.description"></div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <a :href="crawler.base_url" target="_blank" 
+                                           class="text-sm text-blue-600 hover:text-blue-800 hover:underline">
+                                            <span x-text="crawler.base_url"></span>
+                                            <i class="fas fa-external-link-alt ml-1 text-xs"></i>
+                                        </a>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span :class="getAuthTypeBadgeClass(crawler.auth_type)" 
+                                              class="px-2 py-1 text-xs font-medium rounded-full" 
+                                              x-text="getAuthTypeDisplay(crawler.auth_type)"></span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span :class="getStatusBadgeClass(crawler.status)" 
+                                              class="px-2 py-1 text-xs font-medium rounded-full" 
+                                              x-text="crawler.status"></span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                        <span x-text="crawler.total_pages_discovered || 0"></span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                        <span x-text="formatDate(crawler.last_run_at)"></span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                                        <button @click="startCrawler(crawler)" 
+                                                :disabled="crawler.status === 'running'"
+                                                :class="crawler.status === 'running' ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'"
+                                                class="text-white px-3 py-1 rounded text-xs transition-colors">
+                                            <i :class="crawler.status === 'running' ? 'fas fa-spinner fa-spin' : 'fas fa-play'"></i>
+                                            <span x-text="crawler.status === 'running' ? 'Running' : 'Start'"></span>
+                                        </button>
+                                        <button @click="viewCrawlerPages(crawler)" 
+                                                class="bg-blue-600 text-white px-3 py-1 rounded text-xs hover:bg-blue-700 transition-colors">
+                                            <i class="fas fa-list mr-1"></i>Pages
+                                        </button>
+                                        <button @click="editCrawler(crawler)" 
+                                                class="bg-yellow-600 text-white px-3 py-1 rounded text-xs hover:bg-yellow-700 transition-colors">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button @click="deleteCrawler(crawler)" 
+                                                :disabled="crawler.status === 'running'"
+                                                class="bg-red-600 text-white px-3 py-1 rounded text-xs hover:bg-red-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Empty State -->
+        <div x-show="selectedProject && webCrawlers.length === 0 && !loading" class="text-center py-12">
+            <i class="fas fa-spider text-gray-400 text-6xl mb-4"></i>
+            <h3 class="text-lg font-medium text-gray-900 mb-2">No crawlers configured</h3>
+            <p class="text-gray-500 mb-4">Create your first web crawler to start discovering pages for accessibility testing.</p>
+            <button @click="showCreateCrawler = true" class="bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition-colors">
+                <i class="fas fa-plus mr-2"></i>Create Web Crawler
+            </button>
+        </div>
+
+        <!-- Loading State -->
+        <div x-show="loading" class="text-center py-12">
+            <div class="loading-spinner"></div>
+            <p class="text-gray-500 mt-4">Loading web crawlers...</p>
+        </div>
+    </div>
+
+    <!-- Create Crawler Modal -->
+    <div x-show="showCreateCrawler" 
+         class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-semibold text-gray-900">Create Web Crawler</h3>
+                <p class="text-sm text-gray-600 mt-1">Setup a new Playwright-based web crawler</p>
+            </div>
+            <form @submit.prevent="createCrawler()" class="p-6 space-y-6">
+                <!-- Basic Configuration -->
+                <div class="space-y-4">
+                    <h4 class="text-md font-medium text-gray-900">Basic Configuration</h4>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Crawler Name</label>
+                            <input x-model="newCrawler.name" type="text" required 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                   placeholder="e.g., Main Site Crawler">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Browser Type</label>
+                            <select x-model="newCrawler.browser_type" 
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500">
+                                <option value="chromium">Chromium (Recommended)</option>
+                                <option value="firefox">Firefox</option>
+                                <option value="webkit">WebKit (Safari)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Base URL</label>
+                        <input x-model="newCrawler.base_url" type="url" required 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                               :placeholder="selectedProject?.primary_url || 'https://example.com'">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                        <textarea x-model="newCrawler.description" rows="2"
+                                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                  placeholder="Brief description of what this crawler will do"></textarea>
+                    </div>
+                </div>
+
+                <!-- Authentication -->
+                <div class="space-y-4">
+                    <h4 class="text-md font-medium text-gray-900">Authentication</h4>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Authentication Type</label>
+                        <select x-model="newCrawler.auth_type" 
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500">
+                            <option value="none">No Authentication</option>
+                            <option value="saml">SAML/SSO</option>
+                            <option value="basic">Username/Password</option>
+                            <option value="custom">Custom Authentication</option>
+                        </select>
+                    </div>
+
+                    <!-- Basic Auth Fields -->
+                    <div x-show="newCrawler.auth_type === 'basic'" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Username</label>
+                            <input x-model="newCrawler.auth_username" type="text"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                            <input x-model="newCrawler.auth_password" type="password"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Crawling Configuration -->
+                <div class="space-y-4">
+                    <h4 class="text-md font-medium text-gray-900">Crawling Configuration</h4>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Max Pages</label>
+                            <input x-model="newCrawler.max_pages" type="number" min="1" max="1000" 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                   value="100">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Max Depth</label>
+                            <input x-model="newCrawler.max_depth" type="number" min="1" max="10" 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                   value="3">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Request Delay (ms)</label>
+                            <input x-model="newCrawler.request_delay_ms" type="number" min="0" max="10000" 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                   value="1000">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex justify-end space-x-3 pt-6 border-t border-gray-200">
+                    <button type="button" @click="showCreateCrawler = false" 
+                            class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors">
+                        Cancel
+                    </button>
+                    <button type="submit" :disabled="loading"
+                            class="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors disabled:opacity-50">
+                        <i class="fas fa-spider mr-2"></i>
+                        <span x-show="!loading">Create Crawler</span>
+                        <span x-show="loading">Creating...</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div> 

@@ -3,55 +3,46 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VPAT Dashboard - Accessibility Testing Platform</title>
+    <title>VPAT Dashboard</title>
     
-    <!-- Alpine.js Core -->
+    <!-- Alpine.js -->
     <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
     
-    <!-- Socket.IO for WebSocket -->
-    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- Chart.js for Analytics -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    
-    <!-- Font Awesome Icons -->
+    <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
-    <!-- Core Styles -->
     <style>
-        * {
+        [x-cloak] { display: none !important; }
+        
+        html, body {
             margin: 0;
             padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            color: #333;
+            height: 100%;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
         }
         
         .dashboard-container {
+            min-height: 100vh;
             display: flex;
-            height: 100vh;
-            overflow: hidden;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         }
         
-        /* Sidebar Styles */
         .sidebar {
             width: 280px;
             background: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(20px);
             border-right: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 2px 0 20px rgba(0, 0, 0, 0.1);
             display: flex;
             flex-direction: column;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
         }
         
         .sidebar-header {
-            padding: 2rem 1.5rem;
-            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+            padding: 2rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
         }
         
         .sidebar-logo {
@@ -88,42 +79,50 @@
         /* Navigation Styles */
         .sidebar-nav {
             flex: 1;
-            padding: 1.5rem 0;
-            overflow-y: auto;
+            padding: 1rem 0;
         }
         
         .nav-item {
-            display: flex;
-            align-items: center;
-            padding: 0.875rem 1.5rem;
+            display: block;
+            width: 100%;
+            padding: 0.75rem 2rem;
             color: #4a5568;
             text-decoration: none;
             transition: all 0.2s ease;
-            border-left: 4px solid transparent;
-            gap: 0.75rem;
+            border: none;
+            background: none;
+            text-align: left;
+            cursor: pointer;
+            font-size: 0.875rem;
             font-weight: 500;
         }
         
         .nav-item:hover {
             background: rgba(102, 126, 234, 0.1);
             color: #667eea;
-            border-left-color: rgba(102, 126, 234, 0.3);
         }
         
         .nav-item.active {
-            background: rgba(102, 126, 234, 0.15);
-            color: #667eea;
-            border-left-color: #667eea;
-            font-weight: 600;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            position: relative;
         }
         
-        .nav-icon {
-            font-size: 1.125rem;
-            width: 1.5rem;
-            text-align: center;
+        .nav-item.active::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background: #4c51bf;
         }
         
-        /* Main Content Styles */
+        .nav-item i {
+            width: 1.25rem;
+            margin-right: 0.75rem;
+        }
+        
         .main-content {
             flex: 1;
             display: flex;
@@ -153,7 +152,7 @@
         }
         
         .page-subtitle {
-            font-size: 1rem;
+            font-size: 0.875rem;
             color: #718096;
             margin: 0.25rem 0 0 0;
         }
@@ -161,14 +160,14 @@
         .header-right {
             display: flex;
             align-items: center;
-            gap: 1rem;
+            gap: 1.5rem;
         }
         
         .status-indicator {
             display: flex;
             align-items: center;
             gap: 0.5rem;
-            font-size: 0.875rem;
+            font-size: 0.75rem;
             color: #4a5568;
         }
         
@@ -296,56 +295,48 @@
                 </div>
             </div>
             
-            <!-- Navigation Tabs -->
-            <nav class="flex space-x-8" aria-label="Tabs">
-                <button @click="switchTab('projects')" 
-                        :class="activeTab === 'projects' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
-                        class="py-4 px-1 border-b-2 font-medium text-sm transition-colors">
-                    <i class="fas fa-folder mr-2"></i>Projects
+            <!-- Navigation Menu -->
+            <nav class="sidebar-nav">
+                <button @click="activeTab = 'projects'" 
+                        :class="activeTab === 'projects' ? 'nav-item active' : 'nav-item'">
+                    <i class="fas fa-folder"></i>Projects
                 </button>
-                <button @click="switchTab('authentication')" 
-                        :class="activeTab === 'authentication' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
-                        class="py-4 px-1 border-b-2 font-medium text-sm transition-colors">
-                    <i class="fas fa-key mr-2"></i>Authentication
+                <button @click="activeTab = 'authentication'" 
+                        :class="activeTab === 'authentication' ? 'nav-item active' : 'nav-item'">
+                    <i class="fas fa-key"></i>Authentication
                 </button>
-                <button @click="switchTab('web-crawler')" 
-                        :class="activeTab === 'web-crawler' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
-                        class="py-4 px-1 border-b-2 font-medium text-sm transition-colors">
-                    <i class="fas fa-spider mr-2"></i>Web Crawler
+                <button @click="activeTab = 'web-crawler'" 
+                        :class="activeTab === 'web-crawler' ? 'nav-item active' : 'nav-item'">
+                    <i class="fas fa-spider"></i>Web Crawler
                 </button>
-                <button @click="switchTab('automated-testing')" 
-                        :class="activeTab === 'automated-testing' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
-                        class="py-4 px-1 border-b-2 font-medium text-sm transition-colors">
-                    <i class="fas fa-robot mr-2"></i>Automated Testing
+                <button @click="activeTab = 'testing-sessions'" 
+                        :class="activeTab === 'testing-sessions' ? 'nav-item active' : 'nav-item'">
+                    <i class="fas fa-tasks"></i>Testing Sessions
                 </button>
-                <button @click="switchTab('manual-testing')" 
-                        :class="activeTab === 'manual-testing' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
-                        class="py-4 px-1 border-b-2 font-medium text-sm transition-colors">
-                    <i class="fas fa-hand-paper mr-2"></i>Manual Testing
+                <button @click="activeTab = 'testing'" 
+                        :class="activeTab === 'testing' ? 'nav-item active' : 'nav-item'">
+                    <i class="fas fa-robot"></i>Automated Testing
                 </button>
-                <button @click="switchTab('compliance-sessions')" 
-                        :class="activeTab === 'compliance-sessions' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
-                        class="py-4 px-1 border-b-2 font-medium text-sm transition-colors">
-                    <i class="fas fa-tasks mr-2"></i>Compliance Sessions
+                <button @click="activeTab = 'manual-testing'" 
+                        :class="activeTab === 'manual-testing' ? 'nav-item active' : 'nav-item'">
+                    <i class="fas fa-hand-paper"></i>Manual Testing
                 </button>
-                <button @click="switchTab('results')" 
-                        :class="activeTab === 'results' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
-                        class="py-4 px-1 border-b-2 font-medium text-sm transition-colors">
-                    <i class="fas fa-chart-bar mr-2"></i>Results
+                <button @click="activeTab = 'results'" 
+                        :class="activeTab === 'results' ? 'nav-item active' : 'nav-item'">
+                    <i class="fas fa-chart-bar"></i>Results
                 </button>
-                <button @click="switchTab('analytics')" 
-                        :class="activeTab === 'analytics' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
-                        class="py-4 px-1 border-b-2 font-medium text-sm transition-colors">
-                    <i class="fas fa-chart-line mr-2"></i>Analytics
+                <button @click="activeTab = 'analytics'" 
+                        :class="activeTab === 'analytics' ? 'nav-item active' : 'nav-item'">
+                    <i class="fas fa-analytics"></i>Analytics
                 </button>
             </nav>
             
-            <!-- Footer Status -->
-            <div style="padding: 1.5rem; border-top: 1px solid rgba(0, 0, 0, 0.1);">
-                <div style="background: rgba(102, 126, 234, 0.1); border-radius: 0.5rem; padding: 0.75rem;">
-                    <div class="status-indicator">
-                        <div :class="apiConnected ? 'status-dot status-connected' : 'status-dot status-disconnected'"></div>
-                        <span x-text="apiConnected ? 'System Online' : 'System Offline'"></span>
+            <!-- Sidebar Footer -->
+            <div style="padding: 1rem 2rem; border-top: 1px solid rgba(255, 255, 255, 0.2);">
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <div style="font-size: 0.75rem; color: #4a5568; font-weight: 500;">
+                        Status: <span :class="apiConnected ? 'text-green-600' : 'text-red-600'" 
+                                      x-text="apiConnected ? 'Connected' : 'Disconnected'"></span>
                     </div>
                     <div style="font-size: 0.75rem; color: #718096; margin-top: 0.25rem;">
                         v2.0.0 • Modular Alpine.js
@@ -391,75 +382,91 @@
                     </div>
                     
                     <!-- Projects Component -->
-                    <div x-show="activeTab === 'projects' && !loading" id="projects-component">
-                        <div x-data="projectsComponent()" x-init="init()">
-                            <!-- Projects Component Content will be loaded here -->
-                            <div x-html="Alpine.store('components').projects"></div>
+                    <div x-show="activeTab === 'projects' && !loading">
+                        <!-- Debug info -->
+                        <div x-show="!Alpine.store('components').projects" class="text-center py-8">
+                            <div class="loading-spinner"></div>
+                            <p class="loading-text">Loading Projects component...</p>
                         </div>
+                        <!-- Actual component content -->
+                        <div x-show="Alpine.store('components').projects" x-html="Alpine.store('components').projects"></div>
                     </div>
                     
                     <!-- Authentication Component -->
-                    <div x-show="activeTab === 'authentication' && !loading" id="authentication-component">
-                        <div x-data="authenticationComponent()" x-init="init()">
-                            <!-- Authentication Component Content will be loaded here -->
-                            <div x-html="Alpine.store('components').authentication"></div>
+                    <div x-show="activeTab === 'authentication' && !loading">
+                        <!-- Debug info -->
+                        <div x-show="!Alpine.store('components').authentication" class="text-center py-8">
+                            <div class="loading-spinner"></div>
+                            <p class="loading-text">Loading Authentication component...</p>
                         </div>
+                        <!-- Actual component content -->
+                        <div x-show="Alpine.store('components').authentication" x-html="Alpine.store('components').authentication"></div>
                     </div>
                     
                     <!-- Web Crawler Component -->
-                    <div x-show="activeTab === 'web-crawler' && !loading" id="web-crawler-component">
-                        <div x-data="webCrawlerComponent()" x-init="init()">
-                            <!-- Web Crawler Component Content will be loaded here -->
-                            <div x-html="Alpine.store('components')['web-crawler']"></div>
+                    <div x-show="activeTab === 'web-crawler' && !loading">
+                        <!-- Debug info -->
+                        <div x-show="!Alpine.store('components')['web-crawler']" class="text-center py-8">
+                            <div class="loading-spinner"></div>
+                            <p class="loading-text">Loading Web Crawler component...</p>
                         </div>
+                        <!-- Actual component content -->
+                        <div x-show="Alpine.store('components')['web-crawler']" x-html="Alpine.store('components')['web-crawler']"></div>
+                    </div>
+                    
+                    <!-- Testing Sessions Component -->
+                    <div x-show="activeTab === 'testing-sessions' && !loading">
+                        <!-- Debug info -->
+                        <div x-show="!Alpine.store('components')['testing-sessions']" class="text-center py-8">
+                            <div class="loading-spinner"></div>
+                            <p class="loading-text">Loading Testing Sessions component...</p>
+                        </div>
+                        <!-- Actual component content -->
+                        <div x-show="Alpine.store('components')['testing-sessions']" x-html="Alpine.store('components')['testing-sessions']"></div>
                     </div>
                     
                     <!-- Automated Testing Component -->
-                    <div x-show="activeTab === 'automated-testing' && !loading" id="automated-testing-component">
-                        <div x-data="automatedTestingComponent()" x-init="init()">
-                            <!-- Automated Testing Component Content will be loaded here -->
-                            <div x-html="Alpine.store('components')['automated-testing']"></div>
+                    <div x-show="activeTab === 'testing' && !loading">
+                        <!-- Debug info -->
+                        <div x-show="!Alpine.store('components').testing" class="text-center py-8">
+                            <div class="loading-spinner"></div>
+                            <p class="loading-text">Loading Automated Testing component...</p>
                         </div>
+                        <!-- Actual component content -->
+                        <div x-show="Alpine.store('components').testing" x-html="Alpine.store('components').testing"></div>
                     </div>
                     
                     <!-- Manual Testing Component -->
-                    <div x-show="activeTab === 'manual-testing' && !loading" id="manual-testing-component">
-                        <div x-data="manualTestingComponent()" x-init="init()">
-                            <!-- Manual Testing Component Content will be loaded here -->
-                            <div x-html="Alpine.store('components')['manual-testing']"></div>
+                    <div x-show="activeTab === 'manual-testing' && !loading">
+                        <!-- Debug info -->
+                        <div x-show="!Alpine.store('components')['manual-testing']" class="text-center py-8">
+                            <div class="loading-spinner"></div>
+                            <p class="loading-text">Loading Manual Testing component...</p>
                         </div>
-                    </div>
-                    
-                    <!-- Compliance Sessions Component -->
-                    <div x-show="activeTab === 'compliance-sessions' && !loading" id="compliance-sessions-component">
-                        <div x-data="complianceSessionsComponent()" x-init="init()">
-                            <!-- Compliance Sessions Component Content will be loaded here -->
-                            <div x-html="Alpine.store('components')['compliance-sessions']"></div>
-                        </div>
+                        <!-- Actual component content -->
+                        <div x-show="Alpine.store('components')['manual-testing']" x-html="Alpine.store('components')['manual-testing']"></div>
                     </div>
                     
                     <!-- Results Component -->
-                    <div x-show="activeTab === 'results' && !loading" id="results-component">
-                        <div x-data="resultsComponent()" x-init="init()">
-                            <!-- Results Component Content will be loaded here -->
-                            <div x-html="Alpine.store('components')['results']"></div>
+                    <div x-show="activeTab === 'results' && !loading">
+                        <!-- Debug info -->
+                        <div x-show="!Alpine.store('components').results" class="text-center py-8">
+                            <div class="loading-spinner"></div>
+                            <p class="loading-text">Loading Results component...</p>
                         </div>
+                        <!-- Actual component content -->
+                        <div x-show="Alpine.store('components').results" x-html="Alpine.store('components').results"></div>
                     </div>
                     
                     <!-- Analytics Component -->
-                    <div x-show="activeTab === 'analytics' && !loading" id="analytics-component">
-                        <div x-data="analyticsComponent()" x-init="init()">
-                            <!-- Analytics Component Content will be loaded here -->
-                            <div x-html="Alpine.store('components')['analytics']"></div>
+                    <div x-show="activeTab === 'analytics' && !loading">
+                        <!-- Debug info -->
+                        <div x-show="!Alpine.store('components').analytics" class="text-center py-8">
+                            <div class="loading-spinner"></div>
+                            <p class="loading-text">Loading Analytics component...</p>
                         </div>
-                    </div>
-                    
-                    <!-- All Components Loaded Message -->
-                    <div x-show="activeTab && !loading && !['projects', 'authentication', 'web-crawler', 'automated-testing', 'manual-testing', 'compliance-sessions', 'results', 'analytics'].includes(activeTab)" 
-                         class="text-center py-12">
-                        <i class="fas fa-check-circle text-green-600 text-6xl mb-4"></i>
-                        <h3 class="text-lg font-medium text-gray-900 mb-2">All Components Loaded</h3>
-                        <p class="text-gray-500">The modular dashboard is complete with 8 components.</p>
+                        <!-- Actual component content -->
+                        <div x-show="Alpine.store('components').analytics" x-html="Alpine.store('components').analytics"></div>
                     </div>
                 </div>
             </div>
@@ -467,50 +474,60 @@
         
         <!-- Notifications Container -->
         <div class="notifications-container">
-            <template x-for="notification in notifications" :key="notification.id">
-                <div :class="`notification ${notification.type} ${notification.visible ? 'show' : ''}`">
-                    <div class="notification-title" x-text="notification.title"></div>
-                    <div class="notification-message" x-text="notification.message"></div>
-                </div>
-            </template>
+            <div x-show="notification.show" 
+                 :class="`notification ${notification.type} show`"
+                 x-transition:enter="transition ease-out duration-300"
+                 x-transition:enter-start="transform translate-x-full"
+                 x-transition:enter-end="transform translate-x-0"
+                 x-transition:leave="transition ease-in duration-200"
+                 x-transition:leave-start="transform translate-x-0"
+                 x-transition:leave-end="transform translate-x-full">
+                <div class="notification-title" x-text="notification.title"></div>
+                <div class="notification-message" x-text="notification.message"></div>
+            </div>
         </div>
     </div>
+
+    <!-- Load Components -->
+    <div id="auth-modals-component"></div>
+    <div id="project-modals-component"></div>
     
-    <!-- Core JavaScript Modules -->
-    <script src="js/core/alpine-core.js"></script>
-    <script src="js/core/api-client.js"></script>
-    <script src="js/core/websocket-manager.js"></script>
-    
-    <!-- Component JavaScript Modules -->
-    <script src="js/components/projects.js"></script>
-    <script src="js/components/authentication.js"></script>
-    <script src="js/components/web-crawler.js"></script>
-    <script src="js/components/automated-testing.js"></script>
-    <script src="js/components/manual-testing.js"></script>
-    <script src="js/components/compliance-sessions.js"></script>
-    <script src="js/components/results.js"></script>
-    <script src="js/components/analytics.js"></script>
+    <!-- Main Dashboard JavaScript - Now Inline -->
     
     <script>
-        // Component Loader System
-        Alpine.store('components', {
+        // Initialize Alpine stores before anything else
+        document.addEventListener('alpine:init', () => {
+            console.log('🔧 Initializing Alpine stores...');
+            
+            // Component Loader System
+            Alpine.store('components', {
             projects: null,
             authentication: null,
             'web-crawler': null,
-            'automated-testing': null,
+            'testing-sessions': null,
+            'testing': null,
             'manual-testing': null,
-            'compliance-sessions': null,
             'results': null,
             'analytics': null,
             
             async loadComponent(name) {
                 try {
-                    const response = await fetch(`components/${name}-tab.html`);
+                    // Try to load from views directory first, then components
+                    let response = await fetch(`views/${name}.html`);
+                    if (!response.ok) {
+                        response = await fetch(`components/${name}-tab.html`);
+                    }
+                    
                     if (response.ok) {
                         this[name] = await response.text();
-                        console.log(`✅ Loaded component: ${name}`);
+                        console.log(`✅ Loaded component: ${name}`, this[name].substring(0, 100) + '...');
                     } else {
                         console.warn(`Failed to load component: ${name}`);
+                        // Fallback content
+                        this[name] = `<div class="space-y-6">
+                            <h2 class="text-2xl font-bold text-gray-900">${name.charAt(0).toUpperCase() + name.slice(1)}</h2>
+                            <p class="text-gray-600">This component is being developed...</p>
+                        </div>`;
                     }
                 } catch (error) {
                     console.error(`Error loading component ${name}:`, error);
@@ -518,25 +535,106 @@
             }
         });
         
+        // Load modal components
+        async function loadModalComponents() {
+            console.log('🔧 Modal loading temporarily disabled for testing');
+            // Temporarily disabled to eliminate Alpine.js errors
+            return;
+        }
+        
         // Load components on page ready
         document.addEventListener('DOMContentLoaded', async () => {
             const componentStore = Alpine.store('components');
-            await componentStore.loadComponent('projects');
-            await componentStore.loadComponent('authentication');
-            await componentStore.loadComponent('web-crawler');
-            await componentStore.loadComponent('automated-testing');
-            await componentStore.loadComponent('manual-testing');
-            await componentStore.loadComponent('compliance-sessions');
-            await componentStore.loadComponent('results');
-            await componentStore.loadComponent('analytics');
-        });
+            
+            // Load all components
+            await Promise.all([
+                componentStore.loadComponent('projects'),
+                componentStore.loadComponent('authentication'),
+                componentStore.loadComponent('web-crawler'),
+                componentStore.loadComponent('testing-sessions'),
+                componentStore.loadComponent('testing'),
+                componentStore.loadComponent('manual-testing'),
+                componentStore.loadComponent('results'),
+                componentStore.loadComponent('analytics'),
+                loadModalComponents()
+                         ]);
+             
+                          console.log('✅ All components loaded');
+             console.log('📊 Components state:', Alpine.store('components'));
+         });
+         
+         }); // Close alpine:init
         
         // Alpine.js Dashboard Extensions
         function dashboard() {
-            const dashboardStore = window.dashboard ? window.dashboard() : {};
-            
             return {
-                ...dashboardStore,
+                // Core state
+                activeTab: 'projects',
+                loading: true,
+                apiConnected: false,
+                wsConnected: false,
+                selectedProject: null,
+                
+                // Authentication state
+                isAuthenticated: false,
+                user: null,
+                token: null,
+                
+                // Modal states - Authentication Modals
+                showLogin: false,
+                showProfile: false,
+                showChangePassword: false,
+                showSessions: false,
+                showSetupAuth: false,
+                
+                // Project Modals
+                showCreateProject: false,
+                showDeleteProject: false,
+                showDeleteDiscovery: false,
+                showDeleteSession: false,
+                
+                // Data
+                projects: [],
+                sessions: [],
+                
+                // Form Data
+                loginForm: {
+                    username: '',
+                    password: ''
+                },
+                
+                profileForm: {
+                    full_name: '',
+                    email: ''
+                },
+                
+                passwordForm: {
+                    current_password: '',
+                    new_password: '',
+                    confirm_password: ''
+                },
+                
+                newProject: {
+                    name: '',
+                    description: '',
+                    primary_url: '',
+                    compliance_standard: 'wcag_2_1_aa'
+                },
+                
+                projectToDelete: null,
+                
+                // Error states
+                loginError: null,
+                profileError: null,
+                passwordError: null,
+                
+                // Notification system
+                notification: {
+                    show: false,
+                    type: 'info',
+                    title: '',
+                    message: ''
+                },
                 
                 // Page title and description helpers
                 getPageTitle() {
@@ -544,9 +642,9 @@
                         'projects': 'Projects Overview',
                         'authentication': 'Authentication Configuration',
                         'web-crawler': 'Web Crawler',
-                        'automated-testing': 'Automated Testing',
+                        'testing-sessions': 'Testing Sessions',
+                        'testing': 'Automated Testing',
                         'manual-testing': 'Manual Testing',
-                        'compliance-sessions': 'Compliance Sessions',
                         'results': 'Results & Analytics',
                         'analytics': 'Advanced Analytics'
                     };
@@ -558,91 +656,241 @@
                         'projects': 'Manage your accessibility testing projects and their configurations',
                         'authentication': 'Configure SAML, SSO, and user authentication methods',
                         'web-crawler': 'Advanced Playwright-based crawling with authentication support',
-                        'automated-testing': 'Run automated accessibility tests (axe, pa11y, lighthouse)',
+                        'testing-sessions': 'Manage and monitor your compliance testing sessions',
+                        'testing': 'Run automated accessibility tests (axe, pa11y, lighthouse)',
                         'manual-testing': 'Conduct comprehensive manual accessibility evaluations',
-                        'compliance-sessions': 'Manage and monitor your compliance testing sessions',
                         'results': 'View test results and compliance analytics',
                         'analytics': 'Advanced reporting and trend analysis'
                     };
                     return descriptions[this.activeTab] || 'Manage and monitor accessibility compliance testing';
                 },
                 
-                // Enhanced initialization
+                // Initialization
                 async init() {
-                    try {
-                        console.log('🚀 Initializing Modular Alpine.js Dashboard...');
-                        
-                        // Initialize core Alpine.js functionality
-                        await this.checkApiConnection();
-                        
-                        // Initialize WebSocket if available
-                        if (window.createWebSocketManager) {
-                            const wsManager = window.createWebSocketManager();
-                            await wsManager.initializeWebSocket(this.token, this);
-                        }
-                        
-                        // Load initial data
-                        await this.loadInitialData();
-                        
-                        this.loading = false;
-                        console.log('✅ Modular Dashboard initialized successfully');
-                        
-                    } catch (error) {
-                        console.error('❌ Dashboard initialization failed:', error);
-                        this.addNotification('error', 'Initialization Error', 'Failed to initialize dashboard');
-                        this.loading = false;
-                    }
-                },
-                
-                // Tab switching with component loading
-                async switchTab(tabName) {
-                    console.log(`🔄 Switching to tab: ${tabName}`);
-                    this.activeTab = tabName;
+                    console.log('🚀 Dashboard initializing...');
                     
-                    // Load tab-specific data if needed
-                    switch (tabName) {
-                        case 'projects':
-                            if (this.projects.length === 0) {
-                                await this.loadProjects();
-                            }
-                            break;
-                        case 'web-crawler':
-                            if (this.selectedProject && this.webCrawlers.length === 0) {
-                                await this.loadWebCrawlers();
-                            }
-                            break;
-                        // Add other tab-specific loading as needed
+                    // Wait for component store to be ready
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    
+                    // Check API connection
+                    try {
+                        const response = await fetch('http://localhost:3001/api/health');
+                        if (response.ok) {
+                            this.apiConnected = true;
+                            console.log('✅ API connected');
+                        } else {
+                            this.apiConnected = false;
+                            console.log('❌ API disconnected - HTTP', response.status);
+                        }
+                    } catch (error) {
+                        this.apiConnected = false;
+                        console.log('❌ API disconnected -', error.message);
                     }
+                    
+                    // Load initial data
+                    await this.loadProjects();
+                    
+                    this.loading = false;
+                    console.log('✅ Dashboard initialized');
                 },
                 
-                // API integration using our modular API client
+                // Project management
                 async loadProjects() {
-                    if (window.createApiClient) {
-                        const apiClient = window.createApiClient();
-                        try {
-                            const result = await apiClient.loadProjects();
-                            this.projects = result.data || result.projects || [];
+                    try {
+                        const response = await fetch('http://localhost:3001/api/projects');
+                        if (response.ok) {
+                            const data = await response.json();
+                            this.projects = data.data || data.projects || [];
                             console.log(`📁 Loaded ${this.projects.length} projects`);
-                        } catch (error) {
-                            console.error('Failed to load projects:', error);
-                            this.addNotification('error', 'Error', 'Failed to load projects');
+                        } else {
+                            this.projects = [];
+                            console.error('Failed to load projects: HTTP', response.status);
                         }
+                    } catch (error) {
+                        console.error('Failed to load projects:', error);
+                        this.projects = [];
                     }
                 },
                 
-                async loadWebCrawlers() {
-                    if (window.createApiClient && this.selectedProject) {
-                        const apiClient = window.createApiClient();
-                        try {
-                            const result = await apiClient.loadWebCrawlers(this.selectedProject.id);
-                            this.webCrawlers = result.data || [];
-                            console.log(`🕸️ Loaded ${this.webCrawlers.length} web crawlers`);
-                        } catch (error) {
-                            console.error('Failed to load web crawlers:', error);
-                            this.addNotification('error', 'Error', 'Failed to load web crawlers');
+                // Project CRUD operations
+                async createProject() {
+                    try {
+                        if (!this.newProject.name.trim()) {
+                            this.addNotification('error', 'Validation Error', 'Project name is required');
+                            return;
                         }
+                        
+                        const response = await fetch('http://localhost:3001/api/projects', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(this.newProject)
+                        });
+                        
+                        if (response.ok) {
+                            this.addNotification('success', 'Success', 'Project created successfully');
+                            await this.loadProjects();
+                            this.showCreateProject = false;
+                            this.resetNewProject();
+                        } else {
+                            this.addNotification('error', 'Error', 'Failed to create project');
+                        }
+                    } catch (error) {
+                        console.error('Error creating project:', error);
+                        this.addNotification('error', 'Error', 'Failed to create project');
                     }
-                }
+                },
+                
+                resetNewProject() {
+                    this.newProject = {
+                        name: '',
+                        description: '',
+                        primary_url: '',
+                        compliance_standard: 'wcag_2_1_aa'
+                    };
+                },
+                
+                addNotification(type, title, message) {
+                    // Simple notification implementation
+                    console.log(`${type.toUpperCase()}: ${title} - ${message}`);
+                    this.notification = {
+                        show: true,
+                        type: type,
+                        title: title,
+                        message: message
+                    };
+                    // Auto-hide after 5 seconds
+                    setTimeout(() => {
+                        this.notification.show = false;
+                    }, 5000);
+                },
+                
+                // Authentication methods
+                async login() {
+                    try {
+                        this.loading = true;
+                        this.loginError = null;
+                        
+                        const response = await fetch('http://localhost:3001/api/auth/login', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(this.loginForm)
+                        });
+                        
+                        if (response.ok) {
+                            const data = await response.json();
+                            this.user = data.user;
+                            this.token = data.token;
+                            this.isAuthenticated = true;
+                            this.showLogin = false;
+                            this.addNotification('success', 'Login Successful', 'Welcome back!');
+                        } else {
+                            const error = await response.json();
+                            this.loginError = error.message || 'Login failed';
+                        }
+                    } catch (error) {
+                        this.loginError = 'Network error. Please try again.';
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+                
+                async updateProfile() {
+                    try {
+                        this.loading = true;
+                        this.profileError = null;
+                        
+                        const response = await fetch('http://localhost:3001/api/auth/profile', {
+                            method: 'PUT',
+                            headers: { 
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${this.token}`
+                            },
+                            body: JSON.stringify(this.profileForm)
+                        });
+                        
+                        if (response.ok) {
+                            const data = await response.json();
+                            this.user = data.user;
+                            this.addNotification('success', 'Profile Updated', 'Your profile has been updated successfully');
+                        } else {
+                            const error = await response.json();
+                            this.profileError = error.message || 'Profile update failed';
+                        }
+                    } catch (error) {
+                        this.profileError = 'Network error. Please try again.';
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+                
+                async changePassword() {
+                    try {
+                        this.loading = true;
+                        this.passwordError = null;
+                        
+                        if (this.passwordForm.new_password !== this.passwordForm.confirm_password) {
+                            this.passwordError = 'New passwords do not match';
+                            this.loading = false;
+                            return;
+                        }
+                        
+                        const response = await fetch('http://localhost:3001/api/auth/change-password', {
+                            method: 'POST',
+                            headers: { 
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${this.token}`
+                            },
+                            body: JSON.stringify({
+                                current_password: this.passwordForm.current_password,
+                                new_password: this.passwordForm.new_password
+                            })
+                        });
+                        
+                        if (response.ok) {
+                            this.showChangePassword = false;
+                            this.passwordForm = { current_password: '', new_password: '', confirm_password: '' };
+                            this.addNotification('success', 'Password Changed', 'Your password has been updated successfully');
+                        } else {
+                            const error = await response.json();
+                            this.passwordError = error.message || 'Password change failed';
+                        }
+                    } catch (error) {
+                        this.passwordError = 'Network error. Please try again.';
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+                
+                editProject(project) {
+                    console.log('Edit project:', project);
+                },
+                
+                deleteProject(project) {
+                    console.log('Delete project:', project);
+                },
+                
+                // Utility functions
+                getStatusBadgeClass(status) {
+                    const classes = {
+                        'active': 'bg-green-100 text-green-800',
+                        'planning': 'bg-blue-100 text-blue-800',
+                        'in_progress': 'bg-yellow-100 text-yellow-800',
+                        'completed': 'bg-green-100 text-green-800',
+                        'cancelled': 'bg-gray-100 text-gray-800'
+                    };
+                    return classes[status] || 'bg-gray-100 text-gray-800';
+                },
+                
+                formatDate(dateString) {
+                    if (!dateString) return 'N/A';
+                    return new Date(dateString).toLocaleDateString();
+                },
+                
+                selectProject(project) {
+                    this.selectedProject = project;
+                    console.log('Selected project:', project);
+                    this.addNotification('info', 'Project Selected', `Now working with ${project.name}`);
+                },
             };
         }
     </script>

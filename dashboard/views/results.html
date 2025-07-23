@@ -1,0 +1,427 @@
+<!-- Results Tab Component -->
+<div class="results-tab" >
+    <div class="space-y-6">
+        <!-- Header Section -->
+        <div class="flex justify-between items-center">
+            <div>
+                <h2 class="text-2xl font-bold text-gray-900">Test Results</h2>
+                <p class="text-gray-600 mt-1">View and analyze test results and compliance reports</p>
+            </div>
+            <div class="flex space-x-3">
+                <button x-show="violationInspectorSession" @click="closeViolationInspectorTab()" 
+                        class="text-blue-600 hover:text-blue-800 px-4 py-2 rounded-lg bg-blue-50 hover:bg-blue-100 transition-colors">
+                    <i class="fas fa-arrow-left mr-2"></i>Back to Sessions
+                </button>
+                <button x-show="violationInspectorSession" @click="exportViolations('csv')" 
+                        class="px-3 py-2 bg-green-600 text-white rounded text-sm hover:bg-green-700">
+                    <i class="fas fa-file-csv mr-1"></i>Export CSV
+                </button>
+                <button x-show="violationInspectorSession" @click="exportViolations('json')" 
+                        class="px-3 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700">
+                    <i class="fas fa-file-export mr-1"></i>Export JSON
+                </button>
+            </div>
+        </div>
+
+        <!-- Project Selection -->
+        <div x-show="!selectedProject" class="bg-blue-50 border border-blue-200 rounded-lg p-6">
+            <div class="text-center">
+                <i class="fas fa-folder text-blue-600 text-4xl mb-4"></i>
+                <h3 class="text-lg font-medium text-blue-900 mb-2">Select a Project</h3>
+                <p class="text-blue-700 mb-4">Choose a project to view test results and violation data.</p>
+                <button @click="$data.switchTab && $data.switchTab('projects')" 
+                        class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+                    Go to Projects
+                </button>
+            </div>
+        </div>
+
+        <!-- Test Session Selection -->
+        <div x-show="selectedProject && testSessions.length > 0 && !violationInspectorSession" class="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">
+                Select Test Session - <span x-text="selectedProject?.name" class="text-blue-600"></span>
+            </h3>
+            
+            <div class="space-y-4">
+                <template x-for="session in completedSessions" :key="session.id">
+                    <div class="border border-gray-200 rounded-lg p-4 hover:border-blue-300 transition-colors cursor-pointer"
+                         @click="loadSessionResultsTab(session)">
+                        <div class="flex justify-between items-start mb-3">
+                            <div>
+                                <h4 class="font-medium text-gray-900" x-text="session.name"></h4>
+                                <p class="text-sm text-gray-600" x-text="session.description"></p>
+                            </div>
+                            <span :class="getStatusBadgeClass(session.status)" 
+                                  class="px-2 py-1 text-xs font-medium rounded-full" 
+                                  x-text="session.status"></span>
+                        </div>
+                        
+                        <!-- Session Results Summary -->
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm mb-3">
+                            <div class="text-center">
+                                <div class="font-bold text-blue-600" x-text="session.progress_summary?.automatedTestsCompleted || 0"></div>
+                                <div class="text-blue-700">Tests</div>
+                            </div>
+                            <div class="text-center">
+                                <div class="font-bold text-red-600" x-text="(session.progress_summary?.automatedViolations || 0)"></div>
+                                <div class="text-red-700">Violations</div>
+                            </div>
+                            <div class="text-center">
+                                <div class="font-bold text-green-600" x-text="session.progress_summary?.passesFound || 0"></div>
+                                <div class="text-green-700">Passes</div>
+                            </div>
+                            <div class="text-center">
+                                <div class="font-bold text-gray-600" x-text="formatDate(session.completed_at)"></div>
+                                <div class="text-gray-700">Completed</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Tools Used -->
+                        <div x-show="session.progress_summary?.toolsUsed || session.tool_summary" class="flex items-center text-xs text-gray-600">
+                            <i class="fas fa-tools mr-1"></i>
+                            <span class="mr-2">Tools:</span>
+                            <div class="flex flex-wrap gap-1">
+                                <template x-for="tool in (session.progress_summary?.toolsUsed || [])" :key="tool">
+                                    <span class="px-1.5 py-0.5 rounded text-xs border"
+                                          :class="getToolBadgeClass(tool)"
+                                          x-text="tool"></span>
+                                </template>
+                                
+                                <template x-for="toolResult in (session.tool_summary || [])" :key="toolResult.tool_name">
+                                    <span class="px-1.5 py-0.5 rounded text-xs border"
+                                          :class="getToolBadgeClass(toolResult.tool_name)"
+                                          x-text="toolResult.tool_name"></span>
+                                </template>
+                                
+                                <span x-show="!session.progress_summary?.toolsUsed?.length && !session.tool_summary?.length" 
+                                      class="text-gray-500">Multiple tools</span>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+                
+                <div x-show="completedSessions.length === 0" class="text-center py-8">
+                    <i class="fas fa-clock text-gray-400 text-4xl mb-4"></i>
+                    <h3 class="text-lg font-medium text-gray-900 mb-2">No Completed Sessions</h3>
+                    <p class="text-gray-600">Complete a test session to view results here.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- No Sessions State -->
+        <div x-show="selectedProject && testSessions.length === 0" class="text-center py-12">
+            <i class="fas fa-chart-bar text-gray-400 text-6xl mb-4"></i>
+            <h3 class="text-lg font-medium text-gray-900 mb-2">No test sessions found</h3>
+            <p class="text-gray-500 mb-4">Create and run test sessions to view results here.</p>
+            <button @click="$data.switchTab && $data.switchTab('automated-testing')" 
+                    class="bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition-colors">
+                <i class="fas fa-plus mr-2"></i>Start Testing
+            </button>
+        </div>
+
+        <!-- Violation Inspector -->
+        <div x-show="selectedProject && violationInspectorSession" class="space-y-6">
+            <!-- Session Header -->
+            <div class="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h3 class="text-xl font-semibold text-gray-900">Test Results Analysis</h3>
+                        <p class="text-gray-600 mt-1">
+                            Session: <span x-text="violationInspectorSession?.name" class="font-medium"></span>
+                        </p>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <!-- Result Type Filter -->
+                        <div class="bg-gray-100 p-1 rounded-lg inline-flex">
+                            <button @click="setResultType('fail')" 
+                                    :class="violationFilters.result_type === 'fail' ? 'bg-white shadow text-red-600' : 'text-gray-600 hover:text-gray-800'"
+                                    class="px-3 py-2 text-sm font-medium rounded-md transition-colors">
+                                <i class="fas fa-times-circle mr-1"></i>Violations
+                            </button>
+                            <button @click="setResultType('pass')" 
+                                    :class="violationFilters.result_type === 'pass' ? 'bg-white shadow text-green-600' : 'text-gray-600 hover:text-gray-800'"
+                                    class="px-3 py-2 text-sm font-medium rounded-md transition-colors">
+                                <i class="fas fa-check-circle mr-1"></i>Passes
+                            </button>
+                            <button @click="setResultType('all')" 
+                                    :class="violationFilters.result_type === 'all' ? 'bg-white shadow text-blue-600' : 'text-gray-600 hover:text-gray-800'"
+                                    class="px-3 py-2 text-sm font-medium rounded-md transition-colors">
+                                <i class="fas fa-list mr-1"></i>All Results
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Comprehensive Summary Dashboard -->
+            <div x-show="violationSummary && Object.keys(violationSummary).length > 0" class="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+                <h4 class="text-lg font-medium text-gray-900 mb-4">
+                    <span x-text="getResultTypeDisplayText(violationFilters.result_type)"></span> Summary
+                </h4>
+                
+                <!-- Main Statistics Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                    <!-- Total Results -->
+                    <div class="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                        <div class="flex items-center">
+                            <div class="p-2 bg-blue-100 rounded-lg">
+                                <i class="fas fa-list-alt text-blue-600"></i>
+                            </div>
+                            <div class="ml-3">
+                                <div class="text-sm text-blue-600 font-medium">Total Results</div>
+                                <div class="text-2xl font-bold text-blue-900" x-text="violationSummary.totalResults || 0"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Violations -->
+                    <div class="bg-red-50 rounded-lg p-4 border border-red-200">
+                        <div class="flex items-center">
+                            <div class="p-2 bg-red-100 rounded-lg">
+                                <i class="fas fa-exclamation-triangle text-red-600"></i>
+                            </div>
+                            <div class="ml-3">
+                                <div class="text-sm text-red-600 font-medium">Violations</div>
+                                <div class="text-2xl font-bold text-red-900" x-text="violationSummary.totalViolations || 0"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Passes -->
+                    <div class="bg-green-50 rounded-lg p-4 border border-green-200">
+                        <div class="flex items-center">
+                            <div class="p-2 bg-green-100 rounded-lg">
+                                <i class="fas fa-check-circle text-green-600"></i>
+                            </div>
+                            <div class="ml-3">
+                                <div class="text-sm text-green-600 font-medium">Passes</div>
+                                <div class="text-2xl font-bold text-green-900" x-text="violationSummary.totalPasses || 0"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Success Rate -->
+                    <div class="bg-purple-50 rounded-lg p-4 border border-purple-200">
+                        <div class="flex items-center">
+                            <div class="p-2 bg-purple-100 rounded-lg">
+                                <i class="fas fa-percentage text-purple-600"></i>
+                            </div>
+                            <div class="ml-3">
+                                <div class="text-sm text-purple-600 font-medium">Success Rate</div>
+                                <div class="text-2xl font-bold text-purple-900" x-text="getSuccessRate() + '%'"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tools Breakdown -->
+                <div x-show="violationSummary.by_tool && violationSummary.by_tool.length > 0" class="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                    <h5 class="font-medium text-gray-900 mb-3">
+                        <i class="fas fa-tools mr-2 text-blue-600"></i>
+                        Results by Testing Tool
+                    </h5>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                        <template x-for="toolItem in violationSummary.by_tool || []" :key="toolItem.tool_name">
+                            <div class="bg-white p-3 rounded border-2"
+                                 :class="getToolBorderClass(toolItem.tool_name)">
+                                <div class="flex items-center justify-between mb-2">
+                                    <div class="flex items-center">
+                                        <i :class="getToolIconClass(toolItem.tool_name)" class="mr-2"></i>
+                                        <span class="font-medium text-sm" :class="getToolTextClass(toolItem.tool_name)" x-text="toolItem.tool_name"></span>
+                                    </div>
+                                </div>
+                                <div class="text-sm font-bold" :class="getToolTextClass(toolItem.tool_name)" x-text="toolItem.count + ' results'"></div>
+                                <div class="text-xs text-gray-600">
+                                    <div>Found <span class="font-medium" x-text="toolItem.count"></span> accessibility results</div>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Filters and Controls -->
+            <div class="bg-white rounded-lg shadow-md border border-gray-200 p-4">
+                <div class="flex flex-wrap items-center gap-4">
+                    <!-- Severity Filter -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Severity</label>
+                        <select x-model="violationFilters.severity" @change="applyViolationFilters()"
+                                class="border border-gray-300 rounded-md px-3 py-2 text-sm">
+                            <option value="">All Severities</option>
+                            <option value="critical">Critical</option>
+                            <option value="serious">Serious</option>
+                            <option value="moderate">Moderate</option>
+                            <option value="minor">Minor</option>
+                        </select>
+                    </div>
+
+                    <!-- Tool Filter -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Tool</label>
+                        <select x-model="violationFilters.tool" @change="applyViolationFilters()"
+                                class="border border-gray-300 rounded-md px-3 py-2 text-sm">
+                            <option value="">All Tools</option>
+                            <option value="axe">Axe</option>
+                            <option value="pa11y">Pa11y</option>
+                            <option value="lighthouse">Lighthouse</option>
+                        </select>
+                    </div>
+
+                    <!-- Page URL Filter -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Page URL</label>
+                        <input type="text" x-model="violationFilters.page_url" @input.debounce.500ms="applyViolationFilters()"
+                               placeholder="Filter by page URL..."
+                               class="border border-gray-300 rounded-md px-3 py-2 text-sm">
+                    </div>
+
+                    <!-- Results Count -->
+                    <div class="ml-auto text-sm text-gray-600">
+                        <span x-text="violationPagination.total"></span> results found
+                    </div>
+                </div>
+            </div>
+
+            <!-- Results Table -->
+            <div class="bg-white rounded-lg shadow-md border border-gray-200">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <div class="flex justify-between items-center">
+                        <h4 class="text-lg font-medium text-gray-900">
+                            <span x-text="violationFilters.result_type === 'all' ? 'Test Results' : (violationFilters.result_type === 'pass' ? 'Passed Tests' : 'Violations')"></span>
+                            (<span x-text="violationPagination.total"></span>)
+                        </h4>
+                        <div class="flex items-center space-x-3 text-sm">
+                            <span class="text-gray-600">Sort by:</span>
+                            <button @click="sortViolations('severity')" 
+                                    :class="violationSort.by === 'severity' ? 'text-blue-600 font-medium' : 'text-gray-600'"
+                                    class="hover:text-blue-600">
+                                Severity
+                                <i x-show="violationSort.by === 'severity'" 
+                                   :class="violationSort.order === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"></i>
+                            </button>
+                            <button @click="sortViolations('created_at')" 
+                                    :class="violationSort.by === 'created_at' ? 'text-blue-600 font-medium' : 'text-gray-600'"
+                                    class="hover:text-blue-600">
+                                Date
+                                <i x-show="violationSort.by === 'created_at'" 
+                                   :class="violationSort.order === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Results Table -->
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Result</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Severity</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Test Name</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Description</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Page</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Source</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">WCAG</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            <template x-for="violation in violations" :key="violation.id">
+                                <tr class="hover:bg-gray-50">
+                                    <td class="px-6 py-4">
+                                        <span :class="getResultBadgeClass(violation.result)" 
+                                              class="px-3 py-1 text-xs font-medium rounded-full border inline-flex items-center">
+                                            <i :class="getResultIconClass(violation.result)" class="mr-1 text-xs"></i>
+                                            <span x-text="getResultDisplayText(violation.result)"></span>
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <span :class="getSeverityBadgeClass(violation.severity)" 
+                                              class="px-2 py-1 text-xs font-medium rounded-full" 
+                                              x-text="(violation.severity || 'moderate').toUpperCase()"></span>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <div class="text-sm font-medium text-gray-900" x-text="violation.test_name || violation.violation_type"></div>
+                                        <div class="text-sm text-gray-500" x-text="violation.test_id"></div>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <div class="text-sm text-gray-900" x-text="violation.description"></div>
+                                        <div x-show="violation.element_selector" class="text-xs text-gray-500 mt-1">
+                                            <code x-text="violation.element_selector" class="bg-gray-100 px-1 rounded"></code>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <a :href="violation.page_url" target="_blank" 
+                                           class="text-blue-600 hover:text-blue-800 text-sm">
+                                            <span x-text="getShortUrl(violation.page_url)"></span>
+                                            <i class="fas fa-external-link-alt ml-1 text-xs"></i>
+                                        </a>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <span :class="getToolBadgeClass(violation.tool_name)" 
+                                              class="px-2 py-1 text-xs font-medium rounded border" 
+                                              x-text="violation.tool_name"></span>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <span x-show="violation.wcag_criterion" 
+                                              class="text-sm font-mono text-gray-600" 
+                                              x-text="violation.wcag_criterion"></span>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <button @click="viewViolationDetails(violation)" 
+                                                class="text-blue-600 hover:text-blue-800 text-sm">
+                                            <i class="fas fa-eye mr-1"></i>View
+                                        </button>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+
+                    <!-- Loading State -->
+                    <div x-show="loadingViolations" class="p-8 text-center">
+                        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                        <p class="text-gray-600" x-text="violationFilters.result_type === 'all' ? 'Loading test results...' : (violationFilters.result_type === 'pass' ? 'Loading passed tests...' : 'Loading violations...')"></p>
+                    </div>
+
+                    <!-- Empty State -->
+                    <div x-show="!loadingViolations && violations.length === 0" class="p-8 text-center">
+                        <i class="fas fa-search text-gray-400 text-4xl mb-4"></i>
+                        <p class="text-gray-600" x-text="violationFilters.result_type === 'all' ? 'No test results found matching your filters.' : (violationFilters.result_type === 'pass' ? 'No passed tests found matching your filters.' : 'No violations found matching your filters.')"></p>
+                    </div>
+                </div>
+
+                <!-- Pagination Controls -->
+                <div x-show="violationPagination.totalPages > 1" class="px-6 py-4 border-t border-gray-200">
+                    <div class="flex items-center justify-between">
+                        <div class="text-sm text-gray-700">
+                            Showing <span x-text="violationPagination.from"></span> to <span x-text="violationPagination.to"></span> of <span x-text="violationPagination.total"></span> results
+                        </div>
+                        <div class="flex space-x-2">
+                            <button @click="loadViolationsPage(violationPagination.currentPage - 1)" 
+                                    :disabled="violationPagination.currentPage <= 1"
+                                    class="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+                                Previous
+                            </button>
+                            <span class="px-3 py-1 text-sm text-gray-600">
+                                Page <span x-text="violationPagination.currentPage"></span> of <span x-text="violationPagination.totalPages"></span>
+                            </span>
+                            <button @click="loadViolationsPage(violationPagination.currentPage + 1)" 
+                                    :disabled="violationPagination.currentPage >= violationPagination.totalPages"
+                                    class="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+                                Next
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading State -->
+        <div x-show="loading" class="text-center py-12">
+            <div class="loading-spinner"></div>
+            <p class="text-gray-500 mt-4">Loading test results...</p>
+        </div>
+    </div>
+</div> 

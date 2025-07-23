@@ -1,0 +1,543 @@
+<!-- Manual Testing Tab Component -->
+<div class="manual-testing-tab" >
+    <div class="space-y-6">
+        <!-- Header with Controls -->
+        <div class="flex justify-between items-center">
+            <div>
+                <h2 class="text-2xl font-bold text-gray-900">Manual Testing</h2>
+                <p class="text-gray-600 mt-1">Conduct comprehensive manual accessibility evaluations</p>
+            </div>
+            <div class="flex space-x-3">
+                <!-- Coverage Analysis Toggle -->
+                <button @click="toggleCoverageAnalysis()" 
+                        class="bg-indigo-100 text-indigo-700 px-4 py-2 rounded-lg hover:bg-indigo-200 transition-colors">
+                    <i class="fas fa-chart-pie mr-2"></i>
+                    <span x-text="showCoverageAnalysis ? 'Hide Coverage Analysis' : 'Show Coverage Analysis'"></span>
+                </button>
+                
+                <!-- Smart Filtering Toggle -->
+                <div class="flex items-center space-x-2">
+                    <label class="text-sm font-medium text-gray-700">Smart Filtering:</label>
+                    <select x-model="manualTestingFilters.coverage_type" 
+                            @change="loadManualTestingAssignments()"
+                            class="border border-gray-300 rounded-md px-3 py-1 text-sm">
+                        <option value="smart">Smart (Excludes Automated)</option>
+                        <option value="legacy">Legacy (All Criteria)</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Coverage Analysis Panel -->
+        <div x-show="showCoverageAnalysis && manualTestingCoverageAnalysis" 
+             x-transition:enter="transition ease-out duration-300"
+             x-transition:enter-start="opacity-0 transform -translate-y-2"
+             x-transition:enter-end="opacity-100 transform translate-y-0"
+             class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-6 border border-indigo-200">
+            
+            <h3 class="text-lg font-semibold text-indigo-900 mb-4">
+                <i class="fas fa-chart-line mr-2"></i>
+                Coverage Analysis
+            </h3>
+            
+            <!-- Efficiency Metrics -->
+            <div x-show="manualTestingCoverageAnalysis" class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div class="bg-white rounded-lg p-4 border border-indigo-100">
+                    <div class="text-2xl font-bold text-green-600" 
+                         x-text="(manualTestingCoverageAnalysis?.efficiency_metrics?.automation_efficiency || 0) + '%'"></div>
+                    <div class="text-sm text-gray-600">Automation Coverage</div>
+                    <div class="text-xs text-gray-500 mt-1">
+                        <span x-text="manualTestingCoverageAnalysis?.efficiency_metrics?.total_automated_tests || 0"></span> criteria automated
+                    </div>
+                </div>
+                
+                <div class="bg-white rounded-lg p-4 border border-indigo-100">
+                    <div class="text-2xl font-bold text-blue-600" 
+                         x-text="(manualTestingCoverageAnalysis?.efficiency_metrics?.manual_efficiency || 0) + '%'"></div>
+                    <div class="text-sm text-gray-600">Manual Testing Progress</div>
+                    <div class="text-xs text-gray-500 mt-1">
+                        <span x-text="manualTestingCoverageAnalysis?.efficiency_metrics?.total_manual_tests || 0"></span> criteria manually tested
+                    </div>
+                </div>
+                
+                <div class="bg-white rounded-lg p-4 border border-indigo-100">
+                    <div class="text-2xl font-bold" 
+                         :class="(manualTestingCoverageAnalysis?.efficiency_metrics?.redundancy_rate || 0) > 50 ? 'text-orange-600' : 'text-green-600'"
+                         x-text="(manualTestingCoverageAnalysis?.efficiency_metrics?.redundancy_rate || 0) + '%'"></div>
+                    <div class="text-sm text-gray-600">Test Redundancy</div>
+                    <div class="text-xs text-gray-500 mt-1">
+                        <span x-text="manualTestingCoverageAnalysis?.efficiency_metrics?.duplicate_tests || 0"></span> criteria tested by both
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Recommendations -->
+            <div x-show="manualTestingCoverageAnalysis?.recommendations?.length > 0">
+                <h4 class="font-medium text-indigo-900 mb-3">
+                    <i class="fas fa-lightbulb mr-2"></i>
+                    Recommendations
+                </h4>
+                <div class="space-y-2">
+                    <template x-for="rec in (manualTestingCoverageAnalysis?.recommendations || [])" :key="rec.title">
+                        <div class="bg-white rounded-lg p-3 border border-indigo-100">
+                            <div class="flex items-start space-x-3">
+                                <div class="flex-shrink-0">
+                                    <span class="inline-block w-2 h-2 rounded-full mt-2"
+                                          :class="{
+                                              'bg-red-500': rec.priority === 'high',
+                                              'bg-yellow-500': rec.priority === 'medium',
+                                              'bg-blue-500': rec.priority === 'low'
+                                          }"></span>
+                                </div>
+                                <div class="flex-1">
+                                    <div class="font-medium text-gray-900" x-text="rec.title"></div>
+                                    <div class="text-sm text-gray-600 mt-1" x-text="rec.description"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+
+        <!-- Session Selection -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Select Testing Session</h3>
+            
+            <div x-show="!manualTestingSession" class="space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <template x-for="session in testSessions" :key="session.id">
+                        <div class="border border-gray-200 rounded-lg p-4 hover:border-blue-300 cursor-pointer transition-colors"
+                             @click="selectManualTestingSession(session)">
+                            <div class="font-medium text-gray-900" x-text="session.session_name || session.name"></div>
+                            <div class="text-sm text-gray-500 mt-1">
+                                <span x-text="session.total_pages || 'Unknown'"></span> pages • 
+                                <span x-text="formatDate(session.created_at)"></span>
+                            </div>
+                            <div class="text-xs text-gray-400 mt-2" x-text="session.status"></div>
+                        </div>
+                    </template>
+                </div>
+                
+                <div x-show="testSessions.length === 0" class="text-center text-gray-500 py-8">
+                    <i class="fas fa-clipboard-list text-4xl mb-4"></i>
+                    <p>No testing sessions found. Run automated tests first to create sessions.</p>
+                    <button @click="$data.switchTab && $data.switchTab('automated-testing')" 
+                            class="mt-3 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors">
+                        <i class="fas fa-robot mr-2"></i>Start Automated Testing
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Selected Session Info -->
+            <div x-show="manualTestingSession" class="bg-blue-50 rounded-lg p-4">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <div class="font-medium text-blue-900" x-text="manualTestingSession?.session_name || manualTestingSession?.name"></div>
+                        <div class="text-sm text-blue-700 mt-1">
+                            <span x-text="manualTestingSession?.total_pages || 'Unknown'"></span> pages • 
+                            Created <span x-text="formatDate(manualTestingSession?.created_at)"></span>
+                        </div>
+                    </div>
+                    <button @click="clearManualTestingSession()" 
+                            class="text-blue-600 hover:text-blue-800">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filters and Controls -->
+        <div x-show="manualTestingSession" class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+            <div class="flex flex-wrap items-center gap-4">
+                <!-- Status Filter -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                    <select x-model="manualTestingFilters.status" 
+                            @change="applyManualTestingFilters()"
+                            class="border border-gray-300 rounded-md px-3 py-2 text-sm">
+                        <option value="">All</option>
+                        <option value="pending">Pending</option>
+                        <option value="completed">Completed</option>
+                        <option value="needs_verification">Needs Verification</option>
+                        <option value="manual_priority">Manual Priority</option>
+                    </select>
+                </div>
+                
+                <!-- WCAG Level Filter -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">WCAG Level</label>
+                    <select x-model="manualTestingFilters.wcag_level" 
+                            @change="applyManualTestingFilters()"
+                            class="border border-gray-300 rounded-md px-3 py-2 text-sm">
+                        <option value="">All</option>
+                        <option value="A">Level A</option>
+                        <option value="AA">Level AA</option>
+                        <option value="AAA">Level AAA</option>
+                    </select>
+                </div>
+                
+                <!-- Tester Assignment -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Assigned To</label>
+                    <select x-model="manualTestingFilters.tester" 
+                            @change="applyManualTestingFilters()"
+                            class="border border-gray-300 rounded-md px-3 py-2 text-sm">
+                        <option value="">All Testers</option>
+                        <option value="unassigned">Unassigned</option>
+                        <template x-for="tester in availableTesters" :key="tester.id">
+                            <option :value="tester.id" x-text="tester.name"></option>
+                        </template>
+                    </select>
+                </div>
+                
+                <!-- Assignment Stats -->
+                <div class="flex items-center space-x-4 ml-auto">
+                    <div class="text-sm text-gray-600">
+                        <span class="font-medium" x-text="filteredManualTestingAssignments.length"></span> assignments
+                    </div>
+                    <button @click="assignAllToMe()" 
+                            :disabled="filteredManualTestingAssignments.length === 0"
+                            class="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700 transition-colors disabled:bg-gray-400">
+                        <i class="fas fa-user-check mr-1"></i>Assign All to Me
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Manual Testing Assignments -->
+        <div x-show="manualTestingSession && filteredManualTestingAssignments.length > 0" class="space-y-6">
+            <template x-for="pageGroup in groupedAssignments" :key="pageGroup.page_id">
+                <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+                    <!-- Page Header -->
+                    <div class="bg-gray-50 px-6 py-4 border-b border-gray-200 rounded-t-lg">
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <a :href="pageGroup.page_url" target="_blank" 
+                                   class="font-medium text-blue-600 hover:text-blue-800"
+                                   :title="pageGroup.page_url">
+                                    <span x-text="pageGroup.page_url"></span>
+                                    <i class="fas fa-external-link-alt ml-1 text-xs"></i>
+                                </a>
+                                <div class="text-sm text-gray-500 mt-1">
+                                    <span x-text="pageGroup.page_type || 'Standard Page'"></span>
+                                </div>
+                            </div>
+                            <div class="text-sm text-gray-500">
+                                <span x-text="pageGroup.assignments.length"></span> criteria
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Assignments List -->
+                    <div class="p-6">
+                        <div class="space-y-4">
+                            <template x-for="assignment in pageGroup.assignments" :key="assignment.id">
+                                <div class="border border-gray-200 rounded-lg p-4 hover:border-blue-300 transition-colors">
+                                    <div class="flex justify-between items-start">
+                                        <div class="flex-1">
+                                            <div class="flex items-center space-x-3 mb-2">
+                                                <span class="font-mono text-sm bg-gray-100 px-2 py-1 rounded" 
+                                                      x-text="assignment.criterion_number"></span>
+                                                <span :class="getWCAGLevelBadgeClass(assignment.wcag_level)" 
+                                                      class="px-2 py-1 text-xs font-medium rounded-full" 
+                                                      x-text="assignment.wcag_level"></span>
+                                                <span :class="getTestStatusBadgeClass(assignment.current_result)" 
+                                                      class="px-2 py-1 text-xs font-medium rounded-full" 
+                                                      x-text="getTestStatusDisplay(assignment.current_result)"></span>
+                                            </div>
+                                            
+                                            <h4 class="font-medium text-gray-900 mb-1" x-text="assignment.requirement_title"></h4>
+                                            <p class="text-sm text-gray-600 mb-3" x-text="assignment.requirement_description"></p>
+                                            
+                                            <!-- Assignment Details -->
+                                            <div class="flex items-center space-x-4 text-xs text-gray-500">
+                                                <span x-show="assignment.assigned_tester_name">
+                                                    <i class="fas fa-user mr-1"></i>
+                                                    <span x-text="assignment.assigned_tester_name"></span>
+                                                </span>
+                                                <span x-show="assignment.tested_at">
+                                                    <i class="fas fa-clock mr-1"></i>
+                                                    <span x-text="formatDate(assignment.tested_at)"></span>
+                                                </span>
+                                                <span x-show="assignment.test_method">
+                                                    <i class="fas fa-cog mr-1"></i>
+                                                    <span x-text="assignment.test_method"></span>
+                                                </span>
+                                            </div>
+                                            
+                                            <!-- Notes Preview -->
+                                            <div x-show="assignment.notes" class="mt-2 p-2 bg-gray-50 rounded text-sm text-gray-700">
+                                                <div x-text="assignment.notes.substring(0, 100) + (assignment.notes.length > 100 ? '...' : '')"></div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="flex flex-col space-y-2">
+                                            <button @click="startManualTest(assignment)" 
+                                                    class="bg-green-600 text-white px-3 py-2 rounded text-sm hover:bg-green-700 transition-colors">
+                                                <i :class="{
+                                                    'fas fa-play': assignment.current_result === 'pending' || !assignment.current_result,
+                                                    'fas fa-edit': assignment.current_result === 'in_progress',
+                                                    'fas fa-check': assignment.current_result === 'pass' || assignment.current_result === 'fail',
+                                                    'fas fa-eye': assignment.current_result === 'not_applicable'
+                                                }" class="mr-1"></i>
+                                                <span x-text="{
+                                                    'in_progress': 'Continue Test',
+                                                    'assigned': 'Start Assigned Test',
+                                                    'pass': 'Review Test',
+                                                    'fail': 'Review Test',
+                                                    'not_applicable': 'Review Test'
+                                                }[assignment.current_result] || 'Start Test'"></span>
+                                            </button>
+                                            
+                                            <button @click="assignToTester(assignment)" 
+                                                    class="bg-blue-600 text-white px-3 py-2 rounded text-sm hover:bg-blue-700 transition-colors">
+                                                <i class="fas fa-user-plus"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+            </template>
+        </div>
+        
+        <!-- No Assignments Message -->
+        <div x-show="manualTestingSession && filteredManualTestingAssignments.length === 0" 
+             class="text-center text-gray-500 py-12">
+            <i class="fas fa-check-circle text-4xl mb-4"></i>
+            <h3 class="text-lg font-medium mb-2">No Manual Testing Required</h3>
+            <p class="text-gray-400">
+                <span x-show="manualTestingFilters.coverage_type === 'smart'">
+                    Smart filtering shows no manual testing is needed. All applicable criteria are covered by automation.
+                </span>
+                <span x-show="manualTestingFilters.coverage_type === 'legacy'">
+                    No assignments match your current filters.
+                </span>
+            </p>
+            <button @click="manualTestingFilters.coverage_type = 'legacy'; applyManualTestingFilters()" 
+                    x-show="manualTestingFilters.coverage_type === 'smart'"
+                    class="mt-3 bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors">
+                Show All Criteria (Legacy Mode)
+            </button>
+        </div>
+
+        <!-- Loading State -->
+        <div x-show="loading" class="text-center py-12">
+            <div class="loading-spinner"></div>
+            <p class="text-gray-500 mt-4">Loading manual testing assignments...</p>
+        </div>
+    </div>
+
+    <!-- Manual Testing Modal -->
+    <div x-show="showManualTestingModal" 
+         class="fixed inset-0 bg-black bg-opacity-50 z-60 flex items-center justify-center p-4">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-6xl max-h-[95vh] overflow-y-auto">
+            <div x-show="currentManualTest && manualTestingProcedure" class="p-6 space-y-6">
+                <!-- Modal Header -->
+                <div class="flex justify-between items-start">
+                    <div>
+                        <h3 class="text-2xl font-bold text-gray-900">Manual Accessibility Test</h3>
+                        <p class="text-gray-600 text-sm mt-1" 
+                           x-text="(currentManualTest?.assignment?.criterion_number || '') + ' - ' + (currentManualTest?.assignment?.requirement_title || '')"></p>
+                    </div>
+                    <button @click="closeManualTestingModal()" class="text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+
+                <!-- Test Overview -->
+                <div class="bg-blue-50 rounded-lg p-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <h4 class="text-lg font-semibold text-blue-900 mb-3">Test Details</h4>
+                            <div class="space-y-2 text-sm">
+                                <div class="flex items-center">
+                                    <span class="font-medium text-blue-800">WCAG Criterion:</span>
+                                    <span class="ml-2 font-mono bg-blue-100 px-2 py-1 rounded text-blue-900" 
+                                          x-text="currentManualTest?.assignment?.criterion_number"></span>
+                                </div>
+                                <div class="flex items-center">
+                                    <span class="font-medium text-blue-800">Conformance Level:</span>
+                                    <span class="ml-2" x-text="currentManualTest?.assignment?.wcag_level"></span>
+                                </div>
+                                <div class="flex items-center">
+                                    <span class="font-medium text-blue-800">Testing Method:</span>
+                                    <span class="ml-2" x-text="currentManualTest?.assignment?.test_method || 'Manual evaluation'"></span>
+                                </div>
+                                <div class="flex items-center">
+                                    <span class="font-medium text-blue-800">Page URL:</span>
+                                    <a :href="currentManualTest?.assignment?.page_url" target="_blank" 
+                                       class="ml-2 text-blue-600 hover:text-blue-800 truncate">
+                                        <span x-text="currentManualTest?.assignment?.page_url"></span>
+                                        <i class="fas fa-external-link-alt ml-1 text-xs"></i>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <h4 class="text-lg font-semibold text-blue-900 mb-3">Testing Context</h4>
+                            <div class="space-y-2 text-sm">
+                                <div x-show="manualTestingContext?.category">
+                                    <span class="font-medium text-blue-800">Category:</span>
+                                    <span class="ml-2 capitalize" x-text="manualTestingContext?.category?.replace('_', ' ')"></span>
+                                </div>
+                                <div x-show="manualTestingContext?.automated_coverage">
+                                    <span class="font-medium text-blue-800">Automated Coverage:</span>
+                                    <span class="ml-2" x-text="manualTestingContext?.automated_coverage"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Requirement Overview -->
+                <div class="bg-white border border-gray-200 rounded-lg p-6">
+                    <h4 class="text-lg font-semibold text-gray-900 mb-3">Requirement Overview</h4>
+                    <div class="prose prose-sm max-w-none">
+                        <h5 class="text-md font-medium text-gray-800 mb-2" x-text="manualTestingProcedure?.title"></h5>
+                        <p class="text-gray-700 mb-4" x-text="manualTestingProcedure?.description"></p>
+                        <div x-show="manualTestingProcedure?.understanding_url" class="mt-4">
+                            <a :href="manualTestingProcedure?.understanding_url" target="_blank" 
+                               class="inline-flex items-center text-blue-600 hover:text-blue-800 text-sm">
+                                <i class="fas fa-book mr-2"></i>
+                                Learn More About This Requirement
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Testing Procedure -->
+                <div class="bg-green-50 border border-green-200 rounded-lg p-6">
+                    <h4 class="text-lg font-semibold text-green-900 mb-3">Testing Procedure</h4>
+                    <div x-show="manualTestingProcedure?.steps?.length > 0" class="space-y-3">
+                        <template x-for="(step, index) in (manualTestingProcedure?.steps || [])" :key="index">
+                            <div class="flex items-start space-x-3">
+                                <span class="flex-shrink-0 w-6 h-6 bg-green-600 text-white rounded-full text-xs flex items-center justify-center font-medium" 
+                                      x-text="index + 1"></span>
+                                <div class="flex-1 text-sm text-green-800" x-text="step"></div>
+                            </div>
+                        </template>
+                    </div>
+                    
+                    <!-- Recommended Tools -->
+                    <div x-show="manualTestingContext?.recommended_tools?.length > 0" class="mt-6">
+                        <h5 class="font-medium text-green-900 mb-2">
+                            <i class="fas fa-tools mr-2"></i>Recommended Testing Methods
+                        </h5>
+                        <div class="flex flex-wrap gap-2">
+                            <template x-for="tool in (manualTestingContext?.recommended_tools || [])" :key="tool">
+                                <span class="px-3 py-1 bg-green-100 text-green-800 text-xs rounded-full flex items-center">
+                                    <i :class="{
+                                        'fas fa-volume-up': tool.includes('screen reader'),
+                                        'fas fa-keyboard': tool.includes('keyboard'),
+                                        'fas fa-microphone': tool.includes('voice'),
+                                        'fas fa-users': tool.includes('user testing'),
+                                        'fas fa-search': tool.includes('inspection'),
+                                        'fas fa-tools': !tool.includes('screen reader') && !tool.includes('keyboard') && !tool.includes('voice') && !tool.includes('user testing') && !tool.includes('inspection')
+                                    }" class="mr-1"></i>
+                                    <span x-text="tool"></span>
+                                </span>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Test Results Form -->
+                <div class="bg-purple-50 border border-purple-200 rounded-lg p-6">
+                    <h4 class="text-lg font-semibold text-purple-900 mb-3">Record Test Results</h4>
+                    <form @submit.prevent="submitManualTestResult()">
+                        <div class="space-y-4">
+                            <!-- Test Result -->
+                            <div>
+                                <label class="block text-sm font-medium text-purple-800 mb-2">Test Result</label>
+                                <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+                                    <label class="flex items-center p-3 border border-purple-200 rounded-lg hover:bg-purple-100 cursor-pointer">
+                                        <input type="radio" x-model="testResult.status" value="pass" class="sr-only">
+                                        <div :class="testResult.status === 'pass' ? 'bg-green-600 text-white' : 'bg-white text-green-600'" 
+                                             class="w-full text-center py-2 rounded border border-green-600 transition-colors">
+                                            <i class="fas fa-check mr-1"></i>Pass
+                                        </div>
+                                    </label>
+                                    <label class="flex items-center p-3 border border-purple-200 rounded-lg hover:bg-purple-100 cursor-pointer">
+                                        <input type="radio" x-model="testResult.status" value="fail" class="sr-only">
+                                        <div :class="testResult.status === 'fail' ? 'bg-red-600 text-white' : 'bg-white text-red-600'" 
+                                             class="w-full text-center py-2 rounded border border-red-600 transition-colors">
+                                            <i class="fas fa-times mr-1"></i>Fail
+                                        </div>
+                                    </label>
+                                    <label class="flex items-center p-3 border border-purple-200 rounded-lg hover:bg-purple-100 cursor-pointer">
+                                        <input type="radio" x-model="testResult.status" value="not_applicable" class="sr-only">
+                                        <div :class="testResult.status === 'not_applicable' ? 'bg-gray-600 text-white' : 'bg-white text-gray-600'" 
+                                             class="w-full text-center py-2 rounded border border-gray-600 transition-colors">
+                                            <i class="fas fa-minus mr-1"></i>N/A
+                                        </div>
+                                    </label>
+                                    <label class="flex items-center p-3 border border-purple-200 rounded-lg hover:bg-purple-100 cursor-pointer">
+                                        <input type="radio" x-model="testResult.status" value="needs_review" class="sr-only">
+                                        <div :class="testResult.status === 'needs_review' ? 'bg-yellow-600 text-white' : 'bg-white text-yellow-600'" 
+                                             class="w-full text-center py-2 rounded border border-yellow-600 transition-colors">
+                                            <i class="fas fa-question mr-1"></i>Review
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- Test Notes -->
+                            <div>
+                                <label class="block text-sm font-medium text-purple-800 mb-2">Test Notes</label>
+                                <textarea x-model="testResult.notes" rows="4"
+                                          class="w-full px-3 py-2 border border-purple-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                          placeholder="Describe your findings, any issues discovered, testing methods used, etc."></textarea>
+                            </div>
+
+                            <!-- Evidence Upload -->
+                            <div>
+                                <label class="block text-sm font-medium text-purple-800 mb-2">Evidence (Screenshots, etc.)</label>
+                                <div class="border-2 border-dashed border-purple-300 rounded-lg p-4 text-center">
+                                    <input type="file" multiple accept="image/*" @change="handleFileUpload($event)" class="hidden" id="evidence-upload">
+                                    <label for="evidence-upload" class="cursor-pointer">
+                                        <i class="fas fa-upload text-purple-600 text-2xl mb-2"></i>
+                                        <p class="text-sm text-purple-600">Click to upload evidence files</p>
+                                    </label>
+                                </div>
+                                
+                                <!-- Uploaded Files Preview -->
+                                <div x-show="testResult.evidence?.length > 0" class="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4">
+                                    <template x-for="(file, index) in (testResult.evidence || [])" :key="index">
+                                        <div class="relative border border-purple-200 rounded-lg overflow-hidden">
+                                            <img :src="file.url" :alt="file.name" class="w-full h-24 object-cover">
+                                            <div class="absolute inset-x-0 bottom-0 bg-black bg-opacity-50 text-white text-xs p-1 truncate" 
+                                                 x-text="file.name"></div>
+                                            <button @click="removeEvidence(index)" 
+                                                    class="absolute top-1 right-1 bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-red-700">
+                                                <i class="fas fa-times"></i>
+                                            </button>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="flex justify-end space-x-3 mt-6">
+                            <button type="button" @click="closeManualTestingModal()" 
+                                    class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors">
+                                Cancel
+                            </button>
+                            <button type="submit" :disabled="!testResult.status || loading"
+                                    class="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors disabled:opacity-50">
+                                <i class="fas fa-save mr-2"></i>
+                                <span x-show="!loading">Save Test Result</span>
+                                <span x-show="loading">Saving...</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div> 
