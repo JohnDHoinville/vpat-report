@@ -421,8 +421,16 @@
                         </div>
                     </div>
                     
+                    <!-- Automated Testing Component -->
+                    <div x-show="activeTab === 'automated-testing' && !loading" id="automated-testing-component">
+                        <div x-data="automatedTestingComponent()" x-init="init()">
+                            <!-- Automated Testing Component Content will be loaded here -->
+                            <div x-html="Alpine.store('components')['automated-testing']"></div>
+                        </div>
+                    </div>
+                    
                     <!-- Other Components Placeholder -->
-                    <div x-show="['automated-testing', 'manual-testing', 'compliance-sessions', 'results', 'analytics'].includes(activeTab) && !loading">
+                    <div x-show="['manual-testing', 'compliance-sessions', 'results', 'analytics'].includes(activeTab) && !loading">
                         <div style="text-align: center; padding: 2rem;">
                             <h3 x-text="getPageTitle()"></h3>
                             <p>Component coming in Phase 3 & 4...</p>
@@ -452,6 +460,7 @@
     <script src="js/components/projects.js"></script>
     <script src="js/components/authentication.js"></script>
     <script src="js/components/web-crawler.js"></script>
+    <script src="js/components/automated-testing.js"></script>
     
     <script>
         // Component Loader System
@@ -459,6 +468,7 @@
             projects: null,
             authentication: null,
             'web-crawler': null,
+            'automated-testing': null,
             
             async loadComponent(name) {
                 try {
@@ -481,6 +491,7 @@
             await componentStore.loadComponent('projects');
             await componentStore.loadComponent('authentication');
             await componentStore.loadComponent('web-crawler');
+            await componentStore.loadComponent('automated-testing');
         });
         
         // Alpine.js Dashboard Extensions
