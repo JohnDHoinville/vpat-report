@@ -407,17 +407,17 @@
                     
                     <!-- Authentication Component -->
                     <div x-show="activeTab === 'authentication' && !loading" id="authentication-component">
-                        <div style="text-align: center; padding: 2rem;">
-                            <h3>Authentication Component</h3>
-                            <p>Component will be loaded here...</p>
+                        <div x-data="authenticationComponent()" x-init="init()">
+                            <!-- Authentication Component Content will be loaded here -->
+                            <div x-html="Alpine.store('components').authentication"></div>
                         </div>
                     </div>
                     
                     <!-- Web Crawler Component -->
                     <div x-show="activeTab === 'web-crawler' && !loading" id="web-crawler-component">
-                        <div style="text-align: center; padding: 2rem;">
-                            <h3>Web Crawler Component</h3>
-                            <p>Component will be loaded here...</p>
+                        <div x-data="webCrawlerComponent()" x-init="init()">
+                            <!-- Web Crawler Component Content will be loaded here -->
+                            <div x-html="Alpine.store('components')['web-crawler']"></div>
                         </div>
                     </div>
                     
@@ -450,11 +450,15 @@
     
     <!-- Component JavaScript Modules -->
     <script src="js/components/projects.js"></script>
+    <script src="js/components/authentication.js"></script>
+    <script src="js/components/web-crawler.js"></script>
     
     <script>
         // Component Loader System
         Alpine.store('components', {
             projects: null,
+            authentication: null,
+            'web-crawler': null,
             
             async loadComponent(name) {
                 try {
@@ -475,6 +479,8 @@
         document.addEventListener('DOMContentLoaded', async () => {
             const componentStore = Alpine.store('components');
             await componentStore.loadComponent('projects');
+            await componentStore.loadComponent('authentication');
+            await componentStore.loadComponent('web-crawler');
         });
         
         // Alpine.js Dashboard Extensions
