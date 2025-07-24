@@ -1154,4 +1154,268 @@ router.get('/validate', authenticateToken, async (req, res) => {
     }
 });
 
+// ===============================
+// AUTH CONFIGS ENDPOINTS
+// ===============================
+
+// Get all auth configs
+router.get('/auth-configs', authenticateToken, async (req, res) => {
+    try {
+        const query = `
+            SELECT ac.*, p.name as project_name
+            FROM auth_configs ac
+            LEFT JOIN projects p ON ac.project_id = p.id
+            WHERE ac.status = 'active'
+            ORDER BY ac.domain, ac.priority, ac.auth_role
+        `;
+        
+        const result = await pool.query(query);
+        
+        res.json({
+            success: true,
+            data: result.rows,
+            count: result.rows.length
+        });
+    } catch (error) {
+        console.error('Error fetching auth configs:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch authentication configurations'
+        });
+    }
+});
+
+// Get auth configs for a specific project
+router.get('/auth-configs/project/:projectId', authenticateToken, async (req, res) => {
+    try {
+        const { projectId } = req.params;
+        
+        const query = `
+            SELECT ac.*, p.name as project_name
+            FROM auth_configs ac
+            LEFT JOIN projects p ON ac.project_id = p.id
+            WHERE (ac.project_id = $1 OR ac.project_id IS NULL)
+            AND ac.status = 'active'
+            ORDER BY ac.priority, ac.is_default DESC, ac.auth_role
+        `;
+        
+        const result = await pool.query(query, [projectId]);
+        
+        res.json({
+            success: true,
+            data: result.rows,
+            count: result.rows.length
+        });
+    } catch (error) {
+        console.error('Error fetching project auth configs:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch project authentication configurations'
+        });
+    }
+});
+
+// Create new auth config
+router.post('/auth-configs', authenticateToken, async (req, res) => {
+    try {
+        const {
+            name,
+            type,
+            domain,
+            project_id,
+            username,
+            password,
+            url,
+            login_page,
+            success_url,
+            auth_role = 'default',
+            auth_description,
+            priority = 1,
+            is_default = false
+        } = req.body;
+
+        const query = `
+            INSERT INTO auth_configs (
+                name, type, domain, project_id, username, password, url,
+                login_page, success_url, auth_role, auth_description, 
+                priority, is_default, status, created_by
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'active', $14)
+            RETURNING *
+        `;
+        
+        const values = [
+            name, type, domain, project_id, username, password, url,
+            login_page, success_url, auth_role, auth_description,
+            priority, is_default, req.user.userId
+        ];
+        
+        const result = await pool.query(query, values);
+        
+        res.status(201).json({
+            success: true,
+            data: result.rows[0],
+            message: 'Authentication configuration created successfully'
+        });
+    } catch (error) {
+        console.error('Error creating auth config:', error);
+        if (error.code === '23505') { // Unique constraint violation
+            res.status(400).json({
+                success: false,
+                error: 'Authentication configuration with this domain and role already exists'
+            });
+        } else {
+            res.status(500).json({
+                success: false,
+                error: 'Failed to create authentication configuration'
+            });
+        }
+    }
+});
+
+// Update auth config
+router.put('/auth-configs/:id', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const updateFields = [];
+        const values = [];
+        let paramCount = 1;
+
+        // Build dynamic update query
+        const allowedFields = [
+            'name', 'type', 'domain', 'username', 'password', 'url',
+            'login_page', 'success_url', 'auth_role', 'auth_description',
+            'priority', 'is_default'
+        ];
+
+        for (const field of allowedFields) {
+            if (req.body.hasOwnProperty(field)) {
+                updateFields.push(`${field} = $${paramCount}`);
+                values.push(req.body[field]);
+                paramCount++;
+            }
+        }
+
+        if (updateFields.length === 0) {
+            return res.status(400).json({
+                success: false,
+                error: 'No valid fields to update'
+            });
+        }
+
+        values.push(id); // Add ID for WHERE clause
+        updateFields.push(`updated_at = CURRENT_TIMESTAMP`);
+
+        const query = `
+            UPDATE auth_configs 
+            SET ${updateFields.join(', ')}
+            WHERE id = $${paramCount} AND status = 'active'
+            RETURNING *
+        `;
+
+        const result = await pool.query(query, values);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Authentication configuration not found'
+            });
+        }
+
+        res.json({
+            success: true,
+            data: result.rows[0],
+            message: 'Authentication configuration updated successfully'
+        });
+    } catch (error) {
+        console.error('Error updating auth config:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to update authentication configuration'
+        });
+    }
+});
+
+// Delete auth config
+router.delete('/auth-configs/:id', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        
+        const query = `
+            UPDATE auth_configs 
+            SET status = 'deleted', updated_at = CURRENT_TIMESTAMP
+            WHERE id = $1 AND status = 'active'
+            RETURNING id, name
+        `;
+        
+        const result = await pool.query(query, [id]);
+        
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Authentication configuration not found'
+            });
+        }
+        
+        res.json({
+            success: true,
+            message: `Authentication configuration '${result.rows[0].name}' deleted successfully`
+        });
+    } catch (error) {
+        console.error('Error deleting auth config:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to delete authentication configuration'
+        });
+    }
+});
+
+// Test auth config
+router.post('/auth-configs/:id/test', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        
+        const configQuery = `
+            SELECT * FROM auth_configs 
+            WHERE id = $1 AND status = 'active'
+        `;
+        
+        const configResult = await pool.query(configQuery, [id]);
+        
+        if (configResult.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Authentication configuration not found'
+            });
+        }
+        
+        const authConfig = configResult.rows[0];
+        
+        // For now, return a mock test result
+        // In a real implementation, this would test the actual authentication
+        const testResult = {
+            success: true,
+            message: `Authentication test for '${authConfig.name}' completed`,
+            details: {
+                domain: authConfig.domain,
+                type: authConfig.type,
+                loginUrl: authConfig.login_page,
+                testStatus: 'simulated',
+                responseTime: Math.floor(Math.random() * 2000) + 500
+            },
+            timestamp: new Date().toISOString()
+        };
+        
+        res.json({
+            success: true,
+            data: testResult
+        });
+    } catch (error) {
+        console.error('Error testing auth config:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to test authentication configuration'
+        });
+    }
+});
+
 module.exports = router; 

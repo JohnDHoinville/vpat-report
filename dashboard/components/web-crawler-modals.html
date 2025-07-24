@@ -1,0 +1,374 @@
+<!-- Web Crawler Modals Component -->
+
+<!-- Create Web Crawler Modal -->
+<div x-show="showCreateCrawler" 
+     x-transition:enter="transition ease-out duration-300"
+     x-transition:enter-start="opacity-0"
+     x-transition:enter-end="opacity-100"
+     x-transition:leave="transition ease-in duration-200"
+     x-transition:leave-start="opacity-100"
+     x-transition:leave-end="opacity-0"
+     class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
+     @click.self="showCreateCrawler = false">
+    <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+            <div>
+                <h3 class="text-lg font-semibold text-gray-900">Create Web Crawler</h3>
+                <p class="text-sm text-gray-600 mt-1">Setup a new Playwright-based web crawler</p>
+            </div>
+            <button @click="showCreateCrawler = false" 
+                    class="text-gray-400 hover:text-gray-600">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+        
+        <form @submit.prevent="createCrawler()" class="p-6 space-y-6 max-h-[60vh] overflow-y-auto">
+            <!-- Basic Configuration -->
+            <div class="space-y-4">
+                <h4 class="font-medium text-gray-900">Basic Configuration</h4>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Crawler Name</label>
+                    <input x-model="newCrawler.name" type="text" required
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                           placeholder="e.g., Main Site Crawler">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Browser Type</label>
+                    <select x-model="newCrawler.browser_type"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="chromium">Chromium</option>
+                        <option value="firefox">Firefox</option>
+                        <option value="webkit">WebKit</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Base URL</label>
+                    <input x-model="newCrawler.base_url" type="url" required
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                           placeholder="https://example.com">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                    <textarea x-model="newCrawler.description" rows="3"
+                              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              placeholder="Brief description of this crawler..."></textarea>
+                </div>
+            </div>
+            
+            <!-- Authentication Configuration -->
+            <div class="space-y-4">
+                <h4 class="font-medium text-gray-900">Authentication</h4>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Authentication Type</label>
+                    <select x-model="newCrawler.auth_type"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="none">No Authentication</option>
+                        <option value="saml">SAML/SSO</option>
+                        <option value="basic">Basic Authentication</option>
+                        <option value="dynamic_auth">Dynamic Authentication</option>
+                    </select>
+                </div>
+                
+                <!-- SAML Configuration -->
+                <div x-show="newCrawler.auth_type === 'saml'" class="space-y-4 p-4 bg-blue-50 rounded-md">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">IDP Domain</label>
+                        <input x-model="newCrawler.saml_config.idp_domain" type="text"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                               placeholder="e.g., university.edu">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Username Selector</label>
+                        <input x-model="newCrawler.saml_config.username_selector" type="text"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                               placeholder="input[name='username']">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Password Selector</label>
+                        <input x-model="newCrawler.saml_config.password_selector" type="text"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                               placeholder="input[name='password']">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Submit Button Selector</label>
+                        <input x-model="newCrawler.saml_config.submit_selector" type="text"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                               placeholder="button[type='submit']">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Username</label>
+                        <input x-model="newCrawler.auth_credentials.username" type="text"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                        <input x-model="newCrawler.auth_credentials.password" type="password"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                </div>
+                
+                <!-- Basic Authentication -->
+                <div x-show="newCrawler.auth_type === 'basic'" class="space-y-4 p-4 bg-green-50 rounded-md">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Username Selector</label>
+                        <input x-model="newCrawler.auth_workflow.username_selector" type="text"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                               placeholder="input[name='username']">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Password Selector</label>
+                        <input x-model="newCrawler.auth_workflow.password_selector" type="text"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                               placeholder="input[name='password']">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Username</label>
+                        <input x-model="newCrawler.auth_credentials.username" type="text"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                        <input x-model="newCrawler.auth_credentials.password" type="password"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Crawling Parameters -->
+            <div class="space-y-4">
+                <h4 class="font-medium text-gray-900">Crawling Parameters</h4>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Max Pages</label>
+                        <input x-model="newCrawler.max_pages" type="number" min="1" max="1000"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Max Depth</label>
+                        <input x-model="newCrawler.max_depth" type="number" min="1" max="10"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Request Delay (ms)</label>
+                    <input x-model="newCrawler.request_delay_ms" type="number" min="0" max="10000"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                
+                <div class="space-y-2">
+                    <label class="flex items-center">
+                        <input x-model="newCrawler.session_persistence" type="checkbox"
+                               class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded mr-2">
+                        <span class="text-sm text-gray-700">Session Persistence</span>
+                    </label>
+                    
+                    <label class="flex items-center">
+                        <input x-model="newCrawler.respect_robots_txt" type="checkbox"
+                               class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded mr-2">
+                        <span class="text-sm text-gray-700">Respect robots.txt</span>
+                    </label>
+                </div>
+            </div>
+            
+            <!-- Advanced Options -->
+            <div x-show="showAdvancedCrawlerOptions" class="space-y-4 p-4 bg-gray-50 rounded-md">
+                <h4 class="font-medium text-gray-900">Advanced Options</h4>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Wait Conditions (JSON)</label>
+                    <textarea x-model="newCrawler.wait_conditions_json" rows="3"
+                              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+                              placeholder='{"networkidle": true, "timeout": 30000}'></textarea>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Extraction Rules (JSON)</label>
+                    <textarea x-model="newCrawler.extraction_rules_json" rows="3"
+                              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+                              placeholder='{"title": "h1, title", "description": "meta[name=description]"}'></textarea>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">URL Patterns (JSON)</label>
+                    <textarea x-model="newCrawler.url_patterns_json" rows="3"
+                              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+                              placeholder='{"include": [".*"], "exclude": ["\\.pdf$", "\\.doc$"]}'></textarea>
+                </div>
+            </div>
+            
+            <!-- Toggle Advanced Options -->
+            <div class="text-center">
+                <button type="button" @click="showAdvancedCrawlerOptions = !showAdvancedCrawlerOptions"
+                        class="text-blue-600 hover:text-blue-800 text-sm">
+                    <i :class="showAdvancedCrawlerOptions ? 'fas fa-chevron-up' : 'fas fa-chevron-down'" class="mr-1"></i>
+                    <span x-text="showAdvancedCrawlerOptions ? 'Hide Advanced Options' : 'Show Advanced Options'"></span>
+                </button>
+            </div>
+        </form>
+        
+        <div class="px-6 py-4 border-t border-gray-200 flex justify-end space-x-3">
+            <button type="button" @click="showCreateCrawler = false"
+                    class="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
+                Cancel
+            </button>
+            <button @click="createCrawler()"
+                    :disabled="loading"
+                    class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 transition-colors">
+                <i x-show="loading" class="fas fa-spinner fa-spin mr-2"></i>
+                <span x-show="!loading">Create Crawler</span>
+                <span x-show="loading">Creating...</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Session URL Selection Modal -->
+<div x-show="showSessionUrlModal" 
+     x-transition:enter="transition ease-out duration-300"
+     x-transition:enter-start="opacity-0"
+     x-transition:enter-end="opacity-100"
+     x-transition:leave="transition ease-in duration-200"
+     x-transition:leave-start="opacity-100"
+     x-transition:leave-end="opacity-0"
+     class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
+     @click.self="showSessionUrlModal = false">
+    <div class="bg-white rounded-lg shadow-xl max-w-5xl w-full max-h-[80vh] overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+            <div>
+                <h3 class="text-lg font-semibold text-gray-900">Select URLs for Testing Session</h3>
+                <p class="text-sm text-gray-600 mt-1">Choose specific pages from all discovered URLs (deduplicated from all sources)</p>
+                <div class="bg-yellow-50 border border-yellow-200 rounded p-2 mt-2">
+                    <p class="text-sm text-yellow-800">
+                        ⚠️ URLs are deduplicated across Web Crawler and Site Discovery sources. Each unique URL appears only once.
+                    </p>
+                </div>
+            </div>
+            <button @click="showSessionUrlModal = false" 
+                    class="text-gray-400 hover:text-gray-600">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+        
+        <!-- Manual URL Addition Section -->
+        <div class="bg-green-50 border-b border-green-200 p-4">
+            <div class="flex items-center justify-between mb-2">
+                <h4 class="font-medium text-green-800">Add Manual URL</h4>
+                <button @click="showManualUrlForm = !showManualUrlForm" 
+                        class="text-green-600 hover:text-green-800 text-sm">
+                    <i :class="showManualUrlForm ? 'fas fa-chevron-up' : 'fas fa-chevron-down'" class="mr-1"></i>
+                    <span x-text="showManualUrlForm ? 'Hide Form' : 'Add URL'"></span>
+                </button>
+            </div>
+            
+            <div x-show="showManualUrlForm" class="grid grid-cols-4 gap-3 mt-3">
+                <input x-model="manualUrl.url" type="url" 
+                       class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                       placeholder="https://example.com/page">
+                <input x-model="manualUrl.title" type="text" 
+                       class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                       placeholder="Page Title">
+                <select x-model="manualUrl.pageType"
+                        class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500">
+                    <option value="content">Content Page</option>
+                    <option value="form">Form Page</option>
+                    <option value="homepage">Homepage</option>
+                    <option value="navigation">Navigation</option>
+                </select>
+                <button @click="addManualUrl()"
+                        class="px-3 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">
+                    <i class="fas fa-plus mr-1"></i>Add
+                </button>
+            </div>
+        </div>
+        
+        <!-- URL Selection Controls -->
+        <div class="p-4 border-b border-gray-200">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center space-x-4">
+                    <button @click="selectAllUrls()" class="text-blue-600 hover:text-blue-800 text-sm">Select All</button>
+                    <span class="text-gray-400">|</span>
+                    <button @click="deselectAllUrls()" class="text-blue-600 hover:text-blue-800 text-sm">Deselect All</button>
+                    <span class="text-gray-400">|</span>
+                    <span class="text-sm text-gray-600">
+                        <span x-text="selectedUrls.length"></span> of <span x-text="availableUrls.length"></span> URLs selected
+                    </span>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <input x-model="urlSearch" type="text" 
+                           class="px-3 py-1 border border-gray-300 rounded text-sm"
+                           placeholder="Search URLs...">
+                    <select x-model="urlSourceFilter" class="px-3 py-1 border border-gray-300 rounded text-sm">
+                        <option value="">All Sources</option>
+                        <option value="site_discovery">Site Discovery</option>
+                        <option value="web_crawler">Web Crawler</option>
+                        <option value="manual">Manual</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        
+        <!-- URL List -->
+        <div class="p-6 overflow-y-auto max-h-[50vh]">
+            <div class="space-y-2">
+                <template x-for="url in filteredUrls" :key="url.id">
+                    <div class="border border-gray-200 rounded-lg p-3 hover:bg-gray-50">
+                        <div class="flex items-center">
+                            <input type="checkbox" 
+                                   :id="`url-${url.id}`"
+                                   x-model="selectedUrls"
+                                   :value="url.id"
+                                   class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded mr-3">
+                            <label :for="`url-${url.id}`" class="flex-1 cursor-pointer">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex-1">
+                                        <h4 class="font-medium text-gray-900" x-text="url.title || 'Untitled Page'"></h4>
+                                        <p class="text-sm text-gray-600 mt-1" x-text="url.url"></p>
+                                        <div class="flex items-center space-x-4 mt-2 text-xs text-gray-500">
+                                            <span class="px-2 py-1 rounded-full"
+                                                  :class="url.source_type === 'site_discovery' ? 'bg-blue-100 text-blue-800' : 
+                                                         url.source_type === 'web_crawler' ? 'bg-green-100 text-green-800' : 
+                                                         'bg-purple-100 text-purple-800'"
+                                                  x-text="url.source_type.replace('_', ' ')"></span>
+                                            <span><i class="fas fa-tag mr-1"></i><span x-text="url.page_type || 'content'"></span></span>
+                                            <span><i class="fas fa-clock mr-1"></i><span x-text="formatDate(url.discovered_at)"></span></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                </template>
+            </div>
+            
+            <div x-show="filteredUrls.length === 0" class="text-center py-8 text-gray-500">
+                <i class="fas fa-search text-4xl mb-4"></i>
+                <p>No URLs found matching your criteria.</p>
+            </div>
+        </div>
+        
+        <!-- Modal Footer -->
+        <div class="px-6 py-4 border-t border-gray-200 flex justify-between items-center">
+            <div class="text-sm text-gray-600">
+                <span x-text="selectedUrls.length"></span> URLs selected for testing
+            </div>
+            <div class="flex space-x-3">
+                <button @click="showSessionUrlModal = false"
+                        class="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
+                    Cancel
+                </button>
+                <button @click="saveSelectedUrls()"
+                        :disabled="selectedUrls.length === 0"
+                        class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 transition-colors">
+                    Save Selection (<span x-text="selectedUrls.length"></span>)
+                </button>
+            </div>
+        </div>
+    </div>
+</div> 

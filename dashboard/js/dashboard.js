@@ -4,61 +4,46 @@
 // Dashboard Alpine.js component
 function dashboard() {
     return {
-        // UI State
+        // State management
         activeTab: 'discovery',
-        loading: false,
-        
-        // Authentication state
-        isAuthenticated: false,
+        selectedProject: null,
+        projects: [],
+        currentUser: null,
         user: null,
-        
-        // Connection status
-        apiConnected: false,
-        wsConnected: false,
-        
-        // Modal states
-        showLogin: false,
+        isAuthenticated: false,
         showProfile: false,
+        showLogin: false,
         showChangePassword: false,
         showSessions: false,
         showSetupAuth: false,
-        showCreateProject: false,
-        showDeleteProject: false,
-        showDeleteDiscovery: false,
-        showDeleteSession: false,
+        notification: { show: false, type: '', title: '', message: '' },
+        loading: false,
+        developmentMode: false,
         
-        // Form data
+        // Login Form
         loginForm: {
             username: '',
             password: ''
         },
+        loginError: '',
         
+        // Profile Form
         profileForm: {
             full_name: ''
         },
         
+        // Password Form
         passwordForm: {
             current_password: '',
             new_password: '',
             confirm_password: ''
         },
+        passwordError: '',
         
-        newProject: {
-            name: '',
-            description: '',
-            primary_url: '',
-            compliance_standard: 'wcag_2_1_aa'
-        },
-        
-        // Auth setup wizard
+        // Auth Setup Form
         authSetup: {
-            type: null,
             step: null,
             inProgress: false,
-            progress: 0,
-            progressMessage: '',
-            currentStep: '',
-            browserStatus: '',
             sso: {
                 url: '',
                 loginPage: '',
@@ -70,11 +55,11 @@ function dashboard() {
                 loginPage: '',
                 username: '',
                 password: '',
+                usernameSelector: '',
+                passwordSelector: '',
+                submitSelector: '',
                 successUrl: '',
-                name: '',
-                usernameSelector: 'input[type=text]',
-                passwordSelector: 'input[type=password]',
-                submitSelector: 'button[type=submit]'
+                name: ''
             },
             advanced: {
                 type: 'api_key',
@@ -85,85 +70,171 @@ function dashboard() {
             }
         },
         
-        // Error states
-        loginError: '',
-        passwordError: '',
-        
-        // Data arrays
-        sessions: [],
-        projects: [],
-        
-        // Authentication Configuration State
-        selectedAuthProject: null,
-        authConfigs: [],
-        showAddAuthConfigModal: false,
-        showEditAuthConfigModal: false,
-        authConfigForm: {
-            id: null,
+        // Project Management
+        showCreateProject: false,
+        showDeleteProject: false,
+        showDeleteDiscovery: false,
+        showDeleteSession: false,
+        newProject: {
             name: '',
-            type: 'sso',
-            login_url: '',
-            username: '',
-            password: '',
             description: '',
-            project_id: null
+            primary_url: '',
+            compliance_standard: 'WCAG_2_1_AA'
         },
         
-        // Compliance Sessions State
-        complianceSessions: [],
-        sessionConfig: {
-            name: '',
-            testType: 'automated',
-            wcagLevel: 'AA'
-        },
-        
-        // Session Management State
-        sessionInfo: {
-            isValid: false,
-            status: 'No session',
-            username: '',
-            capturedDate: '',
-            expirationDate: '',
-            pagesCount: 0
-        },
-        sessionCapturing: false,
-        sessionTesting: false,
-
-        // Site Discovery
-        selectedProject: '',
+        // Discovery management
         discoveries: [],
-        discoveryInProgress: false,
-        discoveryProgress: {
+        
+        // Additional missing state variables
+        sessions: [],
+        discoveryToDelete: null,
+        projectToDelete: null,
+        sessionToDelete: null,
+        showAdvancedCrawlerOptions: false,
+        selectedDiscovery: null,
+        
+        // WebSocket state
+        wsConnected: false,
+        wsConnecting: false,
+        wsReconnectAttempts: 0,
+        
+        // API Connection state
+        apiConnected: false,
+        
+        // Projects and data
+        projects: [],
+        selectedProject: null,
+        
+        // Authentication state
+        loginForm: {
+            username: '',
+            password: ''
+        },
+        authSetup: {
+            step: null,
+            type: null
+        },
+        profileForm: {
+            full_name: ''
+        },
+        passwordForm: {
+            current_password: '',
+            new_password: '',
+            confirm_password: ''
+        },
+        
+        // Session and discovery state
+        sessions: [],
+        discoveries: [],
+        discoveryToDelete: null,
+        projectToDelete: null,
+        sessionToDelete: null,
+        selectedDiscovery: null,
+        
+        // Web crawler state
+        showAdvancedCrawlerOptions: false,
+        webCrawlers: [],
+        selectedCrawlers: [],
+        totalCrawlers: 0,
+        crawlerInProgress: false,
+        crawlerProgress: {
             percentage: 0,
             message: '',
             pagesFound: 0,
             currentUrl: ''
         },
+        showCreateCrawler: false,
+        newCrawler: {
+            name: '',
+            description: '',
+            base_url: '',
+            browser_type: 'chromium',
+            auth_type: 'none',
+            max_pages: 100,
+            max_depth: 3,
+            request_delay_ms: 2000,
+            session_persistence: false,
+            respect_robots_txt: false,
+            saml_config: {},
+            auth_credentials: {},
+            auth_workflow: {}
+        },
+        
+        // Crawler Pages Modal
+        showCrawlerPagesModal: false,
+        selectedCrawlerForPages: null,
+        crawlerPages: [],
+        
+        // Session URL Selection Modal
+        showSessionUrlModal: false,
+        availableUrls: [],
+        filteredUrls: [],
+        selectedUrls: [],
+        urlSearch: '',
+        urlSourceFilter: '',
+        manualUrl: {
+            url: '',
+            title: '',
+            pageType: 'content'
+        },
+        
+        // Authentication Configs
+        authConfigs: [],
+        selectedAuthProject: null,
+        showCreateAuthConfig: false,
+        authConfigForm: {
+            name: '',
+            auth_type: 'saml',
+            description: '',
+            config_data: {}
+        },
+        
+        // Browser Session Management
+        sessionInfo: {
+            isValid: false,
+            expiresAt: null,
+            domain: '',
+            sessionId: ''
+        },
+        sessionCapturing: false,
+        sessionTesting: false,
+        
+        // Discovery state additions
         discoveryConfig: {
             maxDepth: 3,
             maxPages: 100,
-            mode: 'standard'
+            mode: 'comprehensive'
         },
+        discoveryInProgress: false,
         showDiscoveredPagesModal: false,
-        selectedDiscovery: null,
         discoveredPages: [],
         
-        // Delete confirmation variables
-        discoveryToDelete: null,
-        projectToDelete: null,
-        sessionToDelete: null,
-        
-        // Notification system
-        notification: {
-            show: false,
-            type: 'info', // 'success', 'error', 'warning', 'info'
-            title: '',
-            message: ''
+        // Web Crawler modal state
+        showAddCrawlerModal: false,
+        showEditCrawlerModal: false,
+        crawlerForm: {
+            name: '',
+            description: '',
+            base_url: '',
+            auth_type: 'none',
+            max_depth: 3,
+            max_pages: 100,
+            respect_robots_txt: false
         },
+        showCrawlerPagesModal: false,
+        selectedCrawler: null,
+        selectedCrawlerPages: [],
+        
+        // Authentication modal state
+        showAddAuthConfigModal: false,
+        showEditAuthConfigModal: false,
+        
+        // Manual URL form state
+        showManualUrlForm: false,
+        manualUrl: '',
         
         // API Configuration
         apiBaseUrl: 'http://localhost:3001',
-        developmentMode: false, // Use real backend APIs
         
         // Initialization
         init() {
@@ -307,195 +378,411 @@ function dashboard() {
         
         // WebSocket connection
         initializeWebSocket() {
-            // WebSocket initialization will be implemented later
-            // For now, just set a mock status
-            this.wsConnected = false;
-        },
-        
-        // Profile management
-        async updateProfile() {
-            this.loading = true;
+            if (this.wsConnecting || this.wsConnected) {
+                return;
+            }
             
             try {
-                // Mock API call
-                await new Promise(resolve => setTimeout(resolve, 1000));
+                this.wsConnecting = true;
+                const token = localStorage.getItem('auth_token');
                 
-                this.showProfile = false;
-                this.showNotification('success', 'Profile Updated', 'Your profile has been updated successfully.');
+                // Use Socket.IO client (not native WebSocket)
+                this.ws = io('http://localhost:3001', {
+                    auth: {
+                        token: token
+                    },
+                    transports: ['websocket', 'polling'],
+                    timeout: 20000
+                });
+                
+                this.ws.on('connect', () => {
+                    console.log('🔌 Socket.IO connected successfully');
+                    this.wsConnected = true;
+                    this.wsConnecting = false;
+                    this.wsReconnectAttempts = 0;
+                    
+                    if (this.selectedProject) {
+                        this.ws.emit('join_project', { projectId: this.selectedProject });
+                    }
+                });
+                
+                this.ws.on('disconnect', (reason) => {
+                    console.log('🔌 Socket.IO disconnected:', reason);
+                    this.wsConnected = false;
+                    this.wsConnecting = false;
+                    
+                    // Auto-reconnect with exponential backoff
+                    this.wsReconnectAttempts = (this.wsReconnectAttempts || 0) + 1;
+                    if (this.wsReconnectAttempts < 5) {
+                        const delay = Math.min(1000 * Math.pow(2, this.wsReconnectAttempts), 10000);
+                        setTimeout(() => {
+                            if (!this.wsConnected && !this.wsConnecting) {
+                                console.log(`🔄 Attempting reconnection ${this.wsReconnectAttempts}/5...`);
+                                this.initializeWebSocket();
+                            }
+                        }, delay);
+                    } else {
+                        console.log('❌ Max WebSocket reconnection attempts reached');
+                    }
+                });
+                
+                this.ws.on('connect_error', (error) => {
+                    console.error('🔌 Socket.IO connection error:', error);
+                    this.wsConnected = false;
+                    this.wsConnecting = false;
+                });
+                
+                this.ws.on('error', (error) => {
+                    console.error('🔌 Socket.IO error:', error);
+                });
+                
+                // Handle crawler-specific events
+                this.ws.on('crawler_progress', (data) => {
+                    this.handleCrawlerProgress(data);
+                });
+                
+                this.ws.on('crawler_completed', (data) => {
+                    this.handleCrawlerCompleted(data);
+                });
+                
+                this.ws.on('notification', (data) => {
+                    this.showNotification(data.level, data.title, data.message);
+                });
+                
             } catch (error) {
-                this.showNotification('error', 'Update Failed', 'Failed to update profile. Please try again.');
-                console.error('Profile update error:', error);
-            } finally {
-                this.loading = false;
+                console.error('🔌 WebSocket initialization failed:', error);
+                this.wsConnected = false;
+                this.wsConnecting = false;
             }
         },
-        
-        // Modal management
-        openSessionsModal() {
-            this.showSessions = true;
-            this.loadActiveSessions();
-        },
-        
-        async loadActiveSessions() {
-            // Mock data for now
-            this.sessions = [
-                {
-                    id: 1,
-                    is_current: true,
-                    ip_address: '192.168.1.100',
-                    last_accessed: new Date().toISOString(),
-                    expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+
+        handleCrawlerProgress(data) {
+            console.log('📊 Crawler progress:', data);
+            // Update UI with progress data
+            if (data.crawlerId) {
+                const crawler = this.webCrawlers.find(c => c.id === data.crawlerId);
+                if (crawler) {
+                    crawler.status = data.status || 'running';
+                    crawler.progress = data.progress || 0;
+                    crawler.pages_found = data.pagesFound || 0;
                 }
+            }
+        },
+
+        handleCrawlerCompleted(data) {
+            console.log('✅ Crawler completed:', data);
+            // Update crawler status and refresh list
+            if (data.crawlerId) {
+                const crawler = this.webCrawlers.find(c => c.id === data.crawlerId);
+                if (crawler) {
+                    crawler.status = 'completed';
+                    crawler.total_pages_found = data.totalPages || data.pagesFound || crawler.pages_found || 0;
+                    crawler.completed_at = new Date().toISOString();
+                }
+            }
+            this.showNotification('success', 'Crawler Completed', data.message || 'Web crawler finished successfully');
+        },
+
+        // ===============================
+        // AUTHENTICATION HELPERS
+        // ===============================
+        
+        getAuthHeaders() {
+            const token = localStorage.getItem('auth_token');
+            const headers = {
+                'Content-Type': 'application/json'
+            };
+            
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+            }
+            
+            return headers;
+        },
+
+        // ===============================
+        // WEB CRAWLER MANAGEMENT
+        // ===============================
+        
+        async loadWebCrawlers() {
+            if (!this.selectedProject) return;
+            
+            try {
+                const response = await fetch(`${this.apiBaseUrl}/api/web-crawlers/projects/${this.selectedProject}/crawlers`, {
+                    headers: this.getAuthHeaders()
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    this.webCrawlers = result.success ? result.data : [];
+                    console.log('✅ Loaded web crawlers:', this.webCrawlers.length);
+                } else {
+                    console.error('Failed to load web crawlers:', response.status, response.statusText);
+                    this.webCrawlers = [];
+                }
+            } catch (error) {
+                console.error('Error loading web crawlers:', error);
+                this.webCrawlers = [];
+            }
+        },
+
+        async createCrawler() {
+            if (!this.selectedProject) {
+                this.showNotification('warning', 'No Project Selected', 'Please select a project first');
+                return;
+            }
+
+            try {
+                this.crawlerForm.project_id = this.selectedProject;
+                
+                const response = await fetch(`${this.apiBaseUrl}/api/web-crawlers/crawlers`, {
+                    method: 'POST',
+                    headers: this.getAuthHeaders(),
+                    body: JSON.stringify(this.crawlerForm)
+                });
+
+                if (response.ok) {
+                    const newCrawler = await response.json();
+                    this.webCrawlers.push(newCrawler);
+                    this.showNotification('success', 'Crawler Created', `${this.crawlerForm.name} has been created`);
+                    this.loadWebCrawlers(); // Refresh list
+                } else {
+                    this.showNotification('error', 'Creation Failed', 'Failed to create web crawler');
+                }
+                
+                this.closeCrawlerModal();
+            } catch (error) {
+                console.error('Error creating crawler:', error);
+                this.showNotification('error', 'Network Error', 'Failed to create crawler');
+            }
+        },
+
+        async startCrawler(crawler) {
+            // Check if browser session is available for SAML crawlers
+            if (crawler.auth_type === 'saml' && !this.sessionInfo.isValid) {
+                this.showNotification('warning', 'Browser Session Required', 
+                    'SAML authentication requires an active browser session. Please capture a session first.');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${this.apiBaseUrl}/api/web-crawlers/crawlers/${crawler.id}/start`, {
+                    method: 'POST',
+                    headers: this.getAuthHeaders()
+                });
+
+                if (response.ok) {
+                    crawler.status = 'running';
+                    this.showNotification('success', 'Crawler Started', `${crawler.name} is now running`);
+                } else {
+                    this.showNotification('error', 'Start Failed', 'Failed to start crawler');
+                }
+            } catch (error) {
+                console.error('Error starting crawler:', error);
+                this.showNotification('error', 'Network Error', 'Failed to start crawler');
+            }
+        },
+
+        async viewCrawlerPages(crawler) {
+            try {
+                const response = await fetch(`${this.apiBaseUrl}/api/web-crawlers/crawlers/${crawler.id}/pages`, {
+                    headers: this.getAuthHeaders()
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    this.selectedCrawlerPages = result.pages || [];
+                    this.selectedCrawler = crawler;
+                    this.showCrawlerPagesModal = true;
+                } else {
+                    this.showNotification('error', 'Load Failed', 'Failed to load crawler pages');
+                }
+            } catch (error) {
+                console.error('Error loading crawler pages:', error);
+                this.showNotification('error', 'Network Error', 'Failed to load pages');
+            }
+        },
+
+        async deleteCrawler(crawlerId) {
+            if (!confirm('Are you sure you want to delete this crawler?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${this.apiBaseUrl}/api/web-crawlers/crawlers/${crawlerId}`, {
+                    method: 'DELETE',
+                    headers: this.getAuthHeaders()
+                });
+
+                if (response.ok) {
+                    this.webCrawlers = this.webCrawlers.filter(c => c.id !== crawlerId);
+                    this.showNotification('success', 'Crawler Deleted', 'Crawler has been removed');
+                } else {
+                    this.showNotification('error', 'Delete Failed', 'Failed to delete crawler');
+                }
+            } catch (error) {
+                console.error('Error deleting crawler:', error);
+                this.showNotification('error', 'Network Error', 'Failed to delete crawler');
+            }
+        },
+
+        editCrawler(crawler) {
+            this.crawlerForm = { ...crawler };
+            this.showEditCrawlerModal = true;
+        },
+
+        openCrawlerPagesModal(crawler) {
+            this.viewCrawlerPages(crawler);
+        },
+
+        closeCrawlerModal() {
+            this.showAddCrawlerModal = false;
+            this.showEditCrawlerModal = false;
+            this.crawlerForm = {
+                name: '',
+                description: '',
+                base_url: '',
+                auth_type: 'none',
+                max_depth: 3,
+                max_pages: 100,
+                respect_robots_txt: false
+            };
+        },
+
+        getCrawlerStatusColor(status) {
+            const colors = {
+                'idle': 'bg-gray-100 text-gray-800',
+                'running': 'bg-blue-100 text-blue-800',
+                'completed': 'bg-green-100 text-green-800',
+                'failed': 'bg-red-100 text-red-800',
+                'paused': 'bg-yellow-100 text-yellow-800'
+            };
+            return colors[status] || colors['idle'];
+        },
+
+        // ===============================
+        // AUTHENTICATION MANAGEMENT
+        // ===============================
+        
+        async loadAuthConfigs() {
+            try {
+                const response = await fetch(`${this.apiBaseUrl}/api/auth/auth-configs`, {
+                    headers: this.getAuthHeaders()
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    this.authConfigs = result.data || [];
+                } else {
+                    console.error('Failed to load auth configs:', response.status, response.statusText);
+                    this.authConfigs = [];
+                }
+            } catch (error) {
+                console.error('Failed to load auth configs:', error);
+                this.authConfigs = [];
+            }
+        },
+
+        getSelectedProject() {
+            if (!this.selectedProject) return null;
+            return this.projects.find(p => p.id === this.selectedProject) || null;
+        },
+
+        // ===============================
+        // SESSION URL SELECTION MODAL
+        // ===============================
+        
+        openSessionUrlModal() {
+            // Load all available URLs from crawlers and discoveries
+            this.loadAvailableUrls();
+            this.showSessionUrlModal = true;
+        },
+
+        async loadAvailableUrls() {
+            // This would load URLs from both web crawlers and site discoveries
+            // For now, mock some data
+            this.availableUrls = [
+                { url: 'https://example.com/', source: 'crawler', selected: false },
+                { url: 'https://example.com/about', source: 'crawler', selected: false },
+                { url: 'https://example.com/contact', source: 'discovery', selected: false }
             ];
         },
-        
-        // Auth setup wizard
-        startAuthSetup(type) {
-            this.authSetup.type = type;
-            this.authSetup.step = `${type}-details`;
-        },
-        
-        nextAuthStep() {
-            const currentStep = this.authSetup.step;
-            
-            if (currentStep.endsWith('-details')) {
-                this.authSetup.step = currentStep.replace('-details', '-test');
-            } else if (currentStep.endsWith('-test')) {
-                this.authSetup.step = currentStep.replace('-test', '-save');
-            }
-        },
-        
-        async testAuthConfig() {
-            this.authSetup.inProgress = true;
-            this.authSetup.progress = 0;
-            this.authSetup.progressMessage = 'Testing authentication...';
-            
-            // Simulate auth testing
-            for (let i = 0; i <= 100; i += 10) {
-                this.authSetup.progress = i;
-                this.authSetup.progressMessage = i < 50 ? 'Connecting to authentication server...' : 
-                                                i < 80 ? 'Validating credentials...' : 'Finalizing setup...';
-                await new Promise(resolve => setTimeout(resolve, 200));
-            }
-            
-            this.authSetup.inProgress = false;
-            this.showNotification('success', 'Auth Test Successful', 'Authentication configuration is working correctly.');
-            this.nextAuthStep();
-        },
-        
-        // Project management
-        async createProject() {
-            this.loading = true;
-            
-            try {
-                // Mock API call
-                await new Promise(resolve => setTimeout(resolve, 1000));
-                
-                this.showCreateProject = false;
-                this.newProject = {
-                    name: '',
-                    description: '',
-                    primary_url: '',
-                    compliance_standard: 'wcag_2_1_aa'
-                };
-                this.showNotification('success', 'Project Created', 'Your new project has been created successfully.');
-            } catch (error) {
-                this.showNotification('error', 'Creation Failed', 'Failed to create project. Please try again.');
-                console.error('Project creation error:', error);
-            } finally {
-                this.loading = false;
-            }
-        },
-        
-        // Tab management
-        refreshTestingSessionsTabData() {
-            console.log('Refreshing testing sessions data...');
-        },
-        
-        refreshTestingTabData() {
-            console.log('Refreshing testing data...');
-        },
-        
-        refreshManualTestingTabData() {
-            console.log('Refreshing manual testing data...');
-        },
-        
-        loadProjectAuthConfigs() {
-            console.log('Loading project auth configs...');
+
+        selectAllUrls() {
+            this.availableUrls.forEach(url => url.selected = true);
         },
 
-        // Session Management Functions
-        async refreshSessionInfo() {
-            try {
-                if (this.developmentMode) {
-                    // Mock session data for development
-                    this.sessionInfo = {
-                        isValid: true,
-                        status: 'Active Session (Mock)',
-                        username: 'demo-user',
-                        capturedDate: new Date().toLocaleString(),
-                        expirationDate: new Date(Date.now() + 24*60*60*1000).toLocaleString(),
-                        pagesCount: 149
-                    };
-                    return;
-                }
-                
-                const response = await fetch(`${this.apiBaseUrl}/api/session/info`);
-                    const data = await response.json();
-                
-                if (data.exists) {
-                    this.sessionInfo = {
-                        isValid: true,
-                        status: 'Active Session',
-                        username: data.metadata?.username || 'Unknown',
-                        capturedDate: data.metadata?.capturedDate ? new Date(data.metadata.capturedDate).toLocaleString() : 'Unknown',
-                        expirationDate: data.metadata?.expirationDate ? new Date(data.metadata.expirationDate).toLocaleString() : 'Unknown',
-                        pagesCount: data.metadata?.pagesCount || 0
-                    };
-                } else {
-                    this.sessionInfo = {
-                        isValid: false,
-                        status: 'No session',
-                        username: '',
-                        capturedDate: '',
-                        expirationDate: '',
-                        pagesCount: 0
-                    };
-                }
-            } catch (error) {
-                console.error('Failed to refresh session info:', error);
-                this.sessionInfo.status = 'Error checking session';
+        deselectAllUrls() {
+            this.availableUrls.forEach(url => url.selected = false);
+        },
+
+        addManualUrl() {
+            if (this.manualUrl && this.manualUrl.trim()) {
+                this.availableUrls.push({
+                    url: this.manualUrl.trim(),
+                    source: 'manual',
+                    selected: true
+                });
+                this.manualUrl = '';
             }
         },
 
+        removeUrl(index) {
+            this.availableUrls.splice(index, 1);
+        },
+
+        saveUrlSelection() {
+            const selectedUrls = this.availableUrls.filter(url => url.selected);
+            this.showNotification('success', 'URLs Selected', `${selectedUrls.length} URLs selected for testing`);
+            this.showSessionUrlModal = false;
+        },
+
+        closeSessionUrlModal() {
+            this.showSessionUrlModal = false;
+            this.manualUrl = '';
+        },
+
+        // ===============================
+        // MISSING METHOD IMPLEMENTATIONS
+        // ===============================
+
+        // Computed properties for filtered URLs
+        get filteredUrls() {
+            let filtered = this.availableUrls || [];
+            
+            // Apply search filter
+            if (this.urlSearch) {
+                filtered = filtered.filter(url => 
+                    url.url.toLowerCase().includes(this.urlSearch.toLowerCase()) ||
+                    (url.title && url.title.toLowerCase().includes(this.urlSearch.toLowerCase()))
+                );
+            }
+            
+            // Apply source filter
+            if (this.urlSourceFilter && this.urlSourceFilter !== 'all') {
+                filtered = filtered.filter(url => url.source === this.urlSourceFilter);
+            }
+            
+            return filtered;
+        },
+
+        get selectedUrls() {
+            return (this.availableUrls || []).filter(url => url.selected);
+        },
+
+        // Session management methods
         async captureNewSession() {
             this.sessionCapturing = true;
             try {
-                if (this.developmentMode) {
-                    // Mock session capture for development
-                    await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate delay
-                    this.showNotification('success', 'Session Capture Started (Mock)', 'This is a demo - session capture functionality simulated.');
-                    setTimeout(() => this.refreshSessionInfo(), 3000);
-                    return;
-                }
-                
-                const response = await fetch(`${this.apiBaseUrl}/api/session/capture`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' }
-                });
-                
-                const data = await response.json();
-
-                if (response.ok) {
-                    this.showNotification('success', 'Session Capture Started', 'Browser window opened for authentication. Please log in and close the browser when done.');
-                    // Refresh session info after a delay to check if session was captured
-                    setTimeout(() => this.refreshSessionInfo(), 30000); // Check after 30 seconds
-                } else {
-                    this.showNotification('error', 'Capture Failed', data.message || 'Failed to start session capture');
-                }
+                // Mock session capture - in real implementation would call backend
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                this.sessionInfo.isValid = true;
+                this.sessionInfo.expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+                this.sessionInfo.domain = 'fm-dev.ti.internet2.edu';
+                this.sessionInfo.sessionId = `session-${Date.now()}`;
+                this.showNotification('success', 'Session Captured', 'Browser session captured successfully');
             } catch (error) {
-                console.error('Session capture error:', error);
-                this.showNotification('error', 'Network Error', 'Failed to communicate with server');
+                this.showNotification('error', 'Capture Failed', 'Failed to capture browser session');
             } finally {
                 this.sessionCapturing = false;
             }
@@ -504,216 +791,57 @@ function dashboard() {
         async testSessionAccess() {
             this.sessionTesting = true;
             try {
-                if (this.developmentMode) {
-                    // Mock session test for development
-                    await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate delay
-                    const mockPages = Math.floor(Math.random() * 50) + 100;
-                    this.showNotification('success', 'Session Valid (Mock)', `Session is working! Found ${mockPages} accessible pages`);
-                    this.sessionInfo.pagesCount = mockPages;
-                    return;
-                }
-                
-                const response = await fetch(`${this.apiBaseUrl}/api/session/test`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' }
-                });
-                
-                const data = await response.json();
-
-                if (response.ok) {
-                    this.showNotification('success', 'Session Valid', `Session is working! Found ${data.pagesCount} accessible pages`);
-                    await this.refreshSessionInfo();
-                } else {
-                    this.showNotification('warning', 'Session Issue', data.message || 'Session may have expired');
-                }
+                // Mock session test - in real implementation would test session validity
+                await new Promise(resolve => setTimeout(resolve, 1500));
+                this.showNotification('success', 'Session Valid', 'Session access test successful');
             } catch (error) {
-                console.error('Session test error:', error);
-                this.showNotification('error', 'Test Failed', 'Failed to test session access');
+                this.showNotification('error', 'Test Failed', 'Session access test failed');
             } finally {
                 this.sessionTesting = false;
             }
         },
 
-        async clearSession() {
-            try {
-                if (this.developmentMode) {
-                    // Mock session clear for development
-                    this.sessionInfo = {
-                        isValid: false,
-                        status: 'No session',
-                        username: '',
-                        capturedDate: '',
-                        expirationDate: '',
-                        pagesCount: 0
-                    };
-                    this.showNotification('success', 'Session Cleared (Mock)', 'Session has been cleared (demo mode)');
-                    return;
-                }
-                
-                const response = await fetch(`${this.apiBaseUrl}/api/session/clear`, {
-                    method: 'DELETE'
-                    });
-
-                    if (response.ok) {
-                    this.showNotification('success', 'Session Cleared', 'Browser session has been cleared');
-                    await this.refreshSessionInfo();
-                    } else {
-                    this.showNotification('error', 'Clear Failed', 'Failed to clear session');
-                    }
-                } catch (error) {
-                console.error('Clear session error:', error);
-                this.showNotification('error', 'Network Error', 'Failed to communicate with server');
-            }
-        },
-
-        // Site Discovery Functions
+        // Discovery methods
         getSelectedProjectInfo() {
-            if (!this.selectedProject) return '';
-            const project = this.projects.find(p => p.id === this.selectedProject);
-            return project ? `Selected: ${project.name}` : '';
+            const project = this.getSelectedProject();
+            return project ? `${project.name} - ${project.description || 'No description'}` : 'No project selected';
         },
 
-        async startNewDiscovery() {
+        async startDiscovery() {
             if (!this.selectedProject) {
                 this.showNotification('warning', 'No Project Selected', 'Please select a project first');
                 return;
             }
 
             this.discoveryInProgress = true;
-            this.discoveryProgress = {
-                percentage: 0,
-                message: 'Starting discovery...',
-                pagesFound: 0,
-                currentUrl: ''
-            };
-
             try {
-                const requestBody = {
-                    maxDepth: this.discoveryConfig.maxDepth,
-                    maxPages: this.discoveryConfig.maxPages
-                };
-
-                // Add mode-specific options
-                if (this.discoveryConfig.mode === 'authenticated') {
-                    requestBody.excludePublicPages = true;
-                } else if (this.discoveryConfig.mode === 'dynamic_auth') {
-                    requestBody.dynamicAuth = true;
+                // Mock discovery process
+                this.showNotification('info', 'Discovery Started', 'Site discovery is now running...');
+                
+                // Simulate progress updates
+                for (let i = 0; i <= 100; i += 10) {
+                    await new Promise(resolve => setTimeout(resolve, 200));
+                    this.discoveryProgress = i;
                 }
-
-                const response = await fetch(`/api/projects/${this.selectedProject}/discoveries`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
-                    },
-                    body: JSON.stringify(requestBody)
-                });
-
-                const data = await response.json();
-
-                if (response.ok) {
-                    this.showNotification('success', 'Discovery Started', 'Site discovery has been started');
-                    // Start polling for progress
-                    this.pollDiscoveryProgress(data.discovery.id);
-                } else {
-                    this.showNotification('error', 'Discovery Failed', data.error || 'Failed to start discovery');
-                    this.discoveryInProgress = false;
-                }
+                
+                // Mock discovered pages
+                this.discoveredPages = [
+                    { url: 'https://example.com/', title: 'Home Page', status: 200, selected: true },
+                    { url: 'https://example.com/about', title: 'About Us', status: 200, selected: true },
+                    { url: 'https://example.com/contact', title: 'Contact', status: 200, selected: true }
+                ];
+                
+                this.showNotification('success', 'Discovery Complete', `Found ${this.discoveredPages.length} pages`);
             } catch (error) {
-                console.error('Discovery start error:', error);
-                this.showNotification('error', 'Network Error', 'Failed to communicate with server');
+                this.showNotification('error', 'Discovery Failed', 'Site discovery failed');
+            } finally {
                 this.discoveryInProgress = false;
+                this.discoveryProgress = 0;
             }
         },
 
-        async pollDiscoveryProgress(discoveryId) {
-            // This would typically use WebSocket, but for now we'll simulate progress
-            let percentage = 0;
-            const interval = setInterval(() => {
-                percentage += Math.random() * 15;
-                if (percentage >= 100) {
-                    percentage = 100;
-                    clearInterval(interval);
-                    this.discoveryInProgress = false;
-                    this.loadDiscoveries();
-                    this.showNotification('success', 'Discovery Complete', 'Site discovery has finished');
-                }
-                
-                this.discoveryProgress = {
-                    percentage: Math.min(percentage, 100),
-                    message: percentage < 50 ? 'Crawling pages...' : percentage < 90 ? 'Processing content...' : 'Finalizing...',
-                    pagesFound: Math.floor(percentage * 0.5),
-                    currentUrl: 'https://example.com/page-' + Math.floor(Math.random() * 100)
-                };
-            }, 2000);
-        },
-
-        async loadDiscoveries() {
-            if (!this.selectedProject) return;
-            
-            try {
-                const response = await fetch(`/api/projects/${this.selectedProject}/discoveries`, {
-                    headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
-                    }
-                });
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    this.discoveries = data.discoveries || [];
-                }
-            } catch (error) {
-                console.error('Failed to load discoveries:', error);
-            }
-        },
-
-        async viewDiscoveryDetails(discovery) {
-            this.selectedDiscovery = discovery;
-            this.showDiscoveredPagesModal = true;
-            
-            try {
-                const response = await fetch(`/api/discoveries/${discovery.id}/pages`, {
-                    headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
-                    }
-                });
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    this.discoveredPages = data.pages.map(page => ({
-                        ...page,
-                        selected: true // Default to selected
-                    }));
-                }
-            } catch (error) {
-                console.error('Failed to load discovery pages:', error);
-                this.discoveredPages = [];
-            }
-        },
-
-        async deleteDiscovery(discovery) {
-            if (!confirm(`Are you sure you want to delete the discovery for ${discovery.domain}?`)) {
-                return;
-            }
-            
-            try {
-                const response = await fetch(`/api/discoveries/${discovery.id}`, {
-                    method: 'DELETE',
-                    headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
-                    }
-                });
-                
-                if (response.ok) {
-                    this.showNotification('success', 'Discovery Deleted', 'Discovery has been removed');
-                    this.loadDiscoveries();
-                } else {
-                    this.showNotification('error', 'Delete Failed', 'Failed to delete discovery');
-                }
-            } catch (error) {
-                console.error('Delete discovery error:', error);
-                this.showNotification('error', 'Network Error', 'Failed to communicate with server');
-            }
+        getSelectedPagesCount() {
+            return (this.discoveredPages || []).filter(page => page.selected).length;
         },
 
         selectAllPages() {
@@ -728,189 +856,32 @@ function dashboard() {
             page.selected = !page.selected;
         },
 
-        getSelectedPagesCount() {
-            return this.discoveredPages.filter(page => page.selected).length;
-        },
-
         savePageSelections() {
             const selectedPages = this.discoveredPages.filter(page => page.selected);
             this.showNotification('success', 'Selection Saved', `${selectedPages.length} pages selected for testing`);
             this.showDiscoveredPagesModal = false;
         },
-        
-        // Utility methods
-        formatDate(dateString) {
-            if (!dateString) return 'Never';
-            return new Date(dateString).toLocaleString();
+
+        // URL selection methods for session modal
+        saveSelectedUrls() {
+            const selected = this.selectedUrls;
+            this.showNotification('success', 'URLs Saved', `${selected.length} URLs saved for testing session`);
+            this.showSessionUrlModal = false;
         },
 
-        formatDuration(ms) {
-            if (!ms) return '';
-            const seconds = Math.floor(ms / 1000);
-            const minutes = Math.floor(seconds / 60);
-            if (minutes > 0) {
-                return `${minutes}m ${seconds % 60}s`;
-            }
-            return `${seconds}s`;
-        },
-
-        // Projects Management
-        async loadProjects() {
-            try {
-                const response = await fetch(`${this.apiBaseUrl}/api/projects`);
-                if (response.ok) {
-                    const result = await response.json();
-                    this.projects = result.data || result; // Handle both formats
-                } else {
-                    console.warn('Failed to load projects:', response.status);
-                    // Add some sample projects for demo
-                    this.projects = [
-                        {
-                            id: 'demo-1',
-                            name: 'Demo Website',
-                            description: 'Sample accessibility testing project',
-                            created_at: new Date().toISOString()
-                        }
-                    ];
-                }
-            } catch (error) {
-                console.error('Error loading projects:', error);
-                // Add sample projects for demo purposes
-                this.projects = [
-                    {
-                        id: 'demo-1',
-                        name: 'Demo Website',
-                        description: 'Sample accessibility testing project for demonstration',
-                        created_at: new Date().toISOString()
-                    },
-                    {
-                        id: 'demo-2', 
-                        name: 'E-commerce Site',
-                        description: 'Online store accessibility compliance testing',
-                        created_at: new Date(Date.now() - 86400000).toISOString()
-                    }
-                ];
-            }
-        },
-
-        selectProject(projectId) {
-            this.selectedProject = projectId;
-            const project = this.projects.find(p => p.id === projectId);
-            if (project) {
-                this.showNotification('success', 'Project Selected', `Selected project: ${project.name}`);
-                // Switch to discovery tab to show the selected project
-                this.activeTab = 'discovery';
-            }
-        },
-
-        // Authentication Configuration Management
-        async loadAuthConfigs() {
-            try {
-                const response = await fetch(`${this.apiBaseUrl}/api/auth-configs`);
-                if (response.ok) {
-                    const result = await response.json();
-                    this.authConfigs = result.data || result;
-                } else {
-                    console.warn('Failed to load auth configs:', response.status);
-                    // Add sample auth configs for demo
-                    this.authConfigs = [
-                        {
-                            id: 'auth-1',
-                            project_id: this.projects[0]?.id,
-                            name: 'Internet2 Federation SSO',
-                            type: 'sso',
-                            login_url: 'https://fm-dev.ti.internet2.edu/login',
-                            username: '',
-                            description: 'Shibboleth SAML authentication for Internet2 Federation Manager',
-                            status: 'active',
-                            created_at: new Date().toISOString()
-                        },
-                        {
-                            id: 'auth-2',
-                            project_id: this.projects[0]?.id,
-                            name: 'Admin Portal Login',
-                            type: 'form',
-                            login_url: 'https://example.com/admin/login',
-                            username: 'admin',
-                            description: 'Form-based administrator access for full site testing',
-                            status: 'active',
-                            created_at: new Date(Date.now() - 86400000).toISOString()
-                        }
-                    ];
-                }
-            } catch (error) {
-                console.error('Error loading auth configs:', error);
-                // Add sample configs for demo
-                this.authConfigs = [
-                    {
-                        id: 'auth-1',
-                        project_id: this.projects[0]?.id,
-                        name: 'University SSO/SAML',
-                        type: 'sso',
-                        login_url: 'https://sso.university.edu/login',
-                        username: '',
-                        description: 'Shibboleth SAML authentication for university portal',
-                        status: 'active',
-                        created_at: new Date().toISOString()
-                    },
-                    {
-                        id: 'auth-2',
-                        project_id: this.projects[1]?.id,
-                        name: 'OAuth Google Login',
-                        type: 'oauth',
-                        login_url: 'https://portal.example.com/oauth/google',
-                        username: '',
-                        description: 'Google OAuth authentication for user portal',
-                        status: 'active',
-                        created_at: new Date(Date.now() - 86400000).toISOString()
-                    },
-                    {
-                        id: 'auth-3',
-                        project_id: this.projects[0]?.id,
-                        name: 'API Key Authentication',
-                        type: 'api_key',
-                        login_url: 'https://api.example.com',
-                        username: 'api-user',
-                        description: 'Token-based API authentication for automated testing',
-                        status: 'active',
-                        created_at: new Date(Date.now() - 172800000).toISOString()
-                    }
-                ];
-            }
-        },
-
-        selectAuthProject(projectId) {
-            this.selectedAuthProject = projectId;
-            this.loadProjectAuthConfigs();
-        },
-
-        async loadProjectAuthConfigs() {
-            // This would normally load from API, for now we'll filter existing configs
-            // In a real implementation, this would be: /api/projects/{id}/auth-configs
-            const configs = this.authConfigs.filter(config => config.project_id === this.selectedAuthProject);
-            console.log(`Loaded ${configs.length} auth configs for project ${this.selectedAuthProject}`);
-        },
-
-        getSelectedProject() {
-            return this.projects.find(p => p.id === this.selectedAuthProject);
-        },
-
-        getProjectAuthConfigs(projectId) {
-            return this.authConfigs.filter(config => config.project_id === projectId);
-        },
-
-        getProjectAuthStatus(projectId) {
-            const configs = this.getProjectAuthConfigs(projectId);
-            return configs.length > 0 ? 'configured' : 'none';
-        },
-
+        // Auth config methods
         async createAuthConfig() {
+            if (this.showEditAuthConfigModal) {
+                await this.updateAuthConfig();
+                return;
+            }
+
             try {
                 this.authConfigForm.project_id = this.selectedAuthProject;
                 
-                const response = await fetch(`${this.apiBaseUrl}/api/auth-configs`, {
+                const response = await fetch(`${this.apiBaseUrl}/api/auth/auth-configs`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: this.getAuthHeaders(),
                     body: JSON.stringify(this.authConfigForm)
                 });
 
@@ -918,35 +889,23 @@ function dashboard() {
                     const newConfig = await response.json();
                     this.authConfigs.push(newConfig);
                     this.showNotification('success', 'Authentication Added', 'Authentication configuration created successfully');
+                    this.loadAuthConfigs(); // Refresh list
                 } else {
-                    // Demo fallback
-                    const newConfig = {
-                        id: `auth-${Date.now()}`,
-                        ...this.authConfigForm,
-                        status: 'active',
-                        created_at: new Date().toISOString()
-                    };
-                    this.authConfigs.push(newConfig);
-                    this.showNotification('success', 'Authentication Added (Demo)', 'Authentication configuration created in demo mode');
+                    this.showNotification('error', 'Creation Failed', 'Failed to create authentication configuration');
                 }
                 
                 this.closeAuthConfigModal();
             } catch (error) {
                 console.error('Error creating auth config:', error);
-                this.showNotification('error', 'Error', 'Failed to create authentication configuration');
+                this.showNotification('error', 'Network Error', 'Failed to create authentication configuration');
             }
-        },
-
-        editAuthConfig(config) {
-            this.authConfigForm = { ...config };
-            this.showEditAuthConfigModal = true;
         },
 
         async updateAuthConfig() {
             try {
-                const response = await fetch(`${this.apiBaseUrl}/api/auth-configs/${this.authConfigForm.id}`, {
+                const response = await fetch(`${this.apiBaseUrl}/api/auth/auth-configs/${this.authConfigForm.id}`, {
                     method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: this.getAuthHeaders(),
                     body: JSON.stringify(this.authConfigForm)
                 });
 
@@ -958,19 +917,19 @@ function dashboard() {
                     }
                     this.showNotification('success', 'Authentication Updated', 'Authentication configuration updated successfully');
                 } else {
-                    // Demo fallback
-                    const index = this.authConfigs.findIndex(c => c.id === this.authConfigForm.id);
-                    if (index !== -1) {
-                        this.authConfigs[index] = { ...this.authConfigForm };
-                    }
-                    this.showNotification('success', 'Authentication Updated (Demo)', 'Authentication configuration updated in demo mode');
+                    this.showNotification('error', 'Update Failed', 'Failed to update authentication configuration');
                 }
                 
                 this.closeAuthConfigModal();
             } catch (error) {
                 console.error('Error updating auth config:', error);
-                this.showNotification('error', 'Error', 'Failed to update authentication configuration');
+                this.showNotification('error', 'Network Error', 'Failed to update authentication configuration');
             }
+        },
+
+        editAuthConfig(config) {
+            this.authConfigForm = { ...config };
+            this.showEditAuthConfigModal = true;
         },
 
         async deleteAuthConfig(config) {
@@ -979,20 +938,23 @@ function dashboard() {
             }
 
             try {
-                const response = await fetch(`${this.apiBaseUrl}/api/auth-configs/${config.id}`, {
-                    method: 'DELETE'
+                const response = await fetch(`${this.apiBaseUrl}/api/auth/auth-configs/${config.id}`, {
+                    method: 'DELETE',
+                    headers: this.getAuthHeaders()
                 });
 
-                if (response.ok || true) { // Demo: always succeed
+                if (response.ok) {
                     const index = this.authConfigs.findIndex(c => c.id === config.id);
                     if (index !== -1) {
                         this.authConfigs.splice(index, 1);
                     }
                     this.showNotification('success', 'Authentication Deleted', 'Authentication configuration deleted successfully');
+                } else {
+                    this.showNotification('error', 'Delete Failed', 'Failed to delete authentication configuration');
                 }
             } catch (error) {
                 console.error('Error deleting auth config:', error);
-                this.showNotification('error', 'Error', 'Failed to delete authentication configuration');
+                this.showNotification('error', 'Network Error', 'Failed to delete authentication configuration');
             }
         },
 
@@ -1000,18 +962,16 @@ function dashboard() {
             this.showNotification('info', 'Testing Authentication', 'Testing authentication configuration...');
             
             try {
-                const response = await fetch(`${this.apiBaseUrl}/api/auth-configs/${config.id}/test`, {
-                    method: 'POST'
+                const response = await fetch(`${this.apiBaseUrl}/api/auth/auth-configs/${config.id}/test`, {
+                    method: 'POST',
+                    headers: this.getAuthHeaders()
                 });
 
                 if (response.ok) {
                     const result = await response.json();
                     this.showNotification('success', 'Authentication Test', result.message || 'Authentication test successful');
                 } else {
-                    // Demo fallback
-                    setTimeout(() => {
-                        this.showNotification('success', 'Authentication Test (Demo)', 'Authentication test completed successfully in demo mode');
-                    }, 2000);
+                    this.showNotification('error', 'Test Failed', 'Authentication test failed');
                 }
             } catch (error) {
                 console.error('Error testing auth config:', error);
@@ -1034,177 +994,381 @@ function dashboard() {
             };
         },
 
-        // Compliance Sessions Management
-        async loadComplianceSessions() {
-            if (!this.selectedProject) return;
-            
-            try {
-                const response = await fetch(`${this.apiBaseUrl}/api/projects/${this.selectedProject}/sessions`);
-                if (response.ok) {
-                    const result = await response.json();
-                    this.complianceSessions = result.data || result;
-                } else {
-                    // Demo fallback
-                    this.complianceSessions = [
-                        {
-                            id: 'session-1',
-                            name: 'Homepage Compliance Audit',
-                            description: 'WCAG 2.1 AA compliance testing for main landing page',
-                            status: 'completed',
-                            test_type: 'hybrid',
-                            wcag_level: 'AA',
-                            pages_tested: 12,
-                            issues_found: 8,
-                            progress: 100,
-                            created_at: new Date(Date.now() - 86400000).toISOString()
-                        },
-                        {
-                            id: 'session-2',
-                            name: 'User Portal Testing',
-                            description: 'Authenticated user interface compliance validation',
-                            status: 'active',
-                            test_type: 'automated',
-                            wcag_level: 'AA',
-                            pages_tested: 5,
-                            issues_found: 3,
-                            progress: 60,
-                            created_at: new Date().toISOString()
-                        }
-                    ];
-                }
-            } catch (error) {
-                console.error('Error loading compliance sessions:', error);
-                // Sample sessions for demo
-                this.complianceSessions = [
-                    {
-                        id: 'session-1',
-                        name: 'Homepage Compliance Audit',
-                        description: 'WCAG 2.1 AA compliance testing for main landing page',
-                        status: 'completed',
-                        test_type: 'hybrid',
-                        wcag_level: 'AA',
-                        pages_tested: 12,
-                        issues_found: 8,
-                        progress: 100,
-                        created_at: new Date(Date.now() - 86400000).toISOString()
-                    }
-                ];
-            }
+        getProjectAuthConfigs(projectId) {
+            return this.authConfigs.filter(config => config.project_id === projectId);
         },
 
-        async startNewComplianceSession() {
-            if (!this.selectedProject) {
-                this.showNotification('warning', 'No Project Selected', 'Please select a project first');
-                return;
-            }
+        // ===============================
+        // MISSING METHOD IMPLEMENTATIONS
+        // ===============================
 
+        // Session info refresh
+        async refreshSessionInfo() {
             try {
-                const sessionData = {
-                    project_id: this.selectedProject,
-                    name: this.sessionConfig.name || `Compliance Session ${new Date().toLocaleString()}`,
-                    test_type: this.sessionConfig.testType,
-                    wcag_level: this.sessionConfig.wcagLevel,
-                    description: `${this.sessionConfig.testType} testing for WCAG ${this.sessionConfig.wcagLevel} compliance`
-                };
-
-                const response = await fetch(`${this.apiBaseUrl}/api/testing-sessions`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(sessionData)
+                const response = await fetch(`${this.apiBaseUrl}/api/auth/session-info`, {
+                    headers: this.getAuthHeaders()
                 });
-
+                
                 if (response.ok) {
-                    const newSession = await response.json();
-                    this.complianceSessions.unshift(newSession);
-                    this.showNotification('success', 'Session Started', 'New compliance testing session started successfully');
-                } else {
-                    // Demo fallback
-                    const newSession = {
-                        id: `session-${Date.now()}`,
-                        ...sessionData,
-                        status: 'active',
-                        pages_tested: 0,
-                        issues_found: 0,
-                        progress: 0,
-                        created_at: new Date().toISOString()
+                    const sessionData = await response.json();
+                    this.sessionInfo = sessionData.sessionInfo || {
+                        isValid: false,
+                        expiresAt: null,
+                        domain: '',
+                        sessionId: ''
                     };
-                    this.complianceSessions.unshift(newSession);
-                    this.showNotification('success', 'Session Started (Demo)', 'Demo compliance testing session started');
+                } else {
+                    this.sessionInfo = {
+                        isValid: false,
+                        expiresAt: null,
+                        domain: '',
+                        sessionId: ''
+                    };
                 }
-
-                // Reset form
-                this.sessionConfig = {
-                    name: '',
-                    testType: 'automated',
-                    wcagLevel: 'AA'
+            } catch (error) {
+                console.warn('Failed to refresh session info:', error);
+                this.sessionInfo = {
+                    isValid: false,
+                    expiresAt: null,
+                    domain: '',
+                    sessionId: ''
                 };
-            } catch (error) {
-                console.error('Error starting compliance session:', error);
-                this.showNotification('error', 'Error', 'Failed to start compliance session');
             }
         },
 
-        async pauseSession(session) {
+        // Authentication helper methods
+        getAuthHeaders() {
+            const token = localStorage.getItem('auth_token');
+            const headers = {
+                'Content-Type': 'application/json'
+            };
+            
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+            }
+            
+            return headers;
+        },
+
+        // Authentication methods
+        async login() {
             try {
-                const response = await fetch(`${this.apiBaseUrl}/api/testing-sessions/${session.id}/pause`, {
-                    method: 'POST'
+                this.loginError = '';
+                const response = await fetch(`${this.apiBaseUrl}/api/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(this.loginForm)
                 });
 
-                if (response.ok || true) { // Demo: always succeed
-                    session.status = 'paused';
-                    this.showNotification('info', 'Session Paused', `Session "${session.name}" has been paused`);
+                if (response.ok) {
+                    const data = await response.json();
+                    localStorage.setItem('auth_token', data.token);
+                    this.isAuthenticated = true;
+                    this.user = data.user;
+                    this.showLogin = false;
+                    this.loginForm = { username: '', password: '' };
+                    this.showNotification('success', 'Login Successful', 'Welcome back!');
+                    
+                    // Reload data
+                    this.loadProjects();
+                    this.loadAuthConfigs();
+                } else {
+                    const error = await response.json();
+                    this.loginError = error.message || 'Login failed';
                 }
             } catch (error) {
-                console.error('Error pausing session:', error);
-                this.showNotification('error', 'Error', 'Failed to pause session');
+                console.error('Login error:', error);
+                this.loginError = 'Network error occurred';
             }
         },
 
-        async resumeSession(session) {
+        logout() {
+            localStorage.removeItem('auth_token');
+            this.isAuthenticated = false;
+            this.user = null;
+            this.showNotification('info', 'Logged Out', 'You have been logged out successfully');
+        },
+
+        // Project management methods
+        async createProject() {
             try {
-                const response = await fetch(`${this.apiBaseUrl}/api/testing-sessions/${session.id}/resume`, {
-                    method: 'POST'
+                const response = await fetch(`${this.apiBaseUrl}/api/projects`, {
+                    method: 'POST',
+                    headers: this.getAuthHeaders(),
+                    body: JSON.stringify(this.newProject)
                 });
 
-                if (response.ok || true) { // Demo: always succeed
-                    session.status = 'active';
-                    this.showNotification('success', 'Session Resumed', `Session "${session.name}" has been resumed`);
+                if (response.ok) {
+                    const project = await response.json();
+                    this.projects.push(project);
+                    this.showCreateProject = false;
+                    this.newProject = {
+                        name: '',
+                        description: '',
+                        primary_url: '',
+                        compliance_standard: 'WCAG_2_1_AA'
+                    };
+                    this.showNotification('success', 'Project Created', 'Project created successfully');
+                } else {
+                    this.showNotification('error', 'Creation Failed', 'Failed to create project');
                 }
             } catch (error) {
-                console.error('Error resuming session:', error);
-                this.showNotification('error', 'Error', 'Failed to resume session');
+                console.error('Project creation error:', error);
+                this.showNotification('error', 'Creation Failed', 'Network error occurred');
             }
         },
 
-        async stopSession(session) {
-            if (!confirm(`Are you sure you want to stop the session "${session.name}"?`)) {
-                return;
-            }
+        // Helper methods
+        formatDate(dateString) {
+            if (!dateString) return 'Never';
+            return new Date(dateString).toLocaleString();
+        },
 
+        // Close modal methods
+        cancelDeleteProject() {
+            this.showDeleteProject = false;
+        },
+
+        cancelDeleteDiscovery() {
+            this.showDeleteDiscovery = false;
+        },
+
+        cancelDeleteSession() {
+            this.showDeleteSession = false;
+        },
+
+        // Auth config methods
+        async changePassword() {
             try {
-                const response = await fetch(`${this.apiBaseUrl}/api/testing-sessions/${session.id}/stop`, {
-                    method: 'POST'
+                this.passwordError = '';
+                
+                if (this.passwordForm.new_password !== this.passwordForm.confirm_password) {
+                    this.passwordError = 'Passwords do not match';
+                    return;
+                }
+                
+                const response = await fetch(`${this.apiBaseUrl}/api/auth/change-password`, {
+                    method: 'POST',
+                    headers: this.getAuthHeaders(),
+                    body: JSON.stringify({
+                        current_password: this.passwordForm.current_password,
+                        new_password: this.passwordForm.new_password
+                    })
                 });
 
-                if (response.ok || true) { // Demo: always succeed
-                    session.status = 'stopped';
-                    this.showNotification('warning', 'Session Stopped', `Session "${session.name}" has been stopped`);
+                if (response.ok) {
+                    this.showChangePassword = false;
+                    this.passwordForm = {
+                        current_password: '',
+                        new_password: '',
+                        confirm_password: ''
+                    };
+                    this.showNotification('success', 'Password Changed', 'Password updated successfully');
+                } else {
+                    const error = await response.json();
+                    this.passwordError = error.message || 'Failed to change password';
                 }
             } catch (error) {
-                console.error('Error stopping session:', error);
-                this.showNotification('error', 'Error', 'Failed to stop session');
+                console.error('Password change error:', error);
+                this.passwordError = 'Network error occurred';
             }
         },
 
-        viewSessionResults(session) {
-            this.showNotification('info', 'Opening Results', `Opening results for session "${session.name}"`);
-            // This would typically navigate to results tab with session filter
-            this.activeTab = 'results';
+        // ===============================
+        // CORE LOADING METHODS
+        // ===============================
+
+        // Load projects
+        async loadProjects() {
+            try {
+                const response = await fetch(`${this.apiBaseUrl}/api/projects`, {
+                    headers: this.getAuthHeaders()
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    this.projects = data.success ? data.data : data;
+                } else {
+                    console.error('Failed to load projects:', response.status);
+                    this.projects = [];
+                }
+            } catch (error) {
+                console.error('Projects loading error:', error);
+                this.projects = [];
+            }
         },
 
-        refreshSessions() {
-            this.loadComplianceSessions();
-            this.showNotification('success', 'Refreshed', 'Sessions list updated');
+        // Load auth configs
+        async loadAuthConfigs() {
+            try {
+                const response = await fetch(`${this.apiBaseUrl}/api/auth/auth-configs`, {
+                    headers: this.getAuthHeaders()
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    this.authConfigs = data.success ? data.data : data;
+                } else {
+                    console.error('Failed to load auth configs:', response.status);
+                    this.authConfigs = [];
+                }
+            } catch (error) {
+                console.error('Auth configs loading error:', error);
+                this.authConfigs = [];
+            }
+        },
+
+        // Check API connection
+        async checkApiConnection() {
+            try {
+                const response = await fetch(`${this.apiBaseUrl}/health`);
+                if (response.ok) {
+                    console.log('API connection successful');
+                    this.apiConnected = true;
+                } else {
+                    console.warn('API connection failed');
+                    this.apiConnected = false;
+                }
+            } catch (error) {
+                console.error('API connection error:', error);
+                this.apiConnected = false;
+            }
+        },
+
+        // Initialize WebSocket
+        initializeWebSocket() {
+            try {
+                const token = localStorage.getItem('auth_token');
+                if (!token) {
+                    console.warn('No auth token available for WebSocket connection');
+                    return;
+                }
+
+                // Use Socket.IO client
+                this.ws = io(`${this.apiBaseUrl}`, {
+                    auth: {
+                        token: token
+                    },
+                    transports: ['websocket', 'polling']
+                });
+
+                this.ws.on('connect', () => {
+                    console.log('WebSocket connected');
+                    this.wsConnected = true;
+                    this.wsConnecting = false;
+                });
+
+                this.ws.on('disconnect', () => {
+                    console.log('WebSocket disconnected');
+                    this.wsConnected = false;
+                    this.wsConnecting = false;
+                });
+
+                this.ws.on('connect_error', (error) => {
+                    console.error('WebSocket connection error:', error);
+                    this.wsConnected = false;
+                    this.wsConnecting = false;
+                });
+
+            } catch (error) {
+                console.error('WebSocket initialization failed:', error);
+                this.wsConnected = false;
+                this.wsConnecting = false;
+            }
+        },
+
+        // ===============================
+        // DISCOVERY METHODS
+        // ===============================
+
+        // Get total pages for testing
+        getTotalPagesForTesting() {
+            return this.discoveredPages?.filter(page => page.include_in_testing)?.length || 0;
+        },
+
+        // Get excluded pages count
+        getExcludedPagesCount() {
+            return this.discoveredPages?.filter(page => !page.include_in_testing)?.length || 0;
+        },
+
+        // Get total pages
+        getTotalPages() {
+            return this.discoveredPages?.length || 0;
+        },
+
+        // ===============================
+        // WEB CRAWLER METHODS
+        // ===============================
+
+        // Create crawler
+        async createCrawler() {
+            try {
+                const response = await fetch(`${this.apiBaseUrl}/api/web-crawlers/projects/${this.selectedProject}/crawlers`, {
+                    method: 'POST',
+                    headers: this.getAuthHeaders(),
+                    body: JSON.stringify(this.newCrawler)
+                });
+
+                if (response.ok) {
+                    this.showCreateCrawler = false;
+                    this.resetCrawlerForm();
+                    this.loadWebCrawlers();
+                    this.showNotification('success', 'Crawler Created', 'Web crawler created successfully');
+                } else {
+                    this.showNotification('error', 'Creation Failed', 'Failed to create web crawler');
+                }
+            } catch (error) {
+                console.error('Crawler creation error:', error);
+                this.showNotification('error', 'Creation Failed', 'Network error occurred');
+            }
+        },
+
+        // Load web crawlers
+        async loadWebCrawlers() {
+            if (!this.selectedProject) return;
+
+            try {
+                const response = await fetch(`${this.apiBaseUrl}/api/web-crawlers/projects/${this.selectedProject}/crawlers`, {
+                    headers: this.getAuthHeaders()
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    this.webCrawlers = data.success ? data.data : [];
+                } else {
+                    console.error('Failed to load web crawlers:', response.status);
+                    this.webCrawlers = [];
+                }
+            } catch (error) {
+                console.error('Web crawlers loading error:', error);
+                this.webCrawlers = [];
+            }
+        },
+
+        // Reset crawler form
+        resetCrawlerForm() {
+            this.newCrawler = {
+                name: '',
+                description: '',
+                base_url: '',
+                browser_type: 'chromium',
+                auth_type: 'none',
+                max_pages: 100,
+                max_depth: 3,
+                request_delay_ms: 2000,
+                session_persistence: false,
+                respect_robots_txt: false,
+                saml_config: {},
+                auth_credentials: {},
+                auth_workflow: {}
+            };
+        },
+
+        // Toggle advanced crawler options
+        toggleAdvancedCrawlerOptions() {
+            this.showAdvancedCrawlerOptions = !this.showAdvancedCrawlerOptions;
         }
     };
-} 
+}

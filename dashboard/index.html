@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Accessibility Testing Platform</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
@@ -168,6 +169,10 @@
                     </div>
                 </div>
                 
+                <div x-show="activeTab === 'web-crawler'" x-transition>
+                    <div id="web-crawler-view-content"></div>
+                </div>
+                
                 <div x-show="activeTab === 'manual-testing'" x-transition>
                     <div class="text-center py-12">
                         <i class="fas fa-hand-paper text-6xl text-gray-300 mb-4"></i>
@@ -197,6 +202,7 @@
         <!-- Include Modal Components -->
         <div id="auth-modals-component"></div>
         <div id="project-modals-component"></div>
+        <div id="web-crawler-modals-component"></div>
         
         <!-- Footer -->
         <footer class="bg-white border-t mt-auto">
@@ -276,13 +282,15 @@
                 loadComponent('header-component', 'components/header.html'),
                 loadComponent('navigation-component', 'components/navigation.html'),
                 loadComponent('auth-modals-component', 'components/auth-modals.html'),
-                loadComponent('project-modals-component', 'components/project-modals.html')
+                loadComponent('project-modals-component', 'components/project-modals.html'),
+                loadComponent('web-crawler-modals-component', 'components/web-crawler-modals.html')
             ]);
             
             // Load views
             await Promise.all([
                 loadView('discovery-view-content', 'views/discovery.html'),
-                loadView('authentication-view-content', 'views/authentication.html')
+                loadView('authentication-view-content', 'views/authentication.html'),
+                loadView('web-crawler-view-content', 'views/web-crawler.html')
             ]);
             
             // Initialize Alpine.js data after components are loaded
