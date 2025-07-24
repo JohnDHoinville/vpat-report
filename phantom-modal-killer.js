@@ -1,4 +1,4 @@
-// PHANTOM MODAL KILLER - Targeted fix for the detected phantom modals
+4. // PHANTOM MODAL KILLER - Targeted fix for the detected phantom modals
 console.log('💀 PHANTOM KILLER: Targeting the detected phantom modals...');
 
 // The three confirmed phantom culprits
