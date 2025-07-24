@@ -41,7 +41,7 @@
         }
     </style>
 </head>
-<body class="bg-gray-50 min-h-screen" x-data="dashboard()">
+<body class="bg-gray-50 min-h-screen" x-data="dashboard()" x-init="syncLegacyState(); init()">
     <div class="min-h-screen flex flex-col">
         
         <!-- Include Header Component -->
@@ -162,11 +162,7 @@
                 </div>
                 
                 <div x-show="activeTab === 'testing'" x-transition>
-                    <div class="text-center py-12">
-                        <i class="fas fa-robot text-6xl text-gray-300 mb-4"></i>
-                        <h3 class="text-lg font-medium text-gray-900 mb-2">Automated Testing View</h3>
-                        <p class="text-gray-600">Automated testing functionality will be loaded here.</p>
-                    </div>
+                    <div id="testing-view-content"></div>
                 </div>
                 
                 <div x-show="activeTab === 'web-crawler'" x-transition>
@@ -174,19 +170,11 @@
                 </div>
                 
                 <div x-show="activeTab === 'manual-testing'" x-transition>
-                    <div class="text-center py-12">
-                        <i class="fas fa-hand-paper text-6xl text-gray-300 mb-4"></i>
-                        <h3 class="text-lg font-medium text-gray-900 mb-2">Manual Testing View</h3>
-                        <p class="text-gray-600">Manual testing functionality will be loaded here.</p>
-                    </div>
+                    <div id="manual-testing-view-content"></div>
                 </div>
                 
                 <div x-show="activeTab === 'results'" x-transition>
-                    <div class="text-center py-12">
-                        <i class="fas fa-chart-bar text-6xl text-gray-300 mb-4"></i>
-                        <h3 class="text-lg font-medium text-gray-900 mb-2">Results View</h3>
-                        <p class="text-gray-600">Test results and reports will be loaded here.</p>
-                    </div>
+                    <div id="results-view-content"></div>
                 </div>
                 
                 <div x-show="activeTab === 'analytics'" x-transition>
@@ -224,7 +212,6 @@
     </div>
 
     <!-- Scripts -->
-    <script src="dashboard_helpers.js"></script>
     <script src="js/dashboard.js"></script>
     
     <script>
@@ -290,7 +277,10 @@
             await Promise.all([
                 loadView('discovery-view-content', 'views/discovery.html'),
                 loadView('authentication-view-content', 'views/authentication.html'),
-                loadView('web-crawler-view-content', 'views/web-crawler.html')
+                loadView('web-crawler-view-content', 'views/web-crawler.html'),
+                loadView('testing-view-content', 'views/testing.html'),
+                loadView('manual-testing-view-content', 'views/manual-testing.html'),
+                loadView('results-view-content', 'views/results.html')
             ]);
             
             // Initialize Alpine.js data after components are loaded

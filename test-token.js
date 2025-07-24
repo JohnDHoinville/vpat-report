@@ -1,0 +1,5 @@
+// Updated test token for dashboard authentication
+localStorage.setItem("auth_token", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI0NjA4ODIzMC02MTMzLTQ1ZTMtOGEwNC0wNmZlZWEyOTgwOTQiLCJ1c2VybmFtZSI6ImFkbWluIiwicm9sZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBsb2NhbGhvc3QiLCJpYXQiOjE3NTMzODA4MjEsImV4cCI6MTc1Mzk4NTYyMX0.30Arwa4pZ8ApTwRiWfo4DAh4vy_OxQUqqw0j6Rh-nSw");
+localStorage.setItem("refresh_token", "af29ca1f34eda850be24182351dd7d9cc72f8e72db402de6b2bc41ca6e6dea4ed3a6ae24e72faf9298db1d6c02f7b3f227360c25791a7e3b73afe660ef6e6dfc");
+console.log("✅ Auth tokens updated!");
+window.location.reload(); 

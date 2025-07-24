@@ -159,6 +159,91 @@ router.post('/logout', authenticateToken, async (req, res) => {
 });
 
 /**
+ * POST /api/auth/refresh
+ * Refresh JWT token using refresh token
+ */
+router.post('/refresh', async (req, res) => {
+    try {
+        const { refresh_token } = req.body;
+        
+        if (!refresh_token) {
+            return res.status(400).json({
+                error: 'Refresh token is required',
+                code: 'MISSING_REFRESH_TOKEN'
+            });
+        }
+        
+        // Find session by refresh token
+        const crypto = require('crypto');
+        const refreshTokenHash = crypto.createHash('sha256').update(refresh_token).digest('hex');
+        
+        const sessionQuery = `
+            SELECT us.*, u.id, u.username, u.email, u.full_name, u.role
+            FROM user_sessions us
+            JOIN users u ON u.id = us.user_id
+            WHERE us.refresh_token_hash = $1 
+            AND us.is_active = true 
+            AND us.expires_at > NOW()
+            AND u.is_active = true
+        `;
+        
+        const sessionResult = await pool.query(sessionQuery, [refreshTokenHash]);
+        
+        if (sessionResult.rows.length === 0) {
+            return res.status(401).json({
+                error: 'Invalid or expired refresh token',
+                code: 'INVALID_REFRESH_TOKEN'
+            });
+        }
+        
+        const session = sessionResult.rows[0];
+        const user = {
+            id: session.id,
+            username: session.username,
+            email: session.email,
+            full_name: session.full_name,
+            role: session.role
+        };
+        
+        // Generate new tokens
+        const newToken = generateToken(user);
+        const newRefreshToken = generateRefreshToken();
+        
+        // Update session with new tokens
+        const newTokenHash = crypto.createHash('sha256').update(newToken).digest('hex');
+        const newRefreshTokenHash = crypto.createHash('sha256').update(newRefreshToken).digest('hex');
+        
+        await pool.query(
+            `UPDATE user_sessions 
+             SET token_hash = $1, refresh_token_hash = $2, last_accessed = NOW()
+             WHERE id = $3`,
+            [newTokenHash, newRefreshTokenHash, session.session_id || session.id]
+        );
+        
+        res.json({
+            message: 'Token refreshed successfully',
+            token: newToken,
+            refresh_token: newRefreshToken,
+            user: {
+                id: user.id,
+                username: user.username,
+                email: user.email,
+                full_name: user.full_name,
+                role: user.role
+            },
+            expires_in: '7d'
+        });
+        
+    } catch (error) {
+        console.error('Token refresh error:', error);
+        res.status(500).json({
+            error: 'Token refresh failed',
+            code: 'REFRESH_ERROR'
+        });
+    }
+});
+
+/**
  * POST /api/auth/register
  * User registration (admin only)
  */
@@ -1150,6 +1235,27 @@ router.get('/validate', authenticateToken, async (req, res) => {
         res.status(401).json({
             valid: false,
             error: 'Token validation failed'
+        });
+    }
+});
+
+/**
+ * GET /api/auth/session-info
+ * Get current session information
+ */
+router.get('/session-info', authenticateToken, async (req, res) => {
+    try {
+        res.json({
+            success: true,
+            user: req.user,
+            isValid: true,
+            expiresAt: req.tokenExpiry
+        });
+    } catch (error) {
+        console.error('Session info error:', error);
+        res.status(500).json({
+            error: 'Failed to get session info',
+            code: 'SESSION_INFO_ERROR'
         });
     }
 });
