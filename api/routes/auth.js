@@ -1134,4 +1134,24 @@ router.get('/health', authenticateToken, requireRole('admin'), async (req, res) 
     }
 });
 
+/**
+ * GET /api/auth/validate
+ * Validate JWT token and return user information
+ */
+router.get('/validate', authenticateToken, async (req, res) => {
+    try {
+        // If we reach here, the token is valid (authenticateToken middleware passed)
+        res.json({
+            valid: true,
+            user: req.user // Set by authenticateToken middleware
+        });
+    } catch (error) {
+        console.error('Token validation error:', error);
+        res.status(401).json({
+            valid: false,
+            error: 'Token validation failed'
+        });
+    }
+});
+
 module.exports = router; 

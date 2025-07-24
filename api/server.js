@@ -56,8 +56,10 @@ app.use(cors({
     origin: process.env.CORS_ORIGINS?.split(',') || [
         'http://localhost:3000',
         'http://localhost:8080',
+        'http://localhost:8081', // Dashboard frontend
         'http://127.0.0.1:3000',
-        'http://127.0.0.1:8080'
+        'http://127.0.0.1:8080',
+        'http://127.0.0.1:8081' // Dashboard frontend
     ],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -196,6 +198,7 @@ app.get('/health', asyncHandler(async (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/sessions', sessionRoutes);
+app.use('/api/session', sessionRoutes); // Browser session management endpoints
 app.use('/api/requirements', requirementsRoutes);
 app.use('/api/requirement-mappings', requirementMappingsRoutes);
 app.use('/api/unified-results', unifiedResultsRoutes);
@@ -210,6 +213,19 @@ app.use('/api/users', usersRoutes);
 app.use('/api/unified-test-results', unifiedTestResultsRoutes);
 app.use('/api/unified-requirements', unifiedRequirementsRoutes);
 app.use('/api/web-crawlers', webCrawlersRoutes);
+
+// Add API health check endpoint
+app.get('/api/health', asyncHandler(async (req, res) => {
+    res.json({
+        status: 'healthy',
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime(),
+        memory: process.memoryUsage(),
+        version: process.env.npm_package_version || '1.0.0'
+    });
+}));
+
+
 
 // Add missing endpoint that frontend is calling
 app.get('/api/automated-test-results', asyncHandler(async (req, res) => {

@@ -117,18 +117,21 @@ class SimpleTestingService {
             
             const session = sessionResult.rows[0];
             
-            // Get discovered pages for this project - filter out non-HTML content
+            // Get discovered pages for this project from WEB CRAWLERS - filter out non-HTML content
             const pagesResult = await client.query(
-                `SELECT dp.* FROM discovered_pages dp
-                 JOIN site_discovery sd ON dp.discovery_id = sd.id
-                 WHERE sd.project_id = $1 AND sd.status = 'completed'
-                 AND dp.page_type IN ('homepage', 'content', 'form', 'navigation', 'application')
-                 AND NOT (dp.url ~ '\\.(pdf|doc|docx|xls|xlsx|ppt|pptx|zip|tar|gz|rar|exe|dmg|pkg|deb|rpm)$')
-                 AND NOT (dp.url ~ '\\.(jpg|jpeg|png|gif|svg|webp|ico|bmp|tiff?)$')
-                 AND NOT (dp.url ~ '\\.(mp3|mp4|wav|avi|mov|wmv|flv|webm|ogg)$')
-                 AND NOT (dp.url ~ '\\.(json|xml|rss|atom|txt|csv|log)$')
-                 AND NOT (dp.url ~ '\\.(css|js|map)$')
-                 ORDER BY dp.discovered_at
+                `SELECT cdp.id, cdp.url, cdp.title, cdp.page_type, cdp.depth, cdp.discovered_from, cdp.first_discovered_at as discovered_at
+                 FROM crawler_discovered_pages cdp
+                 JOIN crawler_runs cr ON cdp.crawler_run_id = cr.id
+                 JOIN web_crawlers wc ON cr.crawler_id = wc.id
+                 WHERE wc.project_id = $1 AND cr.status = 'completed'
+                 AND (cdp.page_type IS NULL OR cdp.page_type IN ('homepage', 'content', 'form', 'navigation', 'application'))
+                 AND cdp.status_code BETWEEN 200 AND 299
+                 AND NOT (cdp.url ~ '\\.(pdf|doc|docx|xls|xlsx|ppt|pptx|zip|tar|gz|rar|exe|dmg|pkg|deb|rpm)$')
+                 AND NOT (cdp.url ~ '\\.(jpg|jpeg|png|gif|svg|webp|ico|bmp|tiff?)$')
+                 AND NOT (cdp.url ~ '\\.(mp3|mp4|wav|avi|mov|wmv|flv|webm|ogg)$')
+                 AND NOT (cdp.url ~ '\\.(json|xml|rss|atom|txt|csv|log)$')
+                 AND NOT (cdp.url ~ '\\.(css|js|map)$')
+                 ORDER BY cdp.first_discovered_at
                  LIMIT $2`,
                 [session.project_id, options.maxPages || 50]
             );
@@ -136,7 +139,7 @@ class SimpleTestingService {
             const pages = pagesResult.rows;
             
             if (pages.length === 0) {
-                throw new Error('No discovered pages found for testing. Please run site discovery first.');
+                throw new Error('No discovered pages found for testing. Please run web crawler first.');
             }
             
             // Update session status

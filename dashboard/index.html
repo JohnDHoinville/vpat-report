@@ -90,35 +90,74 @@
             <div id="view-content">
                 <!-- Views will be loaded here dynamically -->
                 <div x-show="activeTab === 'projects'" x-transition>
-                    <div class="text-center py-12">
-                        <i class="fas fa-folder text-6xl text-gray-300 mb-4"></i>
-                        <h3 class="text-lg font-medium text-gray-900 mb-2">Projects View</h3>
-                        <p class="text-gray-600">Project management functionality will be loaded here.</p>
+                    <div class="space-y-6">
+                        <!-- Projects Header -->
+                        <div class="bg-white rounded-lg shadow p-6">
+                            <div class="flex justify-between items-center">
+                                <div>
+                                    <h2 class="text-2xl font-bold text-gray-900">Projects</h2>
+                                    <p class="mt-2 text-gray-600">Manage your accessibility testing projects</p>
+                                </div>
+                                <button @click="showCreateProjectModal = true" 
+                                        class="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors">
+                                    <i class="fas fa-plus mr-2"></i>New Project
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Projects List -->
+                        <div class="bg-white rounded-lg shadow">
+                            <div class="px-6 py-4 border-b border-gray-200">
+                                <h3 class="text-lg font-medium text-gray-900">Recent Projects</h3>
+                            </div>
+                            <div class="p-6">
+                                <div x-show="projects.length === 0" class="text-center py-12">
+                                    <i class="fas fa-folder-open text-6xl text-gray-300 mb-4"></i>
+                                    <h3 class="text-lg font-medium text-gray-900 mb-2">No projects yet</h3>
+                                    <p class="text-gray-600 mb-4">Create your first project to get started with accessibility testing.</p>
+                                    <button @click="showCreateProjectModal = true" 
+                                            class="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors">
+                                        <i class="fas fa-plus mr-2"></i>Create Project
+                                    </button>
+                                </div>
+
+                                <div x-show="projects.length > 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                    <template x-for="project in projects" :key="project.id">
+                                        <div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                                            <div class="flex items-start justify-between">
+                                                <div class="flex-1">
+                                                    <h4 class="font-medium text-gray-900" x-text="project.name"></h4>
+                                                    <p class="text-sm text-gray-600 mt-1" x-text="project.description"></p>
+                                                    <div class="flex items-center mt-3 text-xs text-gray-500">
+                                                        <i class="fas fa-calendar mr-1"></i>
+                                                        <span x-text="project.created_at ? new Date(project.created_at).toLocaleDateString() : 'Unknown'"></span>
+                                                    </div>
+                                                </div>
+                                                <div class="ml-3">
+                                                    <button @click="selectProject(project.id)" 
+                                                            class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                                                        Select
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 
                 <div x-show="activeTab === 'authentication'" x-transition>
-                    <div class="text-center py-12">
-                        <i class="fas fa-shield-alt text-6xl text-gray-300 mb-4"></i>
-                        <h3 class="text-lg font-medium text-gray-900 mb-2">Authentication View</h3>
-                        <p class="text-gray-600">Authentication configuration will be loaded here.</p>
-                    </div>
+                    <div id="authentication-view-content"></div>
                 </div>
                 
                 <div x-show="activeTab === 'discovery'" x-transition>
-                    <div class="text-center py-12">
-                        <i class="fas fa-search text-6xl text-gray-300 mb-4"></i>
-                        <h3 class="text-lg font-medium text-gray-900 mb-2">Site Discovery View</h3>
-                        <p class="text-gray-600">Site discovery functionality will be loaded here.</p>
-                    </div>
+                    <div id="discovery-view-content"></div>
                 </div>
                 
                 <div x-show="activeTab === 'testing-sessions'" x-transition>
-                    <div class="text-center py-12">
-                        <i class="fas fa-tasks text-6xl text-gray-300 mb-4"></i>
-                        <h3 class="text-lg font-medium text-gray-900 mb-2">Compliance Sessions View</h3>
-                        <p class="text-gray-600">Testing sessions management will be loaded here.</p>
-                    </div>
+                    <div id="testing-sessions-view-content"></div>
                 </div>
                 
                 <div x-show="activeTab === 'testing'" x-transition>
@@ -179,10 +218,36 @@
     </div>
 
     <!-- Scripts -->
-    <script src="../dashboard_helpers.js"></script>
+    <script src="dashboard_helpers.js"></script>
     <script src="js/dashboard.js"></script>
     
     <script>
+        // Global function for loading authentication view
+        window.loadAuthenticationView = async function() {
+            if (!document.getElementById('authentication-view-content').innerHTML) {
+                try {
+                    const response = await fetch('views/authentication.html');
+                    const html = await response.text();
+                    document.getElementById('authentication-view-content').innerHTML = html;
+                } catch (error) {
+                    console.error('Failed to load authentication view:', error);
+                }
+            }
+        };
+
+        // Global function for loading testing sessions view
+        window.loadTestingSessionsView = async function() {
+            if (!document.getElementById('testing-sessions-view-content').innerHTML) {
+                try {
+                    const response = await fetch('views/testing-sessions.html');
+                    const html = await response.text();
+                    document.getElementById('testing-sessions-view-content').innerHTML = html;
+                } catch (error) {
+                    console.error('Failed to load testing sessions view:', error);
+                }
+            }
+        };
+        
         // Load components dynamically
         async function loadComponent(componentId, filePath) {
             try {
@@ -194,6 +259,17 @@
             }
         }
         
+        // Load views dynamically
+        async function loadView(viewId, filePath) {
+            try {
+                const response = await fetch(filePath);
+                const html = await response.text();
+                document.getElementById(viewId).innerHTML = html;
+            } catch (error) {
+                console.error(`Failed to load view ${viewId}:`, error);
+            }
+        }
+        
         // Load all components when page loads
         document.addEventListener('DOMContentLoaded', async () => {
             await Promise.all([
@@ -201,6 +277,12 @@
                 loadComponent('navigation-component', 'components/navigation.html'),
                 loadComponent('auth-modals-component', 'components/auth-modals.html'),
                 loadComponent('project-modals-component', 'components/project-modals.html')
+            ]);
+            
+            // Load views
+            await Promise.all([
+                loadView('discovery-view-content', 'views/discovery.html'),
+                loadView('authentication-view-content', 'views/authentication.html')
             ]);
             
             // Initialize Alpine.js data after components are loaded

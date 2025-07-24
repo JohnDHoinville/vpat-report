@@ -1,0 +1,236 @@
+<!-- Authentication Configuration View -->
+    <div class="space-y-6">
+    <!-- Header -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <div class="flex justify-between items-center">
+            <div>
+                <h2 class="text-2xl font-bold text-gray-900">Authentication Configuration</h2>
+                <p class="mt-2 text-gray-600">Configure authentication settings for each project to enable authenticated crawling and testing</p>
+            </div>
+            <button @click="showAddAuthConfigModal = true" 
+                    class="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors">
+                <i class="fas fa-plus mr-2"></i>Add Auth Config
+                </button>
+            </div>
+        </div>
+
+    <!-- Project Selection -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">
+            <i class="fas fa-folder mr-2"></i>Select Project
+        </h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <template x-for="project in projects" :key="project.id">
+                <div class="border rounded-lg p-4 cursor-pointer transition-all hover:shadow-md"
+                     :class="selectedAuthProject === project.id ? 'border-blue-500 bg-blue-50' : 'border-gray-200'"
+                     @click="selectAuthProject(project.id)">
+                    <div class="flex items-center justify-between">
+                        <div class="flex-1">
+                            <h4 class="font-medium text-gray-900" x-text="project.name"></h4>
+                            <p class="text-sm text-gray-600 truncate" x-text="project.primary_url"></p>
+                            <div class="flex items-center mt-2">
+                                <span class="text-xs px-2 py-1 rounded-full"
+                                      :class="getProjectAuthStatus(project.id) === 'configured' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'"
+                                      x-text="getProjectAuthStatus(project.id) === 'configured' ? 'Auth Configured' : 'No Auth'"></span>
+            </div>
+                        </div>
+                        <div x-show="selectedAuthProject === project.id" class="ml-3">
+                            <i class="fas fa-check-circle text-blue-500"></i>
+                        </div>
+                    </div>
+                </div>
+            </template>
+                </div>
+            </div>
+
+    <!-- Authentication Configurations -->
+    <div x-show="selectedAuthProject" class="bg-white rounded-lg shadow">
+        <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+            <h3 class="text-lg font-medium text-gray-900">Authentication Methods</h3>
+            <span class="text-sm text-gray-500" x-text="`Project: ${getSelectedProject()?.name || 'None'}`"></span>
+        </div>
+
+        <div class="p-6">
+            <div x-show="!getProjectAuthConfigs(selectedAuthProject).length" class="text-center py-12">
+                <i class="fas fa-shield-alt text-6xl text-gray-300 mb-4"></i>
+                <h3 class="text-lg font-medium text-gray-900 mb-2">No Authentication Configured</h3>
+                <p class="text-gray-600 mb-4">Add authentication methods to enable authenticated crawling for this project.</p>
+                <button @click="showAddAuthConfigModal = true" 
+                        class="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors">
+                    <i class="fas fa-plus mr-2"></i>Add Authentication
+                    </button>
+            </div>
+
+            <div x-show="getProjectAuthConfigs(selectedAuthProject).length > 0" class="space-y-4">
+                <template x-for="config in getProjectAuthConfigs(selectedAuthProject)" :key="config.id">
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <div class="flex items-start justify-between">
+                            <div class="flex-1">
+                                <div class="flex items-center space-x-3 mb-2">
+                                    <span class="px-2 py-1 text-xs font-medium rounded-full"
+                                          :class="config.type === 'sso' ? 'bg-blue-100 text-blue-800' :
+                                                 config.type === 'form' ? 'bg-green-100 text-green-800' : 
+                                                 config.type === 'basic' ? 'bg-orange-100 text-orange-800' :
+                                                 config.type === 'oauth' ? 'bg-purple-100 text-purple-800' :
+                                                 config.type === 'api_key' ? 'bg-indigo-100 text-indigo-800' :
+                                                 config.type === 'custom' ? 'bg-pink-100 text-pink-800' :
+                                                 'bg-gray-100 text-gray-800'"
+                                          x-text="config.type === 'sso' ? 'SSO/SAML' :
+                                                 config.type === 'form' ? 'FORM LOGIN' :
+                                                 config.type === 'basic' ? 'BASIC AUTH' :
+                                                 config.type === 'oauth' ? 'OAUTH' :
+                                                 config.type === 'api_key' ? 'API KEY' :
+                                                 config.type === 'custom' ? 'CUSTOM' :
+                                                 config.type.toUpperCase()"></span>
+                                    <span class="px-2 py-1 text-xs font-medium rounded-full"
+                                          :class="config.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'"
+                                          x-text="config.status"></span>
+                                </div>
+                                <h4 class="font-medium text-gray-900" x-text="config.name"></h4>
+                                <p class="text-sm text-gray-600" x-text="config.description"></p>
+                                <div class="mt-2 text-sm text-gray-500">
+                                    <p><strong>Login URL:</strong> <span x-text="config.login_url"></span></p>
+                                    <p x-show="config.username"><strong>Username:</strong> <span x-text="config.username"></span></p>
+                                    <p><strong>Created:</strong> <span x-text="config.created_at ? new Date(config.created_at).toLocaleDateString() : 'Unknown'"></span></p>
+                                </div>
+                            </div>
+                            <div class="ml-4 flex space-x-2">
+                                    <button @click="testAuthConfig(config)" 
+                                        class="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors">
+                                    <i class="fas fa-vial mr-1"></i>Test
+                                    </button>
+                                    <button @click="editAuthConfig(config)" 
+                                        class="px-3 py-1 text-sm bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors">
+                                        <i class="fas fa-edit mr-1"></i>Edit
+                                    </button>
+                                    <button @click="deleteAuthConfig(config)" 
+                                        class="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700 transition-colors">
+                                        <i class="fas fa-trash mr-1"></i>Delete
+                                    </button>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+                            </div>
+                        </div>
+                    </div>
+
+    <!-- Integration Status -->
+    <div x-show="selectedAuthProject && getProjectAuthConfigs(selectedAuthProject).length > 0" class="bg-white rounded-lg shadow p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">
+            <i class="fas fa-link mr-2"></i>Integration Status
+        </h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Site Discovery Integration -->
+            <div class="border border-gray-200 rounded-lg p-4">
+                <div class="flex items-center justify-between mb-3">
+                    <h4 class="font-medium text-gray-900">Site Discovery</h4>
+                    <span class="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">Ready</span>
+                            </div>
+                <p class="text-sm text-gray-600 mb-3">Authenticated crawling enabled for comprehensive page discovery</p>
+                <button @click="activeTab = 'discovery'; selectedProject = selectedAuthProject" 
+                        class="w-full px-3 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors">
+                    <i class="fas fa-search mr-2"></i>Start Authenticated Discovery
+                </button>
+                                </div>
+
+            <!-- Compliance Sessions Integration -->
+            <div class="border border-gray-200 rounded-lg p-4">
+                <div class="flex items-center justify-between mb-3">
+                    <h4 class="font-medium text-gray-900">Compliance Sessions</h4>
+                    <span class="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">Ready</span>
+                            </div>
+                <p class="text-sm text-gray-600 mb-3">Authenticated testing sessions for compliance validation</p>
+                <button @click="activeTab = 'testing-sessions'; selectedProject = selectedAuthProject" 
+                        class="w-full px-3 py-2 text-sm bg-green-600 text-white rounded hover:bg-green-700 transition-colors">
+                    <i class="fas fa-tasks mr-2"></i>Start Compliance Session
+                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+<!-- Add/Edit Auth Config Modal -->
+<div x-show="showAddAuthConfigModal || showEditAuthConfigModal" 
+     x-transition:enter="transition ease-out duration-300"
+     x-transition:enter-start="opacity-0"
+     x-transition:enter-end="opacity-100"
+     x-transition:leave="transition ease-in duration-200"
+     x-transition:leave-start="opacity-100"
+     x-transition:leave-end="opacity-0"
+     class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+    <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
+        <div class="mt-3">
+            <h3 class="text-lg font-medium text-gray-900 mb-4" 
+                x-text="showEditAuthConfigModal ? 'Edit Authentication Configuration' : 'Add Authentication Configuration'"></h3>
+            
+            <form @submit.prevent="showEditAuthConfigModal ? updateAuthConfig() : createAuthConfig()">
+                <!-- Configuration Name -->
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Configuration Name</label>
+                    <input x-model="authConfigForm.name" type="text" required 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                           placeholder="e.g., Admin Login, User Portal Auth">
+                    </div>
+
+                <!-- Authentication Type -->
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Authentication Type</label>
+                    <select x-model="authConfigForm.type" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="sso">SSO/SAML Login (Shibboleth, ADFS, Okta)</option>
+                        <option value="form">Form-based Login (Username/Password)</option>
+                        <option value="basic">Basic Authentication</option>
+                        <option value="oauth">OAuth/Social Login (Google, Microsoft, GitHub)</option>
+                        <option value="api_key">API Key/Token Authentication</option>
+                        <option value="custom">Custom/Advanced Authentication Flow</option>
+                    </select>
+                    <p class="text-xs text-gray-500 mt-1">Select the authentication method used by your website</p>
+                    </div>
+
+                <!-- Login URL -->
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Login URL</label>
+                    <input x-model="authConfigForm.login_url" type="url" required 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                               placeholder="https://example.com/login">
+                    </div>
+
+                <!-- Credentials -->
+                <div class="mb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Username/Email</label>
+                        <input x-model="authConfigForm.username" type="text" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                               placeholder="username or email">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Password/Token</label>
+                        <input x-model="authConfigForm.password" type="password" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                               placeholder="password or token">
+                    </div>
+                </div>
+
+                <!-- Description -->
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                    <textarea x-model="authConfigForm.description" rows="3" 
+                              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              placeholder="Optional description of this authentication method"></textarea>
+            </div>
+
+                <!-- Action Buttons -->
+                <div class="flex justify-end space-x-3">
+                    <button type="button" @click="closeAuthConfigModal()" 
+                            class="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 transition-colors">
+                    Cancel
+                    </button>
+                    <button type="submit" 
+                            class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
+                        <span x-text="showEditAuthConfigModal ? 'Update Configuration' : 'Create Configuration'"></span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div> 

@@ -314,7 +314,6 @@ function dashboard() {
         showStartDiscovery: false,
         showCreateSession: false,
         showCreateTestingSession: false, // New modal state for testing sessions
-        showEditTestingSession: false, // Edit testing session modal
         showViewPages: false,
         showDeleteProject: false,
         showDeleteDiscovery: false,
@@ -327,10 +326,6 @@ function dashboard() {
         showCrawlerPages: false,
         selectedCrawler: null,
         crawlerPages: [],
-        crawlerPagesLoading: false,
-        crawlerPageSearch: '',
-        excludedCrawlerPages: [],
-        filteredCrawlerPages: [],
         
         // Form data
         newProject: {
@@ -1797,7 +1792,7 @@ function dashboard() {
         },
 
         async openStartDiscoveryModal() {
-            // this.showStartDiscovery = true; // DISABLED: Use click-only approach
+            this.showStartDiscovery = true;
             // Auto-populate the primary URL from the selected project
             if (this.selectedProject && this.selectedProject.primary_url) {
                 this.newDiscovery.primary_url = this.selectedProject.primary_url;
@@ -2179,7 +2174,7 @@ function dashboard() {
         },
 
         viewPageResults(session) {
-            // Open page results in a new window using the page-results.html file            
+            // Open page results in a new window using the page-results.html file
             if (!this.token) {
                 this.addNotification('Error', 'Please log in to view page results', 'error');
                 return;
@@ -8042,35 +8037,15 @@ function dashboard() {
         getAutomatedTestStatus(automatedTests) {
             if (!automatedTests || automatedTests.length === 0) return 'not_tested';
             
-            // Check for failures based on violations_count (with better debugging)
-            const hasFailure = automatedTests.some(t => {
-                const violationCount = parseInt(t.violations_count) || 0;
-                if (violationCount > 0) {
-                    console.log(`🔍 Found ${violationCount} violations in ${t.tool_name || 'unknown tool'} for requirement`);
-                }
-                return violationCount > 0;
-            });
-            
-            if (hasFailure) {
-                console.log('❌ getAutomatedTestStatus returning: failed (violations found)');
-                return 'failed';
-            }
+            // Check for failures based on violations_count
+            const hasFailure = automatedTests.some(t => t.violations_count > 0);
+            if (hasFailure) return 'failed';
             
             // Check for passes based on passes_count
-            const hasPasses = automatedTests.some(t => {
-                const passCount = parseInt(t.passes_count) || 0;
-                if (passCount > 0) {
-                    console.log(`✅ Found ${passCount} passes in ${t.tool_name || 'unknown tool'}`);
-                }
-                return passCount > 0;
-            });
+            const hasPasses = automatedTests.some(t => t.passes_count > 0);
+            if (hasPasses) return 'passed';
             
-            if (hasPasses) {
-                console.log('✅ getAutomatedTestStatus returning: passed');
-                return 'passed';
-            }
-            
-            console.log('❓ getAutomatedTestStatus returning: unknown (no violations, no passes)');
+            // If no violations and no passes, it's unknown
             return 'unknown';
         },
 
@@ -8355,7 +8330,7 @@ function dashboard() {
                 this.newCrawler.extraction_rules_json = '{"title": "h1", "description": "meta[name=\\"description\\"]"}';
             }
 
-            // this.showCreateCrawler = true; // DISABLED: Use click-only approach
+            this.showCreateCrawler = true;
         },
 
         /**
@@ -8490,7 +8465,7 @@ function dashboard() {
                 extraction_rules_json: JSON.stringify(crawler.extraction_rules || {}, null, 2),
                 url_patterns_json: JSON.stringify(crawler.url_patterns || [], null, 2)
             };
-            // this.showCreateCrawler = true; // DISABLED: Use click-only approach
+            this.showCreateCrawler = true;
         },
 
         /**

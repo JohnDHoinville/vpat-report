@@ -1,0 +1,63 @@
+<!-- Edit Testing Session Modal -->
+<!-- Add this modal to dashboard.html around line 6854, before the Tester Assignment Modal -->
+
+<div x-show="showEditTestingSession" 
+     x-transition:enter="transition ease-out duration-300"
+     x-transition:enter-start="opacity-0"
+     x-transition:enter-end="opacity-100"
+     x-transition:leave="transition ease-in duration-200"
+     x-transition:leave-start="opacity-100"
+     x-transition:leave-end="opacity-0"
+     class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
+     @click.self="showEditTestingSession = false">
+    <div class="bg-white rounded-lg shadow-xl max-w-lg w-full">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h3 class="text-lg font-semibold text-gray-900">Edit Testing Session</h3>
+            <p class="text-sm text-gray-600 mt-1">Update session information</p>
+        </div>
+        <form @submit.prevent="updateTestingSession()" class="p-6 space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Session Name *</label>
+                <input x-model="editTestingSession.name" type="text" required 
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                       placeholder="e.g., WCAG AA Compliance Review">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                <textarea x-model="editTestingSession.description" rows="3"
+                          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="Describe the purpose and scope of this testing session"></textarea>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                <select x-model="editTestingSession.status" 
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="planning">Planning</option>
+                    <option value="in_progress">In Progress</option>
+                    <option value="paused">Paused</option>
+                    <option value="completed">Completed</option>
+                    <option value="cancelled">Cancelled</option>
+                </select>
+            </div>
+            <div class="bg-gray-50 rounded-lg p-3">
+                <div class="text-sm text-gray-600">
+                    <strong>Conformance Level:</strong> <span x-text="editTestingSession.conformance_level"></span>
+                </div>
+                <div class="text-xs text-gray-500 mt-1">
+                    Conformance level cannot be changed after session creation
+                </div>
+            </div>
+            <div class="flex justify-end space-x-3 pt-4">
+                <button type="button" @click="showEditTestingSession = false" 
+                        class="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 transition-colors">
+                    Cancel
+                </button>
+                <button type="submit" :disabled="loading"
+                        class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:bg-gray-400">
+                    <span x-show="!loading">Update Session</span>
+                    <span x-show="loading">Updating...</span>
+                </button>
+            </div>
+        </form>
+    </div>
+</div> 

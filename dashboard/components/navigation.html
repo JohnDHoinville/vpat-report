@@ -7,7 +7,7 @@
                     class="py-4 px-1 border-b-2 font-medium text-sm transition-colors">
                 <i class="fas fa-folder mr-2"></i>Projects
             </button>
-            <button @click="activeTab = 'authentication'; loadProjectAuthConfigs()" 
+            <button @click="activeTab = 'authentication'; loadAuthenticationView()" 
                     :class="activeTab === 'authentication' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
                     class="py-4 px-1 border-b-2 font-medium text-sm transition-colors">
                 <i class="fas fa-shield-alt mr-2"></i>Authentication
@@ -17,7 +17,7 @@
                     class="py-4 px-1 border-b-2 font-medium text-sm transition-colors">
                 <i class="fas fa-search mr-2"></i>Site Discovery
             </button>
-            <button @click="activeTab = 'testing-sessions'; refreshTestingSessionsTabData()" 
+            <button @click="activeTab = 'testing-sessions'; loadTestingSessionsView(); loadComplianceSessions()" 
                     :class="activeTab === 'testing-sessions' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
                     class="py-4 px-1 border-b-2 font-medium text-sm transition-colors">
                 <i class="fas fa-tasks mr-2"></i>Compliance Sessions

@@ -788,7 +788,7 @@
                                                 </button>
                                                 <button @click="openCrawlerPagesModal(crawler)" 
                                                         class="bg-blue-600 text-white px-3 py-1 rounded text-xs hover:bg-blue-700 transition-colors">
-                                                    <i class="fas fa-list mr-1"></i>View Pages
+                                                    <i class="fas fa-list mr-1"></i>Pages
                                                 </button>
                                                 <button @click="editCrawler(crawler)" 
                                                         class="bg-yellow-600 text-white px-3 py-1 rounded text-xs hover:bg-yellow-700 transition-colors">
@@ -826,7 +826,7 @@
                         <h2 class="text-2xl font-bold text-gray-900">Site Discovery</h2>
                         <p class="text-gray-600">Discover and catalog pages for accessibility testing</p>
                     </div>
-                    <button @click="openStartDiscoveryModalClick()" 
+                    <button @click="openStartDiscoveryModal()" 
                             :disabled="!selectedProject"
                             class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed">
                         <i class="fas fa-search mr-2"></i>Start Discovery
@@ -887,7 +887,7 @@
                                         title="Clean up orphaned discovery data">
                                     <i class="fas fa-broom mr-1"></i>Cleanup
                                 </button>
-                                <button @click="openStartDiscoveryModalClick()" 
+                                <button @click="openStartDiscoveryModal()" 
                                         :disabled="loading"
                                         class="bg-green-600 text-white px-3 py-2 rounded text-sm hover:bg-green-700 transition-colors disabled:opacity-50">
                                     <i class="fas fa-plus mr-1"></i>New Discovery
@@ -1041,7 +1041,7 @@
                                             <button @click="deleteDiscovery(discovery)" class="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700 transition-colors">
                                                 <i class="fas fa-trash mr-1"></i>Delete
                                             </button>
-                                            <button @click="openStartDiscoveryModalClick()" class="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700 transition-colors">
+                                            <button @click="openStartDiscoveryModal()" class="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700 transition-colors">
                                                 <i class="fas fa-redo mr-1"></i>Retry Discovery
                                             </button>
                                         </div>
@@ -7566,7 +7566,7 @@
             </div>
         </div>
 
-        <!-- View Crawler Pages Modal (styled like Site Discovery) -->
+        <!-- View Crawler Pages Modal -->
         <div x-show="showCrawlerPages" 
              x-transition:enter="transition ease-out duration-300"
              x-transition:enter-start="opacity-0"
@@ -7575,221 +7575,125 @@
              x-transition:leave-start="opacity-100"
              x-transition:leave-end="opacity-0"
              class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
-             @click.self="closeCrawlerPagesModal()">
-            <div class="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] flex flex-col">
-                <!-- Header -->
-                <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-start">
-                    <div>
-                        <h3 class="text-lg font-semibold text-gray-900">Discovered Pages</h3>
-                        <p class="text-sm text-gray-600 mt-1" x-show="selectedCrawler">
-                            <span x-text="selectedCrawler?.name"></span> - 
-                            <span x-text="crawlerPages.length"></span> pages found
-                        </p>
-                    </div>
-                    <button @click="closeCrawlerPagesModal()" class="text-gray-400 hover:text-gray-600">
-                        <i class="fas fa-times text-xl"></i>
-                    </button>
-                </div>
-
-                <!-- Loading State -->
-                <div x-show="crawlerPagesLoading" class="flex-1 flex items-center justify-center p-8">
-                    <div class="text-center">
-                        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                        <p class="text-gray-600">Loading discovered pages...</p>
-                    </div>
-                </div>
-
-                <!-- Pages Table -->
-                <div x-show="!crawlerPagesLoading && crawlerPages.length > 0" class="flex-1 overflow-hidden flex flex-col">
-                    <!-- Filter/Search Bar -->
-                    <div class="px-6 py-3 border-b border-gray-200 bg-gray-50">
-                        <div class="flex items-center justify-between space-x-4">
-                            <div class="flex items-center space-x-4 flex-1">
-                                <input type="text" placeholder="Search pages..." x-model="crawlerPageSearch"
-                                       class="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                <div class="flex items-center space-x-2">
-                                    <button @click="selectAllCrawlerPages()" class="text-sm text-blue-600 hover:text-blue-800 hover:underline">
-                                        Include All
-                                    </button>
-                                    <span class="text-gray-400">|</span>
-                                    <button @click="excludeAllCrawlerPages()" class="text-sm text-red-600 hover:text-red-800 hover:underline">
-                                        Exclude All
-                                    </button>
-                                    <span class="text-gray-400">|</span>
-                                    <button @click="clearExcludedCrawlerPages()" class="text-sm text-gray-600 hover:text-gray-800 hover:underline">
-                                        Clear
-                                    </button>
-                                </div>
-                            </div>
-                            <div class="text-sm text-gray-600 text-right">
-                                <div><span x-text="getIncludedCrawlerPagesCount()" class="font-medium text-green-600"></span> included</div>
-                                <div><span x-text="getExcludedCrawlerPagesCount()" class="font-medium text-red-600"></span> excluded</div>
-                            </div>
+             @click.self="showCrawlerPages = false">
+            <div class="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-y-auto">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-900">Discovered Pages</h3>
+                            <p class="text-sm text-gray-600 mt-1" x-text="`${selectedCrawler?.name} - ${crawlerPages.length} pages found`"></p>
+                        </div>
+                        <div class="flex items-center space-x-3">
+                            <button @click="bulkSelectPagesForTesting('manual')"
+                                    class="bg-blue-600 text-white px-3 py-2 rounded text-sm hover:bg-blue-700 transition-colors">
+                                <i class="fas fa-hand-paper mr-1"></i>Select for Manual Testing
+                            </button>
+                            <button @click="bulkSelectPagesForTesting('automated')"
+                                    class="bg-green-600 text-white px-3 py-2 rounded text-sm hover:bg-green-700 transition-colors">
+                                <i class="fas fa-robot mr-1"></i>Select for Automated Testing
+                            </button>
+                            <button @click="showCrawlerPages = false" 
+                                    class="text-gray-400 hover:text-gray-600">
+                                <i class="fas fa-times text-xl"></i>
+                            </button>
                         </div>
                     </div>
+                </div>
+                
+                <div class="p-6">
+                    <!-- Filters -->
+                    <div class="mb-4 flex flex-wrap gap-2">
+                        <input x-model="crawlerPageSearch" type="text" placeholder="Search pages..." 
+                               class="px-3 py-2 border border-gray-300 rounded-md text-sm">
+                        <select x-model="crawlerPageFilter" 
+                                class="px-3 py-2 border border-gray-300 rounded-md text-sm">
+                            <option value="">All Pages</option>
+                            <option value="forms">Pages with Forms</option>
+                            <option value="auth">Authentication Required</option>
+                            <option value="selected">Selected for Testing</option>
+                        </select>
+                    </div>
 
-                    <!-- Table Container with Scroll -->
-                    <div class="flex-1 overflow-auto">
+                    <!-- Pages Table -->
+                    <div class="overflow-x-auto">
                         <table class="min-w-full divide-y divide-gray-200">
-                            <thead class="bg-gray-50 sticky top-0">
+                            <thead class="bg-gray-50">
                                 <tr>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-16">Include</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">URL</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Depth</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tests</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                    <th class="px-3 py-3 text-left">
+                                        <input type="checkbox" @change="toggleAllPageSelection($event.target.checked)"
+                                               class="rounded border-gray-300">
+                                    </th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">URL</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Forms</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Testing</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                                 </tr>
                             </thead>
                             <tbody class="bg-white divide-y divide-gray-200">
                                 <template x-for="page in filteredCrawlerPages" :key="page.id">
-                                    <tr class="hover:bg-gray-50" :class="{ 'bg-red-50': isCrawlerPageExcluded(page.id) }">
-                                        <td class="px-4 py-3 w-16">
-                                            <div class="flex items-center justify-center">
-                                                <input type="checkbox" 
-                                                       :checked="!isCrawlerPageExcluded(page.id)"
-                                                       @change="toggleCrawlerPageExclusion(page.id)"
-                                                       class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                                    <tr class="hover:bg-gray-50">
+                                        <td class="px-3 py-4">
+                                            <input type="checkbox" :checked="page.selected" 
+                                                   @change="togglePageSelection(page, $event.target.checked)"
+                                                   class="rounded border-gray-300">
+                                        </td>
+                                        <td class="px-6 py-4">
+                                            <a :href="page.url" target="_blank" 
+                                               class="text-sm text-blue-600 hover:text-blue-800 hover:underline max-w-xs truncate block">
+                                                <span x-text="page.url"></span>
+                                                <i class="fas fa-external-link-alt ml-1 text-xs"></i>
+                                            </a>
+                                        </td>
+                                        <td class="px-6 py-4 text-sm text-gray-900 max-w-xs truncate" x-text="page.title"></td>
+                                        <td class="px-6 py-4">
+                                            <span :class="getStatusBadgeClass(page.status_code)" 
+                                                  class="px-2 py-1 text-xs font-medium rounded-full" 
+                                                  x-text="page.status_code"></span>
+                                        </td>
+                                        <td class="px-6 py-4 text-sm">
+                                            <span x-show="page.has_forms" class="text-green-600">
+                                                <i class="fas fa-check"></i>
+                                            </span>
+                                            <span x-show="!page.has_forms" class="text-gray-400">
+                                                <i class="fas fa-minus"></i>
+                                            </span>
+                                        </td>
+                                        <td class="px-6 py-4 text-sm">
+                                            <div class="space-x-2">
+                                                <span x-show="page.selected_for_manual_testing" 
+                                                      class="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">Manual</span>
+                                                <span x-show="page.selected_for_automated_testing" 
+                                                      class="bg-green-100 text-green-800 px-2 py-1 rounded text-xs">Automated</span>
                                             </div>
                                         </td>
-                                        <td class="px-4 py-3">
-                                            <span :class="{
-                                                'bg-green-100 text-green-800': page.status_code >= 200 && page.status_code < 300,
-                                                'bg-yellow-100 text-yellow-800': page.status_code >= 300 && page.status_code < 400,
-                                                'bg-red-100 text-red-800': page.status_code >= 400,
-                                                'bg-gray-100 text-gray-800': !page.status_code
-                                            }" class="px-2 py-1 text-xs font-medium rounded-full" x-text="page.status_code || 'Unknown'"></span>
-                                        </td>
-                                        <td class="px-4 py-3">
-                                            <div class="flex items-center">
-                                                <div class="flex-shrink-0 w-8 h-8">
-                                                    <div :class="{
-                                                        'bg-green-100 text-green-600': page.page_type === 'homepage',
-                                                        'bg-blue-100 text-blue-600': page.page_type === 'content',
-                                                        'bg-purple-100 text-purple-600': page.page_type === 'form',
-                                                        'bg-orange-100 text-orange-600': page.page_type === 'navigation',
-                                                        'bg-red-100 text-red-600': page.page_type === 'application',
-                                                        'bg-gray-100 text-gray-600': !['homepage', 'content', 'form', 'navigation', 'application'].includes(page.page_type)
-                                                    }" class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium">
-                                                        <i :class="{
-                                                            'fas fa-home': page.page_type === 'homepage',
-                                                            'fas fa-file-alt': page.page_type === 'content',
-                                                            'fas fa-edit': page.page_type === 'form',
-                                                            'fas fa-sitemap': page.page_type === 'navigation',
-                                                            'fas fa-cogs': page.page_type === 'application',
-                                                            'fas fa-globe': !['homepage', 'content', 'form', 'navigation', 'application'].includes(page.page_type)
-                                                        }"></i>
-                                                    </div>
-                                                </div>
-                                                <div class="ml-3 min-w-0 flex-1">
-                                                    <a :href="page.url" target="_blank" 
-                                                       class="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline truncate block">
-                                                        <span x-text="page.url"></span>
-                                                        <i class="fas fa-external-link-alt ml-1 text-xs"></i>
-                                                    </a>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td class="px-4 py-3 text-sm text-gray-900">
-                                            <div class="max-w-xs truncate" :title="page.title" x-text="page.title || 'No title'"></div>
-                                        </td>
-                                        <td class="px-4 py-3">
-                                            <span :class="{
-                                                'bg-green-100 text-green-800': page.page_type === 'homepage',
-                                                'bg-blue-100 text-blue-800': page.page_type === 'content',
-                                                'bg-purple-100 text-purple-800': page.page_type === 'form',
-                                                'bg-orange-100 text-orange-800': page.page_type === 'navigation',
-                                                'bg-red-100 text-red-800': page.page_type === 'application',
-                                                'bg-gray-100 text-gray-800': !['homepage', 'content', 'form', 'navigation', 'application'].includes(page.page_type)
-                                            }" class="px-2 py-1 text-xs font-medium rounded-full capitalize" x-text="page.page_type || 'other'"></span>
-                                        </td>
-                                        <td class="px-4 py-3 text-sm text-gray-500">
-                                            <div class="flex items-center">
-                                                <span class="mr-1" x-text="page.depth"></span>
-                                                <div class="w-16 bg-gray-200 rounded-full h-1">
-                                                    <div class="bg-blue-600 h-1 rounded-full" :style="`width: ${Math.min(100, (page.depth / 5) * 100)}%`"></div>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td class="px-4 py-3 text-sm text-gray-500">
-                                            <div class="flex items-center">
-                                                <span x-text="page.test_count || 0"></span>
-                                                <span class="ml-1 text-xs">tests</span>
-                                            </div>
-                                        </td>
-                                        <td class="px-4 py-3 text-sm">
-                                            <div class="flex space-x-2">
-                                                <button class="text-blue-600 hover:text-blue-800 text-xs" 
-                                                        @click="window.open(page.url, '_blank')">
-                                                    <i class="fas fa-external-link-alt mr-1"></i>Visit
-                                                </button>
-                                                <button class="text-green-600 hover:text-green-800 text-xs"
-                                                        @click="showNotification('Test this page feature coming soon!', 'info')">
-                                                    <i class="fas fa-flask mr-1"></i>Test
-                                                </button>
-                                            </div>
+                                        <td class="px-6 py-4 text-sm space-x-2">
+                                            <button @click="togglePageTesting(page, 'manual')" 
+                                                    :class="page.selected_for_manual_testing ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'"
+                                                    class="px-2 py-1 rounded text-xs hover:opacity-80 transition-colors">
+                                                Manual
+                                            </button>
+                                            <button @click="togglePageTesting(page, 'automated')" 
+                                                    :class="page.selected_for_automated_testing ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-700'"
+                                                    class="px-2 py-1 rounded text-xs hover:opacity-80 transition-colors">
+                                                Auto
+                                            </button>
                                         </td>
                                     </tr>
                                 </template>
                             </tbody>
                         </table>
                     </div>
-                </div>
 
-                <!-- Empty State -->
-                <div x-show="!crawlerPagesLoading && crawlerPages.length === 0" class="flex-1 flex items-center justify-center p-8">
-                    <div class="text-center">
-                        <i class="fas fa-search text-gray-400 text-4xl mb-4"></i>
-                        <h3 class="text-lg font-medium text-gray-900 mb-2">No Pages Found</h3>
-                        <p class="text-gray-600">This crawler hasn't found any pages yet.</p>
-                    </div>
-                </div>
-
-                <!-- All Pages Excluded State -->
-                <div x-show="!crawlerPagesLoading && crawlerPages.length > 0 && getIncludedCrawlerPagesCount() === 0" class="flex-1 flex items-center justify-center p-8">
-                    <div class="text-center">
-                        <i class="fas fa-ban text-red-400 text-4xl mb-4"></i>
-                        <h3 class="text-lg font-medium text-gray-900 mb-2">All Pages Excluded</h3>
-                        <p class="text-gray-600 mb-4">You've excluded all pages from testing. No pages will be tested in this crawler session.</p>
-                        <button @click="selectAllCrawlerPages()" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors">
-                            <i class="fas fa-check mr-2"></i>Include All Pages
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Footer -->
-                <div class="px-6 py-4 border-t border-gray-200 bg-gray-50">
-                    <div class="flex justify-between items-start mb-3">
-                        <div class="text-sm text-gray-600">
-                            <div x-show="selectedCrawler" class="mb-2">
-                                Crawler: <span x-text="selectedCrawler?.name"></span>
-                            </div>
-                            <div class="grid grid-cols-3 gap-4">
-                                <div>
-                                    <div class="font-medium">Total</div>
-                                    <div class="text-lg text-gray-900" x-text="crawlerPages.length"></div>
-                                </div>
-                                <div>
-                                    <div class="font-medium text-green-600">Included</div>
-                                    <div class="text-lg text-green-900" x-text="getIncludedCrawlerPagesCount()"></div>
-                                </div>
-                                <div>
-                                    <div class="font-medium text-red-600">Excluded</div>
-                                    <div class="text-lg text-red-900" x-text="getExcludedCrawlerPagesCount()"></div>
-                                </div>
-                            </div>
+                    <!-- Pagination/Summary -->
+                    <div class="mt-4 flex justify-between items-center text-sm text-gray-600">
+                        <div>
+                            Showing <span x-text="filteredCrawlerPages.length"></span> of <span x-text="crawlerPages.length"></span> pages
                         </div>
-                        <div class="flex space-x-3">
-                            <button @click="saveCrawlerPageSelections()" 
-                                    class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors">
-                                <i class="fas fa-save mr-2"></i>Save Selections
-                            </button>
-                            <button @click="closeCrawlerPagesModal()" 
-                                    class="bg-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-400 transition-colors">
-                                <i class="fas fa-times mr-2"></i>Close
-                            </button>
+                        <div class="space-x-4">
+                            <span>Manual: <span x-text="crawlerPages.filter(p => p.selected_for_manual_testing).length" class="font-medium"></span></span>
+                            <span>Automated: <span x-text="crawlerPages.filter(p => p.selected_for_automated_testing).length" class="font-medium"></span></span>
                         </div>
                     </div>
                 </div>
