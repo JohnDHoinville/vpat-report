@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Accessibility Testing Platform</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3B82F6',
+                        secondary: '#6B7280'
+                    }
+                }
+            }
+        };
+        if (typeof tailwind !== 'undefined' && tailwind.config) {
+            tailwind.config.silent = true;
+        }
+    </script>
+    <!-- Dynamic Alpine.js loader - loads ONLY after dashboard function is ready -->
+    <script src="dynamic-alpine-loader.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+    <script src="user-management.js"></script>
+</head>
+<body class="bg-gray-50">
+    <!-- Quick test content -->
+    <div x-data="dashboard()" x-init="init()" class="min-h-screen">
+        <h1 class="text-2xl p-4">Testing Dynamic Alpine Loading</h1>
+        <div x-show="apiConnected" class="w-2 h-2 bg-green-400 rounded-full"></div>
+        <div x-show="!apiConnected" class="w-2 h-2 bg-red-400 rounded-full"></div>
+        <span x-text="apiConnected ? 'API Connected' : 'API Down'" class="text-xs"></span>
+    </div>
+
+    <!-- Load dashboard helpers with modern async loading -->
+    <script>
+        console.log('🎯 Loading dashboard helpers with modern async loading...');
+        
+        // Aggressive cache busting for development
+        const timestamp = new Date().getTime();
+        const randomId = Math.random().toString(36).substring(2);
+        
+        // Modern script loading function
+        function loadScript(src) {
+            return new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = src;
+                script.onload = () => {
+                    console.log(`✅ Loaded: ${src.split('?')[0]}`);
+                    resolve();
+                };
+                script.onerror = () => {
+                    console.error(`❌ Failed to load: ${src}`);
+                    reject(new Error(`Failed to load ${src}`));
+                };
+                document.head.appendChild(script);
+            });
+        }
+        
+        // Load scripts in sequence
+        async function loadDashboardScripts() {
+            try {
+                // Load startup modal fix first
+                await loadScript(`startup-modal-fix.js?v=${timestamp}&r=${randomId}&bust=true`);
+                
+                // Load real WCAG requirements service
+                await loadScript(`scripts/real-wcag-requirements-service.js?v=${timestamp}&r=${randomId}&bust=true`);
+                
+                // Load dashboard helpers (this defines window.dashboard)
+                await loadScript(`dashboard_helpers.js?v=${timestamp}&r=${randomId}&bust=true`);
+                
+                // Load additional fixes
+                await loadScript(`modal-click-fix.js?v=${timestamp}&r=${randomId}&bust=true`);
+                await loadScript(`crawler-modal-clean.js?v=${timestamp}&r=${randomId}&bust=true`);
+                
+                console.log('✅ All dashboard scripts loaded successfully');
+                
+            } catch (error) {
+                console.error('❌ Error loading dashboard scripts:', error);
+            }
+        }
+        
+        // Start loading
+        loadDashboardScripts();
+    </script>
+</body>
+</html> 

@@ -16,7 +16,6 @@ const ESSENTIAL_MODALS = [
 
 // Problematic auto-opening modals that should be blocked
 const BLOCKED_AUTO_OPENING_MODALS = [
-    'showCrawlerPages',
     'showCreateCrawler', 
     'showStartDiscovery'
 ];
@@ -36,7 +35,7 @@ window.addEventListener('DOMContentLoaded', () => {
         modalElements.forEach(el => {
             const xShowValue = el.getAttribute('x-show');
             if (xShowValue) {
-                // Only hide if it's a problematic modal
+                // Only hide if it's a problematic modal (showCrawlerPages is now allowed)
                 for (const blockedModal of BLOCKED_AUTO_OPENING_MODALS) {
                     if (xShowValue.includes(blockedModal)) {
                         el.style.display = 'none';
@@ -47,8 +46,8 @@ window.addEventListener('DOMContentLoaded', () => {
             }
         });
     };
-    
-    // Run immediately and after a delay
+
+    // Run immediately and also after Alpine loads
     forceCloseProblematicModals();
     setTimeout(forceCloseProblematicModals, 100);
     setTimeout(forceCloseProblematicModals, 500);
@@ -64,23 +63,114 @@ document.addEventListener('alpine:init', () => {
         dashboardInstance = originalDashboard; // Store reference
         
         // FORCE CLOSE ONLY PROBLEMATIC MODALS in the data
-        originalDashboard.showCrawlerPages = false;
         originalDashboard.showCreateCrawler = false;
         originalDashboard.showStartDiscovery = false;
         
-        console.log('🛑 FORCED only problematic modal states to FALSE in dashboard data');
+        // ROOT CAUSE FIX: Clean initialization of showCrawlerPages
+        console.log('🔧 ROOT CAUSE FIX: Ensuring clean modal initialization');
+        originalDashboard.showCrawlerPages = false;
         
-        // Override ONLY problematic functions that auto-open modals
+        // Override the problematic viewCrawlerPages function to prevent auto-opening
         const originalViewCrawlerPages = originalDashboard.viewCrawlerPages;
         originalDashboard.viewCrawlerPages = function(crawler) {
-            console.log('🛑 BLOCKED viewCrawlerPages from opening modal');
+            console.log('🛑 ROOT CAUSE FIX: Completely blocking viewCrawlerPages auto-open');
+            
+            // Load data but NEVER open modal
             if (originalViewCrawlerPages && typeof originalViewCrawlerPages === 'function') {
-                originalViewCrawlerPages.call(this, crawler);
+                try {
+                    // Call original with safety override
+                    const originalShowCrawlerPages = this.showCrawlerPages;
+                    
+                    // Create a safe wrapper that prevents modal opening
+                    const originalSetShowCrawlerPages = Object.getOwnPropertyDescriptor(this, 'showCrawlerPages')?.set;
+                    
+                    // Temporarily override the setter to prevent any assignment to true
+                    Object.defineProperty(this, 'showCrawlerPages', {
+                        get() { return false; },
+                        set(value) { 
+                            console.log(`🛑 ROOT CAUSE FIX: Blocked attempt to set showCrawlerPages = ${value}`);
+                            // Do nothing - prevent all assignments
+                        },
+                        configurable: true
+                    });
+                    
+                    // Call the original function
+                    const result = originalViewCrawlerPages.call(this, crawler);
+                    
+                    // If it returns a promise, handle completion
+                    if (result && typeof result.then === 'function') {
+                        result.finally(() => {
+                            // Restore original property but keep it false
+                            Object.defineProperty(this, 'showCrawlerPages', {
+                                value: false,
+                                writable: true,
+                                configurable: true
+                            });
+                        });
+                    } else {
+                        // Restore immediately but keep it false
+                        Object.defineProperty(this, 'showCrawlerPages', {
+                            value: false,
+                            writable: true,
+                            configurable: true
+                        });
+                    }
+                } catch (error) {
+                    console.error('🛑 ROOT CAUSE FIX: Error in viewCrawlerPages override:', error);
+                    // Ensure modal stays closed even on error
+                    this.showCrawlerPages = false;
+                }
             }
-            // NEVER open modal automatically
-            this.showCrawlerPages = false;
+            
+            console.log('✅ ROOT CAUSE FIX: viewCrawlerPages called - modal blocked from opening');
         };
         
+        // ADD DEBUGGING: Monitor showCrawlerPages changes
+        let _showCrawlerPages = false;
+        let propertyBlocked = false;
+        
+        Object.defineProperty(originalDashboard, 'showCrawlerPages', {
+            get() {
+                return _showCrawlerPages;
+            },
+            set(value) {
+                if (propertyBlocked) {
+                    console.log(`🛑 ROOT CAUSE FIX: Property access blocked - ignoring set to ${value}`);
+                    return;
+                }
+                
+                if (value === true) {
+                    console.log('🚨 DEBUG: showCrawlerPages being set to TRUE!');
+                    console.trace('Stack trace:');
+                    
+                    // Check if this is an authorized button click
+                    const stack = new Error().stack;
+                    const isButtonClick = stack.includes('openCrawlerPagesModal') || 
+                                        stack.includes('Button clicked');
+                    
+                    if (!isButtonClick) {
+                        console.log('🛑 ROOT CAUSE FIX: Unauthorized modal open attempt blocked!');
+                        _showCrawlerPages = false;
+                        return;
+                    }
+                }
+                
+                _showCrawlerPages = value;
+                console.log(`🔍 DEBUG: showCrawlerPages = ${value}`);
+            },
+            enumerable: true,
+            configurable: true
+        });
+        
+        // Expose blocking control
+        originalDashboard._blockModalProperty = function(block) {
+            propertyBlocked = block;
+            console.log(`🔧 ROOT CAUSE FIX: Property blocking ${block ? 'enabled' : 'disabled'}`);
+        };
+        
+        console.log('🛑 ROOT CAUSE FIX: Clean initialization and auto-open prevention applied');
+        
+        // Override ONLY problematic functions that auto-open modals
         const originalQuickSetupCrawler = originalDashboard.quickSetupCrawler;
         originalDashboard.quickSetupCrawler = function(type) {
             console.log('🛑 BLOCKED quickSetupCrawler from opening modal');

@@ -60,6 +60,12 @@
             tailwind.config.silent = true;
         }
     </script>
+    <!-- Ultimate Modal Fix - Comprehensive protection -->
+    <script src="ultimate-modal-fix.js"></script>
+    <!-- Phantom Modal Killer - Eliminate auto-opening modals -->
+    <script src="phantom-modal-killer.js"></script>
+    <!-- Block Alpine.js auto-start until dashboard is ready -->
+    <script src="alpine-block-autostart.js"></script>
     <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
@@ -6937,22 +6943,62 @@
         </div>
     </div>
 
-    <!-- Load dashboard helpers synchronously BEFORE Alpine.js initialization -->
+    <!-- Load dashboard helpers with modern async loading -->
     <script>
-        console.log('🎯 Loading dashboard helpers synchronously...');
+        console.log('🎯 Loading dashboard helpers with modern async loading...');
         
         // Aggressive cache busting for development
         const timestamp = new Date().getTime();
         const randomId = Math.random().toString(36).substring(2);
         
-        // Load Real WCAG Requirements Service first
-        document.write(`<script src="scripts/real-wcag-requirements-service.js?v=${timestamp}&r=${randomId}&bust=true"><\/script>`);
+        // Modern script loading function
+        function loadScript(src) {
+            return new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = src;
+                script.onload = () => {
+                    console.log(`✅ Loaded: ${src.split('?')[0]}`);
+                    resolve();
+                };
+                script.onerror = () => {
+                    console.error(`❌ Failed to load: ${src}`);
+                    reject(new Error(`Failed to load script: ${src}`));
+                };
+                document.head.appendChild(script);
+            });
+        }
         
-        // Then load dashboard helpers
-        document.write(`<script src="dashboard_helpers.js?v=${timestamp}&r=${randomId}&bust=true"><\/script>`);
+        // Load scripts in proper order using async/await
+        async function loadAllScripts() {
+            try {
+                // Load startup modal fix FIRST to prevent auto-opening
+                await loadScript(`startup-modal-fix.js?v=${timestamp}&r=${randomId}&bust=true`);
+                
+                // Load Real WCAG Requirements Service
+                await loadScript(`scripts/real-wcag-requirements-service.js?v=${timestamp}&r=${randomId}&bust=true`);
+                
+                // Then load dashboard helpers
+                await loadScript(`dashboard_helpers.js?v=${timestamp}&r=${randomId}&bust=true`);
+                
+                // Load modal click fix
+                await loadScript(`modal-click-fix.js?v=${timestamp}&r=${randomId}&bust=true`);
+                
+                // Load clean crawler modal component
+                await loadScript(`crawler-modal-clean.js?v=${timestamp}&r=${randomId}&bust=true`);
+                
+                console.log('✅ All dashboard scripts loaded successfully');
+                
+                // Signal that scripts are ready
+                window.dashboardScriptsReady = true;
+                
+            } catch (error) {
+                console.error('❌ Script loading failed:', error);
+            }
+        }
         
-        // Load modal click fix
-        document.write(`<script src="modal-click-fix.js?v=${timestamp}&r=${randomId}&bust=true"><\/script>`);    </script>
+        // Start loading scripts
+        loadAllScripts();
+    </script>
     
     <!-- Ensure dashboard function is available -->
     <script>

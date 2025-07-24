@@ -8481,6 +8481,102 @@ function dashboard() {
         },
 
         /**
+         * Open crawler pages modal - Click-only function
+         */
+        async openCrawlerPagesModal(crawler) {
+            console.log('🔘 Button clicked to open crawler pages modal');
+            if (!crawler || !crawler.id) {
+                console.log('🛑 No valid crawler provided to button click');
+                return;
+            }
+            
+            try {
+                this.crawlerPagesLoading = true;
+                this.selectedCrawler = crawler;
+                this.excludedCrawlerPages = []; // Reset exclusions
+                this.crawlerPageSearch = ''; // Reset search
+                
+                const data = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages`);
+                this.crawlerPages = (data.data || []).map(page => ({
+                    ...page,
+                    selected: false,
+                    has_forms: page.page_data?.pageAnalysis?.hasLoginForm || page.page_data?.pageAnalysis?.formCount > 0 || false,
+                    title: page.title || 'Untitled Page',
+                    url: page.url || ''
+                }));
+                this.updateFilteredCrawlerPages();
+                
+                // ONLY open modal when explicitly called via button
+                this.showCrawlerPages = true;
+                console.log(`🔘 Modal opened via button with ${this.crawlerPages.length} pages for ${crawler.name}`);
+            } catch (error) {
+                console.error('Failed to load crawler pages from button click:', error);
+                this.showNotification('Failed to load crawler pages', 'error');
+            } finally {
+                this.crawlerPagesLoading = false;
+            }
+        },
+
+        /**
+         * Create crawler modal - Click-only function  
+         */
+        openCreateCrawlerModal(type = null) {
+            console.log('🔘 Button clicked to open create crawler modal');
+            
+            // Reset form to defaults
+            this.newCrawler = {
+                name: '',
+                description: '',
+                primary_url: this.selectedProject?.primary_url || '',
+                project_id: this.selectedProject?.id || '',
+                auth_type: 'none',
+                max_depth: 3,
+                max_pages: 50,
+                respect_robots_txt: false,
+                wait_conditions_json: '[]',
+                extraction_rules_json: '{}',
+                url_patterns_json: '[]'
+            };
+
+            // Pre-populate based on type
+            if (type === 'sso') {
+                this.newCrawler.auth_type = 'saml_sso';
+                this.newCrawler.name = `${this.selectedProject?.name} - SAML/SSO Crawler`;
+                this.newCrawler.description = 'SAML/SSO authenticated crawler for protected content';
+            } else if (type === 'public') {
+                this.newCrawler.auth_type = 'none';
+                this.newCrawler.name = `${this.selectedProject?.name} - Public Crawler`;
+                this.newCrawler.description = 'Public website crawler for non-authenticated pages';
+            } else if (type === 'advanced') {
+                this.newCrawler.auth_type = 'custom';
+                this.newCrawler.name = `${this.selectedProject?.name} - Advanced Crawler`;
+                this.newCrawler.description = 'Advanced crawler with custom authentication and wait conditions';
+                this.newCrawler.wait_conditions_json = '[{"type": "selector", "selector": ".content-loaded", "timeout": 5000}]';
+                this.newCrawler.extraction_rules_json = '{"title": "h1", "description": "meta[name=\\"description\\"]"}';
+            }
+
+            // ONLY open modal when explicitly called via button
+            this.showCreateCrawler = true;
+            console.log('🔘 Create Web Crawler modal opened via button');
+        },
+
+        /**
+         * Start Discovery modal - Click-only function
+         */
+        openStartDiscoveryModalClick() {
+            console.log('🔘 Button clicked to open Start Discovery modal');
+            
+            // Auto-populate the primary URL from the selected project
+            if (this.selectedProject && this.selectedProject.primary_url) {
+                this.newDiscovery.primary_url = this.selectedProject.primary_url;
+            }
+            
+            // ONLY open modal when explicitly called via button
+            this.showStartDiscovery = true;
+            console.log('🔘 Start Discovery modal opened via button');
+        },
+
+        /**
          * Edit an existing crawler
          */
         async editCrawler(crawler) {
@@ -8722,6 +8818,16 @@ function exportData(data, filename) {
 // Make dashboard function globally available for Alpine.js
 window.dashboard = dashboard;
 
+// Immediately register with Alpine if it's available
+if (window.Alpine && window.Alpine.data) {
+    window.Alpine.data('dashboard', dashboard);
+    console.log('✅ Dashboard registered with Alpine immediately');
+}
+
+// Also set a flag that dashboard is ready
+window._dashboardReady = true;
+console.log('✅ Dashboard function is ready and flagged');
+
 // Initialize when DOM is loaded
 // Audit Report Generation System
 window.auditReport = {
@@ -8949,7 +9055,7 @@ window.auditReport = {
                                     <td class="px-3 py-2 text-center text-gray-500">${detail.not_applicable}</td>
                                     <td class="px-3 py-2 text-center">
                                         <span class="font-semibold ${detail.compliance_percentage >= 80 ? 'text-green-600' : detail.compliance_percentage >= 60 ? 'text-yellow-600' : 'text-red-600'}">
-                                            ${detail.compliance_percentage || 'N/A'}%
+                                            ${detail.compliance_percentage || 'N/A'}
                                         </span>
                                     </td>
                                 </tr>
