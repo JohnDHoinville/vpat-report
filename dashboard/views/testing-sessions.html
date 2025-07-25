@@ -1,11 +1,11 @@
-<!-- Compliance Sessions View -->
+<!-- Unified Testing Sessions View -->
 <div class="space-y-6">
     <!-- Header -->
     <div class="bg-white rounded-lg shadow p-6">
         <div class="flex justify-between items-center">
             <div>
-                <h2 class="text-2xl font-bold text-gray-900">Compliance Sessions</h2>
-                <p class="mt-2 text-gray-600">Manage accessibility testing sessions for WCAG compliance validation</p>
+                <h2 class="text-2xl font-bold text-gray-900">Testing Sessions</h2>
+                <p class="mt-2 text-gray-600">Manage unified accessibility testing sessions with comprehensive WCAG and Section 508 compliance</p>
             </div>
             <button @click="showCreateTestingSession = true" 
                     :disabled="!selectedProject"
@@ -17,7 +17,7 @@
     </div>
 
     <!-- Project Selection -->
-    <div class="bg-white rounded-lg shadow p-6">
+    <div class="bg-white rounded-lg shadow p-6" x-show="!selectedProject">
         <h3 class="text-lg font-semibold text-gray-900 mb-4">
             <i class="fas fa-folder mr-2"></i>Select Project for Testing
         </h3>
@@ -25,14 +25,14 @@
             <template x-for="project in projects" :key="project.id">
                 <div class="border rounded-lg p-4 cursor-pointer transition-all hover:shadow-md"
                      :class="selectedProject === project.id ? 'border-green-500 bg-green-50' : 'border-gray-200'"
-                     @click="selectedProject = project.id">
+                     @click="selectProject(project.id); loadTestingSessions()">
                     <div class="flex items-center justify-between">
                         <div class="flex-1">
                             <h4 class="font-medium text-gray-900" x-text="project.name"></h4>
                             <p class="text-sm text-gray-600 truncate" x-text="project.primary_url"></p>
                             <div class="flex items-center mt-2 space-x-2">
                                 <span class="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-800"
-                                      x-text="`${project.session_count || 0} sessions`"></span>
+                                      x-text="`${project.testing_sessions_count || 0} sessions`"></span>
                                 <span class="text-xs px-2 py-1 rounded-full"
                                       :class="getProjectAuthStatus(project.id) === 'configured' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'"
                                       x-text="getProjectAuthStatus(project.id) === 'configured' ? 'Auth Ready' : 'No Auth'"></span>
@@ -47,122 +47,211 @@
         </div>
     </div>
 
-    <!-- Active Sessions -->
-    <div x-show="selectedProject" class="bg-white rounded-lg shadow">
-        <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-            <h3 class="text-lg font-medium text-gray-900">Testing Sessions</h3>
+    <!-- Project Summary -->
+    <div x-show="selectedProject" class="bg-white rounded-lg shadow p-6">
+        <div class="flex items-center justify-between mb-4">
             <div class="flex items-center space-x-3">
-                <span class="text-sm text-gray-500" x-text="`Project: ${getSelectedProject()?.name || 'None'}`"></span>
-                <button @click="refreshSessions()" class="text-blue-600 hover:text-blue-800 text-sm">
+                <i class="fas fa-project-diagram text-blue-600"></i>
+                <div>
+                    <h3 class="font-semibold text-gray-900" x-text="getSelectedProject()?.name || 'Unknown Project'"></h3>
+                    <p class="text-sm text-gray-600" x-text="getSelectedProject()?.primary_url || ''"></p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-3">
+                <button @click="loadTestingSessions()" class="text-blue-600 hover:text-blue-800 text-sm">
                     <i class="fas fa-refresh mr-1"></i>Refresh
+                </button>
+                <button @click="selectedProject = null" class="text-gray-600 hover:text-gray-800 text-sm">
+                    <i class="fas fa-arrow-left mr-1"></i>Change Project
                 </button>
             </div>
         </div>
         
-        <div class="p-6">
-            <!-- Session Configuration -->
-            <div class="mb-6 p-4 border border-blue-200 rounded-lg bg-blue-50">
-                <h4 class="font-medium text-blue-900 mb-3">Session Configuration</h4>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <!-- Quick Stats -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div class="bg-blue-50 p-4 rounded-lg">
+                <div class="flex items-center">
+                    <i class="fas fa-tasks text-blue-600 text-xl mr-3"></i>
                     <div>
-                        <label class="block text-sm font-medium text-blue-800 mb-1">Test Type</label>
-                        <select x-model="sessionConfig.testType" class="w-full px-3 py-2 border border-blue-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            <option value="automated">Automated Testing</option>
-                            <option value="manual">Manual Testing</option>
-                            <option value="hybrid">Hybrid (Auto + Manual)</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-blue-800 mb-1">WCAG Level</label>
-                        <select x-model="sessionConfig.wcagLevel" class="w-full px-3 py-2 border border-blue-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            <option value="AA">WCAG 2.1 AA</option>
-                            <option value="AAA">WCAG 2.1 AAA</option>
-                            <option value="2.2-AA">WCAG 2.2 AA</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-blue-800 mb-1">Session Name</label>
-                        <input x-model="sessionConfig.name" type="text" placeholder="e.g., Home Page Audit" 
-                               class="w-full px-3 py-2 border border-blue-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <p class="text-sm text-blue-600 font-medium">Total Sessions</p>
+                        <p class="text-xl font-bold text-blue-800" x-text="testingSessions.length"></p>
                     </div>
                 </div>
             </div>
+            <div class="bg-green-50 p-4 rounded-lg">
+                <div class="flex items-center">
+                    <i class="fas fa-play-circle text-green-600 text-xl mr-3"></i>
+                    <div>
+                        <p class="text-sm text-green-600 font-medium">Active Sessions</p>
+                        <p class="text-xl font-bold text-green-800" x-text="testingSessions.filter(s => s.status === 'active').length"></p>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-purple-50 p-4 rounded-lg">
+                <div class="flex items-center">
+                    <i class="fas fa-check-circle text-purple-600 text-xl mr-3"></i>
+                    <div>
+                        <p class="text-sm text-purple-600 font-medium">Completed</p>
+                        <p class="text-xl font-bold text-purple-800" x-text="testingSessions.filter(s => s.status === 'completed').length"></p>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-yellow-50 p-4 rounded-lg">
+                <div class="flex items-center">
+                    <i class="fas fa-exclamation-triangle text-yellow-600 text-xl mr-3"></i>
+                    <div>
+                        <p class="text-sm text-yellow-600 font-medium">Needs Review</p>
+                        <p class="text-xl font-bold text-yellow-800" x-text="testingSessions.filter(s => s.status === 'draft').length"></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
-            <!-- Sessions List -->
-            <div x-show="complianceSessions.length === 0" class="text-center py-12">
+    <!-- Testing Sessions List -->
+    <div x-show="selectedProject" class="bg-white rounded-lg shadow">
+        <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+            <h3 class="text-lg font-medium text-gray-900">Testing Sessions</h3>
+            <div class="flex items-center space-x-3">
+                <!-- Filter Controls -->
+                <select x-model="sessionFilters.status" @change="applySessionFilters()" 
+                        class="px-3 py-1 text-sm border border-gray-300 rounded">
+                    <option value="">All Statuses</option>
+                    <option value="draft">Draft</option>
+                    <option value="active">Active</option>
+                    <option value="completed">Completed</option>
+                    <option value="archived">Archived</option>
+                </select>
+                <select x-model="sessionFilters.conformance_level" @change="applySessionFilters()" 
+                        class="px-3 py-1 text-sm border border-gray-300 rounded">
+                    <option value="">All Levels</option>
+                    <option value="wcag_a">WCAG A</option>
+                    <option value="wcag_aa">WCAG AA</option>
+                    <option value="wcag_aaa">WCAG AAA</option>
+                    <option value="section_508">Section 508</option>
+                    <option value="combined">Combined</option>
+                </select>
+            </div>
+        </div>
+        
+        <div class="p-6">
+            <!-- No Sessions State -->
+            <div x-show="filteredTestingSessions.length === 0 && !loading" class="text-center py-12">
                 <i class="fas fa-clipboard-list text-6xl text-gray-300 mb-4"></i>
                 <h3 class="text-lg font-medium text-gray-900 mb-2">No Testing Sessions</h3>
-                <p class="text-gray-600 mb-4">Start your first compliance testing session for this project.</p>
-                <button @click="startNewComplianceSession()" 
-                        :disabled="!selectedProject"
-                        class="px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors disabled:bg-gray-400">
-                    <i class="fas fa-play mr-2"></i>Start Testing Session
+                <p class="text-gray-600 mb-4">Start your first unified testing session for this project.</p>
+                <button @click="showCreateTestingSession = true" 
+                        class="px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors">
+                    <i class="fas fa-plus mr-2"></i>Create Testing Session
                 </button>
             </div>
 
-            <div x-show="complianceSessions.length > 0" class="space-y-4">
-                <template x-for="session in complianceSessions" :key="session.id">
-                    <div class="border border-gray-200 rounded-lg p-4">
+            <!-- Loading State -->
+            <div x-show="loading" class="text-center py-12">
+                <i class="fas fa-spinner fa-spin text-4xl text-gray-400 mb-4"></i>
+                <p class="text-gray-600">Loading testing sessions...</p>
+            </div>
+
+            <!-- Sessions List -->
+            <div x-show="filteredTestingSessions.length > 0" class="space-y-4">
+                <template x-for="session in filteredTestingSessions" :key="session.id">
+                    <div class="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
                         <div class="flex items-start justify-between">
                             <div class="flex-1">
-                                <div class="flex items-center space-x-3 mb-2">
-                                    <h4 class="font-medium text-gray-900" x-text="session.name"></h4>
-                                    <span class="px-2 py-1 text-xs font-medium rounded-full"
+                                <!-- Session Header -->
+                                <div class="flex items-center space-x-3 mb-3">
+                                    <h4 class="text-lg font-semibold text-gray-900" x-text="session.name"></h4>
+                                    <span class="px-3 py-1 text-sm font-medium rounded-full"
                                           :class="getSessionStatusBadgeClass(session.status)"
-                                          x-text="session.status"></span>
-                                    <span class="px-2 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-800"
-                                          x-text="session.test_type"></span>
+                                          x-text="session.status.charAt(0).toUpperCase() + session.status.slice(1)"></span>
+                                    <span class="px-3 py-1 text-sm font-medium rounded-full bg-purple-100 text-purple-800"
+                                          x-text="getConformanceLevelDisplay(session.conformance_level)"></span>
                                 </div>
-                                <p class="text-sm text-gray-600 mb-2" x-text="session.description"></p>
-                                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-500">
-                                    <div><strong>WCAG Level:</strong> <span x-text="session.wcag_level"></span></div>
-                                    <div><strong>Pages Tested:</strong> <span x-text="session.pages_tested || 0"></span></div>
-                                    <div><strong>Issues Found:</strong> <span x-text="session.issues_found || 0"></span></div>
-                                    <div><strong>Started:</strong> <span x-text="session.created_at ? new Date(session.created_at).toLocaleDateString() : 'Unknown'"></span></div>
+                                
+                                <!-- Session Description -->
+                                <p class="text-gray-600 mb-4" x-text="session.description || 'No description provided'"></p>
+                                
+                                <!-- Progress Bar -->
+                                <div x-show="session.progress" class="mb-4">
+                                    <div class="flex items-center justify-between mb-2">
+                                        <span class="text-sm font-medium text-gray-700">Progress</span>
+                                        <span class="text-sm text-gray-600" x-text="`${session.progress?.completionPercentage || 0}% Complete`"></span>
+                                    </div>
+                                    <div class="w-full bg-gray-200 rounded-full h-2">
+                                        <div class="bg-green-600 h-2 rounded-full transition-all duration-300" 
+                                             :style="`width: ${session.progress?.completionPercentage || 0}%`"></div>
+                                    </div>
                                 </div>
-                                <div x-show="session.status === 'active'" class="mt-3 bg-blue-50 p-3 rounded">
-                                    <div class="flex items-center justify-between">
-                                        <span class="text-sm text-blue-800">Session in progress...</span>
-                                        <div class="w-32 bg-blue-200 rounded-full h-2">
-                                            <div class="bg-blue-600 h-2 rounded-full transition-all duration-300" 
-                                                 :style="`width: ${session.progress || 0}%`"></div>
-                                        </div>
+                                
+                                <!-- Session Stats -->
+                                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                                    <div class="bg-gray-50 p-3 rounded">
+                                        <p class="font-medium text-gray-700">Total Tests</p>
+                                        <p class="text-xl font-bold text-gray-900" x-text="session.progress?.totalTests || 0"></p>
+                                    </div>
+                                    <div class="bg-green-50 p-3 rounded">
+                                        <p class="font-medium text-green-700">Passed</p>
+                                        <p class="text-xl font-bold text-green-800" x-text="session.progress?.passedTests || 0"></p>
+                                    </div>
+                                    <div class="bg-red-50 p-3 rounded">
+                                        <p class="font-medium text-red-700">Failed</p>
+                                        <p class="text-xl font-bold text-red-800" x-text="session.progress?.failedTests || 0"></p>
+                                    </div>
+                                    <div class="bg-yellow-50 p-3 rounded">
+                                        <p class="font-medium text-yellow-700">Remaining</p>
+                                        <p class="text-xl font-bold text-yellow-800" x-text="session.progress?.remainingTests || 0"></p>
+                                    </div>
+                                </div>
+                                
+                                <!-- Session Meta -->
+                                <div class="flex items-center justify-between mt-4 text-sm text-gray-500">
+                                    <div class="flex items-center space-x-4">
+                                        <span><i class="fas fa-calendar mr-1"></i>Created: <span x-text="formatDate(session.created_at)"></span></span>
+                                        <span x-show="session.updated_at !== session.created_at">
+                                            <i class="fas fa-clock mr-1"></i>Updated: <span x-text="formatDate(session.updated_at)"></span>
+                                        </span>
+                                    </div>
+                                    <div class="flex items-center space-x-2">
+                                        <span x-show="session.created_by_username">
+                                            <i class="fas fa-user mr-1"></i><span x-text="session.created_by_username"></span>
+                                        </span>
                                     </div>
                                 </div>
                             </div>
-                            <div class="ml-4 flex flex-wrap gap-2">
-                                <!-- Session Control Buttons -->
-                                <button x-show="session.status === 'active'" @click="pauseSession(session)" 
-                                        class="px-3 py-1 text-sm bg-yellow-600 text-white rounded hover:bg-yellow-700 transition-colors">
-                                    <i class="fas fa-pause mr-1"></i>Pause
-                                </button>
-                                <button x-show="session.status === 'paused'" @click="resumeSession(session)" 
-                                        class="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700 transition-colors">
-                                    <i class="fas fa-play mr-1"></i>Resume
-                                </button>
-                                <button @click="stopSession(session)" 
-                                        x-show="session.status === 'active' || session.status === 'paused'"
-                                        class="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700 transition-colors">
-                                    <i class="fas fa-stop mr-1"></i>Stop
+                            
+                            <!-- Action Buttons -->
+                            <div class="ml-6 flex flex-col space-y-2">
+                                <!-- Primary Actions -->
+                                <button @click="viewSessionDetails(session)" 
+                                        class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors text-sm">
+                                    <i class="fas fa-eye mr-1"></i>View Details
                                 </button>
                                 
-                                <!-- Management Buttons -->
-                                <button @click="editTestingSession(session)" 
-                                        class="px-3 py-1 text-sm bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors">
-                                    <i class="fas fa-edit mr-1"></i>Edit
+                                <button x-show="session.status === 'draft'" @click="activateSession(session)" 
+                                        class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors text-sm">
+                                    <i class="fas fa-play mr-1"></i>Activate
                                 </button>
-                                <button @click="viewSessionResults(session)" 
-                                        class="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors">
-                                    <i class="fas fa-eye mr-1"></i>View Results
+                                
+                                <button x-show="session.status === 'active'" @click="viewTestingMatrix(session)" 
+                                        class="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors text-sm">
+                                    <i class="fas fa-th mr-1"></i>Test Matrix
                                 </button>
-                                <button @click="duplicateTestingSession(session)" 
-                                        class="px-3 py-1 text-sm bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors">
-                                    <i class="fas fa-copy mr-1"></i>Duplicate
-                                </button>
-                                <button @click="deleteTestingSession(session)" 
-                                        class="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700 transition-colors">
-                                    <i class="fas fa-trash mr-1"></i>Delete
-                                </button>
+                                
+                                <!-- Secondary Actions -->
+                                <div class="flex space-x-1">
+                                    <button @click="editSession(session)" 
+                                            class="px-2 py-1 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors text-xs">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button @click="duplicateSession(session)" 
+                                            class="px-2 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors text-xs">
+                                        <i class="fas fa-copy"></i>
+                                    </button>
+                                    <button @click="deleteSession(session)" 
+                                            class="px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700 transition-colors text-xs">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -171,12 +260,12 @@
         </div>
     </div>
 
-    <!-- Integration Status -->
+    <!-- Requirements Integration Status -->
     <div x-show="selectedProject" class="bg-white rounded-lg shadow p-6">
         <h3 class="text-lg font-semibold text-gray-900 mb-4">
             <i class="fas fa-link mr-2"></i>Integration Ready
         </h3>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
             <!-- Authentication Integration -->
             <div class="border border-gray-200 rounded-lg p-4">
                 <div class="flex items-center justify-between mb-3">
@@ -192,91 +281,31 @@
                 </button>
             </div>
 
-            <!-- Site Discovery Integration -->
+            <!-- Web Crawler Integration -->
             <div class="border border-gray-200 rounded-lg p-4">
                 <div class="flex items-center justify-between mb-3">
-                    <h4 class="font-medium text-gray-900">Site Discovery</h4>
+                    <h4 class="font-medium text-gray-900">Page Discovery</h4>
                     <span class="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">Ready</span>
                 </div>
-                <p class="text-sm text-gray-600 mb-3">Comprehensive page discovery for thorough testing</p>
-                <button @click="activeTab = 'discovery'" 
+                <p class="text-sm text-gray-600 mb-3">Discover and select pages for comprehensive testing</p>
+                <button @click="activeTab = 'web-crawler'; selectProject(selectedProject)" 
                         class="w-full px-3 py-2 text-sm bg-green-600 text-white rounded hover:bg-green-700 transition-colors">
-                    <i class="fas fa-search mr-2"></i>Discover Pages
+                    <i class="fas fa-spider mr-2"></i>Manage Crawlers
                 </button>
             </div>
-        </div>
-    </div>
-
-    <!-- Create Testing Session Modal -->
-    <div x-show="showCreateTestingSession" 
-         x-transition:enter="transition ease-out duration-300"
-         x-transition:enter-start="opacity-0"
-         x-transition:enter-end="opacity-100"
-         x-transition:leave="transition ease-in duration-200"
-         x-transition:leave-start="opacity-100"
-         x-transition:leave-end="opacity-0"
-         class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
-         @click.self="showCreateTestingSession = false">
-        <div class="bg-white rounded-lg shadow-xl max-w-lg w-full">
-            <div class="px-6 py-4 border-b border-gray-200">
-                <h3 class="text-lg font-semibold text-gray-900">Create Testing Session</h3>
-                <p class="text-sm text-gray-600 mt-1">Set up a new accessibility compliance testing session</p>
-            </div>
             
-            <form @submit.prevent="createTestingSession()" class="p-6 space-y-4">
-                <!-- Session Name -->
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Session Name *</label>
-                    <input x-model="newTestingSession.name" type="text" required
-                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                           placeholder="e.g., WCAG 2.1 AA Compliance Test">
+            <!-- Requirements Database -->
+            <div class="border border-gray-200 rounded-lg p-4">
+                <div class="flex items-center justify-between mb-3">
+                    <h4 class="font-medium text-gray-900">Requirements</h4>
+                    <span class="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">43 Loaded</span>
                 </div>
-                
-                <!-- Description -->
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
-                    <textarea x-model="newTestingSession.description" rows="3"
-                              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                              placeholder="Brief description of this testing session..."></textarea>
-                </div>
-                
-                <!-- Conformance Level -->
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Conformance Level *</label>
-                    <select x-model="newTestingSession.conformance_level" required
-                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500">
-                        <option value="">Select conformance level...</option>
-                        <option value="A">WCAG 2.1 Level A</option>
-                        <option value="AA">WCAG 2.1 Level AA</option>
-                        <option value="AAA">WCAG 2.1 Level AAA</option>
-                        <option value="Section508">Section 508</option>
-                    </select>
-                </div>
-                
-                <!-- Testing Approach -->
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Testing Approach</label>
-                    <select x-model="newTestingSession.testing_approach"
-                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500">
-                        <option value="hybrid">Hybrid (Automated + Manual)</option>
-                        <option value="automated">Automated Only</option>
-                        <option value="manual">Manual Only</option>
-                    </select>
-                </div>
-                
-                <!-- Form Actions -->
-                <div class="flex justify-end space-x-3 pt-4">
-                    <button type="button" @click="showCreateTestingSession = false; resetNewTestingSession()" 
-                            class="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 transition-colors">
-                        Cancel
-                    </button>
-                    <button type="submit" :disabled="loading"
-                            class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors disabled:bg-gray-400">
-                        <span x-show="!loading">Create Session</span>
-                        <span x-show="loading">Creating...</span>
-                    </button>
-                </div>
-            </form>
+                <p class="text-sm text-gray-600 mb-3">WCAG 2.1 and Section 508 requirements are ready</p>
+                <button @click="viewRequirements()" 
+                        class="w-full px-3 py-2 text-sm bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors">
+                    <i class="fas fa-list-check mr-2"></i>View Requirements
+                </button>
+            </div>
         </div>
     </div>
 </div> 

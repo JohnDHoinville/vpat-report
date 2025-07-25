@@ -146,6 +146,7 @@
         <div id="project-modals-component"></div>
         <div id="web-crawler-modals-component"></div>
         <div id="testing-modals-component"></div>
+        <div id="session-modals-component"></div>
         <div id="user-management-modals-component"></div>
         <div id="admin-backup-modals-component"></div>
         
@@ -262,6 +263,7 @@
                 loadComponent('project-modals-component', 'components/project-modals.html'),
                 loadComponent('web-crawler-modals-component', 'components/web-crawler-modals.html'),
                 loadComponent('testing-modals-component', 'components/testing-modals.html'),
+                loadComponent('session-modals-component', 'components/session-modals.html'),
                 loadComponent('user-management-modals-component', 'components/user-management-modals.html'),
                 loadComponent('admin-backup-modals-component', 'components/admin-backup-modals.html')
             ]);
@@ -270,6 +272,7 @@
             await Promise.all([
                 loadView('authentication-view-content', 'views/authentication.html'),
                 loadView('web-crawler-view-content', 'views/web-crawler.html'),
+                loadView('testing-sessions-view-content', 'views/testing-sessions.html'),
                 loadView('testing-view-content', 'views/testing.html'),
                 loadView('manual-testing-view-content', 'views/manual-testing.html'),
                 loadView('results-view-content', 'views/results.html'),

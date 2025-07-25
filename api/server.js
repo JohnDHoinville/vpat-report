@@ -19,11 +19,12 @@ const {
 const authRoutes = require('./routes/auth');
 const projectRoutes = require('./routes/projects');
 const sessionRoutes = require('./routes/sessions');
+const testingSessionsRoutes = require('./routes/testing-sessions');
+const testInstancesRoutes = require('./routes/test-instances');
 const requirementsRoutes = require('./routes/requirements');
 const requirementMappingsRoutes = require('./routes/requirement-mappings');
 const unifiedResultsRoutes = require('./routes/unified-results');
 const automatedWorkflowRoutes = require('./routes/automated-workflow');
-const testInstancesRoutes = require('./routes/test-instances');
 const pageRoutes = require('./routes/pages');
 const resultRoutes = require('./routes/results');
 const violationRoutes = require('./routes/violations');
@@ -199,6 +200,7 @@ app.get('/health', asyncHandler(async (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/sessions', sessionRoutes);
+app.use('/api/testing-sessions', testingSessionsRoutes);
 app.use('/api/session', sessionRoutes); // Browser session management endpoints
 app.use('/api/requirements', requirementsRoutes);
 app.use('/api/requirement-mappings', requirementMappingsRoutes);

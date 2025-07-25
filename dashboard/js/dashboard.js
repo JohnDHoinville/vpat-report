@@ -287,7 +287,41 @@ function dashboard() {
         newManualUrlRequiresAuth: false,
         newManualUrlHasForms: false,
         newManualUrlForTesting: true,
-        addingManualUrl: false
+        addingManualUrl: false,
+        
+        // ===== TESTING SESSIONS STATE =====
+        testingSessions: [],
+        filteredTestingSessions: [],
+        sessionFilters: {
+            status: '',
+            conformance_level: ''
+        },
+        showCreateTestingSession: false,
+        showSessionDetails: false,
+        showTestingMatrix: false,
+        selectedSession: null,
+        testingMatrix: null,
+        newTestingSession: {
+            name: '',
+            description: '',
+            conformance_level: '',
+            priority: 'medium',
+            testing_approach: 'hybrid',
+            pageScope: 'all',
+            applySmartFiltering: true,
+            createBulkInstances: false,
+            enableProgressTracking: true,
+            notifyOnCompletion: false,
+            enableAuditTrail: true
+        },
+        showAdvancedOptions: false,
+        
+        // Legacy session data for compatibility
+        complianceSessions: [],
+        sessions: [],
+        testSessions: [],
+        
+        // ===== MANUAL TESTING STATE =====
     };
 
     // ===== MERGE WITH ORGANIZED STATE STRUCTURE =====
@@ -1945,10 +1979,7 @@ function dashboard() {
         // ===== DISCOVERY METHODS =====
         
         async startNewDiscovery() {
-            if (!this.data.selectedProject) {
-                this.showNotification('warning', 'No Project Selected', 'Please select a project first');
-                return;
-            }
+            if (!this.selectedProject || this.discoveryInProgress) return;
             
             try {
                 this.discoveryInProgress = true;
@@ -5007,6 +5038,481 @@ function dashboard() {
             return text.replace(/[&<>"']/g, (m) => map[m]);
         },
 
+        // ===== UNIFIED TESTING SESSIONS METHODS =====
+        
+        // Load testing sessions using the new unified API
+        async loadTestingSessions() {
+            if (!this.selectedProject) return;
+            
+            try {
+                this.loading = true;
+                console.log('🔍 Loading testing sessions for project:', this.selectedProject);
+                
+                const response = await this.apiCall(`/testing-sessions?project_id=${this.selectedProject}`);
+                
+                if (response.success) {
+                    this.testingSessions = response.sessions || [];
+                    this.applySessionFilters();
+                    console.log(`📋 Loaded ${this.testingSessions.length} testing sessions`);
+                } else {
+                    throw new Error(response.error || 'Failed to load testing sessions');
+                }
+            } catch (error) {
+                console.error('Error loading testing sessions:', error);
+                this.showNotification('error', 'Load Failed', 'Failed to load testing sessions');
+                this.testingSessions = [];
+                this.filteredTestingSessions = [];
+            } finally {
+                this.loading = false;
+            }
+        },
+        
+        // Apply session filters
+        applySessionFilters() {
+            this.filteredTestingSessions = this.testingSessions.filter(session => {
+                const statusMatch = !this.sessionFilters.status || session.status === this.sessionFilters.status;
+                const levelMatch = !this.sessionFilters.conformance_level || session.conformance_level === this.sessionFilters.conformance_level;
+                return statusMatch && levelMatch;
+            });
+        },
+        
+        // Create a new unified testing session
+        async createTestingSession() {
+            if (!this.selectedProject || !this.newTestingSession.name.trim() || !this.newTestingSession.conformance_level) {
+                this.showNotification('error', 'Missing Information', 'Please fill in all required fields');
+                return;
+            }
+
+            try {
+                this.loading = true;
+                
+                const sessionData = {
+                    project_id: this.selectedProject,
+                    name: this.newTestingSession.name.trim(),
+                    description: this.newTestingSession.description.trim(),
+                    conformance_level: this.newTestingSession.conformance_level,
+                    include_pages: this.newTestingSession.pageScope === 'all',
+                    selected_page_ids: this.newTestingSession.pageScope === 'selected' ? [] : undefined,
+                    apply_smart_filtering: this.newTestingSession.applySmartFiltering
+                };
+
+                console.log('🔍 Creating testing session:', sessionData);
+                
+                const response = await this.apiCall('/testing-sessions', {
+                    method: 'POST',
+                    body: JSON.stringify(sessionData)
+                });
+
+                if (response.success) {
+                    this.showNotification('success', 'Session Created', 
+                        `Session "${sessionData.name}" created with ${response.test_instances_created || 0} test instances`
+                    );
+                    
+                    this.showCreateTestingSession = false;
+                    this.resetNewTestingSession();
+                    await this.loadTestingSessions();
+                } else {
+                    throw new Error(response.error || 'Failed to create testing session');
+                }
+            } catch (error) {
+                console.error('Error creating testing session:', error);
+                this.showNotification('error', 'Creation Failed', error.message || 'Failed to create testing session');
+            } finally {
+                this.loading = false;
+            }
+        },
+        
+        // Reset new testing session form
+        resetNewTestingSession() {
+            this.newTestingSession = {
+                name: '',
+                description: '',
+                conformance_level: '',
+                pageScope: 'all',
+                applySmartFiltering: true,
+                createBulkInstances: false
+            };
+            this.showAdvancedOptions = false;
+        },
+        
+        // View session details
+        async viewSessionDetails(session) {
+            try {
+                this.loading = true;
+                console.log('🔍 Loading session details for:', session.id);
+                
+                const response = await this.apiCall(`/testing-sessions/${session.id}?include_instances=false`);
+                
+                if (response.success) {
+                    // For now, show session info in a notification
+                    // Later this could open a detailed modal
+                    const progress = response.session.progress;
+                    const message = progress ? 
+                        `Progress: ${progress.completionPercentage}% (${progress.completedTests}/${progress.totalTests} tests)` :
+                        'No progress data available';
+                    
+                    this.showNotification('info', 'Session Details', message);
+                    console.log('Session details:', response.session);
+                } else {
+                    throw new Error(response.error || 'Failed to load session details');
+                }
+            } catch (error) {
+                console.error('Error loading session details:', error);
+                this.showNotification('error', 'Load Failed', 'Failed to load session details');
+            } finally {
+                this.loading = false;
+            }
+        },
+        
+        // View testing matrix for a session
+        async viewTestingMatrix(session) {
+            try {
+                this.loading = true;
+                console.log('🔍 Loading testing matrix for:', session.id);
+                
+                const response = await this.apiCall(`/test-instances/session/${session.id}/matrix`);
+                
+                if (response.success) {
+                    // For now, show matrix info in a notification
+                    // Later this could open a matrix view modal
+                    const matrix = response.matrix;
+                    const message = `Matrix: ${matrix.requirements.length} requirements × ${matrix.pages.length} pages`;
+                    
+                    this.showNotification('info', 'Testing Matrix', message);
+                    console.log('Testing matrix:', response.matrix);
+                } else {
+                    throw new Error(response.error || 'Failed to load testing matrix');
+                }
+            } catch (error) {
+                console.error('Error loading testing matrix:', error);
+                this.showNotification('error', 'Load Failed', 'Failed to load testing matrix');
+            } finally {
+                this.loading = false;
+            }
+        },
+        
+        // Activate a draft session
+        async activateSession(session) {
+            try {
+                this.loading = true;
+                
+                const response = await this.apiCall(`/testing-sessions/${session.id}`, {
+                    method: 'PUT',
+                    body: JSON.stringify({ status: 'active' })
+                });
+                
+                if (response.success) {
+                    this.showNotification('success', 'Session Activated', `Session "${session.name}" is now active`);
+                    await this.loadTestingSessions();
+                } else {
+                    throw new Error(response.error || 'Failed to activate session');
+                }
+            } catch (error) {
+                console.error('Error activating session:', error);
+                this.showNotification('error', 'Activation Failed', error.message || 'Failed to activate session');
+            } finally {
+                this.loading = false;
+            }
+        },
+        
+        // Edit a session
+        async editSession(session) {
+            // For now, show that this feature is coming soon
+            this.showNotification('info', 'Feature Coming Soon', 'Session editing will be available in the next update');
+            console.log('Edit session:', session);
+        },
+        
+        // Duplicate a session
+        async duplicateSession(session) {
+            try {
+                this.loading = true;
+                
+                const response = await this.apiCall(`/testing-sessions/${session.id}/duplicate`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        name: `${session.name} (Copy)`,
+                        description: session.description
+                    })
+                });
+                
+                if (response.success) {
+                    this.showNotification('success', 'Session Duplicated', 
+                        `Created duplicate of "${session.name}"`
+                    );
+                    await this.loadTestingSessions();
+                } else {
+                    throw new Error(response.error || 'Failed to duplicate session');
+                }
+            } catch (error) {
+                console.error('Error duplicating session:', error);
+                this.showNotification('error', 'Duplication Failed', error.message || 'Failed to duplicate session');
+            } finally {
+                this.loading = false;
+            }
+        },
+        
+        // Delete a session
+        async deleteSession(session) {
+            const confirmed = confirm(
+                `Are you sure you want to delete the testing session "${session.name}"?\n\n` +
+                `This will permanently remove:\n` +
+                `• All test instances and results\n` +
+                `• Session progress and configuration\n` +
+                `• Associated audit logs\n\n` +
+                `This action cannot be undone.`
+            );
+            
+            if (!confirmed) return;
+            
+            try {
+                this.loading = true;
+                
+                const response = await this.apiCall(`/testing-sessions/${session.id}`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.success) {
+                    this.showNotification('success', 'Session Deleted', 
+                        `Session "${session.name}" deleted successfully`
+                    );
+                    await this.loadTestingSessions();
+                } else {
+                    throw new Error(response.error || 'Failed to delete session');
+                }
+            } catch (error) {
+                console.error('Error deleting session:', error);
+                this.showNotification('error', 'Deletion Failed', error.message || 'Failed to delete session');
+            } finally {
+                this.loading = false;
+            }
+        },
+        
+        // Get conformance level display text
+        getConformanceLevelDisplay(level) {
+            const levels = {
+                'wcag_a': 'WCAG A',
+                'wcag_aa': 'WCAG AA', 
+                'wcag_aaa': 'WCAG AAA',
+                'section_508': 'Section 508',
+                'combined': 'Combined'
+            };
+            return levels[level] || level;
+        },
+        
+        // Update requirements preview in create modal
+        updateRequirementsPreview() {
+            // This will be called when conformance level changes
+            // Currently just used to trigger UI updates
+        },
+        
+        // Get requirements preview text
+        getRequirementsPreviewText() {
+            const level = this.newTestingSession.conformance_level;
+            if (!level) return '';
+            
+            const descriptions = {
+                'wcag_a': 'WCAG 2.1 Level A requirements will be applied (basic accessibility)',
+                'wcag_aa': 'WCAG 2.1 Level A and AA requirements will be applied (standard compliance)', 
+                'wcag_aaa': 'All WCAG 2.1 requirements will be applied (A, AA, and AAA levels)',
+                'section_508': 'Section 508 requirements will be applied (US federal standards)',
+                'combined': 'Both WCAG 2.1 and Section 508 requirements will be applied (comprehensive testing)'
+            };
+            
+            return descriptions[level] || 'Requirements will be determined based on selected level';
+        },
+        
+        // View requirements (placeholder)
+        viewRequirements() {
+            this.showNotification('info', 'Requirements Database', 
+                'Requirements database contains 43 total requirements (26 WCAG + 17 Section 508)');
+            console.log('View requirements - feature coming soon');
+        },
+
+        // ===== ENHANCED SESSION MODAL METHODS =====
+        
+        // Get requirements count for preview
+        getRequirementsCount(type) {
+            const level = this.newTestingSession.conformance_level;
+            if (!level) return 0;
+            
+            const counts = {
+                'wcag_a': { total: 25, automated: 15, manual: 8, hybrid: 2 },
+                'wcag_aa': { total: 26, automated: 16, manual: 8, hybrid: 2 },
+                'wcag_aaa': { total: 43, automated: 25, manual: 15, hybrid: 3 },
+                'section_508': { total: 17, automated: 10, manual: 6, hybrid: 1 },
+                'combined': { total: 60, automated: 35, manual: 21, hybrid: 4 }
+            };
+            
+            return counts[level] ? counts[level][type] : 0;
+        },
+        
+        // Get total discovered pages
+        getTotalDiscoveredPages() {
+            if (!this.selectedProject) return 0;
+            
+            // Sum up pages from all crawlers for this project (completed OR with discovered pages)
+            const projectCrawlers = this.webCrawlers.filter(crawler => 
+                crawler.project_id === this.selectedProject && 
+                (crawler.status === 'completed' || crawler.pages_for_testing > 0)
+            );
+            
+            console.log('🔍 DEBUG: getTotalDiscoveredPages - found crawlers:', projectCrawlers.map(c => ({
+                name: c.name,
+                status: c.status,
+                pages_for_testing: c.pages_for_testing,
+                total_pages_found: c.total_pages_found
+            })));
+            
+            const total = projectCrawlers.reduce((total, crawler) => total + (crawler.pages_for_testing || 0), 0);
+            console.log('🔍 DEBUG: getTotalDiscoveredPages - returning total:', total);
+            return total;
+        },
+        
+        // Get estimated test instances
+        getEstimatedTestInstances() {
+            const requirementsCount = this.getRequirementsCount('total');
+            const pagesCount = this.newTestingSession.pageScope === 'all' ? 
+                this.getTotalDiscoveredPages() : 
+                10; // Estimated for selected pages
+            
+            const smartFilteringReduction = this.newTestingSession.applySmartFiltering ? 0.7 : 1.0;
+            
+            return Math.round(requirementsCount * pagesCount * smartFilteringReduction);
+        },
+        
+        // Get estimated time to complete
+        getEstimatedTimeToComplete() {
+            const instances = this.getEstimatedTestInstances();
+            const automatedRatio = this.getRequirementsCount('automated') / this.getRequirementsCount('total');
+            
+            // Automated tests: 1 minute each, Manual tests: 5 minutes each
+            const automatedTime = instances * automatedRatio * 1;
+            const manualTime = instances * (1 - automatedRatio) * 5;
+            const totalMinutes = automatedTime + manualTime;
+            
+            if (totalMinutes < 60) return `${Math.round(totalMinutes)}m`;
+            if (totalMinutes < 1440) return `${Math.round(totalMinutes / 60)}h`;
+            return `${Math.round(totalMinutes / 1440)}d`;
+        },
+        
+        // Get estimated effort level
+        getEstimatedEffort() {
+            const instances = this.getEstimatedTestInstances();
+            
+            if (instances < 100) return 'Low';
+            if (instances < 500) return 'Medium';
+            if (instances < 1500) return 'High';
+            return 'Very High';
+        },
+        
+        // Apply session template
+        applySessionTemplate(templateName) {
+            const templates = {
+                'wcag_aa_standard': {
+                    name: 'WCAG 2.1 AA Standard Compliance',
+                    description: 'Standard accessibility compliance testing following WCAG 2.1 Level AA guidelines with hybrid testing approach.',
+                    conformance_level: 'wcag_aa',
+                    testing_approach: 'hybrid',
+                    pageScope: 'all',
+                    applySmartFiltering: true,
+                    enableProgressTracking: true,
+                    enableAuditTrail: true
+                },
+                'section_508_federal': {
+                    name: 'Section 508 Federal Compliance',
+                    description: 'Federal accessibility compliance testing according to Section 508 standards with emphasis on manual verification.',
+                    conformance_level: 'section_508',
+                    testing_approach: 'manual',
+                    pageScope: 'selected',
+                    applySmartFiltering: true,
+                    enableProgressTracking: true,
+                    enableAuditTrail: true
+                },
+                'comprehensive_audit': {
+                    name: 'Comprehensive Accessibility Audit',
+                    description: 'Complete accessibility audit covering all WCAG levels and Section 508 requirements for thorough compliance verification.',
+                    conformance_level: 'combined',
+                    testing_approach: 'hybrid',
+                    pageScope: 'all',
+                    applySmartFiltering: false,
+                    enableProgressTracking: true,
+                    enableAuditTrail: true
+                }
+            };
+            
+            const template = templates[templateName];
+            if (template) {
+                Object.assign(this.newTestingSession, template);
+                this.updateRequirementsPreview();
+                this.showNotification('info', 'Template Applied', `Applied ${template.name} template configuration`);
+            }
+        },
+        
+        // View session details in modal
+        async viewSessionDetailsModal(session) {
+            try {
+                this.loading = true;
+                console.log('🔍 Loading detailed session information for:', session.id);
+                
+                const response = await this.apiCall(`/testing-sessions/${session.id}?include_progress=true`);
+                
+                if (response.success) {
+                    this.selectedSession = response.session;
+                    this.showSessionDetails = true;
+                    console.log('Session details loaded:', response.session);
+                } else {
+                    throw new Error(response.error || 'Failed to load session details');
+                }
+            } catch (error) {
+                console.error('Error loading session details:', error);
+                this.showNotification('error', 'Load Failed', 'Failed to load session details');
+            } finally {
+                this.loading = false;
+            }
+        },
+        
+        // View testing matrix in modal
+        async viewTestingMatrixModal(session) {
+            try {
+                this.loading = true;
+                console.log('🔍 Loading testing matrix for:', session.id);
+                
+                const response = await this.apiCall(`/test-instances/session/${session.id}/matrix`);
+                
+                if (response.success) {
+                    this.testingMatrix = response.matrix;
+                    this.selectedSession = session;
+                    this.showTestingMatrix = true;
+                    console.log('Testing matrix loaded:', response.matrix);
+                } else {
+                    throw new Error(response.error || 'Failed to load testing matrix');
+                }
+            } catch (error) {
+                console.error('Error loading testing matrix:', error);
+                this.showNotification('error', 'Load Failed', 'Failed to load testing matrix');
+            } finally {
+                this.loading = false;
+            }
+        },
+        
+        // Export session report
+        async exportSessionReport(session) {
+            try {
+                this.loading = true;
+                console.log('📄 Exporting session report for:', session.id);
+                
+                // For now, show placeholder - will be implemented with report generation
+                this.showNotification('info', 'Report Export', 'Session report export will be available soon');
+                console.log('Export session report for:', session.name);
+            } catch (error) {
+                console.error('Error exporting session report:', error);
+                this.showNotification('error', 'Export Failed', 'Failed to export session report');
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        // Reset newTestingSession form (compatibility method)
     };
     
     // 🛡️ Mark as initialized and store instance
