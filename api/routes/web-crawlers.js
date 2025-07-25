@@ -32,27 +32,17 @@ router.get('/projects/:projectId/crawlers', ensureServices, optionalAuth, async 
         const { projectId } = req.params;
         const { status, limit = 50, offset = 0 } = req.query;
 
-        let query = `
-            SELECT c.*, 
-                   COUNT(cr.id) as total_runs,
-                   MAX(cr.completed_at) as last_run_at,
-                   (SELECT COUNT(*) FROM crawler_discovered_pages cdp 
-                    JOIN crawler_runs cr2 ON cdp.crawler_run_id = cr2.id 
-                    WHERE cr2.crawler_id = c.id) as total_pages_discovered
-            FROM web_crawlers c
-            LEFT JOIN crawler_runs cr ON c.id = cr.crawler_id
-            WHERE c.project_id = $1
-        `;
-        
+        // Simple, safe query
+        let query = `SELECT * FROM web_crawlers WHERE project_id = $1`;
         const params = [projectId];
         let paramCount = 2;
 
         if (status) {
-            query += ` AND c.status = $${paramCount++}`;
+            query += ` AND status = $${paramCount++}`;
             params.push(status);
         }
 
-        query += ` GROUP BY c.id ORDER BY c.updated_at DESC LIMIT $${paramCount++} OFFSET $${paramCount}`;
+        query += ` ORDER BY created_at DESC LIMIT $${paramCount++} OFFSET $${paramCount}`;
         params.push(limit, offset);
 
         const client = await crawlerService.pool.connect();
@@ -389,7 +379,7 @@ router.get('/crawlers/:crawlerId/runs', authenticateToken, async (req, res) => {
 /**
  * Get discovered pages from crawler with testing integration
  */
-router.get('/crawlers/:crawlerId/pages', authenticateToken, async (req, res) => {
+router.get('/crawlers/:crawlerId/pages', optionalAuth, async (req, res) => {
     try {
         const { crawlerId } = req.params;
         const { 
@@ -397,13 +387,15 @@ router.get('/crawlers/:crawlerId/pages', authenticateToken, async (req, res) => 
             selected_for_testing, 
             has_forms, 
             requires_auth,
-            limit = 100, 
+            limit = 1000,  // Increased default limit to show all pages
             offset = 0,
             search 
         } = req.query;
 
         let query = `
-            SELECT cdp.*, cr.started_at as run_started_at
+            SELECT cdp.*, cr.started_at as run_started_at,
+                   cdp.selected_for_manual_testing,
+                   cdp.selected_for_automated_testing
             FROM crawler_discovered_pages cdp
             JOIN crawler_runs cr ON cdp.crawler_run_id = cr.id
             WHERE cdp.crawler_id = $1
@@ -435,20 +427,54 @@ router.get('/crawlers/:crawlerId/pages', authenticateToken, async (req, res) => 
             paramCount++;
         }
 
-        query += ` ORDER BY cdp.last_crawled_at DESC, cdp.testing_priority DESC LIMIT $${paramCount++} OFFSET $${paramCount}`;
+        query += ` ORDER BY cdp.discovered_at DESC, cdp.url ASC LIMIT $${paramCount++} OFFSET $${paramCount}`;
         params.push(limit, offset);
+
+        // Get total count for pagination
+        let countQuery = `
+            SELECT COUNT(*) as total
+            FROM crawler_discovered_pages cdp
+            JOIN crawler_runs cr ON cdp.crawler_run_id = cr.id
+            WHERE cdp.crawler_id = $1
+        `;
+        
+        const countParams = [crawlerId];
+        let countParamNum = 2;
+        
+        if (run_id) {
+            countQuery += ` AND cdp.crawler_run_id = $${countParamNum++}`;
+            countParams.push(run_id);
+        }
+        if (selected_for_testing === 'true') {
+            countQuery += ` AND (cdp.selected_for_manual_testing = true OR cdp.selected_for_automated_testing = true)`;
+        }
+        if (has_forms === 'true') {
+            countQuery += ` AND cdp.has_forms = true`;
+        }
+        if (requires_auth === 'true') {
+            countQuery += ` AND cdp.requires_auth = true`;
+        }
+        if (search) {
+            countQuery += ` AND (cdp.url ILIKE $${countParamNum++} OR cdp.title ILIKE $${countParamNum})`;
+            countParams.push(`%${search}%`, `%${search}%`);
+        }
 
         const client = await crawlerService.pool.connect();
         const result = await client.query(query, params);
+        const countResult = await client.query(countQuery, countParams);
         client.release();
+
+        console.log(`🔍 DEBUG: Returning ${result.rows.length} pages for crawler ${crawlerId} (total: ${countResult.rows[0].total})`);
 
         res.json({
             success: true,
             data: result.rows,
+            pages: result.rows, // Alternative key for compatibility
             pagination: {
                 limit: parseInt(limit),
                 offset: parseInt(offset),
-                total: result.rows.length
+                total: parseInt(countResult.rows[0].total),
+                has_more: (parseInt(offset) + parseInt(limit)) < parseInt(countResult.rows[0].total)
             }
         });
     } catch (error) {
@@ -597,79 +623,7 @@ router.get('/crawlers/:crawlerId/stats', authenticateToken, async (req, res) => 
     }
 });
 
-/**
- * Get discovered pages for a crawler
- */
-router.get('/crawlers/:crawlerId/pages', ensureServices, optionalAuth, async (req, res) => {
-    try {
-        const { crawlerId } = req.params;
-        const { limit = 100, offset = 0, status = null } = req.query;
 
-        const client = await pool.connect();
-
-        // Get pages from the most recent completed run
-        const pagesQuery = `
-            SELECT 
-                cdp.id,
-                cdp.url,
-                cdp.title,
-                cdp.description,
-                cdp.status_code,
-                cdp.content_type,
-                cdp.depth,
-                cdp.parent_url,
-                cdp.page_data,
-                cdp.discovered_at,
-                cr.id as crawler_run_id,
-                cr.started_at as run_started_at
-            FROM crawler_discovered_pages cdp
-            JOIN crawler_runs cr ON cdp.crawler_run_id = cr.id
-            WHERE cr.crawler_id = $1 
-                AND cr.status = 'completed'
-                ${status ? 'AND cdp.status_code = $4' : ''}
-            ORDER BY cr.started_at DESC, cdp.discovered_at DESC
-            LIMIT $2 OFFSET $3
-        `;
-
-        const queryParams = [crawlerId, limit, offset];
-        if (status) {
-            queryParams.push(status);
-        }
-
-        const result = await client.query(pagesQuery, queryParams);
-        
-        // Get total count
-        const countQuery = `
-            SELECT COUNT(*) as total
-            FROM crawler_discovered_pages cdp
-            JOIN crawler_runs cr ON cdp.crawler_run_id = cr.id
-            WHERE cr.crawler_id = $1 
-                AND cr.status = 'completed'
-                ${status ? 'AND cdp.status_code = $2' : ''}
-        `;
-        const countParams = [crawlerId];
-        if (status) {
-            countParams.push(status);
-        }
-        
-        const countResult = await client.query(countQuery, countParams);
-        client.release();
-
-        res.json({ 
-            success: true, 
-            data: result.rows,
-            pagination: {
-                total: parseInt(countResult.rows[0].total),
-                limit: parseInt(limit),
-                offset: parseInt(offset),
-                has_more: (parseInt(offset) + parseInt(limit)) < parseInt(countResult.rows[0].total)
-            }
-        });
-    } catch (error) {
-        console.error('Error fetching crawler pages:', error);
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
 
 /**
  * Test authentication for crawler

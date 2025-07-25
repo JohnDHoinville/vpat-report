@@ -17,12 +17,12 @@ const dbConfig = {
     // Connection pool settings
     max: parseInt(process.env.DB_MAX_CONNECTIONS) || 10,
     idleTimeoutMillis: parseInt(process.env.DB_IDLE_TIMEOUT) || 30000,
-    connectionTimeoutMillis: parseInt(process.env.DB_CONNECTION_TIMEOUT) || 2000,
+    connectionTimeoutMillis: parseInt(process.env.DB_CONNECTION_TIMEOUT) || 2000, // Reverted back to 2000
     
     // Additional PostgreSQL settings
     ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-    statement_timeout: 10000,
-    query_timeout: 10000,
+    statement_timeout: 10000, // Reverted back to 10000
+    query_timeout: 10000, // Reverted back to 10000
 };
 
 // Create connection pool

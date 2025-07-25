@@ -1136,7 +1136,7 @@ function dashboard() {
             };
             
             this.syncLegacyState();
-            this.loadWebCrawlers(); // Refresh the list
+            this.loadWebCrawlers(); // Refresh the list with force refresh
             this.showNotification('success', 'Crawler Completed', 
                 `Found ${finalPageCount} pages`);
                 
@@ -1291,8 +1291,8 @@ function dashboard() {
                     this.data.webCrawlers = result.success ? result.data : [];
                     this.webCrawlers = this.data.webCrawlers; // Legacy sync
                     
-                    // Load page counts for each crawler if not already present
-                    this.loadCrawlerPageCounts();
+                    // Force refresh page counts to get accurate data from database
+                    this.loadCrawlerPageCounts(true);
                 } else {
                     console.error('Failed to load web crawlers:', response.status);
                     this.data.webCrawlers = [];
@@ -1305,33 +1305,35 @@ function dashboard() {
             }
         },
 
-        async loadCrawlerPageCounts() {
-            console.log('🔍 DEBUG: Loading page counts for crawlers...');
+        async loadCrawlerPageCounts(forceRefresh = false) {
+            console.log('🔍 DEBUG: Loading page counts for crawlers...', forceRefresh ? '(FORCE REFRESH)' : '');
             
             for (const crawler of this.webCrawlers) {
-                // Skip if page count already exists
-                if (crawler.total_pages_found && crawler.total_pages_found > 0) {
-                    console.log(`🔍 DEBUG: Crawler ${crawler.name} already has ${crawler.total_pages_found} pages`);
+                // Only skip if force refresh is false and page count already exists
+                if (!forceRefresh && crawler.total_pages_found && crawler.total_pages_found > 0) {
+                    console.log(`🔍 DEBUG: Crawler ${crawler.name} already has ${crawler.total_pages_found} pages (skipping)`);
                     continue;
                 }
                 
                 try {
                     console.log(`🔍 DEBUG: Fetching page count for crawler ${crawler.name}...`);
-                    const response = await fetch(`${this.config.apiBaseUrl}/api/web-crawlers/crawlers/${crawler.id}/pages`, {
+                    const response = await fetch(`${this.config.apiBaseUrl}/api/web-crawlers/crawlers/${crawler.id}/pages?limit=1000`, {
                         headers: this.getAuthHeaders()
                     });
                     
                     if (response.ok) {
                         const data = await response.json();
                         const pages = data.pages || data.data || [];
+                        const totalCount = data.pagination?.total || pages.length;
                         
-                        // Update the crawler with page counts
-                        crawler.total_pages_found = pages.length;
+                        // Update the crawler with page counts from pagination (more accurate)
+                        crawler.total_pages_found = totalCount;
                         crawler.pages_for_testing = pages.filter(p => 
                             p.selected_for_manual_testing || p.selected_for_automated_testing
-                        ).length || pages.length; // Default to all pages if none selected
+                        ).length || totalCount; // Default to all pages if none selected
                         
                         console.log(`🔍 DEBUG: Updated ${crawler.name}: ${crawler.total_pages_found} total, ${crawler.pages_for_testing} for testing`);
+                        console.log(`🔍 DEBUG: API returned ${pages.length} pages, pagination says ${totalCount} total`);
                     } else {
                         console.warn(`Failed to load pages for crawler ${crawler.name}:`, response.status);
                     }
