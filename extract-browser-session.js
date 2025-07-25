@@ -58,11 +58,27 @@ async function extractBrowserSession() {
         const sessionData = {
             cookies: relevantCookies,
             extractedAt: new Date().toISOString(),
-            url: finalUrl
+            url: finalUrl,
+            userAgent: await page.evaluate(() => navigator.userAgent),
+            extractedBy: 'extract-browser-session.js'
         };
         
-        fs.writeFileSync('fm-session.json', JSON.stringify(sessionData, null, 2));
-        console.log('💾 Session saved to fm-session.json');
+        const sessionFile = 'fm-session.json';
+        
+        try {
+            fs.writeFileSync(sessionFile, JSON.stringify(sessionData, null, 2));
+            console.log(`💾 Session saved to ${sessionFile}`);
+            console.log(`📅 Extracted at: ${sessionData.extractedAt}`);
+            console.log(`🔗 URL: ${sessionData.url}`);
+            console.log(`🍪 Cookies: ${relevantCookies.length}`);
+            
+            // Verify the file was written correctly
+            const verifyData = JSON.parse(fs.readFileSync(sessionFile, 'utf8'));
+            console.log(`✅ Verification: File contains ${verifyData.cookies.length} cookies, extracted at ${verifyData.extractedAt}`);
+        } catch (error) {
+            console.error('❌ Error saving session file:', error.message);
+            throw error;
+        }
         
         // Show how to use it
         console.log('');

@@ -51,7 +51,7 @@
         </div>
 
         <div class="p-6">
-            <div x-show="!getProjectAuthConfigs(selectedAuthProject).length" class="text-center py-12">
+            <div x-show="!projectAuthConfigs.length" class="text-center py-12">
                 <i class="fas fa-shield-alt text-6xl text-gray-300 mb-4"></i>
                 <h3 class="text-lg font-medium text-gray-900 mb-2">No Authentication Configured</h3>
                 <p class="text-gray-600 mb-4">Add authentication methods to enable authenticated crawling for this project.</p>
@@ -61,8 +61,8 @@
                     </button>
             </div>
 
-            <div x-show="getProjectAuthConfigs(selectedAuthProject).length > 0" class="space-y-4">
-                <template x-for="config in getProjectAuthConfigs(selectedAuthProject)" :key="config.id">
+            <div x-show="projectAuthConfigs.length > 0" class="space-y-4">
+                <template x-for="config in projectAuthConfigs" :key="config.id">
                     <div class="border border-gray-200 rounded-lg p-4">
                         <div class="flex items-start justify-between">
                             <div class="flex-1">
@@ -81,7 +81,7 @@
                                                  config.type === 'oauth' ? 'OAUTH' :
                                                  config.type === 'api_key' ? 'API KEY' :
                                                  config.type === 'custom' ? 'CUSTOM' :
-                                                 config.type.toUpperCase()"></span>
+                                                 (config.type || 'UNKNOWN').toUpperCase()"></span>
                                     <span class="px-2 py-1 text-xs font-medium rounded-full"
                                           :class="config.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'"
                                           x-text="config.status"></span>
@@ -116,7 +116,7 @@
                     </div>
 
     <!-- Integration Status -->
-    <div x-show="selectedAuthProject && getProjectAuthConfigs(selectedAuthProject).length > 0" class="bg-white rounded-lg shadow p-6">
+    <div x-show="selectedAuthProject && projectAuthConfigs.length > 0" class="bg-white rounded-lg shadow p-6">
         <h3 class="text-lg font-semibold text-gray-900 mb-4">
             <i class="fas fa-link mr-2"></i>Integration Status
         </h3>

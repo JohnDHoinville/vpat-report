@@ -12,6 +12,47 @@ const AuditLogger = require('../middleware/audit-logger');
 const { orchestrator } = require('../../scripts/unified-test-orchestrator');
 const PlaywrightIntegrationService = require('../../database/services/playwright-integration-service');
 
+// Helper functions for session metadata extraction
+function extractUsernameFromUrl(url) {
+    // For FM, try to extract from typical patterns
+    if (!url) return null;
+    
+    // Common patterns - could be enhanced based on actual URL structure
+    const patterns = [
+        /user[=\/]([^&\/\?]+)/i,
+        /username[=\/]([^&\/\?]+)/i,
+        /account[=\/]([^&\/\?]+)/i
+    ];
+    
+    for (const pattern of patterns) {
+        const match = url.match(pattern);
+        if (match) return decodeURIComponent(match[1]);
+    }
+    
+    // For SAML systems, username might not be in URL
+    return 'SAML User';
+}
+
+function calculateExpirationFromCookies(cookies) {
+    if (!cookies || !Array.isArray(cookies)) return null;
+    
+    // Find the earliest expiring cookie (that has an expiration)
+    const expiringCookies = cookies.filter(cookie => 
+        cookie.expires && cookie.expires !== -1 && cookie.expires > 0
+    );
+    
+    if (expiringCookies.length === 0) {
+        // If no cookies have expiration, assume session expires in 24 hours
+        const tomorrow = new Date();
+        tomorrow.setHours(tomorrow.getHours() + 24);
+        return tomorrow.toISOString();
+    }
+    
+    // Find the earliest expiration
+    const earliestExpiration = Math.min(...expiringCookies.map(c => c.expires));
+    return new Date(earliestExpiration * 1000).toISOString(); // Convert from Unix timestamp
+}
+
 // Apply audit logging middleware to all routes
 router.use(AuditLogger.auditMiddleware());
 
@@ -20,35 +61,83 @@ router.use(AuditLogger.auditMiddleware());
 
 /**
  * GET /api/session/info
- * Get information about the current browser session
+ * Get information about the current browser session from database
  */
-router.get('/info', (req, res) => {
+router.get('/info', async (req, res) => {
     try {
-        const fs = require('fs');
-        const path = require('path');
+        const { project_id } = req.query;
         
-        const sessionFile = path.join(__dirname, '../../fm-session.json');
-        
-        if (fs.existsSync(sessionFile)) {
-            const sessionData = JSON.parse(fs.readFileSync(sessionFile, 'utf8'));
-            
-            // Extract metadata
-            const metadata = {
-                username: sessionData.username || 'Unknown',
-                capturedDate: sessionData.timestamp || new Date().toISOString(),
-                expirationDate: sessionData.expirationDate || 'Unknown',
-                pagesCount: sessionData.accessiblePages || 0
-            };
-            
-            res.json({
-                exists: true,
-                metadata: metadata
+        if (!project_id) {
+            return res.status(400).json({
+                exists: false,
+                error: 'project_id is required'
             });
-        } else {
-            res.json({
+        }
+        
+        console.log(`🔍 DEBUG: Getting session info for project: ${project_id}`);
+        
+        // Get the best active auth session for any crawler in this project
+        // Priority: 1) Not expired, 2) Has cookies, 3) Most recent
+        const sessionQuery = `
+            SELECT 
+                cas.*,
+                wc.name as crawler_name,
+                wc.base_url,
+                CASE 
+                    WHEN cas.cookies IS NULL OR jsonb_array_length(cas.cookies) = 0 THEN 0
+                    ELSE jsonb_array_length(cas.cookies)
+                END as cookie_count,
+                CASE 
+                    WHEN cas.expires_at IS NULL THEN true
+                    WHEN cas.expires_at > CURRENT_TIMESTAMP THEN true
+                    ELSE false
+                END as is_not_expired
+            FROM crawler_auth_sessions cas
+            JOIN web_crawlers wc ON cas.crawler_id = wc.id
+            WHERE wc.project_id = $1 
+            AND cas.is_active = true
+            AND (cas.expires_at IS NULL OR cas.expires_at > CURRENT_TIMESTAMP)
+            ORDER BY is_not_expired DESC, cookie_count DESC, cas.last_used_at DESC
+            LIMIT 1
+        `;
+        
+        const sessionResult = await pool.query(sessionQuery, [project_id]);
+        
+        if (sessionResult.rows.length === 0) {
+            console.log('🔍 DEBUG: No active sessions found for project');
+            return res.json({
                 exists: false
             });
         }
+        
+        const session = sessionResult.rows[0];
+        console.log('🔍 DEBUG: Found session:', {
+            id: session.id,
+            crawler: session.crawler_name,
+            user: session.authenticated_user,
+            created: session.created_at,
+            cookies: session.cookies ? Object.keys(session.cookies).length : 0
+        });
+        
+        // Extract metadata from database session
+            const metadata = {
+            username: session.authenticated_user || extractUsernameFromUrl(session.base_url) || 'SAML User',
+            capturedDate: session.created_at,
+            expirationDate: session.expires_at || calculateExpirationFromCookies(session.cookies) || 'Unknown',
+            pagesCount: 0, // Will be calculated if needed
+            sessionId: session.id,
+            crawlerName: session.crawler_name,
+            isValid: session.validation_successful !== false
+        };
+        
+        console.log('🔍 DEBUG: Extracted metadata from database:', metadata);
+            
+            res.json({
+                exists: true,
+            metadata: metadata,
+            source: 'database'
+        });
+        
     } catch (error) {
         console.error('Session info error:', error);
         res.status(500).json({
@@ -60,50 +149,70 @@ router.get('/info', (req, res) => {
 
 /**
  * POST /api/session/capture
- * Start browser session capture process
+ * Start browser session capture process (database-based)
  */
-router.post('/capture', (req, res) => {
+router.post('/capture', async (req, res) => {
     try {
-        const { spawn } = require('child_process');
-        const path = require('path');
+        const { project_id } = req.body;
         
-        // Use absolute path to the extract-browser-session.js script
-        const scriptPath = path.join(__dirname, '../../extract-browser-session.js');
+        if (!project_id) {
+            return res.status(400).json({
+                success: false,
+                message: 'project_id is required'
+            });
+        }
         
-        console.log(`Starting session capture with script: ${scriptPath}`);
+        console.log('🔧 Starting database-based session capture for project:', project_id);
         
-        // Spawn the session capture script
-        const captureProcess = spawn('node', [scriptPath], {
-            detached: true,
-            stdio: 'pipe'
-        });
+        // Get the primary crawler for this project (or create a default one)
+        const crawlerQuery = `
+            SELECT id, name, base_url 
+            FROM web_crawlers 
+            WHERE project_id = $1 
+            ORDER BY created_at DESC 
+            LIMIT 1
+        `;
         
-        let output = '';
-        let errorOutput = '';
+        const crawlerResult = await pool.query(crawlerQuery, [project_id]);
         
-        captureProcess.stdout.on('data', (data) => {
-            output += data.toString();
-        });
+        if (crawlerResult.rows.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'No web crawler found for this project. Please create a crawler first.'
+            });
+        }
         
-        captureProcess.stderr.on('data', (data) => {
-            errorOutput += data.toString();
-        });
+        const crawler = crawlerResult.rows[0];
         
-        captureProcess.on('close', (code) => {
-            if (code === 0) {
-                console.log('Session capture completed successfully');
-            } else {
-                console.error('Session capture failed with exit code', code);
-                console.error('Error output:', errorOutput);
-            }
-        });
+        // Store the crawler info in session for completion
+        req.session = req.session || {};
+        req.session.pendingCapture = {
+            projectId: project_id,
+            crawlerId: crawler.id,
+            baseUrl: crawler.base_url
+        };
         
-        // Respond immediately since this is an asynchronous process
-        res.json({
-            success: true,
-            message: 'Session capture started',
-            processId: captureProcess.pid
-        });
+        const { startBrowserSession } = require('../../extract-browser-session-web');
+        const result = await startBrowserSession();
+        
+        if (result.success) {
+            res.json({
+                success: true,
+                message: 'Browser opened for authentication',
+                needsLogin: result.needsLogin,
+                currentUrl: result.currentUrl,
+                crawlerName: crawler.name,
+                instructions: result.needsLogin ? 
+                    'Please log in to the opened browser window, then click "Successfully Logged In" below' :
+                    'Already authenticated - ready to capture session'
+            });
+        } else {
+            res.status(500).json({
+                success: false,
+                message: 'Failed to start browser session',
+                error: result.message
+            });
+        }
         
     } catch (error) {
         console.error('Session capture error:', error);
@@ -116,35 +225,373 @@ router.post('/capture', (req, res) => {
 });
 
 /**
- * POST /api/session/test
- * Test if the current session is valid and count accessible pages
+ * POST /api/session/complete-capture  
+ * Complete session capture after user confirms login and save to database
  */
-router.post('/test', async (req, res) => {
+router.post('/complete-capture', async (req, res) => {
     try {
-        const fs = require('fs');
-        const path = require('path');
+        const { project_id, crawler_id } = req.body;
         
-        const sessionFile = path.join(__dirname, '../../fm-session.json');
-        
-        if (!fs.existsSync(sessionFile)) {
-            return res.json({
+        if (!project_id) {
+            return res.status(400).json({
                 success: false,
-                message: 'No session file found'
+                message: 'project_id is required'
             });
         }
         
-        const sessionData = JSON.parse(fs.readFileSync(sessionFile, 'utf8'));
+        console.log('🔧 Completing database-based session capture...');
         
-        // Simulate testing session validity
-        // In a real implementation, this would test against actual websites
-        const mockPagesCount = Math.floor(Math.random() * 50) + 100; // 100-150 pages
+        const { completeBrowserCapture } = require('../../extract-browser-session-web');
+        const result = await completeBrowserCapture();
+        
+        // Get the crawler ID if not provided
+        let targetCrawlerId = crawler_id;
+        if (!targetCrawlerId) {
+            const crawlerQuery = `
+                SELECT id FROM web_crawlers 
+                WHERE project_id = $1 
+                ORDER BY created_at DESC 
+                LIMIT 1
+            `;
+            const crawlerResult = await pool.query(crawlerQuery, [project_id]);
+            
+            if (crawlerResult.rows.length === 0) {
+                throw new Error('No crawler found for this project');
+            }
+            
+            targetCrawlerId = crawlerResult.rows[0].id;
+        }
+        
+        // Save the session to the database
+        const sessionData = result.sessionData;
+        const sessionQuery = `
+            INSERT INTO crawler_auth_sessions (
+                crawler_id, 
+                session_name, 
+                auth_provider,
+                cookies, 
+                authenticated_user,
+                auth_level,
+                expires_at,
+                is_active,
+                last_used_at
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP)
+            ON CONFLICT (crawler_id, session_name) 
+            DO UPDATE SET
+                cookies = EXCLUDED.cookies,
+                authenticated_user = EXCLUDED.authenticated_user,
+                last_used_at = CURRENT_TIMESTAMP,
+                is_active = EXCLUDED.is_active,
+                expires_at = EXCLUDED.expires_at
+            RETURNING id
+        `;
+        
+        const expiresAt = new Date();
+        expiresAt.setDate(expiresAt.getDate() + 7); // 7 days expiration
+        
+        const sessionResult = await pool.query(sessionQuery, [
+            targetCrawlerId,
+            'default',
+            'saml',
+            JSON.stringify(sessionData.cookies || []),
+            sessionData.username || 'SAML User',
+            'user',
+            expiresAt,
+            true
+        ]);
+        
+        console.log('✅ Session saved to database with ID:', sessionResult.rows[0].id);
         
         res.json({
             success: true,
-            message: 'Session is valid',
-            pagesCount: mockPagesCount,
-            sessionValid: true
+            message: 'Session captured and saved to database successfully',
+            sessionId: sessionResult.rows[0].id,
+            sessionData: {
+                username: sessionData.username || 'SAML User',
+                cookiesCount: sessionData.cookies ? sessionData.cookies.length : 0,
+                savedAt: new Date().toISOString()
+            }
         });
+        
+    } catch (error) {
+        console.error('Complete capture error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to complete session capture',
+            error: error.message
+        });
+    }
+});
+
+/**
+ * POST /api/session/cancel-capture
+ * Cancel ongoing session capture
+ */
+router.post('/cancel-capture', async (req, res) => {
+    try {
+        const { cancelBrowserCapture } = require('../../extract-browser-session-web');
+        
+        console.log('🛑 Cancelling session capture...');
+        
+        const result = await cancelBrowserCapture();
+        
+        res.json({
+            success: true,
+            message: 'Session capture cancelled'
+        });
+        
+    } catch (error) {
+        console.error('Cancel capture error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to cancel session capture',
+            error: error.message
+        });
+    }
+});
+
+/**
+ * POST /api/session/test
+ * Test if the current session is valid and count accessible pages (DATABASE VERSION)
+ */
+router.post('/test', async (req, res) => {
+    try {
+        const { project_id } = req.body;
+        
+        if (!project_id) {
+            return res.status(400).json({
+                success: false,
+                message: 'project_id is required'
+            });
+        }
+        
+        console.log(`🔍 DEBUG: Testing session for project: ${project_id}`);
+        
+        // Get the best active auth session for any crawler in this project
+        // Priority: 1) Not expired, 2) Has cookies, 3) Most recent
+        const sessionQuery = `
+            SELECT 
+                cas.*,
+                wc.name as crawler_name,
+                wc.base_url,
+                CASE 
+                    WHEN cas.cookies IS NULL OR jsonb_array_length(cas.cookies) = 0 THEN 0
+                    ELSE jsonb_array_length(cas.cookies)
+                END as cookie_count,
+                CASE 
+                    WHEN cas.expires_at IS NULL THEN true
+                    WHEN cas.expires_at > CURRENT_TIMESTAMP THEN true
+                    ELSE false
+                END as is_not_expired
+            FROM crawler_auth_sessions cas
+            JOIN web_crawlers wc ON cas.crawler_id = wc.id
+            WHERE wc.project_id = $1 
+            AND cas.is_active = true
+            AND (cas.expires_at IS NULL OR cas.expires_at > CURRENT_TIMESTAMP)
+            ORDER BY is_not_expired DESC, cookie_count DESC, cas.last_used_at DESC
+            LIMIT 1
+        `;
+        
+        const sessionResult = await pool.query(sessionQuery, [project_id]);
+        
+        if (sessionResult.rows.length === 0) {
+            return res.json({
+                success: false,
+                message: 'No active session found for this project'
+            });
+        }
+        
+        const session = sessionResult.rows[0];
+        console.log('🔍 DEBUG: Found session for testing:', {
+            id: session.id,
+            crawler: session.crawler_name,
+            user: session.authenticated_user,
+            cookieCount: session.cookies ? session.cookies.length || Object.keys(session.cookies).length : 0,
+            cookiesArray: Array.isArray(session.cookies),
+            cookiesSample: session.cookies ? JSON.stringify(session.cookies).substring(0, 100) + '...' : 'null'
+        });
+        
+        // Prepare session data for testing
+        const sessionData = {
+            cookies: session.cookies || [],
+            url: session.base_url,
+            username: session.authenticated_user
+        };
+        
+        console.log('🔍 DEBUG: Testing session validity with real browser check...');
+        
+        // Test session validity by actually using the cookies with Playwright
+        const { chromium } = require('playwright');
+        
+        try {
+            const browser = await chromium.launch({ headless: true });
+            const context = await browser.newContext();
+            
+            // Inject the saved cookies
+            console.log('🍪 DEBUG: Cookie injection check:', {
+                cookiesExists: !!sessionData.cookies,
+                cookiesLength: sessionData.cookies ? sessionData.cookies.length : 0,
+                cookiesType: typeof sessionData.cookies,
+                isArray: Array.isArray(sessionData.cookies)
+            });
+            
+            if (sessionData.cookies && sessionData.cookies.length > 0) {
+                // Transform cookies to handle expires: -1 (session cookies)
+                const transformedCookies = sessionData.cookies.map(cookie => {
+                    const transformed = { ...cookie };
+                    
+                    // Handle expires: -1 (session cookie) - remove expires field
+                    if (transformed.expires === -1) {
+                        delete transformed.expires;
+                        console.log(`🍪 Transformed session cookie: ${cookie.name} (removed expires: -1)`);
+                    }
+                    // Handle expired cookies - also remove expires to make them session cookies
+                    else if (transformed.expires && transformed.expires > 0) {
+                        const expireDate = new Date(transformed.expires * 1000);
+                        if (expireDate < new Date()) {
+                            delete transformed.expires;
+                            console.log(`🍪 Transformed expired cookie: ${cookie.name} (converted to session cookie)`);
+                        }
+                    }
+                    
+                    return transformed;
+                });
+                
+                await context.addCookies(transformedCookies);
+                console.log(`✅ Injected ${transformedCookies.length} cookies for testing (${sessionData.cookies.filter(c => c.expires === -1).length} session cookies transformed)`);
+            } else {
+                console.log('❌ No cookies to inject - this will cause authentication failure');
+            }
+            
+            const page = await context.newPage();
+            
+            // Test access to the main site - use authenticated page, not login page
+            let testUrl = sessionData.url || 'https://fm-dev.ti.internet2.edu';
+            
+            // If the saved URL is a login page, test an authenticated page instead
+            if (testUrl.includes('/login')) {
+                testUrl = testUrl.replace('/login', '/home');
+            } else if (!testUrl.includes('/home')) {
+                // Ensure we're testing an authenticated page
+                testUrl = testUrl.replace(/\/$/, '') + '/home';
+            }
+            
+            console.log(`🔍 Testing access to authenticated page: ${testUrl}`);
+            
+            // First check if the domain resolves
+            const urlObject = new URL(testUrl);
+            const dns = require('dns').promises;
+            
+            try {
+                await dns.lookup(urlObject.hostname);
+                console.log(`✅ Domain resolves: ${urlObject.hostname}`);
+            } catch (dnsError) {
+                console.log(`❌ DNS resolution failed for ${urlObject.hostname}: ${dnsError.message}`);
+                throw new Error(`Cannot reach ${urlObject.hostname} - check VPN connection or domain availability`);
+            }
+            
+            await page.goto(testUrl, { waitUntil: 'networkidle', timeout: 10000 });
+            
+            const currentUrl = page.url();
+            const title = await page.title();
+            
+            console.log(`📄 Loaded page: ${currentUrl}`);
+            console.log(`📋 Page title: ${title}`);
+            
+            // Check if we're still authenticated (not redirected to login)
+            const isAuthenticated = !currentUrl.includes('/login') && !title.toLowerCase().includes('login');
+            
+            let accessiblePages = 0;
+            
+            if (isAuthenticated) {
+                console.log('✅ Session is valid - user is authenticated');
+                
+                // Try to count accessible internal links
+                const linkAnalysis = await page.evaluate(() => {
+                    const links = Array.from(document.querySelectorAll('a[href]'));
+                    const internalLinks = links.filter(link => {
+                        const href = link.getAttribute('href');
+                        return href && (
+                            href.startsWith('/') || 
+                            href.includes('fm-dev.ti.internet2.edu') ||
+                            href.includes('internet2.edu')
+                        );
+                    });
+                    
+                    return {
+                        totalLinks: links.length,
+                        internalLinks: internalLinks.length,
+                        sampleUrls: internalLinks.slice(0, 10).map(link => ({
+                            href: link.getAttribute('href'),
+                            text: link.textContent.trim().substring(0, 50)
+                        }))
+                    };
+                });
+                
+                accessiblePages = linkAnalysis.internalLinks;
+                console.log(`📊 Found ${linkAnalysis.totalLinks} total links, ${linkAnalysis.internalLinks} internal links`);
+                console.log('🔗 Sample accessible URLs:', linkAnalysis.sampleUrls);
+                
+                // If we don't find many links on the main page, try to get a more comprehensive count
+                if (accessiblePages < 10) {
+                    // Try to navigate to common pages and count them
+                    const commonPaths = ['/home', '/dashboard', '/admin', '/users', '/reports'];
+                    for (const path of commonPaths) {
+                        try {
+                            await page.goto(`${testUrl.replace(/\/home$/, '')}${path}`, { waitUntil: 'networkidle', timeout: 5000 });
+                            if (!page.url().includes('/login')) {
+                                accessiblePages++;
+                                console.log(`✅ Can access: ${path}`);
+                            }
+                        } catch (e) {
+                            console.log(`❌ Cannot access: ${path}`);
+                        }
+                    }
+                }
+            } else {
+                console.log('❌ Session is invalid - redirected to login page');
+                
+                // Mark this session as inactive since it's expired
+                console.log('🗑️ Marking expired session as inactive in database');
+                try {
+                    await pool.query(`
+                        UPDATE crawler_auth_sessions 
+                        SET is_active = false, 
+                            validation_successful = false,
+                            updated_at = CURRENT_TIMESTAMP
+                        WHERE id = $1
+                    `, [session.id]);
+                    console.log('✅ Expired session marked as inactive');
+                } catch (updateError) {
+                    console.error('❌ Failed to mark expired session as inactive:', updateError);
+                }
+            }
+            
+            await browser.close();
+        
+        res.json({
+                success: isAuthenticated,
+                message: isAuthenticated ? 
+                    `Session is valid - can access ${accessiblePages} pages` : 
+                    'Session has expired or is invalid - redirected to login',
+                pagesCount: accessiblePages,
+                sessionValid: isAuthenticated,
+                details: {
+                    currentUrl: currentUrl,
+                    title: title,
+                    cookiesInjected: sessionData.cookies ? sessionData.cookies.length : 0
+                }
+            });
+            
+        } catch (error) {
+            console.error('❌ Error testing session with browser:', error);
+            res.json({
+                success: false,
+                message: `Failed to test session: ${error.message}`,
+                pagesCount: 0,
+                sessionValid: false
+            });
+        }
         
     } catch (error) {
         console.error('Session test error:', error);
@@ -158,25 +605,45 @@ router.post('/test', async (req, res) => {
 
 /**
  * DELETE /api/session/clear
- * Clear the current browser session
+ * Clear the current browser session from database
  */
-router.delete('/clear', (req, res) => {
+router.delete('/clear', async (req, res) => {
     try {
-        const fs = require('fs');
-        const path = require('path');
+        const { project_id } = req.query;
         
-        const sessionFile = path.join(__dirname, '../../fm-session.json');
+        if (!project_id) {
+            return res.status(400).json({
+                success: false,
+                message: 'project_id is required'
+            });
+        }
         
-        if (fs.existsSync(sessionFile)) {
-            fs.unlinkSync(sessionFile);
+        console.log(`🗑️ DEBUG: Clearing sessions for project: ${project_id}`);
+        
+        // Mark all sessions for this project as inactive
+        const clearQuery = `
+            UPDATE crawler_auth_sessions 
+            SET is_active = false, 
+                updated_at = CURRENT_TIMESTAMP
+            WHERE crawler_id IN (
+                SELECT id FROM web_crawlers WHERE project_id = $1
+            )
+            RETURNING id, session_name
+        `;
+        
+        const result = await pool.query(clearQuery, [project_id]);
+        
+        if (result.rowCount > 0) {
+            console.log(`✅ Cleared ${result.rowCount} sessions for project ${project_id}`);
             res.json({
                 success: true,
-                message: 'Session cleared successfully'
+                message: `Cleared ${result.rowCount} session(s) successfully`,
+                clearedSessions: result.rows
             });
         } else {
             res.json({
                 success: true,
-                message: 'No session to clear'
+                message: 'No active sessions to clear'
             });
         }
         

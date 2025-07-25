@@ -1,0 +1,543 @@
+<!-- Testing Modals Component -->
+
+<!-- Test Configuration Modal -->
+<div x-show="showTestConfigurationModal" 
+     x-transition:enter="transition ease-out duration-300"
+     x-transition:enter-start="opacity-0"
+     x-transition:enter-end="opacity-100"
+     x-transition:leave="transition ease-in duration-200"
+     x-transition:leave-start="opacity-100"
+     x-transition:leave-end="opacity-0"
+     class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
+     @click.self="closeTestConfigurationModal()">
+    <div class="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-y-auto">
+        <div class="px-6 py-4 border-b border-gray-200 sticky top-0 bg-white">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900">Advanced Test Configuration</h3>
+                    <p class="text-sm text-gray-600 mt-1">Configure automated testing tools and settings</p>
+                </div>
+                <button @click="closeTestConfigurationModal()" 
+                        class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+        </div>
+
+        <div class="p-6">
+            <!-- Playwright Configuration -->
+            <div class="mb-8">
+                <div class="flex items-center mb-4">
+                    <label class="flex items-center cursor-pointer">
+                        <input type="checkbox" 
+                               x-model="automatedTestConfig.playwright.enabled"
+                               class="rounded text-purple-600 focus:ring-purple-500 mr-3">
+                        <div class="flex items-center">
+                            <i class="fas fa-theater-masks text-purple-600 mr-2"></i>
+                            <span class="text-lg font-semibold text-gray-900">Playwright Frontend Tests</span>
+                        </div>
+                    </label>
+                </div>
+                
+                <div x-show="automatedTestConfig.playwright.enabled" class="ml-6 space-y-6">
+                    <!-- Test Types -->
+                    <div>
+                        <h4 class="font-medium text-gray-900 mb-3">Test Types</h4>
+                        <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+                            <label class="flex items-center">
+                                <input type="checkbox" 
+                                       @change="togglePlaywrightTestType('basic')"
+                                       :checked="automatedTestConfig.playwright.testTypes.includes('basic')"
+                                       class="rounded text-blue-600 focus:ring-blue-500 mr-2">
+                                <span class="text-sm text-gray-700">Basic Accessibility</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" 
+                                       @change="togglePlaywrightTestType('keyboard')"
+                                       :checked="automatedTestConfig.playwright.testTypes.includes('keyboard')"
+                                       class="rounded text-blue-600 focus:ring-blue-500 mr-2">
+                                <span class="text-sm text-gray-700">Keyboard Navigation</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" 
+                                       @change="togglePlaywrightTestType('screen-reader')"
+                                       :checked="automatedTestConfig.playwright.testTypes.includes('screen-reader')"
+                                       class="rounded text-blue-600 focus:ring-blue-500 mr-2">
+                                <span class="text-sm text-gray-700">Screen Reader</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" 
+                                       @change="togglePlaywrightTestType('form')"
+                                       :checked="automatedTestConfig.playwright.testTypes.includes('form')"
+                                       class="rounded text-blue-600 focus:ring-blue-500 mr-2">
+                                <span class="text-sm text-gray-700">Form Accessibility</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" 
+                                       @change="togglePlaywrightTestType('mobile')"
+                                       :checked="automatedTestConfig.playwright.testTypes.includes('mobile')"
+                                       class="rounded text-blue-600 focus:ring-blue-500 mr-2">
+                                <span class="text-sm text-gray-700">Mobile Accessibility</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" 
+                                       @change="togglePlaywrightTestType('dynamic')"
+                                       :checked="automatedTestConfig.playwright.testTypes.includes('dynamic')"
+                                       class="rounded text-blue-600 focus:ring-blue-500 mr-2">
+                                <span class="text-sm text-gray-700">Dynamic Content</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Browsers -->
+                    <div>
+                        <h4 class="font-medium text-gray-900 mb-3">Browsers</h4>
+                        <div class="grid grid-cols-3 gap-3">
+                            <label class="flex items-center">
+                                <input type="checkbox" 
+                                       @change="togglePlaywrightBrowser('chromium')"
+                                       :checked="automatedTestConfig.playwright.browsers.includes('chromium')"
+                                       class="rounded text-blue-600 focus:ring-blue-500 mr-2">
+                                <span class="text-sm text-gray-700">Chromium</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" 
+                                       @change="togglePlaywrightBrowser('firefox')"
+                                       :checked="automatedTestConfig.playwright.browsers.includes('firefox')"
+                                       class="rounded text-blue-600 focus:ring-blue-500 mr-2">
+                                <span class="text-sm text-gray-700">Firefox</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" 
+                                       @change="togglePlaywrightBrowser('webkit')"
+                                       :checked="automatedTestConfig.playwright.browsers.includes('webkit')"
+                                       class="rounded text-blue-600 focus:ring-blue-500 mr-2">
+                                <span class="text-sm text-gray-700">WebKit (Safari)</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Viewports -->
+                    <div>
+                        <h4 class="font-medium text-gray-900 mb-3">Viewports</h4>
+                        <div class="grid grid-cols-3 gap-3">
+                            <label class="flex items-center">
+                                <input type="checkbox" 
+                                       @change="togglePlaywrightViewport('desktop')"
+                                       :checked="automatedTestConfig.playwright.viewports.includes('desktop')"
+                                       class="rounded text-blue-600 focus:ring-blue-500 mr-2">
+                                <span class="text-sm text-gray-700">Desktop (1920×1080)</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" 
+                                       @change="togglePlaywrightViewport('tablet')"
+                                       :checked="automatedTestConfig.playwright.viewports.includes('tablet')"
+                                       class="rounded text-blue-600 focus:ring-blue-500 mr-2">
+                                <span class="text-sm text-gray-700">Tablet (768×1024)</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" 
+                                       @change="togglePlaywrightViewport('mobile')"
+                                       :checked="automatedTestConfig.playwright.viewports.includes('mobile')"
+                                       class="rounded text-blue-600 focus:ring-blue-500 mr-2">
+                                <span class="text-sm text-gray-700">Mobile (375×667)</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Backend Testing Tools -->
+            <div class="mb-8 border-t pt-6">
+                <div class="flex items-center mb-4">
+                    <label class="flex items-center cursor-pointer">
+                        <input type="checkbox" 
+                               x-model="automatedTestConfig.backend.enabled"
+                               class="rounded text-green-600 focus:ring-green-500 mr-3">
+                        <div class="flex items-center">
+                            <i class="fas fa-server text-green-600 mr-2"></i>
+                            <span class="text-lg font-semibold text-gray-900">Backend Testing Tools</span>
+                        </div>
+                    </label>
+                </div>
+                
+                <div x-show="automatedTestConfig.backend.enabled" class="ml-6">
+                    <h4 class="font-medium text-gray-900 mb-3">Tools</h4>
+                    <div class="grid grid-cols-3 gap-3">
+                        <label class="flex items-center">
+                            <input type="checkbox" 
+                                   @change="toggleAutomatedTool('axe')"
+                                   :checked="automatedTestConfig.backend.tools.includes('axe')"
+                                   class="rounded text-green-600 focus:ring-green-500 mr-2">
+                            <span class="text-sm text-gray-700">axe-core</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="checkbox" 
+                                   @change="toggleAutomatedTool('pa11y')"
+                                   :checked="automatedTestConfig.backend.tools.includes('pa11y')"
+                                   class="rounded text-green-600 focus:ring-green-500 mr-2">
+                            <span class="text-sm text-gray-700">Pa11y</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="checkbox" 
+                                   @change="toggleAutomatedTool('lighthouse')"
+                                   :checked="automatedTestConfig.backend.tools.includes('lighthouse')"
+                                   class="rounded text-green-600 focus:ring-green-500 mr-2">
+                            <span class="text-sm text-gray-700">Lighthouse</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Testing Scope -->
+            <div class="mb-8 border-t pt-6">
+                <h4 class="text-lg font-semibold text-gray-900 mb-4">
+                    <i class="fas fa-bullseye text-blue-600 mr-2"></i>
+                    Testing Scope
+                </h4>
+                <div class="grid grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Maximum Pages</label>
+                        <input type="number" 
+                               x-model="automatedTestConfig.scope.maxPages"
+                               min="1" max="500"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <p class="text-xs text-gray-500 mt-1">Limit number of pages to test (1-500)</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Page Types</label>
+                        <select x-model="automatedTestConfig.scope.pageTypes[0]"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="all">All Pages</option>
+                            <option value="content">Content Pages Only</option>
+                            <option value="forms">Forms Only</option>
+                            <option value="navigation">Navigation Only</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-end space-x-3">
+            <button @click="closeTestConfigurationModal()" 
+                    class="px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors">
+                Cancel
+            </button>
+            <button @click="startAutomatedTestingFromConfig()" 
+                    :disabled="loading"
+                    class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-blue-400">
+                <span x-show="!loading" class="flex items-center">
+                    <i class="fas fa-play mr-2"></i>Start Testing
+                </span>
+                <span x-show="loading" class="flex items-center">
+                    <i class="fas fa-spinner fa-spin mr-2"></i>Starting...
+                </span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Test Details Modal -->
+<div x-show="showTestDetailsModal" 
+     x-transition:enter="transition ease-out duration-300"
+     x-transition:enter-start="opacity-0"
+     x-transition:enter-end="opacity-100"
+     x-transition:leave="transition ease-in duration-200"
+     x-transition:leave-start="opacity-100"
+     x-transition:leave-end="opacity-0"
+     class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
+     @click.self="closeTestDetailsModal()">
+    <div class="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-y-auto">
+        <div class="px-6 py-4 border-b border-gray-200 sticky top-0 bg-white">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900">
+                        <span x-text="selectedTestResult?.test_name || 'Test Details'"></span>
+                    </h3>
+                    <p class="text-sm text-gray-600 mt-1">Detailed test results and findings</p>
+                </div>
+                <button @click="closeTestDetailsModal()" 
+                        class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+        </div>
+
+        <div x-show="selectedTestResult" class="p-6">
+            <!-- Test Summary -->
+            <div class="bg-gray-50 rounded-lg p-6 mb-6">
+                <h4 class="text-lg font-semibold text-gray-900 mb-4">Test Summary</h4>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="text-center">
+                        <div class="text-3xl font-bold text-blue-600" x-text="selectedTestResult?.pages_tested || 0"></div>
+                        <div class="text-sm text-gray-600">Pages Tested</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-3xl font-bold text-red-600" x-text="selectedTestResult?.total_violations || 0"></div>
+                        <div class="text-sm text-gray-600">Issues Found</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-3xl font-bold text-green-600" x-text="selectedTestResult?.compliance_score || 0"></div>
+                        <div class="text-sm text-gray-600">Compliance %</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-3xl font-bold text-purple-600" x-text="formatDuration(selectedTestResult?.test_duration_ms)"></div>
+                        <div class="text-sm text-gray-600">Test Time</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Test Status -->
+            <div class="flex items-center justify-between mb-6">
+                <div class="flex items-center space-x-4">
+                    <span class="px-3 py-1 text-sm font-medium rounded-full"
+                          :class="selectedTestResult?.status === 'completed' ? 'bg-green-100 text-green-800' : 
+                                 selectedTestResult?.status === 'failed' ? 'bg-red-100 text-red-800' : 
+                                 'bg-yellow-100 text-yellow-800'"
+                          x-text="(selectedTestResult?.status || 'unknown').toUpperCase()"></span>
+                    <span class="text-sm text-gray-600">
+                        WCAG Level: <span class="font-medium" x-text="selectedTestResult?.wcag_level || 'AA'"></span>
+                    </span>
+                    <span class="text-sm text-gray-600">
+                        Browser: <span class="font-medium" x-text="selectedTestResult?.browser || 'Chromium'"></span>
+                    </span>
+                </div>
+                <button @click="downloadTestReport(selectedTestResult)" 
+                        class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+                    <i class="fas fa-download mr-2"></i>Download Report
+                </button>
+            </div>
+
+            <!-- Violations Breakdown -->
+            <div x-show="selectedTestResult?.violations?.length > 0" class="mb-6">
+                <h4 class="text-lg font-semibold text-gray-900 mb-4">Violations Found</h4>
+                <div class="space-y-4">
+                    <template x-for="violation in selectedTestResult?.violations || []" :key="violation.id">
+                        <div class="border rounded-lg p-4 hover:bg-gray-50">
+                            <div class="flex items-start justify-between">
+                                <div class="flex-1">
+                                    <div class="flex items-center space-x-3 mb-2">
+                                        <span class="px-2 py-1 text-xs font-medium rounded"
+                                              :class="violation.severity === 'critical' ? 'bg-red-100 text-red-800' :
+                                                     violation.severity === 'serious' ? 'bg-orange-100 text-orange-800' :
+                                                     violation.severity === 'moderate' ? 'bg-yellow-100 text-yellow-800' :
+                                                     'bg-gray-100 text-gray-800'"
+                                              x-text="(violation.severity || 'unknown').toUpperCase()"></span>
+                                        <span class="text-sm font-medium text-gray-900" x-text="violation.wcag_criterion"></span>
+                                    </div>
+                                    <h5 class="font-medium text-gray-900 mb-2" x-text="violation.description"></h5>
+                                    <p class="text-sm text-gray-600 mb-3" x-text="violation.help_text"></p>
+                                    <div class="text-xs text-gray-500">
+                                        <div><strong>Element:</strong> <code x-text="violation.element_selector" class="bg-gray-100 px-1 rounded"></code></div>
+                                        <div x-show="violation.page_url"><strong>Page:</strong> <span x-text="violation.page_url"></span></div>
+                                    </div>
+                                </div>
+                                <div class="ml-4">
+                                    <span class="text-sm text-gray-500" x-text="`Impact: ${violation.impact || 'Unknown'}`"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- Empty State for No Violations -->
+            <div x-show="!selectedTestResult?.violations?.length" class="text-center py-8">
+                <i class="fas fa-check-circle text-green-500 text-4xl mb-3"></i>
+                <h4 class="text-lg font-medium text-gray-900 mb-2">No Violations Found</h4>
+                <p class="text-gray-600">This test passed all accessibility checks!</p>
+            </div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-end">
+            <button @click="closeTestDetailsModal()" 
+                    class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors">
+                Close
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Manual Testing Modal -->
+<div x-show="showManualTestingModal" 
+     x-transition:enter="transition ease-out duration-300"
+     x-transition:enter-start="opacity-0"
+     x-transition:enter-end="opacity-100"
+     x-transition:leave="transition ease-in duration-200"
+     x-transition:leave-start="opacity-100"
+     x-transition:leave-end="opacity-0"
+     class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
+     @click.self="showManualTestingModal = false">
+    <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+        <div class="px-6 py-4 border-b border-gray-200 sticky top-0 bg-white">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900">
+                        Manual Test: <span x-text="currentManualTest?.assignment?.criterion_number || 'Unknown'"></span>
+                    </h3>
+                    <p class="text-sm text-gray-600 mt-1" x-text="manualTestingProcedure?.title || 'Loading test procedure...'"></p>
+                </div>
+                <button @click="showManualTestingModal = false" 
+                        class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+        </div>
+
+        <div x-show="manualTestingProcedure" class="p-6">
+            <!-- Test Information -->
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                <h4 class="font-semibold text-blue-900 mb-2">Test Requirements</h4>
+                <p class="text-sm text-blue-800 mb-3" x-text="manualTestingProcedure?.description || ''"></p>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                    <div>
+                        <strong>WCAG Level:</strong> 
+                        <span x-text="manualTestingProcedure?.level || 'AA'"></span>
+                    </div>
+                    <div>
+                        <strong>Type:</strong>
+                        <span x-text="manualTestingProcedure?.requirement_type || 'WCAG'"></span>
+                    </div>
+                    <div>
+                        <strong>Page:</strong>
+                        <span x-text="currentManualTest?.pageGroup?.page_title || 'Unknown'"></span>
+                    </div>
+                    <div>
+                        <strong>URL:</strong>
+                        <a :href="currentManualTest?.pageGroup?.page_url" target="_blank" 
+                           class="text-blue-600 hover:text-blue-800 text-xs"
+                           x-text="currentManualTest?.pageGroup?.page_url || ''"></a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Testing Procedure -->
+            <div class="mb-6">
+                <h4 class="font-semibold text-gray-900 mb-3">Testing Procedure</h4>
+                <div class="bg-gray-50 border rounded-lg p-4">
+                    <div x-show="manualTestingProcedure?.manual_test_procedure" 
+                         x-html="manualTestingProcedure?.manual_test_procedure || ''"
+                         class="prose prose-sm max-w-none"></div>
+                    <div x-show="!manualTestingProcedure?.manual_test_procedure" 
+                         class="text-gray-500 italic">
+                        No specific testing procedure available. Follow general accessibility testing guidelines.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Test Context (if available) -->
+            <div x-show="manualTestingContext?.violations?.length > 0" class="mb-6">
+                <h4 class="font-semibold text-gray-900 mb-3">Related Automated Findings</h4>
+                <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <p class="text-sm text-yellow-800 mb-3">
+                        Automated testing found potential issues in this area. Please verify manually:
+                    </p>
+                    <div class="space-y-2">
+                        <template x-for="violation in manualTestingContext.violations" :key="violation.id">
+                            <div class="text-sm">
+                                <strong x-text="violation.description"></strong>
+                                <p class="text-gray-600" x-text="violation.help_text"></p>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Test Result Form -->
+            <div class="border-t pt-6">
+                <h4 class="font-semibold text-gray-900 mb-4">Test Result</h4>
+                <form @submit.prevent="submitManualTestResult(testResult, confidenceLevel, testNotes, testEvidence)" 
+                      x-data="{ testResult: '', confidenceLevel: 'medium', testNotes: '', testEvidence: {} }">
+                    
+                    <!-- Result Selection -->
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Test Result</label>
+                        <div class="space-y-2">
+                            <label class="flex items-center">
+                                <input type="radio" x-model="testResult" value="passed" 
+                                       class="text-green-600 focus:ring-green-500 mr-2">
+                                <span class="text-green-700">✅ Passed - No accessibility issues found</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="radio" x-model="testResult" value="failed" 
+                                       class="text-red-600 focus:ring-red-500 mr-2">
+                                <span class="text-red-700">❌ Failed - Accessibility issues found</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="radio" x-model="testResult" value="not_applicable" 
+                                       class="text-gray-600 focus:ring-gray-500 mr-2">
+                                <span class="text-gray-700">➖ Not Applicable - Criterion does not apply to this page</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="radio" x-model="testResult" value="needs_review" 
+                                       class="text-yellow-600 focus:ring-yellow-500 mr-2">
+                                <span class="text-yellow-700">⚠️ Needs Review - Uncertain or requires expert evaluation</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Confidence Level -->
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Confidence Level</label>
+                        <select x-model="confidenceLevel" 
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500">
+                            <option value="high">High - Very confident in the result</option>
+                            <option value="medium">Medium - Reasonably confident</option>
+                            <option value="low">Low - Uncertain, may need further review</option>
+                        </select>
+                    </div>
+
+                    <!-- Notes -->
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Notes & Observations</label>
+                        <textarea x-model="testNotes" rows="4" 
+                                  placeholder="Describe what you tested, any issues found, steps taken, etc."
+                                  class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"></textarea>
+                    </div>
+
+                    <!-- Evidence -->
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Evidence (Optional)</label>
+                        <div class="space-y-3">
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">Screenshot URL or Description</label>
+                                <input type="text" x-model="testEvidence.screenshot" 
+                                       placeholder="URL to screenshot or description of visual evidence"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">Element Selector (if applicable)</label>
+                                <input type="text" x-model="testEvidence.element_selector" 
+                                       placeholder="CSS selector for the problematic element"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Submit Buttons -->
+                    <div class="flex justify-end space-x-3">
+                        <button type="button" @click="showManualTestingModal = false" 
+                                class="px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors">
+                            Cancel
+                        </button>
+                        <button type="submit" :disabled="!testResult || loading"
+                                class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:bg-purple-400">
+                            <span x-show="!loading">Save Test Result</span>
+                            <span x-show="loading">Saving...</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Loading State -->
+        <div x-show="!manualTestingProcedure" class="p-6">
+            <div class="text-center py-8">
+                <i class="fas fa-spinner fa-spin text-gray-400 text-3xl mb-4"></i>
+                <p class="text-gray-600">Loading test procedure...</p>
+            </div>
+        </div>
+    </div>
+</div> 

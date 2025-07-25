@@ -159,6 +159,83 @@
         </div>
     </div>
 
+    <!-- Manual Testing Session Status -->
+    <div x-show="selectedProject && manualTestingSession" class="bg-white rounded-lg shadow p-6">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold text-gray-900">Current Testing Session</h3>
+            <button @click="closeManualTestingSession()" 
+                    class="px-3 py-1 text-sm bg-red-100 text-red-700 rounded hover:bg-red-200">
+                <i class="fas fa-times mr-1"></i>Close Session
+            </button>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="text-center">
+                <div class="text-2xl font-bold text-blue-600" x-text="manualTestingProgress?.total_tests || 0"></div>
+                <div class="text-sm text-gray-600">Total Tests</div>
+            </div>
+            <div class="text-center">
+                <div class="text-2xl font-bold text-green-600" x-text="manualTestingProgress?.completed_tests || 0"></div>
+                <div class="text-sm text-gray-600">Completed</div>
+            </div>
+            <div class="text-center">
+                <div class="text-2xl font-bold text-purple-600" x-text="manualTestingProgress?.progress_percentage || 0"></div>
+                <div class="text-sm text-gray-600">Progress %</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Manual Testing Assignments -->
+    <div x-show="selectedProject && manualTestingSession && filteredManualTestingAssignments.length > 0" class="bg-white rounded-lg shadow">
+        <div class="p-6 border-b border-gray-200">
+            <div class="flex justify-between items-center">
+                <h3 class="text-lg font-semibold text-gray-900">Testing Assignments</h3>
+                <div class="flex space-x-2">
+                    <select x-model="manualTestingFilters.status" @change="applyManualTestingFilters()"
+                            class="px-3 py-1 text-sm border border-gray-300 rounded">
+                        <option value="">All Status</option>
+                        <option value="pending">Pending</option>
+                        <option value="in_progress">In Progress</option>
+                        <option value="completed">Completed</option>
+                    </select>
+                    <select x-model="manualTestingFilters.wcag_level" @change="applyManualTestingFilters()"
+                            class="px-3 py-1 text-sm border border-gray-300 rounded">
+                        <option value="">All Levels</option>
+                        <option value="A">Level A</option>
+                        <option value="AA">Level AA</option>
+                        <option value="AAA">Level AAA</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        <div class="divide-y divide-gray-200">
+            <template x-for="pageGroup in filteredManualTestingAssignments" :key="pageGroup.page_id">
+                <div class="p-6">
+                    <h4 class="font-medium text-gray-900 mb-3" x-text="pageGroup.page_title"></h4>
+                    <p class="text-sm text-gray-600 mb-4" x-text="pageGroup.page_url"></p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                        <template x-for="assignment in pageGroup.assignments" :key="assignment.id">
+                            <div class="border rounded-lg p-3 hover:bg-gray-50">
+                                <div class="flex items-center justify-between mb-2">
+                                    <span class="font-medium text-sm" x-text="assignment.criterion_number"></span>
+                                    <span class="px-2 py-1 text-xs font-medium rounded-full"
+                                          :class="assignment.status === 'completed' ? 'bg-green-100 text-green-800' :
+                                                 assignment.status === 'in_progress' ? 'bg-yellow-100 text-yellow-800' :
+                                                 'bg-gray-100 text-gray-800'"
+                                          x-text="assignment.status.replace('_', ' ').toUpperCase()"></span>
+                                </div>
+                                <p class="text-xs text-gray-600 mb-3" x-text="assignment.title"></p>
+                                <button @click="startManualTest(pageGroup, assignment)" 
+                                        class="w-full px-3 py-1 text-sm bg-purple-600 text-white rounded hover:bg-purple-700">
+                                    <i class="fas fa-play mr-1"></i>Test
+                                </button>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+
     <!-- Manual Test Results -->
     <div x-show="selectedProject && manualTestResults.length > 0" class="bg-white rounded-lg shadow">
         <div class="p-6 border-b border-gray-200">

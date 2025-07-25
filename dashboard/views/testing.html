@@ -7,13 +7,21 @@
                 <h2 class="text-2xl font-bold text-gray-900">Automated Testing</h2>
                 <p class="mt-2 text-gray-600">Run automated accessibility tests using axe, pa11y, and Lighthouse</p>
             </div>
-            <button @click="startAutomatedTesting()" 
-                    :disabled="!selectedProject || automatedTestingInProgress"
-                    :class="!selectedProject || automatedTestingInProgress ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'"
-                    class="px-4 py-2 text-white rounded-lg font-medium transition-colors">
-                <i class="fas fa-play mr-2" :class="automatedTestingInProgress ? 'fa-spin fa-spinner' : ''"></i>
-                <span x-text="automatedTestingInProgress ? 'Testing...' : 'Start Testing'"></span>
-            </button>
+            <div class="flex space-x-3">
+                <button @click="showAdvancedTestConfiguration()" 
+                        :disabled="!selectedProject || automatedTestingInProgress"
+                        :class="!selectedProject || automatedTestingInProgress ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'"
+                        class="px-4 py-2 text-white rounded-lg font-medium transition-colors">
+                    <i class="fas fa-cog mr-2"></i>Advanced Config
+                </button>
+                <button @click="startAutomatedTesting()" 
+                        :disabled="!selectedProject || automatedTestingInProgress"
+                        :class="!selectedProject || automatedTestingInProgress ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'"
+                        class="px-4 py-2 text-white rounded-lg font-medium transition-colors">
+                    <i class="fas fa-play mr-2" :class="automatedTestingInProgress ? 'fa-spin fa-spinner' : ''"></i>
+                    <span x-text="automatedTestingInProgress ? 'Testing...' : 'Quick Start'"></span>
+                </button>
+            </div>
         </div>
     </div>
 

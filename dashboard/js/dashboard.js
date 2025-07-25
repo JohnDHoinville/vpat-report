@@ -30,12 +30,18 @@ function dashboard() {
         showSessions: false,
         showSetupAuth: false,
         showAdvancedCrawlerOptions: false,
+        showCreateTestingSession: false,
+        showTestInstanceModal: false,
+        showSessionResultsModal: false,
+        showTestDetailsModal: false,
+        showTestConfigurationModal: false,
         
         // ===== PROGRESS AND STATE FLAGS =====
         loading: false,
         discoveryInProgress: false,
         crawlerInProgress: false,
         sessionCapturing: false,
+        sessionAwaitingLogin: false,
         sessionTesting: false,
         apiConnected: false,
         
@@ -50,12 +56,18 @@ function dashboard() {
             primary_url: '',
             compliance_standard: 'WCAG_2_1_AA'
         },
-                        authConfigForm: {
-                    name: '',
+        newTestingSession: {
+            name: '',
+            description: '',
+            conformance_level: 'AA',
+            testing_approach: 'hybrid'
+        },
+        authConfigForm: {
+            name: '',
                     type: 'form',
-                    login_url: '',
-                    username: '',
-                    password: '',
+            login_url: '',
+            username: '',
+            password: '',
                     description: '',
                     auth_role: 'default',
                     priority: 1,
@@ -65,7 +77,7 @@ function dashboard() {
                     username_selector: 'input[name="username"]',
                     password_selector: 'input[type="password"]',
                     submit_selector: 'button[type="submit"]'
-                },
+        },
         newCrawler: {
             name: '',
             description: '',
@@ -144,7 +156,84 @@ function dashboard() {
         discoveries: [],
         discoveredPages: [],
         testSessions: [],
+        complianceSessions: [],
         selectedCrawlers: [],
+        crawlerPages: [],
+        filteredCrawlerPages: [],
+        
+        // ===== TESTING RESULTS ARRAYS =====
+        manualTestResults: [],
+        automatedTestResults: [],
+        testSessionResults: [],
+        recentViolations: [],
+        sessionResults: [],
+        
+        // ===== MANUAL TESTING STATE =====
+        manualTestingSession: null,
+        manualTestingProgress: null,
+        manualTestingAssignments: [],
+        filteredManualTestingAssignments: [],
+        manualTestingFilters: {
+            status: '',
+            wcag_level: '',
+            page_id: '',
+            coverage_type: 'all'
+        },
+        manualTestingCoverageAnalysis: { recommendations: [] },
+        showManualTestingModal: false,
+        currentManualTest: null,
+        manualTestingProcedure: null,
+        manualTestingContext: { violations: [], recommended_tools: [] },
+        
+        // ===== TESTING STATE FLAGS =====
+        automatedTestingInProgress: false,
+        
+        // ===== TESTING CONFIGURATION =====
+        testingConfig: {
+            useAxe: true,
+            usePa11y: true,
+            useLighthouse: true,
+            wcagLevel: 'AA',
+            browser: 'chromium'
+        },
+        automatedTestConfig: {
+            playwright: {
+                enabled: true,
+                testTypes: ['basic', 'keyboard', 'screen-reader'],
+                browsers: ['chromium'],
+                viewports: ['desktop', 'tablet', 'mobile']
+            },
+            backend: {
+                enabled: true,
+                tools: ['axe', 'pa11y', 'lighthouse']
+            },
+            scope: {
+                maxPages: 25,
+                pageTypes: ['all']
+            }
+        },
+        
+        // ===== TESTING PROGRESS =====
+        testingProgress: {
+            percentage: 0,
+            message: '',
+            completedPages: 0,
+            totalPages: 0,
+            currentPage: ''
+        },
+        
+        // ===== RESULTS SUMMARIES =====
+        resultsSummary: {
+            totalTests: 0,
+            passedTests: 0,
+            failedTests: 0,
+            complianceScore: 0
+        },
+        complianceAnalysis: {
+            levelA: 0,
+            levelAA: 0,
+            levelAAA: 0
+        },
         
         // ===== SELECTION AND REFERENCE OBJECTS =====
         selectedProject: null,
@@ -156,6 +245,10 @@ function dashboard() {
         discoveryToDelete: null,
         projectToDelete: null,
         sessionToDelete: null,
+        currentTestInstance: null,
+        selectedSession: null,
+        selectedTestResult: null,
+        selectedTestingSession: null,
         
         // ===== AUTHENTICATION AND USER =====
         isAuthenticated: false,
@@ -164,6 +257,8 @@ function dashboard() {
         // ===== SEARCH AND FILTER PROPERTIES =====
         urlSearch: '',
         urlSourceFilter: 'all',
+        crawlerPageSearch: '',
+        crawlerPageFilter: '',
         
         // ===== ERROR HANDLING =====
         loginError: '',
@@ -173,7 +268,15 @@ function dashboard() {
         activeTab: 'projects',
         totalCrawlers: 0,
         notification: { show: false, type: '', title: '', message: '' },
-        sessionInfo: { isValid: false, lastActivity: null, status: 'inactive' }
+        sessionInfo: { 
+            isValid: false, 
+            lastActivity: null, 
+            status: 'inactive',
+            username: '',
+            capturedDate: '',
+            expirationDate: '',
+            pagesCount: 0
+        }
     };
 
     // ===== MERGE WITH ORGANIZED STATE STRUCTURE =====
@@ -188,7 +291,13 @@ function dashboard() {
             modals: {
                 showLogin: false,
                 showProfile: false,
-                showSessionUrl: false
+                showSessionUrl: false,
+                showCreateCrawler: false,
+                showCrawlerPagesModal: false,
+                showAddAuthConfigModal: false,
+                showEditAuthConfigModal: false,
+                showSessions: false,
+                showChangePassword: false
             },
             notification: { show: false, type: '', title: '', message: '' }
         },
@@ -212,7 +321,15 @@ function dashboard() {
             webCrawlers: [],
             authConfigs: [],
             availableUrls: [],
-            sessionInfo: { isValid: false, lastActivity: null, status: 'inactive' }
+            sessionInfo: { 
+                isValid: false, 
+                lastActivity: null, 
+                status: 'inactive',
+                username: '',
+                capturedDate: '',
+                expirationDate: '',
+                pagesCount: 0
+            }
         },
         
         ws: {
@@ -235,7 +352,15 @@ function dashboard() {
         authConfigs: [],
         crawlerPages: [],
         availableUrls: [],
-        sessionInfo: { isValid: false },
+        sessionInfo: { 
+            isValid: false, 
+            lastActivity: null, 
+            status: 'inactive',
+            username: '',
+            capturedDate: '',
+            expirationDate: '',
+            pagesCount: 0
+        },
         apiConnected: false,
         wsConnected: false,
         wsConnecting: false,
@@ -303,6 +428,10 @@ function dashboard() {
                 if (key in this.ws && key === 'connected') this.apiConnected = this.ws[key];
             });
             
+            // Explicitly sync WebSocket state for templates
+            this.wsConnected = this.ws.connected || false;
+            this.wsConnecting = this.ws.connecting || false;
+            
             // Explicitly sync critical auth properties for template compatibility
             this.isAuthenticated = this.auth.isAuthenticated || false;
             this.user = this.auth.user || null;
@@ -313,6 +442,8 @@ function dashboard() {
             this.showSessions = this.ui.modals.showSessions || false;
             this.showAddAuthConfigModal = this.ui.modals.showAddAuthConfigModal || false;
             this.showEditAuthConfigModal = this.ui.modals.showEditAuthConfigModal || false;
+            this.showCreateCrawler = this.ui.modals.showCreateCrawler || false;
+            this.showCrawlerPagesModal = this.ui.modals.showCrawlerPagesModal || false;
             
             // Sync authentication data arrays
             this.authConfigs = this.data.authConfigs || [];
@@ -328,6 +459,9 @@ function dashboard() {
             this.discoveries = this.data.discoveries || [];
             this.testSessions = this.data.testSessions || [];
             this.webCrawlers = this.data.webCrawlers || [];
+            
+            // Sync config object for API calls
+            this.config = this.config || { apiBaseUrl: 'http://localhost:3001', tokenRefreshInterval: null };
             
             // Critical: Ensure nested objects remain properly initialized
             this.ensureNestedObjects();
@@ -487,11 +621,7 @@ function dashboard() {
         
         // ===== MODAL MANAGEMENT METHODS =====
         
-        viewCrawlerPages(crawler) {
-            this.selectedCrawlerForPages = crawler;
-            this.showCrawlerPagesModal = true;
-            this.syncLegacyState();
-        },
+        // REMOVED: Duplicate method - using complete async version at line 1925
         
         closeCrawlerPagesModal() {
             this.showCrawlerPagesModal = false;
@@ -746,7 +876,9 @@ function dashboard() {
                     headers['Authorization'] = `Bearer ${this.token || this.auth.token}`;
                 }
                 
-                const response = await fetch(`${this.config.apiBaseUrl}/api${endpoint}`, {
+                const finalUrl = `${this.config.apiBaseUrl}/api${endpoint}`;
+                
+                const response = await fetch(finalUrl, {
                     headers,
                     ...options
                 });
@@ -827,11 +959,11 @@ function dashboard() {
             if (!this.ws.socket) return;
             
             this.ws.socket.on('connect', () => {
-                console.log('WebSocket connected');
+                console.log('✅ WebSocket connected');
                 this.ws.connected = true;
                 this.ws.connecting = false;
                 this.ws.reconnectAttempts = 0;
-                this.wsConnected = true; // Legacy sync
+                this.syncLegacyState(); // Sync WebSocket state to templates
                 
                 if (this.data.selectedProject) {
                     // Ensure we pass only the project ID (string) not the object
@@ -839,7 +971,7 @@ function dashboard() {
                         ? this.data.selectedProject 
                         : this.data.selectedProject.id || this.data.selectedProject;
                         
-                    console.log('🔍 DEBUG: Joining project with ID:', projectId, typeof projectId);
+                    console.log('🔗 Joining WebSocket room for project:', projectId);
                     this.ws.socket.emit('join_project', { 
                         projectId: projectId
                     });
@@ -847,10 +979,10 @@ function dashboard() {
             });
             
             this.ws.socket.on('disconnect', () => {
-                console.log('WebSocket disconnected');
+                console.log('❌ WebSocket disconnected');
                 this.ws.connected = false;
                 this.ws.connecting = false;
-                this.wsConnected = false; // Legacy sync
+                this.syncLegacyState(); // Sync WebSocket state to templates
             });
             
             this.ws.socket.on('connect_error', (error) => {
@@ -860,15 +992,44 @@ function dashboard() {
             });
             
             this.ws.socket.on('crawler_progress', (data) => {
+                console.log('📡 WebSocket: crawler_progress event received');
                 this.handleCrawlerProgress(data);
             });
             
             this.ws.socket.on('crawler_completed', (data) => {
+                console.log('📡 WebSocket: crawler_completed event received');
                 this.handleCrawlerCompleted(data);
             });
             
+            this.ws.socket.on('crawler_error', (data) => {
+                console.log('📡 WebSocket: crawler_error event received');
+                this.handleCrawlerError(data);
+            });
+            
+            this.ws.socket.on('crawler_stopped', (data) => {
+                console.log('📡 WebSocket: crawler_stopped event received');
+                this.handleCrawlerStopped(data);
+            });
+            
             this.ws.socket.on('notification', (data) => {
+                console.log('📡 WebSocket: notification event received');
                 this.showNotification(data.level, data.title, data.message);
+            });
+            
+            // Add a generic event listener to catch all events for debugging
+            this.ws.socket.onAny((eventName, ...args) => {
+                console.log(`📡 WebSocket: Event "${eventName}" received with data:`, args);
+                
+                // For crawler events, show additional debugging
+                if (eventName.startsWith('crawler_')) {
+                    console.log('🔍 WebSocket DEBUG: Crawler event details:', {
+                        event: eventName,
+                        selectedProject: this.data.selectedProject,
+                        webCrawlersCount: this.data.webCrawlers.length,
+                        crawlerInProgress: this.crawlerInProgress,
+                        crawlerProgress: this.crawlerProgress
+                    });
+                }
             });
         },
         
@@ -882,26 +1043,191 @@ function dashboard() {
         },
         
         handleCrawlerProgress(data) {
-            console.log('Crawler progress:', data);
+            console.log('🔄 Crawler progress received:', data);
+            
+            // Extract crawler data - WebSocket sends data.crawlerRun
+            const crawlerRun = data.crawlerRun || data;
+            const crawlerId = crawlerRun.crawler_id || data.crawlerId;
+            
+            console.log('🔍 DEBUG: Processing crawler progress:', {
+                crawlerId: crawlerId,
+                pagesFound: crawlerRun.pages_found || crawlerRun.pagesFound,
+                pagesCrawled: crawlerRun.pages_crawled,
+                status: crawlerRun.status,
+                currentUrl: crawlerRun.current_url || crawlerRun.currentUrl
+            });
+            
             // Update crawler status in the list
-            const crawler = this.data.webCrawlers.find(c => c.id === data.crawlerId);
+            const crawler = this.data.webCrawlers.find(c => c.id === crawlerId);
             if (crawler) {
-                crawler.status = 'running';
-                crawler.total_pages_found = data.pagesFound || 0;
+                crawler.status = crawlerRun.status || 'running';
+                crawler.total_pages_found = crawlerRun.pages_found || crawlerRun.pagesFound || 0;
+                crawler.pages_for_testing = crawlerRun.pages_found || crawlerRun.pagesFound || 0; // Default all pages for testing
+                
+                console.log('✅ Updated crawler in list:', {
+                    name: crawler.name,
+                    status: crawler.status,
+                    totalPages: crawler.total_pages_found
+                });
+            } else {
+                console.warn('❌ Could not find crawler with ID:', crawlerId);
+                console.log('Available crawler IDs:', this.data.webCrawlers.map(c => c.id));
             }
+            
+            // Update progress indicator
+            this.crawlerInProgress = true;
+            const pagesFound = crawlerRun.pages_found || crawlerRun.pagesFound || 0;
+            const currentUrl = crawlerRun.current_url || crawlerRun.currentUrl || '';
+            
+            this.crawlerProgress = {
+                percentage: Math.min(100, (pagesFound / (crawlerRun.maxPages || 50)) * 100),
+                message: `Crawling ${crawler?.name || 'site'}... Found ${pagesFound} pages`,
+                pagesFound: pagesFound,
+                currentUrl: currentUrl
+            };
+            
             this.syncLegacyState();
+            
+            console.log('🔍 DEBUG: Updated progress indicator:', {
+                crawlerName: crawler?.name,
+                pagesFound: pagesFound,
+                progressPercentage: this.crawlerProgress.percentage,
+                crawlerInProgress: this.crawlerInProgress
+            });
         },
         
         handleCrawlerCompleted(data) {
-            console.log('Crawler completed:', data);
-            const crawler = this.data.webCrawlers.find(c => c.id === data.crawlerId);
+            console.log('✅ Crawler completed received:', data);
+            
+            // Extract crawler data - WebSocket sends data.crawlerRun
+            const crawlerRun = data.crawlerRun || data;
+            const crawlerId = crawlerRun.crawler_id || data.crawlerId;
+            const finalPageCount = crawlerRun.pages_found || crawlerRun.totalPages || crawlerRun.pagesFound || 0;
+            
+            console.log('🔍 DEBUG: Processing crawler completion:', {
+                crawlerId: crawlerId,
+                finalPageCount: finalPageCount,
+                status: crawlerRun.status
+            });
+            
+            const crawler = this.data.webCrawlers.find(c => c.id === crawlerId);
             if (crawler) {
                 crawler.status = 'completed';
-                crawler.total_pages_found = data.totalPages || 0;
+                crawler.total_pages_found = finalPageCount;
+                crawler.pages_for_testing = finalPageCount; // Default all pages for testing
+                
+                console.log('✅ Updated completed crawler:', {
+                    name: crawler.name,
+                    status: crawler.status,
+                    finalPageCount: finalPageCount
+                });
+            } else {
+                console.warn('❌ Could not find crawler with ID for completion:', crawlerId);
+                console.log('Available crawler IDs:', this.data.webCrawlers.map(c => c.id));
             }
+            
+            // Clear progress indicator
+            this.crawlerInProgress = false;
+            this.crawlerProgress = {
+                percentage: 100,
+                message: 'Crawling completed',
+                pagesFound: finalPageCount,
+                currentUrl: ''
+            };
+            
+            this.syncLegacyState();
             this.loadWebCrawlers(); // Refresh the list
             this.showNotification('success', 'Crawler Completed', 
-                `Found ${data.totalPages || 0} pages`);
+                `Found ${finalPageCount} pages`);
+                
+            console.log('🔍 DEBUG: Crawler completion processed:', {
+                crawlerName: crawler?.name,
+                finalPageCount: finalPageCount,
+                status: crawler?.status,
+                progressCleared: !this.crawlerInProgress
+            });
+        },
+        
+        handleCrawlerError(data) {
+            console.error('❌ Crawler error received:', data);
+            
+            // Extract crawler data - WebSocket sends data.crawlerRun
+            const crawlerRun = data.crawlerRun || data;
+            const crawlerId = crawlerRun.crawler_id || data.crawlerId;
+            const pagesFound = crawlerRun.pages_found || crawlerRun.pagesFound || 0;
+            
+            const crawler = this.data.webCrawlers.find(c => c.id === crawlerId);
+            if (crawler) {
+                crawler.status = 'failed';
+                crawler.total_pages_found = pagesFound;
+                crawler.pages_for_testing = pagesFound;
+                
+                console.log('❌ Updated failed crawler:', {
+                    name: crawler.name,
+                    status: crawler.status,
+                    pagesFound: pagesFound
+                });
+            }
+            
+            // Clear progress indicator
+            this.crawlerInProgress = false;
+            this.crawlerProgress = {
+                percentage: 0,
+                message: 'Crawling failed',
+                pagesFound: pagesFound,
+                currentUrl: ''
+            };
+            
+            this.syncLegacyState();
+            this.showNotification('error', 'Crawler Failed', 
+                data.message || crawlerRun.error || 'Crawler encountered an error');
+                
+            console.log('🔍 DEBUG: Crawler error processed:', {
+                crawlerName: crawler?.name,
+                error: data.message || crawlerRun.error,
+                pagesFound: pagesFound
+            });
+        },
+        
+        handleCrawlerStopped(data) {
+            console.log('⏹️ Crawler stopped received:', data);
+            
+            // Extract crawler data - WebSocket sends data.crawlerRun
+            const crawlerRun = data.crawlerRun || data;
+            const crawlerId = crawlerRun.crawler_id || data.crawlerId;
+            const pagesFound = crawlerRun.pages_found || crawlerRun.pagesFound || 0;
+            
+            const crawler = this.data.webCrawlers.find(c => c.id === crawlerId);
+            if (crawler) {
+                crawler.status = 'stopped';
+                crawler.total_pages_found = pagesFound;
+                crawler.pages_for_testing = pagesFound;
+                
+                console.log('⏹️ Updated stopped crawler:', {
+                    name: crawler.name,
+                    status: crawler.status,
+                    pagesFound: pagesFound
+                });
+            }
+            
+            // Clear progress indicator
+            this.crawlerInProgress = false;
+            this.crawlerProgress = {
+                percentage: 0,
+                message: 'Crawling stopped',
+                pagesFound: pagesFound,
+                currentUrl: ''
+            };
+            
+            this.syncLegacyState();
+            this.showNotification('warning', 'Crawler Stopped', 
+                `Crawling stopped. Found ${pagesFound} pages`);
+                
+            console.log('🔍 DEBUG: Crawler stopped processed:', {
+                crawlerName: crawler?.name,
+                pagesFound: pagesFound,
+                reason: data.reason || crawlerRun.reason
+            });
         },
         
         // ===== DATA LOADING =====
@@ -909,7 +1235,8 @@ function dashboard() {
         async loadInitialData() {
             await Promise.all([
                 this.loadProjects(),
-                this.loadAuthConfigs()
+                this.loadAuthConfigs(),
+                this.loadSessionInfo()  // Load existing session info
             ]);
             
             // Restore previously selected project from localStorage
@@ -963,6 +1290,9 @@ function dashboard() {
                     const result = await response.json();
                     this.data.webCrawlers = result.success ? result.data : [];
                     this.webCrawlers = this.data.webCrawlers; // Legacy sync
+                    
+                    // Load page counts for each crawler if not already present
+                    this.loadCrawlerPageCounts();
                 } else {
                     console.error('Failed to load web crawlers:', response.status);
                     this.data.webCrawlers = [];
@@ -973,6 +1303,46 @@ function dashboard() {
                 this.data.webCrawlers = [];
                 this.webCrawlers = [];
             }
+        },
+
+        async loadCrawlerPageCounts() {
+            console.log('🔍 DEBUG: Loading page counts for crawlers...');
+            
+            for (const crawler of this.webCrawlers) {
+                // Skip if page count already exists
+                if (crawler.total_pages_found && crawler.total_pages_found > 0) {
+                    console.log(`🔍 DEBUG: Crawler ${crawler.name} already has ${crawler.total_pages_found} pages`);
+                    continue;
+                }
+                
+                try {
+                    console.log(`🔍 DEBUG: Fetching page count for crawler ${crawler.name}...`);
+                    const response = await fetch(`${this.config.apiBaseUrl}/api/web-crawlers/crawlers/${crawler.id}/pages`, {
+                        headers: this.getAuthHeaders()
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        const pages = data.pages || data.data || [];
+                        
+                        // Update the crawler with page counts
+                        crawler.total_pages_found = pages.length;
+                        crawler.pages_for_testing = pages.filter(p => 
+                            p.selected_for_manual_testing || p.selected_for_automated_testing
+                        ).length || pages.length; // Default to all pages if none selected
+                        
+                        console.log(`🔍 DEBUG: Updated ${crawler.name}: ${crawler.total_pages_found} total, ${crawler.pages_for_testing} for testing`);
+                    } else {
+                        console.warn(`Failed to load pages for crawler ${crawler.name}:`, response.status);
+                    }
+                } catch (error) {
+                    console.error(`Error loading pages for crawler ${crawler.name}:`, error);
+                }
+            }
+            
+            // Sync the updated data
+            this.syncLegacyState();
+            console.log('🔍 DEBUG: Finished loading page counts');
         },
         
         // ===== PROJECT METHODS =====
@@ -1049,8 +1419,8 @@ function dashboard() {
             } finally {
                 this.loading = false;
             }
-                },
-        
+        },
+
         clearProjectSelection() {
             // Clear all project selection state
             this.data.selectedProject = null;
@@ -1092,7 +1462,7 @@ function dashboard() {
                 ]);
                 
                 // Load additional data that might depend on the above
-                this.loadSelectedDiscoveries();
+            this.loadSelectedDiscoveries();
                 
                 console.log(`✅ Loaded all data for project: ${this.getSelectedProject()?.name}`);
             } catch (error) {
@@ -1176,7 +1546,7 @@ function dashboard() {
                     project_id: this.data.selectedProject
                 };
                 
-                const response = await fetch(`${this.config.apiBaseUrl}/api/web-crawlers/crawlers`, {
+                const response = await fetch(`${this.config.apiBaseUrl}/api/web-crawlers/projects/${this.data.selectedProject}/crawlers`, {
                     method: 'POST',
                     headers: this.getAuthHeaders(),
                     body: JSON.stringify(crawlerData)
@@ -1207,6 +1577,17 @@ function dashboard() {
                 
                 if (response.ok) {
                     crawler.status = 'running';
+                    
+                    // Set progress tracking
+                    this.crawlerInProgress = true;
+                    this.crawlerProgress = {
+                        percentage: 0,
+                        message: `Starting ${crawler.name}...`,
+                        pagesFound: 0,
+                        currentUrl: crawler.base_url || ''
+                    };
+                    
+                    this.syncLegacyState();
                     this.showNotification('success', 'Crawler Started', `Started crawling ${crawler.name}`);
                 } else {
                     const error = await response.json();
@@ -1303,9 +1684,16 @@ function dashboard() {
         // Authentication tab loading method (missing method from navigation)
         async loadAuthenticationView() {
             console.log('🔐 Loading Authentication view');
+            console.log('🔐 Current selectedProject:', this.data.selectedProject);
+            console.log('🔐 Current authConfigs length:', this.authConfigs?.length || 0);
+            console.log('🔐 Current projectAuthConfigs length:', this.projectAuthConfigs?.length || 0);
+            
             if (this.data.selectedProject) {
                 // Auto-select the current project for authentication
+                console.log('🔐 Auto-selecting project for auth:', this.data.selectedProject);
                 await this.selectAuthProject(this.data.selectedProject);
+            } else {
+                console.log('🔐 No project selected, cannot load auth configs');
             }
         },
 
@@ -1435,9 +1823,18 @@ function dashboard() {
         cancelDeleteProject() { this.showDeleteProject = false; this.syncLegacyState(); },
         cancelDeleteDiscovery() { this.showDeleteDiscovery = false; this.syncLegacyState(); },
         cancelDeleteSession() { this.showDeleteSession = false; this.syncLegacyState(); },
-        getTotalPagesForTesting() { return this.webCrawlers.reduce((total, c) => total + (c.pages_for_testing || 0), 0); },
-        getExcludedPagesCount() { return this.webCrawlers.reduce((total, c) => total + ((c.total_pages_found || 0) - (c.pages_for_testing || 0)), 0); },
-        getTotalPages() { return this.webCrawlers.reduce((total, c) => total + (c.total_pages_found || 0), 0); },
+        getTotalPagesForTesting() { 
+            const selectedCrawlers = this.webCrawlers.filter(c => this.selectedCrawlers.includes(c.id));
+            return selectedCrawlers.reduce((total, c) => total + (c.pages_for_testing || 0), 0);
+        },
+        getExcludedPagesCount() { 
+            const selectedCrawlers = this.webCrawlers.filter(c => this.selectedCrawlers.includes(c.id));
+            return selectedCrawlers.reduce((total, c) => total + ((c.total_pages_found || 0) - (c.pages_for_testing || 0)), 0);
+        },
+        getTotalPages() { 
+            const selectedCrawlers = this.webCrawlers.filter(c => this.selectedCrawlers.includes(c.id));
+            return selectedCrawlers.reduce((total, c) => total + (c.total_pages_found || 0), 0);
+        },
         
         // ===== SESSION URL MODAL METHODS =====
         
@@ -1463,10 +1860,12 @@ function dashboard() {
         // ===== MODAL METHODS =====
         
         openCreateCrawlerModal(mode = 'basic') {
-            console.log('🔍 DEBUG: openCreateCrawlerModal called');
+            console.log('🔍 DEBUG: openCreateCrawlerModal called with mode:', mode);
             this.ui.modals.showCreateCrawler = true;
             this.newCrawler.mode = mode;
             this.syncLegacyState();
+            console.log('🔍 DEBUG: After sync - this.showCreateCrawler:', this.showCreateCrawler);
+            console.log('🔍 DEBUG: After sync - this.ui.modals.showCreateCrawler:', this.ui.modals.showCreateCrawler);
         },
         
         closeCreateCrawlerModal() {
@@ -1657,30 +2056,227 @@ function dashboard() {
         // ===== SESSION MANAGEMENT METHODS =====
         
         async captureNewSession() {
+            console.log('🔍 DEBUG: Starting database-based session capture');
+            
+            // Check for selected project in multiple places due to timing
+            let projectId = this.selectedProject || this.data.selectedProject || localStorage.getItem('selectedProjectId');
+            
+            if (!projectId) {
+                this.showNotification('error', 'No Project', 'Please select a project first');
+                return;
+            }
+            
             this.sessionCapturing = true;
+            this.sessionAwaitingLogin = false;
             
             try {
-                const response = await fetch(`${this.config.apiBaseUrl}/api/auth/capture-session`, {
+                const response = await fetch(`${this.config.apiBaseUrl}/api/session/capture`, {
                     method: 'POST',
                     headers: this.getAuthHeaders(),
                     body: JSON.stringify({
-                        project_id: this.data.selectedProject
+                        project_id: projectId
                     })
                 });
                 
                 if (response.ok) {
                     const result = await response.json();
-                    this.sessionInfo = result.session_info;
-                    this.showNotification('success', 'Session Captured', 'Browser session captured successfully');
+                    console.log('🔍 DEBUG: Session capture started:', result);
+                    
+                    if (result.needsLogin) {
+                        this.sessionAwaitingLogin = true;
+                        this.showNotification('info', 'Browser Opened', 
+                            `Please log in to the opened browser window for ${result.crawlerName || 'your crawler'}, then click "Successfully Logged In" below`);
+                    } else {
+                        // Already authenticated, complete capture immediately
+                        await this.completeSessionCapture();
+                    }
+                    
                 } else {
                     const error = await response.json();
-                    this.showNotification('error', 'Capture Failed', error.message || 'Failed to capture session');
+                    this.showNotification('error', 'Capture Failed', error.message || 'Failed to start session capture');
+                    this.sessionCapturing = false;
                 }
             } catch (error) {
                 console.error('Error capturing session:', error);
-                this.showNotification('error', 'Network Error', 'Failed to capture session');
-            } finally {
+                this.showNotification('error', 'Network Error', 'Failed to start session capture');
                 this.sessionCapturing = false;
+            }
+        },
+        
+        async completeSessionCapture() {
+            console.log('🔍 DEBUG: Completing database-based session capture');
+            
+            // Check for selected project in multiple places due to timing
+            let projectId = this.selectedProject || this.data.selectedProject || localStorage.getItem('selectedProjectId');
+            
+            if (!projectId) {
+                this.showNotification('error', 'No Project', 'Please select a project first');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${this.config.apiBaseUrl}/api/session/complete-capture`, {
+                    method: 'POST',
+                    headers: this.getAuthHeaders(),
+                    body: JSON.stringify({
+                        project_id: projectId
+                    })
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    console.log('✅ Session capture completed:', result);
+                    
+                    // Reload session info to get the fresh data
+                    await this.loadSessionInfo();
+                    
+                    this.sessionCapturing = false;
+                    this.sessionAwaitingLogin = false;
+                    
+                    this.showNotification('success', 'Session Captured Successfully', 
+                        `Session saved to database with ${result.sessionData.cookiesCount} cookies`);
+                        
+                } else {
+                    const error = await response.json();
+                    this.showNotification('error', 'Capture Failed', error.message || 'Failed to complete session capture');
+                    this.sessionCapturing = false;
+                    this.sessionAwaitingLogin = false;
+                }
+            } catch (error) {
+                console.error('Error completing session capture:', error);
+                this.showNotification('error', 'Network Error', 'Failed to complete session capture');
+                this.sessionCapturing = false;
+                this.sessionAwaitingLogin = false;
+            }
+        },
+        
+        async cancelSessionCapture() {
+            console.log('🛑 User cancelled session capture');
+            
+            try {
+                const response = await fetch(`${this.config.apiBaseUrl}/api/session/cancel-capture`, {
+                    method: 'POST',
+                    headers: this.getAuthHeaders()
+                });
+                
+                if (response.ok) {
+                    this.sessionCapturing = false;
+                    this.sessionAwaitingLogin = false;
+                    this.showNotification('info', 'Session Capture Cancelled', 'Browser window closed and capture process stopped');
+                } else {
+                    const error = await response.json();
+                    console.error('Cancel failed:', error);
+                    // Still update UI state even if API call failed
+                    this.sessionCapturing = false;
+                    this.sessionAwaitingLogin = false;
+                    this.showNotification('warning', 'Session Capture Cancelled', 'May need to manually close browser window');
+                }
+            } catch (error) {
+                console.error('Error cancelling session capture:', error);
+                // Still update UI state even if API call failed
+                this.sessionCapturing = false;
+                this.sessionAwaitingLogin = false;
+                this.showNotification('warning', 'Session Capture Cancelled', 'May need to manually close browser window');
+            }
+        },
+        
+        async loadSessionInfo() {
+            try {
+                // Check for selected project in multiple places due to timing
+                let projectId = this.selectedProject || this.data.selectedProject || localStorage.getItem('selectedProjectId');
+                
+                if (!projectId) {
+                    console.log('🔍 DEBUG: No project selected (checked all sources), skipping session info load');
+                    this.sessionInfo = {
+                        isValid: false,
+                        status: 'No Project Selected',
+                        ageHours: 0,
+                        isOld: false,
+                        isVeryOld: false,
+                        username: '',
+                        capturedDate: '',
+                        expirationDate: '',
+                        pagesCount: 0,
+                        lastActivity: null
+                    };
+                    return;
+                }
+                
+                console.log('🔍 DEBUG: Using project ID for session info:', projectId);
+                
+                const response = await fetch(`${this.config.apiBaseUrl}/api/session/info?project_id=${projectId}`, {
+                    headers: this.getAuthHeaders()
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    console.log('🔍 DEBUG: Session info response from database:', result);
+                    
+                    if (result.exists && result.metadata) {
+                        // Check session age
+                        const capturedDate = new Date(result.metadata.capturedDate);
+                        const now = new Date();
+                        const ageHours = Math.round((now - capturedDate) / (1000 * 60 * 60));
+                        const isOld = ageHours > 24; // Sessions older than 24 hours are considered potentially expired
+                        const isVeryOld = ageHours > 72; // Sessions older than 72 hours are likely expired
+                        
+                        let status = 'Session Ready';
+                        let isValid = result.metadata.isValid;
+                        
+                        if (isVeryOld) {
+                            status = `⚠️ Session Expired (${ageHours}h old)`;
+                            isValid = false;
+                        } else if (isOld) {
+                            status = `⚠️ Session Old (${ageHours}h old) - May need refresh`;
+                            isValid = true; // Still try to use it, but warn user
+                        } else if (ageHours < 1) {
+                            status = 'Fresh Session - Just Captured';
+                        }
+                        
+                        this.sessionInfo = {
+                            isValid: isValid,
+                            status: status,
+                            ageHours: ageHours,
+                            isOld: isOld,
+                            isVeryOld: isVeryOld,
+                            username: result.metadata.username || 'Unknown',
+                            capturedDate: result.metadata.capturedDate || '',
+                            expirationDate: result.metadata.expirationDate || 'Unknown',
+                            pagesCount: result.metadata.pagesCount || 0,
+                            sessionId: result.metadata.sessionId,
+                            crawlerName: result.metadata.crawlerName,
+                            lastActivity: new Date().toISOString()
+                        };
+                        
+                        // Show warning for old sessions
+                        if (isVeryOld) {
+                            this.showNotification('warning', 'Session Expired', 
+                                `Your browser session is ${ageHours} hours old and likely expired. Please capture a new session.`);
+                        } else if (isOld) {
+                            this.showNotification('info', 'Session Old', 
+                                `Your browser session is ${ageHours} hours old. Consider capturing a fresh session if crawling fails.`);
+                        }
+                    } else {
+                        this.sessionInfo = {
+                            isValid: false,
+                            status: 'No Session Available',
+                            ageHours: 0,
+                            isOld: false,
+                            isVeryOld: false,
+                            username: '',
+                            capturedDate: '',
+                            expirationDate: '',
+                            pagesCount: 0,
+                            lastActivity: null
+                        };
+                    }
+                } else {
+                    console.error('Failed to load session info from database');
+                    const error = await response.json();
+                    console.error('Session info error:', error);
+                }
+            } catch (error) {
+                console.error('Error loading session info:', error);
             }
         },
 
@@ -1688,17 +2284,43 @@ function dashboard() {
             this.sessionTesting = true;
             
             try {
-                const response = await fetch(`${this.config.apiBaseUrl}/api/auth/test-session`, {
+                // Check for selected project in multiple places due to timing
+                let projectId = this.selectedProject || this.data.selectedProject || localStorage.getItem('selectedProjectId');
+                
+                if (!projectId) {
+                    this.showNotification('error', 'No Project', 'Please select a project first');
+                    this.sessionTesting = false;
+                    return;
+                }
+                
+                const response = await fetch(`${this.config.apiBaseUrl}/api/session/test`, {
                     method: 'POST',
-                    headers: this.getAuthHeaders()
+                    headers: this.getAuthHeaders(),
+                    body: JSON.stringify({
+                        project_id: projectId
+                    })
                 });
                 
                 if (response.ok) {
                     const result = await response.json();
-                    this.showNotification('success', 'Session Valid', `Can access ${result.accessible_pages} pages`);
+                    console.log('🔍 DEBUG: Session test response:', result);
+                    
+                    if (result.success) {
+                        this.showNotification('success', 'Session Valid', `Can access ${result.pagesCount} pages`);
+                        // Update sessionInfo with fresh data
+                        this.sessionInfo.pagesCount = result.pagesCount;
+                        this.sessionInfo.isValid = true;
+                        this.sessionInfo.status = 'Session Active';
                 } else {
-                    this.showNotification('error', 'Session Invalid', 'Session has expired or is invalid');
+                        this.showNotification('error', 'Session Invalid', result.message || 'Session has expired or is invalid');
+                    }
+                } else {
+                    const error = await response.json();
+                    this.showNotification('error', 'Session Invalid', error.message || 'Session has expired or is invalid');
                 }
+                
+                // Always reload session info after testing to get current state
+                await this.loadSessionInfo();
             } catch (error) {
                 console.error('Error testing session:', error);
                 this.showNotification('error', 'Network Error', 'Failed to test session');
@@ -1709,13 +2331,29 @@ function dashboard() {
 
         async clearSession() {
             try {
-                const response = await fetch(`${this.config.apiBaseUrl}/api/auth/clear-session`, {
+                // Check for selected project in multiple places due to timing
+                let projectId = this.selectedProject || this.data.selectedProject || localStorage.getItem('selectedProjectId');
+                
+                if (!projectId) {
+                    this.showNotification('error', 'No Project', 'Please select a project first');
+                    return;
+                }
+                
+                const response = await fetch(`${this.config.apiBaseUrl}/api/session/clear?project_id=${projectId}`, {
                     method: 'DELETE',
                     headers: this.getAuthHeaders()
                 });
                 
                 if (response.ok) {
-                    this.sessionInfo = { isValid: false, lastActivity: null, status: 'inactive' };
+                    this.sessionInfo = { 
+                        isValid: false, 
+                        lastActivity: null, 
+                        status: 'inactive',
+                        username: '',
+                        capturedDate: '',
+                        expirationDate: '',
+                        pagesCount: 0
+                    };
                     this.showNotification('success', 'Session Cleared', 'Browser session has been cleared');
                 } else {
                     this.showNotification('error', 'Clear Failed', 'Failed to clear session');
@@ -1730,28 +2368,197 @@ function dashboard() {
         
         async viewCrawlerPages(crawler) {
             try {
+                this.loading = true;
                 const response = await fetch(`${this.config.apiBaseUrl}/api/web-crawlers/crawlers/${crawler.id}/pages`, {
                     headers: this.getAuthHeaders()
                 });
                 
                 if (response.ok) {
                     const data = await response.json();
-                    this.crawlerPages = data.pages || [];
+                    this.crawlerPages = data.pages || data.data || [];
                     this.selectedCrawlerForPages = crawler;
-                    this.showCrawlerPagesModal = true;
+                    
+                    console.log(`📄 Loaded ${this.crawlerPages.length} pages for crawler ${crawler.name}`);
+                    console.log('🔍 DEBUG: Raw crawler pages data:', this.crawlerPages.slice(0, 2)); // Show first 2 pages
+                    
+                    this.updateFilteredCrawlerPages();
+                    
+                    console.log('🔍 DEBUG: Filtered pages count:', this.filteredCrawlerPages.length);
+                    console.log('🔍 DEBUG: Opening modal with showCrawlerPagesModal =', true);
+                    
+                    this.ui.modals.showCrawlerPagesModal = true;
+                    this.syncLegacyState();
                 } else {
                     this.showNotification('error', 'Load Failed', 'Failed to load crawler pages');
                 }
             } catch (error) {
                 console.error('Error loading crawler pages:', error);
                 this.showNotification('error', 'Network Error', 'Failed to load crawler pages');
+            } finally {
+                this.loading = false;
             }
         },
 
         closeCrawlerPagesModal() {
-            this.showCrawlerPagesModal = false;
+            this.ui.modals.showCrawlerPagesModal = false;
             this.selectedCrawlerForPages = null;
             this.crawlerPages = [];
+            this.filteredCrawlerPages = [];
+            this.crawlerPageSearch = '';
+            this.crawlerPageFilter = '';
+            this.syncLegacyState();
+        },
+
+        // Edit an existing crawler
+        async editCrawler(crawler) {
+            // Populate the form with existing crawler data
+            this.newCrawler = {
+                ...crawler,
+                // Convert JSON objects back to strings for editing
+                wait_conditions_json: JSON.stringify(crawler.wait_conditions || [], null, 2),
+                extraction_rules_json: JSON.stringify(crawler.extraction_rules || {}, null, 2),
+                url_patterns_json: JSON.stringify(crawler.url_patterns || [], null, 2)
+            };
+            this.showCreateCrawler = true;
+        },
+
+        // Update filtered crawler pages based on search and filter
+        updateFilteredCrawlerPages() {
+            console.log('🔍 DEBUG: updateFilteredCrawlerPages called with crawlerPages.length:', this.crawlerPages.length);
+            let filtered = [...this.crawlerPages];
+
+            // Apply search filter
+            if (this.crawlerPageSearch) {
+                const search = this.crawlerPageSearch.toLowerCase();
+                filtered = filtered.filter(page => 
+                    page.url.toLowerCase().includes(search) || 
+                    (page.title && page.title.toLowerCase().includes(search))
+                );
+            }
+
+            // Apply category filter
+            if (this.crawlerPageFilter) {
+                switch (this.crawlerPageFilter) {
+                    case 'forms':
+                        filtered = filtered.filter(page => page.has_forms);
+                        break;
+                    case 'auth':
+                        filtered = filtered.filter(page => page.requires_auth);
+                        break;
+                    case 'selected':
+                        filtered = filtered.filter(page => 
+                            page.selected_for_manual_testing || page.selected_for_automated_testing
+                        );
+                        break;
+                }
+            }
+
+            this.filteredCrawlerPages = filtered;
+            console.log('🔍 DEBUG: updateFilteredCrawlerPages finished, filteredCrawlerPages.length:', this.filteredCrawlerPages.length);
+        },
+
+        // Toggle page selection for testing
+        async togglePageTesting(page, testingType) {
+            const field = testingType === 'manual' ? 'selected_for_manual_testing' : 'selected_for_automated_testing';
+            const newValue = !page[field];
+
+            try {
+                await this.apiCall(`/web-crawlers/crawler-pages/${page.id}/testing`, {
+                    method: 'PUT',
+                    body: JSON.stringify({
+                        [field]: newValue
+                    })
+                });
+
+                // Update local data
+                page[field] = newValue;
+                this.updateFilteredCrawlerPages();
+
+                this.showNotification(
+                    'success',
+                    'Page Selection Updated',
+                    `Page ${newValue ? 'selected for' : 'deselected from'} ${testingType} testing`
+                );
+
+            } catch (error) {
+                console.error('Failed to update page testing selection:', error);
+                this.showNotification('error', 'Update Failed', 'Failed to update page selection');
+            }
+        },
+
+        // Bulk select pages for testing
+        async bulkSelectPagesForTesting(testingType) {
+            const selectedPages = this.filteredCrawlerPages.filter(page => page.selected);
+            
+            if (selectedPages.length === 0) {
+                this.showNotification('warning', 'No Pages Selected', 'Please select pages first');
+                return;
+            }
+
+            try {
+                this.loading = true;
+                const pageIds = selectedPages.map(page => page.id);
+                const field = testingType === 'manual' ? 'selected_for_manual_testing' : 'selected_for_automated_testing';
+
+                await this.apiCall(`/web-crawlers/crawlers/${this.selectedCrawlerForPages.id}/pages/bulk-testing`, {
+                    method: 'PUT',
+                    body: JSON.stringify({
+                        page_ids: pageIds,
+                        [field]: true
+                    })
+                });
+
+                // Update local data
+                selectedPages.forEach(page => {
+                    page[field] = true;
+                });
+
+                this.showNotification(
+                    'success',
+                    'Bulk Selection Updated',
+                    `${selectedPages.length} pages selected for ${testingType} testing`
+                );
+
+            } catch (error) {
+                console.error('Failed to bulk update page testing selection:', error);
+                this.showNotification('error', 'Bulk Update Failed', 'Failed to update page selections');
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        // Toggle page selection in the UI
+        togglePageSelection(page) {
+            page.selected = !page.selected;
+        },
+
+        // Toggle all page selections
+        toggleAllPageSelection(selectAll) {
+            this.filteredCrawlerPages.forEach(page => {
+                page.selected = selectAll;
+            });
+        },
+
+        // Get auth type badge styling class
+        getAuthTypeBadgeClass(authType) {
+            switch (authType) {
+                case 'saml': return 'bg-blue-100 text-blue-800';
+                case 'basic': return 'bg-green-100 text-green-800';
+                case 'dynamic_auth': return 'bg-purple-100 text-purple-800';
+                case 'none': return 'bg-gray-100 text-gray-800';
+                default: return 'bg-gray-100 text-gray-800';
+            }
+        },
+
+        // Get auth type display name
+        getAuthTypeDisplay(authType) {
+            switch (authType) {
+                case 'saml': return 'SAML/SSO';
+                case 'basic': return 'Username/Password';
+                case 'dynamic_auth': return 'Dynamic Auth';
+                case 'none': return 'No Authentication';
+                default: return 'Unknown';
+            }
         },
 
         // ===== TESTING SESSIONS METHODS =====
@@ -1894,12 +2701,178 @@ function dashboard() {
             this.showNotification('success', 'Sessions Refreshed', 'Session list has been updated');
         },
 
+        // Create a new testing session
+        async createTestingSession() {
+            if (!this.data.selectedProject || !this.newTestingSession.name.trim() || !this.newTestingSession.conformance_level) {
+                this.showNotification('error', 'Missing Information', 'Please fill in all required fields');
+                return;
+            }
+
+            try {
+                this.loading = true;
+                
+                const sessionData = {
+                    name: this.newTestingSession.name.trim(),
+                    description: this.newTestingSession.description.trim(),
+                    project_id: this.data.selectedProject,
+                    conformance_level: this.newTestingSession.conformance_level,
+                    testing_approach: this.newTestingSession.testing_approach || 'hybrid'
+                };
+
+                const response = await this.apiCall('/sessions', {
+                    method: 'POST',
+                    body: JSON.stringify(sessionData)
+                });
+
+                if (response.success) {
+                    this.showNotification('success', 'Session Created', 
+                        `Session "${sessionData.name}" created with ${response.data.total_tests_count || 0} test instances`
+                    );
+                    
+                    this.showCreateTestingSession = false;
+                    this.resetNewTestingSession();
+                    await this.loadComplianceSessions();
+                } else {
+                    throw new Error(response.error || 'Failed to create testing session');
+                }
+            } catch (error) {
+                console.error('Error creating testing session:', error);
+                this.showNotification('error', 'Creation Failed', error.message || 'Failed to create testing session');
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        // Delete a testing session with confirmation
+        async deleteTestingSession(session) {
+            if (!session) {
+                this.showNotification('error', 'No Session', 'No session selected for deletion');
+                return;
+            }
+
+            // Show confirmation dialog
+            const confirmed = confirm(`Are you sure you want to delete the testing session "${session.name}"?\n\nThis action cannot be undone and will remove:\n• All test results and findings\n• Session progress and configuration\n• Associated accessibility reports\n• Manual testing notes and observations`);
+            
+            if (!confirmed) {
+                return;
+            }
+
+            try {
+                this.loading = true;
+                
+                const response = await this.apiCall(`/sessions/${session.id}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.success) {
+                    this.showNotification('success', 'Session Deleted', `Session "${session.name}" deleted successfully`);
+                    
+                    // Refresh all session-related data
+                    await this.loadComplianceSessions();
+                } else {
+                    throw new Error(response.error || 'Failed to delete session');
+                }
+            } catch (error) {
+                console.error('Error deleting session:', error);
+                this.showNotification('error', 'Deletion Failed', error.message || 'Failed to delete session');
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        // Duplicate an existing testing session
+        async duplicateTestingSession(session) {
+            if (!session) return;
+
+            try {
+                this.loading = true;
+                const response = await this.apiCall(`/sessions/${session.id}/duplicate`, {
+                    method: 'POST'
+                });
+
+                if (response.success) {
+                    this.showNotification('success', 'Session Duplicated', 
+                        `Created duplicate session with ${response.data.total_tests_count || 0} test instances`
+                    );
+                    await this.loadComplianceSessions();
+                } else {
+                    throw new Error(response.error || 'Failed to duplicate session');
+                }
+            } catch (error) {
+                console.error('Error duplicating session:', error);
+                this.showNotification('error', 'Duplication Failed', error.message || 'Failed to duplicate session');
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        // Edit a testing session (placeholder for future implementation)
+        editTestingSession(session) {
+            // For now, show coming soon message
+            this.showNotification('info', 'Feature Coming Soon', 'Session editing will be available soon');
+            console.log('Editing session:', session);
+        },
+
+        // View testing session details
+        viewTestingSessionDetails(session) {
+            // Navigate to session test grid view or show detailed modal
+            this.viewSessionResults(session);
+        },
+
+        // Reset new testing session form
+        resetNewTestingSession() {
+            this.newTestingSession = {
+                name: '',
+                description: '',
+                conformance_level: 'AA',
+                testing_approach: 'hybrid'
+            };
+        },
+
+        // Get session status badge styling class
+        getSessionStatusBadgeClass(status) {
+            const classes = {
+                'pending': 'bg-yellow-100 text-yellow-800',
+                'active': 'bg-blue-100 text-blue-800',
+                'in_progress': 'bg-blue-100 text-blue-800',
+                'completed': 'bg-green-100 text-green-800',
+                'failed': 'bg-red-100 text-red-800',
+                'cancelled': 'bg-gray-100 text-gray-800',
+                'paused': 'bg-orange-100 text-orange-800'
+            };
+            return classes[status] || 'bg-gray-100 text-gray-800';
+        },
+
+        // Open test instance modal for detailed view
+        async openTestInstanceModal(testInstance) {
+            try {
+                this.currentTestInstance = testInstance;
+                this.showTestInstanceModal = true;
+                
+                // TODO: Load detailed test information
+                // await this.loadTestInstanceDetails(testInstance.id);
+                
+            } catch (error) {
+                console.error('Error opening test instance details:', error);
+                this.showNotification('error', 'Load Failed', 'Failed to load test details');
+            }
+        },
+
+        // Close test instance modal
+        closeTestInstanceModal() {
+            this.showTestInstanceModal = false;
+            this.currentTestInstance = null;
+        },
+
         // ===== AUTHENTICATION METHODS =====
         
         async selectAuthProject(projectId) {
+            console.log('🔐 selectAuthProject called with:', projectId);
             this.selectedAuthProject = projectId;
             this.data.selectedAuthProject = projectId; // Organized state
+            console.log('🔐 selectedAuthProject set to:', this.selectedAuthProject);
             await this.loadProjectAuthConfigs();
+            console.log('🔐 After loadProjectAuthConfigs, projectAuthConfigs length:', this.projectAuthConfigs?.length || 0);
         },
 
         async loadAuthConfigs() {
@@ -1942,19 +2915,31 @@ function dashboard() {
                 
                 // Filter auth configs that match the project domain
                 const matchingConfigs = this.authConfigs.filter(config => {
+                    console.log(`🔐 Checking config "${config.name}" - domain: "${config.domain}", url: "${config.url}"`);
+                    
                     const domainMatch = config.domain === projectDomain;
+                    console.log(`🔐 Domain match (${config.domain} === ${projectDomain}): ${domainMatch}`);
                     
                     let urlMatch = false;
                     if (config.url) {
                         try {
                             const configUrl = new URL(config.url);
                             urlMatch = configUrl.hostname === projectDomain;
+                            console.log(`🔐 URL hostname match (${configUrl.hostname} === ${projectDomain}): ${urlMatch}`);
                         } catch (error) {
                             urlMatch = config.url.includes(projectDomain);
+                            console.log(`🔐 URL includes match (${config.url}.includes(${projectDomain})): ${urlMatch}`);
                         }
                     }
                     
-                    return domainMatch || urlMatch;
+                    // Also check project_id match for direct association
+                    const projectIdMatch = config.project_id === this.data.selectedAuthProject;
+                    console.log(`🔐 Project ID match (${config.project_id} === ${this.data.selectedAuthProject}): ${projectIdMatch}`);
+                    
+                    const finalMatch = domainMatch || urlMatch || projectIdMatch;
+                    console.log(`🔐 Final match result for "${config.name}": ${finalMatch}`);
+                    
+                    return finalMatch;
                 });
 
                 // If no project-specific configs found, show all configs for easier management (stable backup pattern)
@@ -1974,49 +2959,54 @@ function dashboard() {
             }
         },
 
-        async testAuthConfig(config) {
+        async testAuthConfig(authConfig) {
             try {
-                config.status = 'testing';
-                this.showNotification('info', 'Testing Authentication', `Testing authentication for ${config.domain || config.name}...`);
+                // Ensure config exists - backup initialization
+                if (!this.config || !this.config.apiBaseUrl) {
+                    this.config = { apiBaseUrl: 'http://localhost:3001', tokenRefreshInterval: null };
+                }
+                
+                authConfig.status = 'testing';
+                this.showNotification('info', 'Testing Authentication', `Testing authentication for ${authConfig.domain || authConfig.name}...`);
 
-                const response = await this.apiCall(`/auth/configs/${config.id}/test`, {
+                const response = await this.apiCall(`/auth/configs/${authConfig.id}/test`, {
                     method: 'POST'
                 });
 
                 if (response.success) {
-                    config.status = 'active';
-                    config.last_used = new Date().toISOString();
-                    this.showNotification('success', 'Test Successful', `Authentication test successful for ${config.domain || config.name}`);
+                    authConfig.status = 'active';
+                    authConfig.last_used = new Date().toISOString();
+                    this.showNotification('success', 'Test Successful', `Authentication test successful for ${authConfig.domain || authConfig.name}`);
                 } else {
-                    config.status = 'failed';
-                    this.showNotification('error', 'Test Failed', `Authentication test failed for ${config.domain || config.name}`);
+                    authConfig.status = 'failed';
+                    this.showNotification('error', 'Test Failed', `Authentication test failed for ${authConfig.domain || authConfig.name}`);
                 }
             } catch (error) {
-                config.status = 'failed';
+                authConfig.status = 'failed';
                 this.showNotification('error', 'Test Error', `Authentication test error: ${error.message}`);
             }
         },
 
-        async editAuthConfig(config) {
+        async editAuthConfig(authConfig) {
             // Populate the form with ALL existing data including SAML selectors
             this.authConfigForm = {
-                name: config.name || config.domain || '',
-                type: config.type || 'form',
-                login_url: config.login_url || config.url || '',
-                username: config.username || '',
+                name: authConfig.name || authConfig.domain || '',
+                type: authConfig.type || 'form',
+                login_url: authConfig.login_url || authConfig.url || '',
+                username: authConfig.username || '',
                 password: '', // Don't pre-fill password for security
-                description: config.description || config.auth_description || '',
-                auth_role: config.auth_role || 'default',
-                priority: config.priority || 1,
-                is_default: config.is_default || false,
+                description: authConfig.description || authConfig.auth_description || '',
+                auth_role: authConfig.auth_role || 'default',
+                priority: authConfig.priority || 1,
+                is_default: authConfig.is_default || false,
                 // Advanced SAML/SSO fields (from existing config or defaults)
-                idp_domain: config.idp_domain || '',
-                username_selector: config.username_selector || 'input[name="username"]',
-                password_selector: config.password_selector || 'input[type="password"]',
-                submit_selector: config.submit_selector || 'button[type="submit"]'
+                idp_domain: authConfig.idp_domain || '',
+                username_selector: authConfig.username_selector || 'input[name="username"]',
+                password_selector: authConfig.password_selector || 'input[type="password"]',
+                submit_selector: authConfig.submit_selector || 'button[type="submit"]'
             };
             
-            this.editingAuthConfig = config;
+            this.editingAuthConfig = authConfig;
             this.showEditAuthConfigModal = true;
             this.ui.modals.showEditAuthConfigModal = true; // Sync organized state
         },
@@ -2027,9 +3017,9 @@ function dashboard() {
                 
                 if (!this.selectedAuthProject) {
                     this.showNotification('error', 'No Project', 'Please select a project first');
-                    return;
-                }
-
+                return;
+            }
+            
                 // Create the auth config with advanced SAML fields
                 const authConfigData = {
                     name: this.authConfigForm.name,
@@ -2125,22 +3115,22 @@ function dashboard() {
             }
         },
 
-        async deleteAuthConfig(config) {
-            if (!confirm(`Are you sure you want to delete the "${config.name || config.auth_role}" authentication configuration?`)) {
+        async deleteAuthConfig(authConfig) {
+            if (!confirm(`Are you sure you want to delete the "${authConfig.name || authConfig.auth_role}" authentication configuration?`)) {
                 return;
             }
 
             try {
-                const response = await this.apiCall(`/auth/configs/${config.id}`, {
+                const response = await this.apiCall(`/auth/configs/${authConfig.id}`, {
                     method: 'DELETE'
                 });
 
                 if (response.success) {
                     // Remove from local arrays
-                    this.authConfigs = this.authConfigs.filter(c => c.id !== config.id);
-                    this.projectAuthConfigs = this.projectAuthConfigs.filter(c => c.id !== config.id);
+                    this.authConfigs = this.authConfigs.filter(c => c.id !== authConfig.id);
+                    this.projectAuthConfigs = this.projectAuthConfigs.filter(c => c.id !== authConfig.id);
                     
-                    this.showNotification('success', 'Config Deleted', `Authentication configuration "${config.name || config.auth_role}" deleted successfully`);
+                    this.showNotification('success', 'Config Deleted', `Authentication configuration "${authConfig.name || authConfig.auth_role}" deleted successfully`);
                 } else {
                     throw new Error(response.message || 'Failed to delete configuration');
                 }
@@ -2331,6 +3321,454 @@ function dashboard() {
                 console.error('Error downloading report:', error);
                 this.showNotification('error', 'Network Error', 'Failed to download test report');
             }
+        },
+
+        // Get default automated test configuration
+        getDefaultAutomatedTestConfig() {
+            return {
+                playwright: {
+                    enabled: true,
+                    testTypes: ['basic', 'keyboard', 'screen-reader'],
+                    browsers: ['chromium'],
+                    viewports: ['desktop', 'tablet', 'mobile']
+                },
+                backend: {
+                    enabled: true,
+                    tools: ['axe', 'pa11y', 'lighthouse']
+                },
+                scope: {
+                    maxPages: 25,
+                    pageTypes: ['all']
+                }
+            };
+        },
+
+        // Toggle automated testing tools
+        toggleAutomatedTool(tool) {
+            if (tool === 'playwright') {
+                this.automatedTestConfig.playwright.enabled = !this.automatedTestConfig.playwright.enabled;
+            } else {
+                const tools = this.automatedTestConfig.backend.tools;
+                const index = tools.indexOf(tool);
+                if (index > -1) {
+                    tools.splice(index, 1);
+                } else {
+                    tools.push(tool);
+                }
+            }
+        },
+
+        // Toggle Playwright test types
+        togglePlaywrightTestType(testType) {
+            const testTypes = this.automatedTestConfig.playwright.testTypes;
+            const index = testTypes.indexOf(testType);
+            if (index > -1) {
+                testTypes.splice(index, 1);
+            } else {
+                testTypes.push(testType);
+            }
+        },
+
+        // Toggle Playwright browsers
+        togglePlaywrightBrowser(browser) {
+            const browsers = this.automatedTestConfig.playwright.browsers;
+            const index = browsers.indexOf(browser);
+            if (index > -1) {
+                browsers.splice(index, 1);
+            } else {
+                browsers.push(browser);
+            }
+        },
+
+        // Toggle Playwright viewports
+        togglePlaywrightViewport(viewport) {
+            const viewports = this.automatedTestConfig.playwright.viewports;
+            const index = viewports.indexOf(viewport);
+            if (index > -1) {
+                viewports.splice(index, 1);
+            } else {
+                viewports.push(viewport);
+            }
+        },
+
+        // Start automated testing with advanced configuration
+        async startAutomatedTestingFromConfig() {
+            if (!this.data.selectedProject) {
+                this.showNotification('error', 'No Project', 'Please select a project first');
+                return;
+            }
+
+            try {
+                this.loading = true;
+                this.automatedTestingInProgress = true;
+                
+                const config = this.automatedTestConfig;
+                
+                // Start comprehensive testing with user configuration
+                const response = await this.apiCall(`/projects/${this.data.selectedProject}/comprehensive-testing`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        sessionName: `Automated Test - ${new Date().toLocaleDateString()}`,
+                        description: 'Automated testing initiated with custom configuration',
+                        testingApproach: 'automated',
+                        includeFrontend: config.playwright.enabled,
+                        includeBackend: config.backend.enabled,
+                        includeManual: false,
+                        testTypes: config.playwright.testTypes,
+                        browsers: config.playwright.browsers,
+                        backendTools: config.backend.tools,
+                        maxPages: config.scope.maxPages,
+                        viewports: config.playwright.viewports
+                    })
+                });
+
+                if (response.success) {
+                    this.showNotification('success', 'Testing Started', 'Advanced automated testing started successfully!');
+                    this.showTestConfigurationModal = false;
+                    
+                    // Start monitoring progress
+                    if (response.data.session_id) {
+                        this.pollTestingProgress(response.data.session_id);
+                    }
+                } else {
+                    throw new Error(response.error || 'Failed to start testing');
+                }
+            } catch (error) {
+                console.error('Error starting automated testing:', error);
+                this.showNotification('error', 'Testing Failed', error.message || 'Failed to start automated testing');
+                this.automatedTestingInProgress = false;
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        // Start automated testing for specific requirements
+        async startAutomatedTestingForRequirements(sessionId, requirements = null) {
+            try {
+                this.loading = true;
+                
+                if (!this.data.selectedProject) {
+                    throw new Error('No project selected');
+                }
+                
+                console.log(`🚀 Starting automated testing for session: ${sessionId}`);
+                
+                // Start Playwright testing for the existing session
+                const response = await this.apiCall(`/sessions/${sessionId}/start-playwright`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        testTypes: ['basic', 'keyboard', 'screen-reader', 'form'],
+                        browsers: ['chromium'],
+                        viewports: ['desktop'],
+                        requirements: requirements
+                    })
+                });
+
+                if (response.success) {
+                    this.showNotification('success', 'Testing Started', 'Automated testing started successfully!');
+                } else {
+                    throw new Error(response.error || 'Failed to start testing');
+                }
+                
+                return response;
+                
+            } catch (error) {
+                console.error('❌ Error starting automated testing:', error);
+                this.showNotification('error', 'Testing Failed', `Failed to start automated testing: ${error.message}`);
+                throw error;
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        // Close test details modal
+        closeTestDetailsModal() {
+            this.showTestDetailsModal = false;
+            this.selectedTestResult = null;
+        },
+
+        // Close test configuration modal
+        closeTestConfigurationModal() {
+            this.showTestConfigurationModal = false;
+        },
+
+        // Show advanced test configuration modal
+        showAdvancedTestConfiguration() {
+            this.showTestConfigurationModal = true;
+        },
+
+        // ===== MANUAL TESTING METHODS =====
+        
+        async startManualTesting() {
+            if (!this.data.selectedProject) {
+                this.showNotification('warning', 'No Project Selected', 'Please select a project first');
+                return;
+            }
+            
+            try {
+                // Create or load a manual testing session for the project
+                const response = await this.apiCall(`/sessions`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        project_id: this.data.selectedProject,
+                        name: `Manual Testing - ${new Date().toLocaleDateString()}`,
+                        description: 'Manual accessibility testing session',
+                        conformance_level: 'AA',
+                        testing_approach: 'manual'
+                    })
+                });
+                
+                if (response.success) {
+                    this.showNotification('success', 'Manual Testing Started', 'Manual testing session created');
+                    await this.selectManualTestingSession(response.data);
+                } else {
+                    throw new Error(response.error || 'Failed to create manual testing session');
+                }
+            } catch (error) {
+                console.error('Error starting manual testing:', error);
+                this.showNotification('error', 'Failed to Start', error.message || 'Failed to start manual testing');
+            }
+        },
+
+        async editManualTestResult(result) {
+            this.currentManualTest = {
+                assignment: { requirement_id: result.requirement_id },
+                pageGroup: { page_id: result.page_id },
+                sessionId: result.session_id,
+                existingResult: result
+            };
+            this.showManualTestingModal = true;
+        },
+
+        async loadManualTestingAssignments() {
+            if (!this.manualTestingSession) return;
+            
+            try {
+                console.log('📋 Loading manual testing assignments...');
+                
+                const params = new URLSearchParams({
+                    coverage_type: this.manualTestingFilters.coverage_type
+                });
+                
+                if (this.manualTestingFilters.status) {
+                    params.append('status', this.manualTestingFilters.status);
+                }
+                if (this.manualTestingFilters.wcag_level) {
+                    params.append('wcag_level', this.manualTestingFilters.wcag_level);
+                }
+                if (this.manualTestingFilters.page_id) {
+                    params.append('page_id', this.manualTestingFilters.page_id);
+                }
+                
+                const response = await this.apiCall(`/manual-testing/session/${this.manualTestingSession.id}/assignments?${params}`);
+                
+                if (response.success) {
+                    this.manualTestingAssignments = response.data.assignments || [];
+                    this.applyManualTestingFilters();
+                    
+                    console.log(`✅ Loaded ${response.data.total_assignments} manual testing assignments`);
+                } else {
+                    throw new Error(response.error || 'Failed to load manual testing assignments');
+                }
+            } catch (error) {
+                console.error('❌ Error loading manual testing assignments:', error);
+                this.showNotification('error', 'Loading Failed', 'Failed to load manual testing assignments');
+            }
+        },
+
+        async loadManualTestingCoverageAnalysis() {
+            if (!this.manualTestingSession) return;
+            
+            try {
+                const response = await this.apiCall(`/manual-testing/session/${this.manualTestingSession.id}/coverage-analysis`);
+                
+                if (response.success) {
+                    this.manualTestingCoverageAnalysis = response.data;
+                } else {
+                    throw new Error(response.error || 'Failed to load coverage analysis');
+                }
+            } catch (error) {
+                console.error('❌ Error loading manual testing coverage analysis:', error);
+                this.showNotification('error', 'Analysis Failed', 'Failed to load coverage analysis');
+            }
+        },
+
+        async refreshManualTestingTabData() {
+            try {
+                console.log('🔄 Refreshing manual testing tab data...');
+                
+                const promises = [];
+                
+                if (this.manualTestingSession) {
+                    promises.push(this.loadManualTestingAssignments());
+                }
+                
+                promises.push(this.loadManualTestingCoverageAnalysis());
+                
+                await Promise.all(promises);
+                
+                console.log('✅ Manual testing tab data refreshed');
+            } catch (error) {
+                console.error('❌ Error refreshing manual testing tab data:', error);
+                this.showNotification('error', 'Refresh Failed', 'Failed to refresh manual testing data');
+            }
+        },
+
+        async selectManualTestingSession(session) {
+            try {
+                console.log('🎯 Selecting manual testing session:', session.name);
+                
+                this.manualTestingSession = session;
+                
+                await Promise.all([
+                    this.loadManualTestingAssignments(session.id),
+                    this.loadManualTestingProgress(session.id)
+                ]);
+                
+                console.log('✅ Manual testing session selected successfully');
+            } catch (error) {
+                console.error('❌ Error selecting manual testing session:', error);
+                this.showNotification('error', 'Selection Failed', 'Failed to load manual testing session');
+            }
+        },
+
+        async loadManualTestingProgress(sessionId) {
+            try {
+                console.log('📊 Loading manual testing progress...');
+                
+                const response = await this.apiCall(`/manual-testing/session/${sessionId}/progress`);
+                
+                if (response.success) {
+                    this.manualTestingProgress = response.data.progress || null;
+                    console.log('✅ Manual testing progress loaded');
+                } else {
+                    throw new Error(response.error || 'Failed to load progress');
+                }
+            } catch (error) {
+                console.error('❌ Error loading manual testing progress:', error);
+            }
+        },
+
+        applyManualTestingFilters() {
+            this.filterManualTestingAssignments();
+        },
+
+        filterManualTestingAssignments() {
+            const filters = this.manualTestingFilters;
+            
+            this.filteredManualTestingAssignments = this.manualTestingAssignments.filter(pageGroup => {
+                // Apply status filter
+                if (filters.status && !pageGroup.assignments.some(a => a.status === filters.status)) {
+                    return false;
+                }
+                
+                // Apply WCAG level filter
+                if (filters.wcag_level && !pageGroup.assignments.some(a => a.wcag_level === filters.wcag_level)) {
+                    return false;
+                }
+                
+                // Apply page filter
+                if (filters.page_id && pageGroup.page_id !== filters.page_id) {
+                    return false;
+                }
+                
+                return true;
+            });
+            
+            console.log('🔍 Filtered manual testing assignments:', this.filteredManualTestingAssignments.length, 'page groups');
+        },
+
+        async startManualTest(pageGroup, assignment) {
+            try {
+                console.log('🎯 Starting manual test:', assignment.criterion_number);
+                
+                this.currentManualTest = {
+                    pageGroup: pageGroup,
+                    assignment: assignment,
+                    sessionId: this.manualTestingSession.id
+                };
+                
+                await this.loadManualTestingProcedure(assignment.requirement_id, pageGroup.page_type);
+                
+                this.showManualTestingModal = true;
+            } catch (error) {
+                console.error('❌ Error starting manual test:', error);
+                this.showNotification('error', 'Test Failed', 'Failed to start manual test');
+            }
+        },
+
+        async loadManualTestingProcedure(requirementId, pageType) {
+            try {
+                const params = new URLSearchParams({ page_type: pageType });
+                
+                if (this.currentManualTest) {
+                    params.append('page_id', this.currentManualTest.pageGroup.page_id);
+                    params.append('session_id', this.currentManualTest.sessionId);
+                }
+                
+                const response = await this.apiCall(`/manual-testing/requirement/${requirementId}/procedure?${params}`);
+                
+                if (response.success) {
+                    this.manualTestingProcedure = response.data.requirement || null;
+                    this.manualTestingContext = response.data.test_context || null;
+                } else {
+                    throw new Error(response.error || 'Failed to load procedure');
+                }
+            } catch (error) {
+                console.error('❌ Error loading manual testing procedure:', error);
+                this.showNotification('error', 'Loading Failed', 'Failed to load testing procedure');
+            }
+        },
+
+        async submitManualTestResult(result, confidence = 'medium', notes = '', evidence = {}) {
+            try {
+                console.log('💾 Submitting manual test result:', result);
+                
+                const response = await this.apiCall(`/manual-testing/session/${this.currentManualTest.sessionId}/result`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        page_id: this.currentManualTest.pageGroup.page_id,
+                        requirement_id: this.currentManualTest.assignment.requirement_id,
+                        result: result,
+                        confidence_level: confidence,
+                        notes: notes,
+                        evidence: evidence,
+                        test_method_used: 'manual'
+                    })
+                });
+                
+                if (response.success) {
+                    // Refresh data after successful submission
+                    await Promise.all([
+                        this.loadManualTestingAssignments(this.currentManualTest.sessionId),
+                        this.loadManualTestingProgress(this.currentManualTest.sessionId)
+                    ]);
+                    
+                    // Close modal and reset state
+                    this.showManualTestingModal = false;
+                    this.currentManualTest = null;
+                    this.manualTestingProcedure = null;
+                    this.manualTestingContext = null;
+                    
+                    console.log('✅ Manual test result submitted successfully');
+                    this.showNotification('success', 'Result Saved', 'Manual test result saved successfully');
+                } else {
+                    throw new Error(response.error || 'Failed to submit result');
+                }
+            } catch (error) {
+                console.error('❌ Error submitting manual test result:', error);
+                this.showNotification('error', 'Submit Failed', 'Failed to submit test result');
+            }
+        },
+
+        closeManualTestingSession() {
+            this.manualTestingSession = null;
+            this.manualTestingProgress = null;
+            this.manualTestingAssignments = [];
+            this.filteredManualTestingAssignments = [];
+            this.currentManualTest = null;
+            this.manualTestingProcedure = null;
+            this.manualTestingContext = null;
         },
 
         // ===== RESULTS METHODS =====
@@ -2553,6 +3991,12 @@ function dashboard() {
                 const data = await this.apiCall(`/projects/${this.data.selectedProject}/discoveries`);
                 this.data.discoveries = data.data || [];
                 this.discoveries = this.data.discoveries; // Sync legacy state
+                
+                // Defensive check to ensure discoveries is always an array
+                if (!Array.isArray(this.discoveries)) {
+                    this.discoveries = [];
+                }
+                
                 console.log(`🔍 Loaded ${this.discoveries.length} discoveries for project`);
                 
                 // Check for pending discoveries and offer recovery
@@ -2563,12 +4007,19 @@ function dashboard() {
                 
                 // Auto-select completed discoveries if none are selected and there's only one completed
                 const completedDiscoveries = this.discoveries.filter(d => d.status === 'completed');
+                // Defensive check to ensure selectedDiscoveries is always an array
+                if (!Array.isArray(this.selectedDiscoveries)) {
+                    this.selectedDiscoveries = [];
+                }
                 if (completedDiscoveries.length === 1 && this.selectedDiscoveries.length === 0) {
                     this.selectedDiscoveries = [completedDiscoveries[0].id];
                     console.log(`🎯 Auto-selected single completed discovery: ${completedDiscoveries[0].domain}`);
                 }
             } catch (error) {
                 console.error('Failed to load discoveries:', error);
+                // Ensure discoveries is always an array even if API fails
+                this.data.discoveries = this.data.discoveries || [];
+                this.discoveries = this.discoveries || [];
             }
         },
 
@@ -2611,7 +4062,7 @@ function dashboard() {
                 this.showNotification('info', 'Logged Out', 'Logged out successfully');
             }
         },
-
+        
 
     };
     
