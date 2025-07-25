@@ -59,8 +59,11 @@
                                 <i class="fas fa-clock mr-2"></i>Active Sessions
                             </a>
                             <div x-show="user && user.role === 'admin'">
-                                <a @click="window.userManagement.showUserManagement(); showMenu = false" href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                <a @click="showUserManagement(); showMenu = false" href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                                     <i class="fas fa-users-cog mr-2"></i>User Management
+                                </a>
+                                <a @click="showAdminBackup(); showMenu = false" href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                    <i class="fas fa-database mr-2"></i>Database Backup
                                 </a>
                             </div>
                             <hr class="my-1">

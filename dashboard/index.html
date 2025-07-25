@@ -146,6 +146,8 @@
         <div id="project-modals-component"></div>
         <div id="web-crawler-modals-component"></div>
         <div id="testing-modals-component"></div>
+        <div id="user-management-modals-component"></div>
+        <div id="admin-backup-modals-component"></div>
         
         <!-- Global Progress Indicator (Bottom Right) -->
         <div x-show="crawlerInProgress" 
@@ -259,7 +261,9 @@
                 loadComponent('auth-modals-component', 'components/auth-modals.html'),
                 loadComponent('project-modals-component', 'components/project-modals.html'),
                 loadComponent('web-crawler-modals-component', 'components/web-crawler-modals.html'),
-                loadComponent('testing-modals-component', 'components/testing-modals.html')
+                loadComponent('testing-modals-component', 'components/testing-modals.html'),
+                loadComponent('user-management-modals-component', 'components/user-management-modals.html'),
+                loadComponent('admin-backup-modals-component', 'components/admin-backup-modals.html')
             ]);
             
             // Load views

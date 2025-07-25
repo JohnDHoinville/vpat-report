@@ -223,6 +223,27 @@ async function authenticateToken(req, res, next) {
 }
 
 /**
+ * Admin authorization middleware - requires user to be authenticated and have admin role
+ */
+function requireAdmin(req, res, next) {
+    if (!req.user) {
+        return res.status(401).json({ 
+            error: 'Authentication required',
+            code: 'NO_AUTH'
+        });
+    }
+    
+    if (req.user.role !== 'admin') {
+        return res.status(403).json({ 
+            error: 'Admin access required',
+            code: 'INSUFFICIENT_PERMISSIONS'
+        });
+    }
+    
+    next();
+}
+
+/**
  * Enhanced authentication middleware with rate limiting per user
  */
 const userRateLimitMap = new Map();
@@ -465,6 +486,7 @@ module.exports = {
     authenticateWithRateLimit,
     requireRole,
     requirePermission,
+    requireAdmin,
     optionalAuth,
     authorizeProjectAccess,
     pool
