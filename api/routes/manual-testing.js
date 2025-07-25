@@ -37,11 +37,9 @@ const upload = multer({
     }
 });
 
-// Database connection
-const pool = new Pool({
-    connectionString: process.env.DATABASE_URL || 'postgresql://localhost:5432/accessibility_testing',
-    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
-});
+// Use shared database configuration
+const { DatabaseHelper } = require('../../database/config');
+const pool = DatabaseHelper;
 
 // GET /api/manual-testing/requirements
 // Get all WCAG requirements with testing procedures

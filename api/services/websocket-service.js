@@ -438,7 +438,7 @@ class WebSocketService {
         };
 
         this.io.to(`project_${projectId}`).emit('crawler_progress', message);
-        console.log(`📊 Crawler progress: ${projectId} - ${crawlerRunData.status} (${crawlerRunData.pages_crawled || 0} pages)`);
+        console.log(`📊 Crawler progress: ${projectId} - ${crawlerRunData.status} (${crawlerRunData.pages_found || 0} pages)`);
     }
 
     /**

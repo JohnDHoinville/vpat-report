@@ -141,7 +141,7 @@ router.post('/projects/:projectId/crawlers', optionalAuth, async (req, res) => {
         const crawlerData = {
             ...req.body,
             project_id: projectId,
-            created_by: req.user.id
+            created_by: req.user ? req.user.id : null
         };
 
         // Validate required fields
@@ -490,8 +490,7 @@ router.put('/crawler-pages/:pageId/testing', authenticateToken, async (req, res)
     try {
         const { pageId } = req.params;
         const { 
-            selected_for_manual_testing, 
-            selected_for_automated_testing, 
+            selected_for_testing, 
             testing_priority,
             testing_notes 
         } = req.body;
@@ -500,18 +499,16 @@ router.put('/crawler-pages/:pageId/testing', authenticateToken, async (req, res)
         
         const updateQuery = `
             UPDATE crawler_discovered_pages 
-            SET selected_for_manual_testing = COALESCE($1, selected_for_manual_testing),
-                selected_for_automated_testing = COALESCE($2, selected_for_automated_testing),
-                testing_priority = COALESCE($3, testing_priority),
-                testing_notes = COALESCE($4, testing_notes),
+            SET selected_for_testing = COALESCE($1, selected_for_testing),
+                testing_priority = COALESCE($2, testing_priority),
+                testing_notes = COALESCE($3, testing_notes),
                 last_crawled_at = CURRENT_TIMESTAMP
-            WHERE id = $5
+            WHERE id = $4
             RETURNING *
         `;
 
         const result = await client.query(updateQuery, [
-            selected_for_manual_testing,
-            selected_for_automated_testing,
+            selected_for_testing,
             testing_priority,
             testing_notes,
             pageId
@@ -538,8 +535,7 @@ router.put('/crawlers/:crawlerId/pages/bulk-testing', authenticateToken, async (
         const { crawlerId } = req.params;
         const { 
             page_ids, 
-            selected_for_manual_testing, 
-            selected_for_automated_testing, 
+            selected_for_testing, 
             testing_priority 
         } = req.body;
 
@@ -555,17 +551,15 @@ router.put('/crawlers/:crawlerId/pages/bulk-testing', authenticateToken, async (
         const placeholders = page_ids.map((_, index) => `$${index + 2}`).join(',');
         const updateQuery = `
             UPDATE crawler_discovered_pages 
-            SET selected_for_manual_testing = COALESCE($1, selected_for_manual_testing),
-                selected_for_automated_testing = COALESCE($${page_ids.length + 2}, selected_for_automated_testing),
-                testing_priority = COALESCE($${page_ids.length + 3}, testing_priority)
-            WHERE crawler_id = $${page_ids.length + 4} AND id IN (${placeholders})
-            RETURNING id, url, selected_for_manual_testing, selected_for_automated_testing
+            SET selected_for_testing = COALESCE($1, selected_for_testing),
+                testing_priority = COALESCE($${page_ids.length + 2}, testing_priority)
+            WHERE crawler_id = $${page_ids.length + 3} AND id IN (${placeholders})
+            RETURNING id, url, selected_for_testing
         `;
 
         const params = [
-            selected_for_manual_testing,
+            selected_for_testing,
             ...page_ids,
-            selected_for_automated_testing,
             testing_priority,
             crawlerId
         ];
@@ -840,6 +834,254 @@ function extractCrawlerName(fileName) {
     }
     return 'Discovery';
 }
+
+/**
+ * Add manual page to crawler
+ */
+router.post('/crawlers/:crawlerId/pages', authenticateToken, async (req, res) => {
+    try {
+        const { crawlerId } = req.params;
+        const pageData = req.body;
+
+        console.log(`🔍 DEBUG: Adding manual page to crawler ${crawlerId}:`, pageData);
+
+        // Validate required fields
+        if (!pageData.url) {
+            return res.status(400).json({
+                success: false,
+                error: 'URL is required'
+            });
+        }
+
+        // Validate URL format
+        try {
+            new URL(pageData.url);
+        } catch {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid URL format'
+            });
+        }
+
+        const client = await crawlerService.pool.connect();
+        
+        try {
+            // Check if crawler exists and user has access
+            const crawlerQuery = `
+                SELECT id, project_id, name 
+                FROM web_crawlers 
+                WHERE id = $1
+            `;
+            const crawlerResult = await client.query(crawlerQuery, [crawlerId]);
+            
+            if (crawlerResult.rows.length === 0) {
+                return res.status(404).json({
+                    success: false,
+                    error: 'Crawler not found'
+                });
+            }
+
+            const crawler = crawlerResult.rows[0];
+
+            // Check if URL already exists for this crawler
+            const existingPageQuery = `
+                SELECT id FROM crawler_discovered_pages 
+                WHERE crawler_id = $1 AND url = $2
+            `;
+            const existingResult = await client.query(existingPageQuery, [crawlerId, pageData.url]);
+            
+            if (existingResult.rows.length > 0) {
+                return res.status(409).json({
+                    success: false,
+                    error: 'URL already exists for this crawler'
+                });
+            }
+
+            // We need a crawler_run_id, so let's get or create one for manual entries
+            const runQuery = `
+                SELECT id FROM crawler_runs 
+                WHERE crawler_id = $1 AND status = 'completed' 
+                ORDER BY created_at DESC LIMIT 1
+            `;
+            const runResult = await client.query(runQuery, [crawlerId]);
+            
+            let runId;
+            if (runResult.rows.length > 0) {
+                runId = runResult.rows[0].id;
+            } else {
+                // Create a special run for manual entries
+                const createRunQuery = `
+                    INSERT INTO crawler_runs (crawler_id, status, pages_found, started_at, completed_at)
+                    VALUES ($1, 'completed', 0, NOW(), NOW())
+                    RETURNING id
+                `;
+                const newRunResult = await client.query(createRunQuery, [crawlerId]);
+                runId = newRunResult.rows[0].id;
+            }
+
+            // Insert the new page
+            const insertQuery = `
+                INSERT INTO crawler_discovered_pages (
+                    crawler_run_id, crawler_id, url, title, depth, 
+                    requires_auth, has_forms, selected_for_testing, 
+                    status_code, discovered_manually, first_discovered_at, last_crawled_at
+                ) VALUES (
+                    $1, $2, $3, $4, $5, 
+                    $6, $7, $8, 
+                    $9, $10, NOW(), NOW()
+                ) RETURNING *
+            `;
+
+            const values = [
+                runId,
+                crawlerId,
+                pageData.url,
+                pageData.title || null,
+                pageData.depth || 1,
+                pageData.requires_auth || false,
+                pageData.has_forms || false,
+                pageData.selected_for_testing || false,
+                pageData.status_code || 200,
+                true // discovered_manually
+            ];
+
+            const result = await client.query(insertQuery, values);
+            const newPage = result.rows[0];
+
+            console.log(`✅ Manual page added to crawler ${crawler.name}:`, newPage.url);
+
+            res.status(201).json({
+                success: true,
+                data: newPage,
+                message: 'Manual page added successfully'
+            });
+
+        } finally {
+            client.release();
+        }
+    } catch (error) {
+        console.error('Error adding manual page to crawler:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+/**
+ * Save UI page selections for a crawler
+ */
+router.put('/crawlers/:crawlerId/page-selections', authenticateToken, async (req, res) => {
+    try {
+        const { crawlerId } = req.params;
+        const { selected_page_ids } = req.body;
+
+        console.log(`🔍 DEBUG: Saving page selections for crawler ${crawlerId}:`, selected_page_ids);
+
+        const client = await crawlerService.pool.connect();
+        
+        try {
+            // Check if crawler exists and user has access
+            const crawlerQuery = `
+                SELECT id, name 
+                FROM web_crawlers 
+                WHERE id = $1
+            `;
+            const crawlerResult = await client.query(crawlerQuery, [crawlerId]);
+            
+            if (crawlerResult.rows.length === 0) {
+                return res.status(404).json({
+                    success: false,
+                    error: 'Crawler not found'
+                });
+            }
+
+            // Store selections in a simple key-value way (could be in a dedicated table or crawler metadata)
+            // For now, let's use the crawler's metadata or create a simple storage approach
+            const updateQuery = `
+                UPDATE web_crawlers 
+                SET metadata = COALESCE(metadata, '{}')::jsonb || $2::jsonb
+                WHERE id = $1
+                RETURNING metadata
+            `;
+            
+            const selectionData = {
+                ui_page_selections: {
+                    selected_page_ids: selected_page_ids || [],
+                    updated_at: new Date().toISOString()
+                }
+            };
+
+            await client.query(updateQuery, [crawlerId, JSON.stringify(selectionData)]);
+
+            console.log(`✅ Saved ${(selected_page_ids || []).length} page selections for crawler ${crawlerResult.rows[0].name}`);
+
+            res.json({
+                success: true,
+                message: 'Page selections saved successfully',
+                data: {
+                    crawler_id: crawlerId,
+                    selected_count: (selected_page_ids || []).length
+                }
+            });
+
+        } finally {
+            client.release();
+        }
+    } catch (error) {
+        console.error('Error saving page selections:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+/**
+ * Get saved UI page selections for a crawler
+ */
+router.get('/crawlers/:crawlerId/page-selections', authenticateToken, async (req, res) => {
+    try {
+        const { crawlerId } = req.params;
+
+        const client = await crawlerService.pool.connect();
+        
+        try {
+            const query = `
+                SELECT metadata
+                FROM web_crawlers 
+                WHERE id = $1
+            `;
+            const result = await client.query(query, [crawlerId]);
+            
+            if (result.rows.length === 0) {
+                return res.status(404).json({
+                    success: false,
+                    error: 'Crawler not found'
+                });
+            }
+
+            const metadata = result.rows[0].metadata || {};
+            const selections = metadata.ui_page_selections || { selected_page_ids: [] };
+
+            console.log(`🔍 DEBUG: Loaded ${selections.selected_page_ids.length} saved page selections for crawler ${crawlerId}`);
+
+            res.json({
+                success: true,
+                data: selections
+            });
+
+        } finally {
+            client.release();
+        }
+    } catch (error) {
+        console.error('Error loading page selections:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
 
 module.exports = router;
 module.exports.initializeServices = initializeServices; 

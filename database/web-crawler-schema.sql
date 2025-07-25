@@ -43,6 +43,9 @@ CREATE TABLE IF NOT EXISTS web_crawlers (
     session_persistence BOOLEAN DEFAULT true,
     respect_robots_txt BOOLEAN DEFAULT true,
     
+    -- UI and Workflow Metadata
+    metadata JSONB DEFAULT '{}', -- UI state, page selections, workflow data
+    
     -- Status and Metadata
     status VARCHAR(20) DEFAULT 'inactive' CHECK (status IN ('inactive', 'active', 'running', 'paused', 'error')),
     last_run_at TIMESTAMP WITH TIME ZONE,
@@ -130,8 +133,9 @@ CREATE TABLE IF NOT EXISTS crawler_discovered_pages (
     auth_state TEXT, -- Authentication state when page was accessed
     
     -- Testing Integration
-    selected_for_manual_testing BOOLEAN DEFAULT false,
-    selected_for_automated_testing BOOLEAN DEFAULT false,
+    selected_for_testing BOOLEAN DEFAULT false, -- Simplified: include page in testing sessions
+    selected_for_manual_testing BOOLEAN DEFAULT false, -- Legacy - will be deprecated
+    selected_for_automated_testing BOOLEAN DEFAULT false, -- Legacy - will be deprecated
     testing_priority INTEGER DEFAULT 0, -- 0=low, 1=medium, 2=high
     testing_notes TEXT,
     

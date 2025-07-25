@@ -3,11 +3,9 @@ const router = express.Router();
 const { Pool } = require('pg');
 const { authenticateToken } = require('../middleware/auth');
 
-// Database connection
-const pool = new Pool({
-    connectionString: process.env.DATABASE_URL || 'postgresql://localhost:5432/accessibility_testing',
-    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
-});
+// Use shared database configuration
+const { DatabaseHelper } = require('../../database/config');
+const pool = DatabaseHelper;
 
 /**
  * GET /api/violations/session/:sessionId

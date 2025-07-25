@@ -965,13 +965,17 @@ class PlaywrightCrawlerService {
             // Broadcast WebSocket update if service is available
             if (this.websocketService && result.rows.length > 0) {
                 const crawlerRun = result.rows[0];
+                
+                // Debug log to see what we're actually getting from the database
+                console.log(`📊 Crawler progress: ${crawlerRun.project_id} - ${crawlerRun.status} (${crawlerRun.pages_discovered || 0} pages)`);
+                
                 this.websocketService.emitCrawlerProgress(crawlerRun.project_id, {
                     id: crawlerRun.id,
                     crawler_id: crawlerRun.crawler_id,
                     crawler_name: crawlerRun.crawler_name,
                     status: crawlerRun.status,
                     pages_crawled: crawlerRun.pages_crawled || 0,
-                    pages_found: crawlerRun.pages_found || 0,
+                    pages_found: crawlerRun.pages_discovered || 0,  // Fix: Use pages_discovered instead of pages_found
                     current_url: crawlerRun.current_url,
                     started_at: crawlerRun.started_at,
                     completed_at: crawlerRun.completed_at,

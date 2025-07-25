@@ -24,6 +24,7 @@ function dashboard() {
         showDeleteSession: false,
         showDiscoveredPagesModal: false,
         showCrawlerPagesModal: false,
+        showAddManualUrlModal: false,
         showAddAuthConfigModal: false,
         showEditAuthConfigModal: false,
         showChangePassword: false,
@@ -276,7 +277,17 @@ function dashboard() {
             capturedDate: '',
             expirationDate: '',
             pagesCount: 0
-        }
+        },
+        
+        // ===== MANUAL URL FORM =====
+        newManualUrl: '',
+        newManualUrlTitle: '',
+        newManualUrlType: 'content',
+        newManualUrlDepth: 1,
+        newManualUrlRequiresAuth: false,
+        newManualUrlHasForms: false,
+        newManualUrlForTesting: true,
+        addingManualUrl: false
     };
 
     // ===== MERGE WITH ORGANIZED STATE STRUCTURE =====
@@ -624,8 +635,12 @@ function dashboard() {
         // REMOVED: Duplicate method - using complete async version at line 1925
         
         closeCrawlerPagesModal() {
-            this.showCrawlerPagesModal = false;
+            this.ui.modals.showCrawlerPagesModal = false;
             this.selectedCrawlerForPages = null;
+            this.crawlerPages = [];
+            this.filteredCrawlerPages = [];
+            this.crawlerPageSearch = '';
+            this.crawlerPageFilter = '';
             this.syncLegacyState();
         },
         
@@ -1548,6 +1563,13 @@ function dashboard() {
                     project_id: this.data.selectedProject
                 };
                 
+                // Fix base_url format - add https:// if protocol is missing
+                if (crawlerData.base_url && !crawlerData.base_url.match(/^https?:\/\//)) {
+                    crawlerData.base_url = `https://${crawlerData.base_url}`;
+                }
+                
+                console.log('🔍 DEBUG: Creating crawler with data:', JSON.stringify(crawlerData, null, 2));
+                
                 const response = await fetch(`${this.config.apiBaseUrl}/api/web-crawlers/projects/${this.data.selectedProject}/crawlers`, {
                     method: 'POST',
                     headers: this.getAuthHeaders(),
@@ -1562,7 +1584,8 @@ function dashboard() {
                     this.loadWebCrawlers();
                 } else {
                     const error = await response.json();
-                    this.showNotification('error', 'Creation Failed', error.message || 'Failed to create crawler');
+                    console.log('🚨 DEBUG: Backend error response:', error);
+                    this.showNotification('error', 'Creation Failed', error.message || error.error || 'Failed to create crawler');
                 }
             } catch (error) {
                 console.error('Error creating crawler:', error);
@@ -2383,6 +2406,9 @@ function dashboard() {
                     console.log(`📄 Loaded ${this.crawlerPages.length} pages for crawler ${crawler.name}`);
                     console.log('🔍 DEBUG: Raw crawler pages data:', this.crawlerPages.slice(0, 2)); // Show first 2 pages
                     
+                    // Load saved page selections for UI checkboxes
+                    await this.loadCrawlerPageSelections(crawler.id);
+                    
                     this.updateFilteredCrawlerPages();
                     
                     console.log('🔍 DEBUG: Filtered pages count:', this.filteredCrawlerPages.length);
@@ -2459,27 +2485,26 @@ function dashboard() {
             console.log('🔍 DEBUG: updateFilteredCrawlerPages finished, filteredCrawlerPages.length:', this.filteredCrawlerPages.length);
         },
 
-        // Toggle page selection for testing
-        async togglePageTesting(page, testingType) {
-            const field = testingType === 'manual' ? 'selected_for_manual_testing' : 'selected_for_automated_testing';
-            const newValue = !page[field];
+        // Toggle page inclusion in testing sessions
+        async togglePageForTesting(page) {
+            const newValue = !page.selected_for_testing;
 
             try {
                 await this.apiCall(`/web-crawlers/crawler-pages/${page.id}/testing`, {
                     method: 'PUT',
                     body: JSON.stringify({
-                        [field]: newValue
+                        selected_for_testing: newValue
                     })
                 });
 
                 // Update local data
-                page[field] = newValue;
+                page.selected_for_testing = newValue;
                 this.updateFilteredCrawlerPages();
 
                 this.showNotification(
                     'success',
                     'Page Selection Updated',
-                    `Page ${newValue ? 'selected for' : 'deselected from'} ${testingType} testing`
+                    `Page ${newValue ? 'included in' : 'excluded from'} testing sessions`
                 );
 
             } catch (error) {
@@ -2488,8 +2513,8 @@ function dashboard() {
             }
         },
 
-        // Bulk select pages for testing
-        async bulkSelectPagesForTesting(testingType) {
+        // Bulk include pages in testing sessions
+        async bulkIncludePagesInTesting() {
             const selectedPages = this.filteredCrawlerPages.filter(page => page.selected);
             
             if (selectedPages.length === 0) {
@@ -2500,25 +2525,64 @@ function dashboard() {
             try {
                 this.loading = true;
                 const pageIds = selectedPages.map(page => page.id);
-                const field = testingType === 'manual' ? 'selected_for_manual_testing' : 'selected_for_automated_testing';
 
                 await this.apiCall(`/web-crawlers/crawlers/${this.selectedCrawlerForPages.id}/pages/bulk-testing`, {
                     method: 'PUT',
                     body: JSON.stringify({
                         page_ids: pageIds,
-                        [field]: true
+                        selected_for_testing: true
                     })
                 });
 
                 // Update local data
                 selectedPages.forEach(page => {
-                    page[field] = true;
+                    page.selected_for_testing = true;
                 });
 
                 this.showNotification(
                     'success',
                     'Bulk Selection Updated',
-                    `${selectedPages.length} pages selected for ${testingType} testing`
+                    `${selectedPages.length} pages included in testing sessions`
+                );
+
+            } catch (error) {
+                console.error('Failed to bulk update page testing selection:', error);
+                this.showNotification('error', 'Bulk Update Failed', 'Failed to update page selections');
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        // Bulk exclude pages from testing sessions
+        async bulkExcludePagesFromTesting() {
+            const selectedPages = this.filteredCrawlerPages.filter(page => page.selected);
+            
+            if (selectedPages.length === 0) {
+                this.showNotification('warning', 'No Pages Selected', 'Please select pages first');
+                return;
+            }
+
+            try {
+                this.loading = true;
+                const pageIds = selectedPages.map(page => page.id);
+
+                await this.apiCall(`/web-crawlers/crawlers/${this.selectedCrawlerForPages.id}/pages/bulk-testing`, {
+                    method: 'PUT',
+                    body: JSON.stringify({
+                        page_ids: pageIds,
+                        selected_for_testing: false
+                    })
+                });
+
+                // Update local data
+                selectedPages.forEach(page => {
+                    page.selected_for_testing = false;
+                });
+
+                this.showNotification(
+                    'success',
+                    'Bulk Selection Updated',
+                    `${selectedPages.length} pages excluded from testing sessions`
                 );
 
             } catch (error) {
@@ -4065,6 +4129,136 @@ function dashboard() {
             }
         },
         
+        // Add manual URL to crawler
+        async addManualUrl() {
+            if (!this.newManualUrl || !this.selectedCrawlerForPages) {
+                this.showNotification('error', 'Validation Error', 'URL and crawler selection are required');
+                return;
+            }
+
+            this.addingManualUrl = true;
+            
+            try {
+                // Ensure URL has protocol
+                let url = this.newManualUrl.trim();
+                if (!url.match(/^https?:\/\//)) {
+                    url = `https://${url}`;
+                }
+
+                const pageData = {
+                    url: url,
+                    title: this.newManualUrlTitle || null,
+                    page_type: this.newManualUrlType,
+                    depth: this.newManualUrlDepth || 1,
+                    requires_auth: this.newManualUrlRequiresAuth,
+                    has_forms: this.newManualUrlHasForms,
+                    selected_for_testing: this.newManualUrlForTesting,
+                    status_code: 200, // Default for manual entry
+                    discovered_manually: true
+                };
+
+                console.log('🔍 DEBUG: Adding manual URL to crawler:', this.selectedCrawlerForPages.id, pageData);
+
+                const response = await this.apiCall(`/web-crawlers/crawlers/${this.selectedCrawlerForPages.id}/pages`, {
+                    method: 'POST',
+                    body: JSON.stringify(pageData)
+                });
+
+                if (response.success) {
+                    this.showNotification('success', 'URL Added', 'Manual URL added successfully');
+                    
+                    // Add the new page to the current list
+                    const newPage = {
+                        id: response.data.id,
+                        ...pageData,
+                        selected: false
+                    };
+                    this.crawlerPages.push(newPage);
+                    this.updateFilteredCrawlerPages();
+                    
+                    // Reset form and close modal
+                    this.resetManualUrlForm();
+                    this.showAddManualUrlModal = false;
+                    
+                    // Reload page counts to update display
+                    this.loadCrawlerPageCounts(true);
+                } else {
+                    this.showNotification('error', 'Add Failed', response.message || 'Failed to add manual URL');
+                }
+            } catch (error) {
+                console.error('Error adding manual URL:', error);
+                this.showNotification('error', 'Network Error', 'Failed to add manual URL');
+            } finally {
+                this.addingManualUrl = false;
+            }
+        },
+
+        // Reset manual URL form
+        resetManualUrlForm() {
+            this.newManualUrl = '';
+            this.newManualUrlTitle = '';
+            this.newManualUrlType = 'content';
+            this.newManualUrlDepth = 1;
+            this.newManualUrlRequiresAuth = false;
+            this.newManualUrlHasForms = false;
+            this.newManualUrlForTesting = true;
+        },
+
+        // Save UI page selections to persist them across modal reopens
+        async saveCrawlerPageSelections() {
+            if (!this.selectedCrawlerForPages) {
+                return;
+            }
+
+            const selectedPageIds = this.crawlerPages
+                .filter(page => page.selected)
+                .map(page => page.id);
+
+            try {
+                this.loading = true;
+                
+                await this.apiCall(`/web-crawlers/crawlers/${this.selectedCrawlerForPages.id}/page-selections`, {
+                    method: 'PUT',
+                    body: JSON.stringify({
+                        selected_page_ids: selectedPageIds
+                    })
+                });
+
+                this.showNotification(
+                    'success',
+                    'Selections Saved',
+                    `${selectedPageIds.length} pages selected for quick access`
+                );
+
+            } catch (error) {
+                console.error('Failed to save page selections:', error);
+                this.showNotification('error', 'Save Failed', 'Failed to save page selections');
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        // Load saved UI page selections to restore checkbox state
+        async loadCrawlerPageSelections(crawlerId) {
+            try {
+                const response = await this.apiCall(`/web-crawlers/crawlers/${crawlerId}/page-selections`);
+                
+                if (response.success && response.data && response.data.selected_page_ids) {
+                    const selectedIds = new Set(response.data.selected_page_ids);
+                    
+                    // Mark pages as selected in the UI
+                    this.crawlerPages.forEach(page => {
+                        page.selected = selectedIds.has(page.id);
+                    });
+                    
+                    console.log(`🔍 DEBUG: Restored ${selectedIds.size} saved page selections`);
+                }
+                
+            } catch (error) {
+                // Don't show error notifications for loading selections - it's optional
+                console.log('No saved page selections found (this is normal for new crawlers)');
+            }
+        },
 
     };
     

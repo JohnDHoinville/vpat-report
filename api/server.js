@@ -124,7 +124,7 @@ app.get('/health', asyncHandler(async (req, res) => {
             host: process.env.DB_HOST || 'localhost',
             port: process.env.DB_PORT || 5432,
             database: process.env.DB_NAME || 'accessibility_testing',
-            user: process.env.DB_USER || 'postgres',
+            user: process.env.DB_USER || 'johnhoinville',
             password: process.env.DB_PASSWORD || '',
             max: 1,
             connectionTimeoutMillis: 3000
