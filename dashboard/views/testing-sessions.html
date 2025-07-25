@@ -247,6 +247,10 @@
                                             class="px-2 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors text-xs">
                                         <i class="fas fa-copy"></i>
                                     </button>
+                                    <button @click="viewTestGrid(session)" 
+                                            class="px-2 py-1 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors text-xs">
+                                        <i class="fas fa-table mr-1"></i>Test Grid
+                                    </button>
                                     <button @click="deleteSession(session)" 
                                             class="px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700 transition-colors text-xs">
                                         <i class="fas fa-trash"></i>
@@ -256,6 +260,192 @@
                         </div>
                     </div>
                 </template>
+            </div>
+        </div>
+    </div>
+
+    <!-- Test Grid Component -->
+    <div x-show="selectedSession && showTestGrid" class="bg-white rounded-lg shadow">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h3 class="text-lg font-medium text-gray-900 flex items-center">
+                        <i class="fas fa-table mr-2"></i>Test Instance Grid
+                        <span x-show="selectedSession" class="ml-2 text-sm text-gray-600" x-text="selectedSession ? `for ${selectedSession.name}` : ''"></span>
+                    </h3>
+                    <p class="text-sm text-gray-600 mt-1">Manage individual test instances and track progress</p>
+                </div>
+                <div class="flex items-center space-x-3">
+                    <!-- Test Grid Controls -->
+                    <select x-model="testGridFilters.status" @change="applyTestGridFilters()" 
+                            class="px-3 py-1 text-sm border border-gray-300 rounded">
+                        <option value="">All Statuses</option>
+                                                                <option value="pending">Not Started</option>
+                                        <option value="in_progress">In Progress</option>
+                                        <option value="passed">Passed</option>
+                                        <option value="failed">Failed</option>
+                                        <option value="untestable">Untestable</option>
+                                        <option value="not_applicable">Not Applicable</option>
+                    </select>
+                    <select x-model="testGridFilters.level" @change="applyTestGridFilters()" 
+                            class="px-3 py-1 text-sm border border-gray-300 rounded">
+                        <option value="">All Levels</option>
+                        <option value="a">Level A</option>
+                        <option value="aa">Level AA</option>
+                        <option value="aaa">Level AAA</option>
+                    </select>
+                    <button @click="showTestGrid = false" 
+                            class="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50">
+                        <i class="fas fa-times mr-1"></i>Close Grid
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="p-6">
+            <!-- Loading State -->
+            <div x-show="loadingTestInstances" class="text-center py-12">
+                <i class="fas fa-spinner fa-spin text-4xl text-gray-400 mb-4"></i>
+                <p class="text-gray-600">Loading test instances...</p>
+            </div>
+
+            <!-- Test Instances Grid -->
+            <div x-show="!loadingTestInstances && filteredTestInstances.length > 0" class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Requirement
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Level
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Status
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Assigned To
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Last Updated
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Actions
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        <template x-for="instance in filteredTestInstances" :key="instance.id">
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-6 py-4">
+                                    <div class="flex flex-col">
+                                        <div class="text-sm font-medium text-gray-900" x-text="instance.criterion_number"></div>
+                                        <div class="text-sm text-gray-600" x-text="instance.title"></div>
+                                        <div x-show="instance.description" class="text-xs text-gray-500 mt-1" style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;" x-text="instance.description"></div>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4">
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
+                                          :class="getLevelBadgeClass(instance.level)"
+                                          x-text="getLevelDisplay(instance.level)"></span>
+                                </td>
+                                <td class="px-6 py-4">
+                                    <select :value="instance.status" 
+                                            @change="updateTestInstanceStatus(instance.id, $event.target.value)"
+                                            class="text-sm border-0 bg-transparent font-medium"
+                                            :class="getStatusTextClass(instance.status)">
+                                        <option value="pending">Not Started</option>
+                                        <option value="in_progress">In Progress</option>
+                                        <option value="passed">Passed</option>
+                                        <option value="failed">Failed</option>
+                                        <option value="untestable">Untestable</option>
+                                        <option value="not_applicable">Not Applicable</option>
+                                    </select>
+                                </td>
+                                <td class="px-6 py-4">
+                                    <select :value="instance.assigned_tester" 
+                                            @change="assignTester(instance.id, $event.target.value)"
+                                            class="text-sm border border-gray-300 rounded px-2 py-1">
+                                        <option value="">Unassigned</option>
+                                        <template x-for="user in availableTesters" :key="user.id">
+                                            <option :value="user.id" x-text="user.full_name || user.username"></option>
+                                        </template>
+                                    </select>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500">
+                                    <div x-text="formatDate(instance.updated_at)"></div>
+                                    <div x-show="instance.assigned_at" class="text-xs text-gray-400" x-text="`Assigned: ${formatDate(instance.assigned_at)}`"></div>
+                                </td>
+                                <td class="px-6 py-4 text-sm">
+                                    <div class="flex items-center space-x-2">
+                                        <button @click="openTestInstanceModal(instance)" 
+                                                class="px-2 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 transition-colors">
+                                            <i class="fas fa-edit mr-1"></i>Details
+                                        </button>
+                                        <button x-show="instance.status === 'failed'" 
+                                                @click="openEvidenceModal(instance)" 
+                                                class="px-2 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700 transition-colors">
+                                            <i class="fas fa-camera mr-1"></i>Evidence
+                                        </button>
+                                        <button x-show="['passed', 'failed'].includes(instance.status)" 
+                                                @click="generateReport(instance)" 
+                                                class="px-2 py-1 bg-green-600 text-white rounded text-xs hover:bg-green-700 transition-colors">
+                                            <i class="fas fa-file-alt mr-1"></i>Report
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- No Test Instances -->
+            <div x-show="!loadingTestInstances && filteredTestInstances.length === 0" class="text-center py-12">
+                <i class="fas fa-list-check text-6xl text-gray-300 mb-4"></i>
+                <h3 class="text-lg font-medium text-gray-900 mb-2">No Test Instances Found</h3>
+                <p class="text-gray-600 mb-4">
+                    <span x-show="selectedSession && selectedSession.progress?.totalTests === 0">
+                        This session has no test instances. Try creating a new session with requirements.
+                    </span>
+                    <span x-show="selectedSession && selectedSession.progress?.totalTests > 0 && filteredTestInstances.length === 0">
+                        No test instances match your current filters.
+                    </span>
+                </p>
+                <button @click="testGridFilters = { status: '', level: '' }; applyTestGridFilters()" 
+                        class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                    <i class="fas fa-filter mr-2"></i>Clear Filters
+                </button>
+            </div>
+
+            <!-- Grid Summary Stats -->
+            <div x-show="!loadingTestInstances && filteredTestInstances.length > 0" class="mt-6 pt-6 border-t border-gray-200">
+                <div class="grid grid-cols-2 md:grid-cols-6 gap-4">
+                    <div class="bg-gray-50 p-3 rounded text-center">
+                        <p class="text-xs font-medium text-gray-600">Total</p>
+                        <p class="text-lg font-bold text-gray-900" x-text="filteredTestInstances.length"></p>
+                    </div>
+                    <div class="bg-green-50 p-3 rounded text-center">
+                        <p class="text-xs font-medium text-green-600">Passed</p>
+                        <p class="text-lg font-bold text-green-800" x-text="filteredTestInstances.filter(t => t.status === 'passed').length"></p>
+                    </div>
+                    <div class="bg-red-50 p-3 rounded text-center">
+                        <p class="text-xs font-medium text-red-600">Failed</p>
+                        <p class="text-lg font-bold text-red-800" x-text="filteredTestInstances.filter(t => t.status === 'failed').length"></p>
+                    </div>
+                    <div class="bg-yellow-50 p-3 rounded text-center">
+                        <p class="text-xs font-medium text-yellow-600">In Progress</p>
+                        <p class="text-lg font-bold text-yellow-800" x-text="filteredTestInstances.filter(t => t.status === 'in_progress').length"></p>
+                    </div>
+                    <div class="bg-blue-50 p-3 rounded text-center">
+                        <p class="text-xs font-medium text-blue-600">Not Applicable</p>
+                        <p class="text-lg font-bold text-blue-800" x-text="filteredTestInstances.filter(t => t.status === 'not_applicable').length"></p>
+                    </div>
+                    <div class="bg-gray-50 p-3 rounded text-center">
+                        <p class="text-xs font-medium text-gray-600">Not Started</p>
+                        <p class="text-lg font-bold text-gray-800" x-text="filteredTestInstances.filter(t => t.status === 'pending' || t.status === 'not_started').length"></p>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

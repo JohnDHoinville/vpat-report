@@ -79,8 +79,7 @@ router.get('/', authenticateToken, requireRole('admin'), async (req, res) => {
                 last_login,
                 created_at,
                 updated_at,
-                password_changed_at,
-                profile_data
+                password_changed_at
             FROM users 
             ${whereClause}
             ORDER BY ${sortColumn} ${sortOrder}
@@ -176,8 +175,7 @@ router.get('/:id', authenticateToken, requireRole('admin'), async (req, res) => 
                 last_login,
                 created_at,
                 updated_at,
-                password_changed_at,
-                profile_data
+                password_changed_at
             FROM users 
             WHERE id = $1
         `;
@@ -304,7 +302,7 @@ router.post('/', authenticateToken, requireRole('admin'), async (req, res) => {
 router.put('/:id', authenticateToken, requireRole('admin'), async (req, res) => {
     try {
         const { id } = req.params;
-        const { username, email, full_name, role, is_active, profile_data } = req.body;
+        const { username, email, full_name, role, is_active } = req.body;
 
         // Check if user exists
         const existingUser = await pool.query('SELECT id, username, email FROM users WHERE id = $1', [id]);
@@ -366,10 +364,7 @@ router.put('/:id', authenticateToken, requireRole('admin'), async (req, res) => 
             values.push(is_active);
         }
 
-        if (profile_data !== undefined) {
-            updates.push(`profile_data = $${paramCount++}`);
-            values.push(JSON.stringify(profile_data));
-        }
+
 
         if (updates.length === 0) {
             return res.status(400).json({
@@ -384,7 +379,7 @@ router.put('/:id', authenticateToken, requireRole('admin'), async (req, res) => 
         const query = `
             UPDATE users SET ${updates.join(', ')}
             WHERE id = $${paramCount}
-            RETURNING id, username, email, full_name, role, is_active, updated_at, profile_data
+            RETURNING id, username, email, full_name, role, is_active, updated_at
         `;
 
         const result = await pool.query(query, values);
