@@ -50,15 +50,22 @@ function dashboard() {
             primary_url: '',
             compliance_standard: 'WCAG_2_1_AA'
         },
-        authConfigForm: {
-            name: '',
-            auth_type: 'saml',
-            type: 'sso',
-            login_url: '',
-            username: '',
-            password: '',
-            description: ''
-        },
+                        authConfigForm: {
+                    name: '',
+                    type: 'form',
+                    login_url: '',
+                    username: '',
+                    password: '',
+                    description: '',
+                    auth_role: 'default',
+                    priority: 1,
+                    is_default: false,
+                    // Advanced SAML/SSO fields
+                    idp_domain: '',
+                    username_selector: 'input[name="username"]',
+                    password_selector: 'input[type="password"]',
+                    submit_selector: 'button[type="submit"]'
+                },
         newCrawler: {
             name: '',
             description: '',
@@ -131,17 +138,21 @@ function dashboard() {
         projects: [],
         webCrawlers: [],
         authConfigs: [],
+        projectAuthConfigs: [],
         availableUrls: [],
         sessions: [],
         discoveries: [],
         discoveredPages: [],
+        testSessions: [],
         selectedCrawlers: [],
         
         // ===== SELECTION AND REFERENCE OBJECTS =====
         selectedProject: null,
+        currentProject: null, // Full project object for easy access
         selectedDiscovery: null,
         selectedCrawlerForPages: null,
         selectedAuthProject: null,
+        editingAuthConfig: null,
         discoveryToDelete: null,
         projectToDelete: null,
         sessionToDelete: null,
@@ -233,7 +244,7 @@ function dashboard() {
         showAdvancedCrawlerOptions: false,
         
         // Additional legacy properties for template compatibility
-        activeTab: 'discovery',  // Must match ui.activeTab default
+                    activeTab: 'projects',  // Always start with Projects tab
         // All properties now initialized via comprehensive defaults object above
         
         // ===== LIFECYCLE METHODS =====
@@ -291,6 +302,32 @@ function dashboard() {
                 if (key in this.forms) this[key] = this.forms[key];
                 if (key in this.ws && key === 'connected') this.apiConnected = this.ws[key];
             });
+            
+            // Explicitly sync critical auth properties for template compatibility
+            this.isAuthenticated = this.auth.isAuthenticated || false;
+            this.user = this.auth.user || null;
+            this.token = this.auth.token || null;
+            this.showLogin = this.ui.modals.showLogin || false;
+            this.showProfile = this.ui.modals.showProfile || false;
+            this.showChangePassword = this.ui.modals.showChangePassword || false;
+            this.showSessions = this.ui.modals.showSessions || false;
+            this.showAddAuthConfigModal = this.ui.modals.showAddAuthConfigModal || false;
+            this.showEditAuthConfigModal = this.ui.modals.showEditAuthConfigModal || false;
+            
+            // Sync authentication data arrays
+            this.authConfigs = this.data.authConfigs || [];
+            this.projectAuthConfigs = this.data.projectAuthConfigs || [];
+            this.selectedAuthProject = this.data.selectedAuthProject || null;
+            
+            // Sync project selection for application-wide access
+            this.selectedProject = this.data.selectedProject || null;
+            this.currentProject = this.getSelectedProject(); // Always keep object reference updated
+            this.projects = this.data.projects || [];
+            
+            // Sync project-specific data arrays
+            this.discoveries = this.data.discoveries || [];
+            this.testSessions = this.data.testSessions || [];
+            this.webCrawlers = this.data.webCrawlers || [];
             
             // Critical: Ensure nested objects remain properly initialized
             this.ensureNestedObjects();
@@ -380,6 +417,14 @@ function dashboard() {
         getSelectedPagesCount() {
             return this.discoveredPages.filter(page => page.selected).length;
         },
+
+        hasWebCrawlerData() {
+            // Check if current project has web crawler data available
+            return this.data.selectedProject && 
+                   this.data.webCrawlers && 
+                   this.data.webCrawlers.length > 0 &&
+                   this.data.webCrawlers.some(crawler => crawler.status === 'completed');
+        },
         
         getProjectAuthConfigs(projectId) {
             return this.authConfigs.filter(config => config.project_id === projectId);
@@ -390,10 +435,7 @@ function dashboard() {
             return configs.length > 0 ? 'configured' : 'not-configured';
         },
         
-        selectAuthProject(projectId) {
-            this.selectedAuthProject = projectId;
-            this.syncLegacyState();
-        },
+        // REMOVED: Duplicate method - using complete version at line 1887
         
         // ===== SESSION AND CAPTURE METHODS =====
         
@@ -495,11 +537,15 @@ function dashboard() {
             if (!token) {
                 this.auth.isAuthenticated = false;
                 this.ui.modals.showLogin = true;
+                // Set legacy state too
+                this.isAuthenticated = false;
+                this.showLogin = true;
                 return;
             }
             
             this.auth.token = token;
             this.auth.refreshToken = refreshToken;
+            this.token = token; // Set legacy property
             
             try {
                 // Validate token with the session-info endpoint that requires authentication
@@ -512,6 +558,16 @@ function dashboard() {
                     this.auth.isAuthenticated = true;
                     this.auth.user = data.user;
                     this.ui.modals.showLogin = false;
+                    
+                    // Set legacy state
+                    this.isAuthenticated = true;
+                    this.user = data.user;
+                    this.showLogin = false;
+                    
+                    // Initialize profile form
+                    this.profileForm.full_name = data.user.full_name || '';
+                    this.profileForm.email = data.user.email || '';
+                    
                     this.startTokenRefreshTimer();
                     this.initializeWebSocket();
                     await this.loadInitialData();
@@ -526,6 +582,7 @@ function dashboard() {
                 console.error('Authentication check failed:', error);
                 this.clearAuth();
                 this.ui.modals.showLogin = true;
+                this.showLogin = true;
             }
         },
         
@@ -590,61 +647,81 @@ function dashboard() {
             localStorage.removeItem('auth_token');
             localStorage.removeItem('refresh_token');
             
+            // Clear organized state
             this.auth.isAuthenticated = false;
             this.auth.user = null;
             this.auth.token = null;
             this.auth.refreshToken = null;
+            this.ui.modals.showLogin = true;
+            
+            // Clear legacy state for template compatibility
+            this.isAuthenticated = false;
+            this.user = null;
+            this.token = null;
+            this.showLogin = true;
         },
         
         async login() {
-            this.ui.loading = true;
             this.loginError = '';
+            this.loading = true;
             
             try {
                 const response = await fetch(`${this.config.apiBaseUrl}/api/auth/login`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        username: this.loginForm.username,
-                        password: this.loginForm.password
-                    })
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(this.loginForm)
                 });
                 
+                const data = await response.json();
+                
                 if (response.ok) {
-                    const data = await response.json();
-                    
-                    this.auth.token = data.token || data.access_token;
-                    this.auth.refreshToken = data.refresh_token;
+                    // Set organized state first
+                    this.auth.token = data.token;
                     this.auth.user = data.user;
                     this.auth.isAuthenticated = true;
-                    
-                    localStorage.setItem('auth_token', data.token || data.access_token);
-                    localStorage.setItem('refresh_token', data.refresh_token);
-                    
                     this.ui.modals.showLogin = false;
-                    this.startTokenRefreshTimer();
+                    
+                    // Set legacy state for template compatibility
+                    this.token = data.token;
+                    this.user = data.user;
+                    this.isAuthenticated = true;
+                    this.showLogin = false;
+                    
+                    // Store token in localStorage
+                    localStorage.setItem('auth_token', data.token);
+                    
+                    // Initialize profile form
+                    this.profileForm.full_name = data.user.full_name || '';
+                    this.profileForm.email = data.user.email || '';
+                    
+                    // Clear form
+                    this.loginForm.username = '';
+                    this.loginForm.password = '';
+                    
+                    this.showNotification('success', 'Welcome Back', `Welcome back, ${data.user.full_name || data.user.username}!`);
+                    
+                    // ALWAYS GO TO PROJECTS TAB AFTER LOGIN
+                    this.activeTab = 'projects';
+                    
+                    // Initialize WebSocket and load data
                     this.initializeWebSocket();
                     await this.loadInitialData();
-                    
-                    // Sync legacy state to ensure modal closes
-                    this.syncLegacyState();
-                    
-                    this.showNotification('success', 'Login Successful', 'Welcome back!');
                 } else {
-                    const error = await response.json();
-                    this.loginError = error.error || error.message || 'Login failed';
+                    this.loginError = data.error || 'Login failed';
                 }
             } catch (error) {
                 console.error('Login error:', error);
                 this.loginError = 'Network error occurred';
             } finally {
-                this.ui.loading = false;
+                this.loading = false;
             }
         },
         
         logout() {
             this.clearAuth();
-            this.ui.modals.showLogin = true;
+            // clearAuth already sets showLogin = true, but let's be explicit
             this.showNotification('info', 'Logged Out', 'You have been logged out');
         },
         
@@ -654,6 +731,52 @@ function dashboard() {
                 headers['Authorization'] = `Bearer ${this.auth.token}`;
             }
             return headers;
+        },
+
+        // API Helper Function (from stable backup)
+        async apiCall(endpoint, options = {}) {
+            try {
+                const headers = {
+                    'Content-Type': 'application/json',
+                    ...options.headers
+                };
+                
+                // Add auth token if available
+                if (this.token || this.auth.token) {
+                    headers['Authorization'] = `Bearer ${this.token || this.auth.token}`;
+                }
+                
+                const response = await fetch(`${this.config.apiBaseUrl}/api${endpoint}`, {
+                    headers,
+                    ...options
+                });
+                
+                // Handle auth errors
+                if (response.status === 401) {
+                    this.handleAuthError();
+                    throw new Error('Authentication required');
+                }
+                
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.error || `API Error: ${response.status} ${response.statusText}`);
+                }
+                
+                return await response.json();
+            } catch (error) {
+                console.error(`API Call Failed [${endpoint}]:`, error);
+                if (error.message !== 'Authentication required') {
+                    this.showNotification('error', 'API Error', 'API call failed: ' + error.message);
+                }
+                throw error;
+            }
+        },
+
+        handleAuthError() {
+            console.log('Authentication error - clearing auth state');
+            this.clearAuth();
+            this.showLogin = true;
+            this.ui.modals.showLogin = true;
         },
         
         // ===== API CONNECTION =====
@@ -788,6 +911,23 @@ function dashboard() {
                 this.loadProjects(),
                 this.loadAuthConfigs()
             ]);
+            
+            // Restore previously selected project from localStorage
+            this.restoreSelectedProject();
+        },
+        
+        restoreSelectedProject() {
+            const savedProjectId = localStorage.getItem('selectedProjectId');
+            if (savedProjectId && this.data.projects.length > 0) {
+                const project = this.data.projects.find(p => p.id === savedProjectId);
+                if (project) {
+                    console.log('🔄 Restoring previously selected project:', project.name);
+                    this.selectProject(savedProjectId);
+                } else {
+                    // Clean up invalid saved project ID
+                    localStorage.removeItem('selectedProjectId');
+                }
+            }
         },
         
         async loadProjects() {
@@ -808,23 +948,7 @@ function dashboard() {
             }
         },
         
-        async loadAuthConfigs() {
-            try {
-                const response = await fetch(`${this.config.apiBaseUrl}/api/auth/auth-configs`, {
-                    headers: this.getAuthHeaders()
-                });
-                
-                if (response.ok) {
-                    const result = await response.json();
-                    this.data.authConfigs = result.data || result;
-                    this.authConfigs = this.data.authConfigs; // Legacy sync
-                } else {
-                    console.error('Failed to load auth configs:', response.status);
-                }
-            } catch (error) {
-                console.error('Error loading auth configs:', error);
-            }
-        },
+
         
         async loadWebCrawlers() {
             if (!this.data.selectedProject) return;
@@ -858,14 +982,39 @@ function dashboard() {
             return this.data.projects.find(p => p.id === this.data.selectedProject) || null;
         },
         
-        selectProject(projectId) {
-            this.data.selectedProject = projectId;
-            this.selectedProject = projectId; // Legacy sync
-            this.loadWebCrawlers();
+        // PROJECT SELECTION - Unified method for consistent state management
+        selectProject(projectOrId) {
+            // Handle both project object and project ID
+            const projectId = typeof projectOrId === 'string' ? projectOrId : projectOrId?.id;
+            const projectObj = typeof projectOrId === 'object' ? projectOrId : this.projects.find(p => p.id === projectId);
             
+            if (!projectId || !projectObj) {
+                console.warn('Invalid project selection:', projectOrId);
+                return;
+            }
+            
+            // Store ID in organized state (consistent approach)
+            this.data.selectedProject = projectId;
+            
+            // Sync to legacy state for template compatibility
+            this.selectedProject = projectId;
+            this.currentProject = projectObj; // For easy object access
+            
+            console.log(`📂 Selected project: ${projectObj.name} (${projectId})`);
+            
+            // Join WebSocket room for this project
             if (this.ws.socket && this.ws.connected) {
                 this.ws.socket.emit('join_project', { projectId });
             }
+            
+            // Load project-specific data for all tabs
+            this.loadProjectData();
+            
+            // Sync legacy state to ensure all tabs can access selected project
+            this.syncLegacyState();
+            
+            // Store selection in localStorage for persistence
+            localStorage.setItem('selectedProjectId', projectId);
         },
         
         async createProject() {
@@ -900,23 +1049,56 @@ function dashboard() {
             } finally {
                 this.loading = false;
             }
+                },
+        
+        clearProjectSelection() {
+            // Clear all project selection state
+            this.data.selectedProject = null;
+            this.selectedProject = null;
+            this.currentProject = null;
+            
+            // Clear project-specific data
+            this.data.webCrawlers = [];
+            this.data.discoveries = [];
+            this.data.testSessions = [];
+            this.data.projectAuthConfigs = [];
+            
+            // Sync to legacy state
+            this.webCrawlers = [];
+            this.discoveries = [];
+            this.testSessions = [];
+            this.projectAuthConfigs = [];
+            
+            // Clear localStorage
+            localStorage.removeItem('selectedProjectId');
+            
+            // Sync legacy state
+            this.syncLegacyState();
+            
+            console.log('🗑️ Cleared project selection');
         },
-
-        selectProject(project) {
-            this.selectedProject = project;
-            console.log(`📂 Selected project: ${project.name}`);
+        
+        // UNIFIED PROJECT DATA LOADING - Called when project is selected
+        async loadProjectData() {
+            if (!this.data.selectedProject) return;
             
-            // Join WebSocket room for this project
-            if (this.ws.socket && this.ws.connected) {
-                this.ws.socket.emit('join_project', project.id);
+            try {
+                // Load all project-specific data in parallel for better performance
+                await Promise.all([
+                    this.loadWebCrawlers(),           // For Web Crawler tab
+                    this.loadProjectDiscoveries(),    // For Discovery tab
+                    this.loadProjectTestSessions(),   // For Testing Sessions tab
+                    this.loadProjectAuthConfigs()     // For Authentication tab
+                ]);
+                
+                // Load additional data that might depend on the above
+                this.loadSelectedDiscoveries();
+                
+                console.log(`✅ Loaded all data for project: ${this.getSelectedProject()?.name}`);
+            } catch (error) {
+                console.error('Error loading project data:', error);
+                this.showNotification('error', 'Error', 'Failed to load some project data');
             }
-            
-            this.loadProjectDiscoveries();
-            this.loadProjectTestSessions();
-            this.loadProjectAuthConfigs();
-            this.loadSelectedDiscoveries();
-            // Switch to discovery tab after selection
-            this.activeTab = 'discovery';
         },
 
         editProject(project) {
@@ -938,13 +1120,12 @@ function dashboard() {
                 });
                 
                 // Remove from projects list
-                this.projects = this.projects.filter(p => p.id !== this.projectToDelete.id);
+                this.data.projects = this.data.projects.filter(p => p.id !== this.projectToDelete.id);
+                this.projects = this.data.projects; // Sync legacy state
                 
                 // Clear selection if the deleted project was selected
-                if (this.selectedProject && this.selectedProject.id === this.projectToDelete.id) {
-                    this.selectedProject = null;
-                    this.discoveries = [];
-                    this.testSessions = [];
+                if (this.data.selectedProject === this.projectToDelete.id) {
+                    this.clearProjectSelection();
                 }
                 
                 this.showDeleteProject = false;
@@ -1119,6 +1300,15 @@ function dashboard() {
             this.syncLegacyState();
         },
 
+        // Authentication tab loading method (missing method from navigation)
+        async loadAuthenticationView() {
+            console.log('🔐 Loading Authentication view');
+            if (this.data.selectedProject) {
+                // Auto-select the current project for authentication
+                await this.selectAuthProject(this.data.selectedProject);
+            }
+        },
+
         showNotification(type, title, message) {
             this.notification = {
                 show: true,
@@ -1145,10 +1335,103 @@ function dashboard() {
             return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
         },
 
-        // ===== PLACEHOLDER METHODS FOR TEMPLATE COMPATIBILITY =====
+        // ===== PROFILE METHODS =====
         
-        refreshSessionInfo() { /* TODO: Implement */ },
-        changePassword() { /* TODO: Implement */ },
+        async updateProfile() {
+            this.loading = true;
+            
+            try {
+                const data = await this.apiCall('/auth/profile', {
+                    method: 'PUT',
+                    body: JSON.stringify(this.profileForm)
+                });
+                
+                this.user = data.user;
+                this.auth.user = data.user; // Update organized state too
+                this.showProfile = false;
+                this.ui.modals.showProfile = false;
+                this.showNotification('success', 'Profile Updated', 'Profile updated successfully!');
+                
+            } catch (error) {
+                console.error('Profile update error:', error);
+                this.showNotification('error', 'Update Failed', error.message || 'Failed to update profile');
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        async changePassword() {
+            this.passwordError = '';
+            
+            if (this.passwordForm.new_password !== this.passwordForm.confirm_password) {
+                this.passwordError = 'New passwords do not match';
+                return;
+            }
+            
+            if (this.passwordForm.new_password.length < 8) {
+                this.passwordError = 'New password must be at least 8 characters long';
+                return;
+            }
+            
+            this.loading = true;
+            
+            try {
+                await this.apiCall('/auth/change-password', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        current_password: this.passwordForm.current_password,
+                        new_password: this.passwordForm.new_password
+                    })
+                });
+                
+                this.showChangePassword = false;
+                this.ui.modals.showChangePassword = false;
+                this.passwordForm = { current_password: '', new_password: '', confirm_password: '' };
+                this.showNotification('success', 'Password Changed', 'Password changed successfully!');
+                
+            } catch (error) {
+                this.passwordError = error.message || 'Failed to change password';
+                console.error('Password change error:', error);
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        async loadSessions() {
+            try {
+                const data = await this.apiCall('/auth/sessions');
+                this.sessions = data.sessions || [];
+            } catch (error) {
+                console.error('Failed to load sessions:', error);
+                this.sessions = [];
+            }
+        },
+        
+        async revokeSession(sessionId) {
+            try {
+                await this.apiCall(`/auth/sessions/${sessionId}`, {
+                    method: 'DELETE'
+                });
+                
+                this.sessions = this.sessions.filter(s => s.id !== sessionId);
+                this.showNotification('success', 'Session Revoked', 'Session revoked successfully');
+                
+            } catch (error) {
+                console.error('Failed to revoke session:', error);
+                this.showNotification('error', 'Revoke Failed', 'Failed to revoke session');
+            }
+        },
+        
+        async openSessionsModal() {
+            this.showSessions = true;
+            this.ui.modals.showSessions = true;
+            await this.loadSessions();
+        },
+
+        refreshSessionInfo() { 
+            // Refresh the current session info
+            this.checkAuthentication();
+        },
         cancelDeleteProject() { this.showDeleteProject = false; this.syncLegacyState(); },
         cancelDeleteDiscovery() { this.showDeleteDiscovery = false; this.syncLegacyState(); },
         cancelDeleteSession() { this.showDeleteSession = false; this.syncLegacyState(); },
@@ -1615,80 +1898,285 @@ function dashboard() {
         
         async selectAuthProject(projectId) {
             this.selectedAuthProject = projectId;
+            this.data.selectedAuthProject = projectId; // Organized state
             await this.loadProjectAuthConfigs();
         },
 
-        async loadProjectAuthConfigs() {
-            if (!this.selectedAuthProject) return;
-            
+        async loadAuthConfigs() {
             try {
-                const response = await fetch(`${this.config.apiBaseUrl}/api/projects/${this.selectedAuthProject}/auth-configs`, {
-                    headers: this.getAuthHeaders()
-                });
+                console.log('🔐 Loading authentication configurations...');
+                const response = await this.apiCall('/auth/configs');
+                this.authConfigs = response.data || [];
+                this.data.authConfigs = this.authConfigs; // Sync organized state
+                console.log('🔐 Auth configs loaded:', this.authConfigs.length);
                 
-                if (response.ok) {
-                    const data = await response.json();
-                    this.projectAuthConfigs = data.auth_configs || [];
+                // Filter for current project if one is selected
+                if (this.data.selectedAuthProject) {
+                    await this.loadProjectAuthConfigs();
                 } else {
-                    console.error('Failed to load project auth configs');
+                    this.data.projectAuthConfigs = this.data.authConfigs;
+                    this.projectAuthConfigs = this.data.projectAuthConfigs; // Legacy sync
                 }
             } catch (error) {
-                console.error('Error loading project auth configs:', error);
+                console.error('Failed to load auth configs:', error);
+                this.authConfigs = [];
+                this.projectAuthConfigs = [];
+            }
+        },
+
+        // REMOVED: Duplicate loadProjectAuthConfigs method - using enhanced version with filtering below
+
+        async loadProjectAuthConfigs() {
+            if (!this.data.selectedAuthProject || !this.getSelectedProject()?.primary_url) {
+                console.log('🔐 No project or project URL, showing all auth configs');
+                this.data.projectAuthConfigs = this.data.authConfigs || [];
+                this.projectAuthConfigs = this.data.projectAuthConfigs; // Legacy sync
+                return;
+            }
+
+            try {
+                // Extract domain from project's primary URL
+                const projectUrl = new URL(this.getSelectedProject().primary_url);
+                const projectDomain = projectUrl.hostname;
+                console.log(`🔐 Filtering auth configs for project domain: ${projectDomain}`);
+                
+                // Filter auth configs that match the project domain
+                const matchingConfigs = this.authConfigs.filter(config => {
+                    const domainMatch = config.domain === projectDomain;
+                    
+                    let urlMatch = false;
+                    if (config.url) {
+                        try {
+                            const configUrl = new URL(config.url);
+                            urlMatch = configUrl.hostname === projectDomain;
+                        } catch (error) {
+                            urlMatch = config.url.includes(projectDomain);
+                        }
+                    }
+                    
+                    return domainMatch || urlMatch;
+                });
+
+                // If no project-specific configs found, show all configs for easier management (stable backup pattern)
+                if (matchingConfigs.length === 0) {
+                    console.log(`🔐 No matching configs for ${projectDomain}, showing all ${this.authConfigs.length} configs for easier management`);
+                    this.projectAuthConfigs = this.authConfigs;
+                } else {
+                    console.log(`🔐 Found ${matchingConfigs.length} matching configs for project domain: ${projectDomain}`);
+                    this.projectAuthConfigs = matchingConfigs;
+                }
+                
+                // Sync to organized state
+                this.data.projectAuthConfigs = this.projectAuthConfigs;
+            } catch (error) {
+                console.error('Error filtering auth configs:', error);
+                this.projectAuthConfigs = this.authConfigs;
             }
         },
 
         async testAuthConfig(config) {
             try {
-                const response = await fetch(`${this.config.apiBaseUrl}/api/auth/test-config/${config.id}`, {
-                    method: 'POST',
-                    headers: this.getAuthHeaders()
+                config.status = 'testing';
+                this.showNotification('info', 'Testing Authentication', `Testing authentication for ${config.domain || config.name}...`);
+
+                const response = await this.apiCall(`/auth/configs/${config.id}/test`, {
+                    method: 'POST'
                 });
-                
-                if (response.ok) {
-                    const result = await response.json();
-                    this.showNotification('success', 'Auth Test Successful', `Authentication working: ${result.message}`);
+
+                if (response.success) {
+                    config.status = 'active';
+                    config.last_used = new Date().toISOString();
+                    this.showNotification('success', 'Test Successful', `Authentication test successful for ${config.domain || config.name}`);
                 } else {
-                    const error = await response.json();
-                    this.showNotification('error', 'Auth Test Failed', error.message || 'Authentication test failed');
+                    config.status = 'failed';
+                    this.showNotification('error', 'Test Failed', `Authentication test failed for ${config.domain || config.name}`);
                 }
             } catch (error) {
-                console.error('Error testing auth config:', error);
-                this.showNotification('error', 'Network Error', 'Failed to test authentication');
+                config.status = 'failed';
+                this.showNotification('error', 'Test Error', `Authentication test error: ${error.message}`);
             }
         },
 
         async editAuthConfig(config) {
-            this.authConfigForm = { ...config };
+            // Populate the form with ALL existing data including SAML selectors
+            this.authConfigForm = {
+                name: config.name || config.domain || '',
+                type: config.type || 'form',
+                login_url: config.login_url || config.url || '',
+                username: config.username || '',
+                password: '', // Don't pre-fill password for security
+                description: config.description || config.auth_description || '',
+                auth_role: config.auth_role || 'default',
+                priority: config.priority || 1,
+                is_default: config.is_default || false,
+                // Advanced SAML/SSO fields (from existing config or defaults)
+                idp_domain: config.idp_domain || '',
+                username_selector: config.username_selector || 'input[name="username"]',
+                password_selector: config.password_selector || 'input[type="password"]',
+                submit_selector: config.submit_selector || 'button[type="submit"]'
+            };
+            
+            this.editingAuthConfig = config;
             this.showEditAuthConfigModal = true;
+            this.ui.modals.showEditAuthConfigModal = true; // Sync organized state
+        },
+
+        async createAuthConfig() {
+            try {
+                this.loading = true;
+                
+                if (!this.selectedAuthProject) {
+                    this.showNotification('error', 'No Project', 'Please select a project first');
+                    return;
+                }
+
+                // Create the auth config with advanced SAML fields
+                const authConfigData = {
+                    name: this.authConfigForm.name,
+                    type: this.authConfigForm.type,
+                    domain: this.extractDomainFromUrl(this.authConfigForm.login_url),
+                    url: this.authConfigForm.login_url,
+                    username: this.authConfigForm.username,
+                    password: this.authConfigForm.password,
+                    login_page: this.authConfigForm.login_url,
+                    project_id: this.selectedAuthProject,
+                    auth_role: this.authConfigForm.auth_role || 'default',
+                    auth_description: this.authConfigForm.description,
+                    priority: this.authConfigForm.priority || 1,
+                    is_default: this.authConfigForm.is_default || false,
+                    // Advanced SAML/SSO configuration
+                    idp_domain: this.authConfigForm.idp_domain || '',
+                    username_selector: this.authConfigForm.username_selector || 'input[name="username"]',
+                    password_selector: this.authConfigForm.password_selector || 'input[type="password"]',
+                    submit_selector: this.authConfigForm.submit_selector || 'button[type="submit"]'
+                };
+
+                const response = await this.apiCall('/auth/configs', {
+                    method: 'POST',
+                    body: JSON.stringify(authConfigData)
+                });
+
+                if (response.success) {
+                    this.closeAuthConfigModal();
+                    await this.loadAuthConfigs(); // Refresh configs
+                    await this.loadProjectAuthConfigs(); // Refresh project configs
+                    this.showNotification('success', 'Config Created', 'Authentication configuration created successfully');
+                } else {
+                    throw new Error(response.message || 'Failed to create authentication configuration');
+                }
+            } catch (error) {
+                console.error('Failed to create auth config:', error);
+                this.showNotification('error', 'Creation Failed', error.message || 'Failed to create authentication configuration');
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        async updateAuthConfig() {
+            try {
+                if (!this.editingAuthConfig) return;
+
+                this.loading = true;
+                
+                // Prepare the update data with advanced SAML fields
+                const updateData = {
+                    name: this.authConfigForm.name,
+                    domain: this.extractDomainFromUrl(this.authConfigForm.login_url),
+                    url: this.authConfigForm.login_url,
+                    type: this.authConfigForm.type,
+                    username: this.authConfigForm.username,
+                    password: this.authConfigForm.password, // Will be empty if not changed
+                    login_page: this.authConfigForm.login_url,
+                    auth_role: this.authConfigForm.auth_role,
+                    auth_description: this.authConfigForm.description,
+                    priority: this.authConfigForm.priority,
+                    is_default: this.authConfigForm.is_default,
+                    // Advanced SAML/SSO configuration
+                    idp_domain: this.authConfigForm.idp_domain || '',
+                    username_selector: this.authConfigForm.username_selector || 'input[name="username"]',
+                    password_selector: this.authConfigForm.password_selector || 'input[type="password"]',
+                    submit_selector: this.authConfigForm.submit_selector || 'button[type="submit"]'
+                };
+                
+                const response = await this.apiCall(`/auth/configs/${this.editingAuthConfig.id}`, {
+                    method: 'PUT',
+                    body: JSON.stringify(updateData)
+                });
+
+                if (response.success) {
+                    // Update the config in the local array
+                    const index = this.authConfigs.findIndex(c => c.id === this.editingAuthConfig.id);
+                    if (index !== -1) {
+                        this.authConfigs[index] = { ...this.authConfigs[index], ...response.data };
+                    }
+
+                    this.closeAuthConfigModal();
+                    await this.loadAuthConfigs(); // Refresh configs
+                    await this.loadProjectAuthConfigs(); // Refresh project configs
+                    this.showNotification('success', 'Config Updated', 'Authentication configuration updated successfully');
+                } else {
+                    throw new Error(response.message || 'Failed to update authentication configuration');
+                }
+            } catch (error) {
+                console.error('Failed to update auth config:', error);
+                this.showNotification('error', 'Update Failed', error.message || 'Failed to update authentication configuration');
+            } finally {
+                this.loading = false;
+            }
         },
 
         async deleteAuthConfig(config) {
-            if (!confirm(`Are you sure you want to delete the authentication config for ${config.name}?`)) {
+            if (!confirm(`Are you sure you want to delete the "${config.name || config.auth_role}" authentication configuration?`)) {
                 return;
             }
-            
+
             try {
-                const response = await fetch(`${this.config.apiBaseUrl}/api/auth/configs/${config.id}`, {
-                    method: 'DELETE',
-                    headers: this.getAuthHeaders()
+                const response = await this.apiCall(`/auth/configs/${config.id}`, {
+                    method: 'DELETE'
                 });
-                
-                if (response.ok) {
-                    await this.loadProjectAuthConfigs();
-                    this.showNotification('success', 'Auth Config Deleted', 'Authentication configuration has been deleted');
+
+                if (response.success) {
+                    // Remove from local arrays
+                    this.authConfigs = this.authConfigs.filter(c => c.id !== config.id);
+                    this.projectAuthConfigs = this.projectAuthConfigs.filter(c => c.id !== config.id);
+                    
+                    this.showNotification('success', 'Config Deleted', `Authentication configuration "${config.name || config.auth_role}" deleted successfully`);
                 } else {
-                    this.showNotification('error', 'Delete Failed', 'Failed to delete authentication config');
+                    throw new Error(response.message || 'Failed to delete configuration');
                 }
             } catch (error) {
-                console.error('Error deleting auth config:', error);
-                this.showNotification('error', 'Network Error', 'Failed to delete authentication config');
+                console.error('Failed to delete auth config:', error);
+                this.showNotification('error', 'Delete Failed', error.message || 'Failed to delete authentication configuration');
+            }
+        },
+
+        extractDomainFromUrl(url) {
+            try {
+                return new URL(url).hostname;
+            } catch (error) {
+                // If URL parsing fails, try to extract domain manually
+                const match = url.match(/^https?:\/\/([^\/]+)/);
+                return match ? match[1] : url;
             }
         },
 
         closeAuthConfigModal() {
             this.showAddAuthConfigModal = false;
             this.showEditAuthConfigModal = false;
-            this.authConfigForm = {};
+            this.ui.modals.showAddAuthConfigModal = false; // Sync organized state
+            this.ui.modals.showEditAuthConfigModal = false; // Sync organized state
+            this.editingAuthConfig = null;
+            this.authConfigForm = {
+                name: '',
+                type: 'form',
+                login_url: '',
+                username: '',
+                password: '',
+                description: '',
+                auth_role: 'default',
+                priority: 1,
+                is_default: false
+            };
         },
 
         // ===== UTILITY METHODS =====
@@ -2029,13 +2517,42 @@ function dashboard() {
             this.showViolationDetailsModal = true;
         },
 
+        // Authentication helper methods (from stable backup)
+        getAvailableAuthConfigs() {
+            return this.data.projectAuthConfigs.filter(config => config.auth_config_id || config.id);
+        },
+
+        getAuthConfigDisplayName(config) {
+            if (!config) return 'No Authentication';
+            return `${config.name || config.auth_config_name} (${config.auth_role || config.type})`;
+        },
+
+        getActiveAuthCount() {
+            return this.data.projectAuthConfigs.filter(config => config.status === 'active').length;
+        },
+
+        getPendingAuthCount() {
+            return this.data.projectAuthConfigs.filter(config => config.status === 'pending' || config.status === 'testing').length;
+        },
+
+        getFailedAuthCount() {
+            return this.data.projectAuthConfigs.filter(config => config.status === 'failed' || config.status === 'error').length;
+        },
+
+        async refreshAuthConfigs() {
+            // Refresh both global and project-specific auth configs
+            await this.loadAuthConfigs(); // This calls loadProjectAuthConfigs internally
+            this.showNotification('success', 'Refreshed', 'Authentication configurations refreshed');
+        },
+
         // Project-related loading methods (transferred from stable version)
         async loadProjectDiscoveries() {
-            if (!this.selectedProject) return;
+            if (!this.data.selectedProject) return;
             
             try {
-                const data = await this.apiCall(`/projects/${this.selectedProject.id}/discoveries`);
-                this.discoveries = data.data || [];
+                const data = await this.apiCall(`/projects/${this.data.selectedProject}/discoveries`);
+                this.data.discoveries = data.data || [];
+                this.discoveries = this.data.discoveries; // Sync legacy state
                 console.log(`🔍 Loaded ${this.discoveries.length} discoveries for project`);
                 
                 // Check for pending discoveries and offer recovery
@@ -2056,11 +2573,12 @@ function dashboard() {
         },
 
         async loadProjectTestSessions() {
-            if (!this.selectedProject) return;
+            if (!this.data.selectedProject) return;
             
             try {
-                const data = await this.apiCall(`/sessions?project_id=${this.selectedProject.id}`);
-                this.testSessions = data.data || [];
+                const data = await this.apiCall(`/sessions?project_id=${this.data.selectedProject}`);
+                this.data.testSessions = data.data || [];
+                this.testSessions = this.data.testSessions; // Sync legacy state
                 console.log(`🧪 Loaded ${this.testSessions.length} test sessions for project`);
             } catch (error) {
                 console.error('Failed to load test sessions:', error);
@@ -2068,11 +2586,33 @@ function dashboard() {
         },
 
         loadSelectedDiscoveries() {
-            if (!this.selectedProject) return;
-            const key = `selectedDiscoveries_${this.selectedProject.id}`;
+            if (!this.data.selectedProject) return;
+            const key = `selectedDiscoveries_${this.data.selectedProject}`;
             const saved = localStorage.getItem(key);
             this.selectedDiscoveries = saved ? JSON.parse(saved) : [];
-        }
+        },
+
+        // Authentication methods (transferred from stable version)
+        async logout() {
+            try {
+                if (this.token) {
+                    await fetch(`${this.config.apiBaseUrl}/auth/logout`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${this.token}`,
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                }
+            } catch (error) {
+                console.error('Logout error:', error);
+            } finally {
+                this.clearAuth();
+                this.showNotification('info', 'Logged Out', 'Logged out successfully');
+            }
+        },
+
+
     };
     
     // 🛡️ Mark as initialized and store instance

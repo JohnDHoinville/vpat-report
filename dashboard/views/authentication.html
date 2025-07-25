@@ -121,18 +121,18 @@
             <i class="fas fa-link mr-2"></i>Integration Status
         </h3>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <!-- Site Discovery Integration -->
+            <!-- Web Crawler Integration -->
             <div class="border border-gray-200 rounded-lg p-4">
                 <div class="flex items-center justify-between mb-3">
-                    <h4 class="font-medium text-gray-900">Site Discovery</h4>
+                    <h4 class="font-medium text-gray-900">Web Crawler</h4>
                     <span class="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">Ready</span>
-                            </div>
+                </div>
                 <p class="text-sm text-gray-600 mb-3">Authenticated crawling enabled for comprehensive page discovery</p>
-                <button @click="activeTab = 'discovery'; selectedProject = selectedAuthProject" 
+                <button @click="activeTab = 'web-crawler'; selectProject(selectedAuthProject)" 
                         class="w-full px-3 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors">
-                    <i class="fas fa-search mr-2"></i>Start Authenticated Discovery
+                    <i class="fas fa-spider mr-2"></i>Start Web Crawler
                 </button>
-                                </div>
+            </div>
 
             <!-- Compliance Sessions Integration -->
             <div class="border border-gray-200 rounded-lg p-4">
@@ -195,8 +195,8 @@
                                placeholder="https://example.com/login">
                     </div>
 
-                <!-- Credentials -->
-                <div class="mb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Basic Credentials (for form-based auth) -->
+                <div x-show="authConfigForm.type === 'form'" class="mb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">Username/Email</label>
                         <input x-model="authConfigForm.username" type="text"
@@ -210,6 +210,66 @@
                                        autocomplete="new-password"
                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                                        placeholder="password or token">
+                    </div>
+                </div>
+
+                <!-- Advanced SAML/SSO Configuration -->
+                <div x-show="authConfigForm.type === 'sso'" class="mb-4 space-y-4">
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <h4 class="font-medium text-blue-900 mb-2">SAML/SSO Advanced Configuration</h4>
+                        <p class="text-sm text-blue-700">Configure selectors to locate login form elements for automated authentication</p>
+                    </div>
+
+                    <!-- IDP Domain -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Identity Provider Domain</label>
+                        <input x-model="authConfigForm.idp_domain" type="text"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                               placeholder="sso.university.edu">
+                        <p class="text-xs text-gray-500 mt-1">The domain of your SAML identity provider</p>
+                    </div>
+
+                    <!-- Selector Configuration -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Username Field Selector</label>
+                            <input x-model="authConfigForm.username_selector" type="text"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                   placeholder='input[name="username"]'>
+                            <p class="text-xs text-gray-500 mt-1">CSS selector for username field</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Password Field Selector</label>
+                            <input x-model="authConfigForm.password_selector" type="text"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                   placeholder='input[type="password"]'>
+                            <p class="text-xs text-gray-500 mt-1">CSS selector for password field</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Submit Button Selector</label>
+                            <input x-model="authConfigForm.submit_selector" type="text"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                   placeholder='button[type="submit"]'>
+                            <p class="text-xs text-gray-500 mt-1">CSS selector for login button</p>
+                        </div>
+                    </div>
+
+                    <!-- SAML Credentials -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Username/Email</label>
+                            <input x-model="authConfigForm.username" type="text"
+                                   autocomplete="username"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                   placeholder="your-institutional-username">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                            <input x-model="authConfigForm.password" type="password"
+                                   autocomplete="new-password"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                   placeholder="your-institutional-password">
+                        </div>
                     </div>
                 </div>
 

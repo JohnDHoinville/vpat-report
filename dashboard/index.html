@@ -91,97 +91,51 @@
             <div id="view-content">
                 <!-- Views will be loaded here dynamically -->
                 <div x-show="activeTab === 'projects'" x-transition>
-                    <div class="space-y-6">
-                        <!-- Projects Header -->
-                        <div class="bg-white rounded-lg shadow p-6">
-                            <div class="flex justify-between items-center">
-                                <div>
-                                    <h2 class="text-2xl font-bold text-gray-900">Projects</h2>
-                                    <p class="mt-2 text-gray-600">Manage your accessibility testing projects</p>
-                                </div>
-                                <button @click="showCreateProjectModal = true" 
-                                        class="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors">
-                                    <i class="fas fa-plus mr-2"></i>New Project
-                                </button>
-                            </div>
-                        </div>
-
-                        <!-- Projects List -->
-                        <div class="bg-white rounded-lg shadow">
-                            <div class="px-6 py-4 border-b border-gray-200">
-                                <h3 class="text-lg font-medium text-gray-900">Recent Projects</h3>
-                            </div>
-                            <div class="p-6">
-                                <div x-show="projects.length === 0" class="text-center py-12">
-                                    <i class="fas fa-folder-open text-6xl text-gray-300 mb-4"></i>
-                                    <h3 class="text-lg font-medium text-gray-900 mb-2">No projects yet</h3>
-                                    <p class="text-gray-600 mb-4">Create your first project to get started with accessibility testing.</p>
-                                    <button @click="showCreateProjectModal = true" 
-                                            class="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors">
-                                        <i class="fas fa-plus mr-2"></i>Create Project
-                                    </button>
-                                </div>
-
-                                <div x-show="projects.length > 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                    <template x-for="project in projects" :key="project.id">
-                                        <div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                                            <div class="flex items-start justify-between">
-                                                <div class="flex-1">
-                                                    <h4 class="font-medium text-gray-900" x-text="project.name"></h4>
-                                                    <p class="text-sm text-gray-600 mt-1" x-text="project.description"></p>
-                                                    <div class="flex items-center mt-3 text-xs text-gray-500">
-                                                        <i class="fas fa-calendar mr-1"></i>
-                                                        <span x-text="project.created_at ? new Date(project.created_at).toLocaleDateString() : 'Unknown'"></span>
-                                                    </div>
-                                                </div>
-                                                <div class="ml-3">
-                                                    <button @click="selectProject(project.id)" 
-                                                            class="text-blue-600 hover:text-blue-800 text-sm font-medium">
-                                                        Select
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </template>
-                                </div>
-                            </div>
-                        </div>
+                    <div id="projects-view-content">
+                        <!-- Projects content will be dynamically loaded here -->
                     </div>
                 </div>
                 
                 <div x-show="activeTab === 'authentication'" x-transition>
-                    <div id="authentication-view-content"></div>
+                    <div id="authentication-view-content">
+                        <!-- Authentication content will be dynamically loaded here -->
+                    </div>
                 </div>
                 
-                <div x-show="activeTab === 'discovery'" x-transition>
-                    <div id="discovery-view-content"></div>
-                </div>
-                
+
                 <div x-show="activeTab === 'testing-sessions'" x-transition>
-                    <div id="testing-sessions-view-content"></div>
+                    <div id="testing-sessions-view-content">
+                        <!-- Testing Sessions content will be dynamically loaded here -->
+                    </div>
                 </div>
                 
                 <div x-show="activeTab === 'testing'" x-transition>
-                    <div id="testing-view-content"></div>
+                    <div id="testing-view-content">
+                        <!-- Automated Testing content will be dynamically loaded here -->
+                    </div>
                 </div>
                 
                 <div x-show="activeTab === 'web-crawler'" x-transition>
-                    <div id="web-crawler-view-content"></div>
+                    <div id="web-crawler-view-content">
+                        <!-- Web Crawler content will be dynamically loaded here -->
+                    </div>
                 </div>
                 
                 <div x-show="activeTab === 'manual-testing'" x-transition>
-                    <div id="manual-testing-view-content"></div>
+                    <div id="manual-testing-view-content">
+                        <!-- Manual Testing content will be dynamically loaded here -->
+                    </div>
                 </div>
                 
                 <div x-show="activeTab === 'results'" x-transition>
-                    <div id="results-view-content"></div>
+                    <div id="results-view-content">
+                        <!-- Results content will be dynamically loaded here -->
+                    </div>
                 </div>
                 
                 <div x-show="activeTab === 'analytics'" x-transition>
-                    <div class="text-center py-12">
-                        <i class="fas fa-analytics text-6xl text-gray-300 mb-4"></i>
-                        <h3 class="text-lg font-medium text-gray-900 mb-2">Analytics View</h3>
-                        <p class="text-gray-600">Analytics and reporting will be loaded here.</p>
+                    <div id="analytics-view-content">
+                        <!-- Analytics content will be dynamically loaded here -->
                     </div>
                 </div>
             </div>
@@ -275,12 +229,12 @@
             
             // Load views
             await Promise.all([
-                loadView('discovery-view-content', 'views/discovery.html'),
                 loadView('authentication-view-content', 'views/authentication.html'),
                 loadView('web-crawler-view-content', 'views/web-crawler.html'),
                 loadView('testing-view-content', 'views/testing.html'),
                 loadView('manual-testing-view-content', 'views/manual-testing.html'),
-                loadView('results-view-content', 'views/results.html')
+                loadView('results-view-content', 'views/results.html'),
+                loadView('projects-view-content', 'views/projects.html')
             ]);
             
             // Initialize Alpine.js data after components are loaded

@@ -2,46 +2,62 @@
 <nav class="bg-white shadow-sm border-b border-gray-200">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex space-x-8 overflow-x-auto py-4">
+            <!-- 1. Projects Tab (Always First) -->
             <button @click="setActiveTab('projects')"
                 :class="activeTab === 'projects' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
                 class="whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm focus:outline-none transition-colors">
                 <i class="fas fa-folder-open mr-2"></i>Projects
             </button>
+            
+            <!-- 2. Authentication Tab -->
             <button @click="setActiveTab('authentication'); loadAuthenticationView()"
                 :class="activeTab === 'authentication' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
                 class="whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm focus:outline-none transition-colors">
                 <i class="fas fa-shield-alt mr-2"></i>Authentication
             </button>
-            <button @click="setActiveTab('discovery')"
-                :class="activeTab === 'discovery' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
-                class="whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm focus:outline-none transition-colors">
-                <i class="fas fa-search mr-2"></i>Site Discovery
-            </button>
+            
+            <!-- 3. Web Crawler Tab -->
             <button @click="setActiveTab('web-crawler'); loadWebCrawlers()"
                 :class="activeTab === 'web-crawler' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
                 class="whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm focus:outline-none transition-colors">
                 <i class="fas fa-spider mr-2"></i>Web Crawler
             </button>
+            
+            <!-- 4. Compliance Sessions Tab (Uses Web Crawler URLs) -->
             <button @click="setActiveTab('testing-sessions'); loadTestingSessionsView(); loadComplianceSessions()"
                 :class="activeTab === 'testing-sessions' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
-                class="whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm focus:outline-none transition-colors">
+                class="whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm focus:outline-none transition-colors"
+                :disabled="!hasWebCrawlerData()"
+                :title="!hasWebCrawlerData() ? 'Requires web crawler data from selected project' : ''">
                 <i class="fas fa-list-alt mr-2"></i>Compliance Sessions
             </button>
+            
+            <!-- 5. Automated Testing Tab (Uses Web Crawler URLs) -->
             <button @click="setActiveTab('testing'); refreshTestingTabData()"
                 :class="activeTab === 'testing' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
-                class="whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm focus:outline-none transition-colors">
+                class="whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm focus:outline-none transition-colors"
+                :disabled="!hasWebCrawlerData()"
+                :title="!hasWebCrawlerData() ? 'Requires web crawler data from selected project' : ''">
                 <i class="fas fa-vial mr-2"></i>Automated Testing
             </button>
+            
+            <!-- 6. Manual Testing Tab (Uses Web Crawler URLs) -->
             <button @click="setActiveTab('manual-testing'); refreshManualTestingTabData()"
                 :class="activeTab === 'manual-testing' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
-                class="whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm focus:outline-none transition-colors">
+                class="whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm focus:outline-none transition-colors"
+                :disabled="!hasWebCrawlerData()"
+                :title="!hasWebCrawlerData() ? 'Requires web crawler data from selected project' : ''">
                 <i class="fas fa-hand-paper mr-2"></i>Manual Testing
             </button>
+            
+            <!-- 7. Results Tab -->
             <button @click="setActiveTab('results')"
                 :class="activeTab === 'results' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
                 class="whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm focus:outline-none transition-colors">
                 <i class="fas fa-chart-bar mr-2"></i>Results
             </button>
+            
+            <!-- 8. Analytics Tab -->
             <button @click="setActiveTab('analytics')"
                 :class="activeTab === 'analytics' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
                 class="whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm focus:outline-none transition-colors">
