@@ -453,15 +453,15 @@ router.put('/:id', authenticateToken, async (req, res) => {
         if (changeDescription.length > 0) {
             const auditQuery = `
                 INSERT INTO test_audit_log (
-                    test_instance_id, user_id, action_type, change_description,
-                    old_value, new_value, timestamp
-                ) VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)
+                    test_instance_id, session_id, changed_by, action_type, reason,
+                    old_value, new_value, changed_at
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP)
             `;
             
             const actionType = status && status !== currentInstance.status ? 'status_change' : 'note_updated';
             
             await client.query(auditQuery, [
-                id, req.user.id, actionType, changeDescription.join('; '),
+                id, currentInstance.session_id, req.user.id, actionType, changeDescription.join('; '),
                 JSON.stringify({ status: currentInstance.status, notes: currentInstance.notes }),
                 JSON.stringify({ status: status || currentInstance.status, notes: notes || currentInstance.notes })
             ]);
@@ -622,10 +622,10 @@ router.post('/bulk-create', authenticateToken, async (req, res) => {
         if (newInstances.length > 0) {
             const auditQuery = `
                 INSERT INTO test_audit_log (
-                    test_instance_id, user_id, action_type, change_description,
-                    timestamp, details
+                    test_instance_id, session_id, changed_by, action_type, reason,
+                    changed_at, metadata
                 ) SELECT 
-                    id, $1, 'created', 'Test instance created via bulk creation',
+                    id, $3, $1, 'created', 'Test instance created via bulk creation',
                     CURRENT_TIMESTAMP, '{"bulk_creation": true, "page_count": $2}'::jsonb
                 FROM (SELECT id FROM test_instances WHERE session_id = $3 AND created_at >= $4) ti
             `;
@@ -697,13 +697,13 @@ router.post('/:id/assign', authenticateToken, async (req, res) => {
         // Log assignment
         const auditQuery = `
             INSERT INTO test_audit_log (
-                test_instance_id, user_id, action_type, change_description,
-                timestamp
-            ) VALUES ($1, $2, 'assignment', $3, CURRENT_TIMESTAMP)
+                test_instance_id, session_id, changed_by, action_type, reason,
+                changed_at
+            ) VALUES ($1, $2, $3, 'assignment', $4, CURRENT_TIMESTAMP)
         `;
         
         await pool.query(auditQuery, [
-            id, req.user.id, `Test assigned to tester ID: ${assigned_tester}`
+            id, result.rows[0].session_id, req.user.id, `Test assigned to tester ID: ${assigned_tester}`
         ]);
         
         res.json({

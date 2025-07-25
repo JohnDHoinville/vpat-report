@@ -1086,7 +1086,7 @@ class TestQueueManager {
     calculateSiteWideCompliance(aggregation) {
         const { pages, testTypeMetrics, summary } = aggregation;
 
-        // WCAG 2.1 Level AA Compliance Scoring
+                        // WCAG 2.2 Level AA Compliance Scoring
         const wcagCompliance = this.calculateWCAGCompliance(pages, testTypeMetrics);
         
         // Critical accessibility barriers identification
@@ -1118,7 +1118,7 @@ class TestQueueManager {
     }
 
     calculateWCAGCompliance(pages, testTypeMetrics) {
-        // WCAG 2.1 Level AA compliance scoring based on actual test results
+                        // WCAG 2.2 Level AA compliance scoring based on actual test results
         const scores = {
             perceivable: 0,      // Principle 1
             operable: 0,         // Principle 2  
@@ -1184,7 +1184,7 @@ class TestQueueManager {
             levelAAMeetsThreshold: overallScore >= 80, // WCAG AA threshold
             levelAMeetsThreshold: overallScore >= 60,  // WCAG A threshold
             details: {
-                methodology: 'WCAG 2.1 Level AA compliance scoring',
+                methodology: 'WCAG 2.2 Level AA compliance scoring',
                 principleWeights: weights,
                 testTypeMappings: Object.keys(testTypeMappings)
             }

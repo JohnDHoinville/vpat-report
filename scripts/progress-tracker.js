@@ -670,7 +670,7 @@ class ProgressTracker {
                 title: 'Phase 2: WCAG AA Compliance',
                 target: this.formatDateForCSV(this.addDays(new Date(), 60)),
                 status: current.wcagComplianceScore >= 80 ? 'Complete' : 'Planned',
-                description: 'Achieve full WCAG 2.1 AA compliance'
+                description: 'Achieve full WCAG 2.2 AA compliance'
             }
         ];
     }

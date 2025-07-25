@@ -868,7 +868,7 @@ class ComprehensiveTestRunner {
                 description: `Pa11y found ${violations} accessibility issues.`,
                 actions: [
                     'Review pa11y error details for specific fixes',
-                    'Focus on WCAG 2.1 AA compliance issues',
+                    'Focus on WCAG 2.2 AA compliance issues',
                     'Test with different screen readers'
                 ]
             },

@@ -5311,11 +5311,11 @@ function dashboard() {
             if (!level) return '';
             
             const descriptions = {
-                'wcag_a': 'WCAG 2.1 Level A requirements will be applied (basic accessibility)',
-                'wcag_aa': 'WCAG 2.1 Level A and AA requirements will be applied (standard compliance)', 
-                'wcag_aaa': 'All WCAG 2.1 requirements will be applied (A, AA, and AAA levels)',
+                'wcag_a': 'WCAG 2.2 Level A requirements will be applied (basic accessibility)',
+                'wcag_aa': 'WCAG 2.2 Level A and AA requirements will be applied (standard compliance)', 
+                'wcag_aaa': 'All WCAG 2.2 requirements will be applied (A, AA, and AAA levels)',
                 'section_508': 'Section 508 requirements will be applied (US federal standards)',
-                'combined': 'Both WCAG 2.1 and Section 508 requirements will be applied (comprehensive testing)'
+                'combined': 'Both WCAG 2.2 and Section 508 requirements will be applied (comprehensive testing)'
             };
             
             return descriptions[level] || 'Requirements will be determined based on selected level';
@@ -5409,8 +5409,8 @@ function dashboard() {
         applySessionTemplate(templateName) {
             const templates = {
                 'wcag_aa_standard': {
-                    name: 'WCAG 2.1 AA Standard Compliance',
-                    description: 'Standard accessibility compliance testing following WCAG 2.1 Level AA guidelines with hybrid testing approach.',
+                                name: 'WCAG 2.2 AA Standard Compliance',
+            description: 'Standard accessibility compliance testing following WCAG 2.2 Level AA guidelines with hybrid testing approach.',
                     conformance_level: 'wcag_aa',
                     testing_approach: 'hybrid',
                     pageScope: 'all',

@@ -4185,7 +4185,7 @@ router.get('/:sessionId/test-configuration', authenticateToken, async (req, res)
             axe: {
                 name: 'axe-core Backend Testing',
                 description: 'Fast automated accessibility rule checking',
-                coverage: 'Covers ~40% of WCAG 2.1 issues automatically',
+                coverage: 'Covers ~40% of WCAG 2.2 issues automatically',
                 testScope: 'Page structure, ARIA usage, color contrast, semantic HTML',
                 estimatedTime: '2-3 minutes per page'
             },
