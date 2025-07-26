@@ -268,6 +268,8 @@ function dashboard() {
         deduplicatedPages: [],
         availableRequirements: [],
         requirementCounts: {},
+        cachedSelectedRequirements: [], // Cache to persist between steps
+        lastConformanceLevelsString: '', // Track conformance level changes
         pageSearchQuery: '',
         pageFilterType: '',
         automationSummary: {},
@@ -7451,6 +7453,7 @@ function dashboard() {
         
         this.resetSessionWizard();
         this.sessionWizard.project_id = this.selectedProject; // Set project ID
+        this.sessionWizard.conformance_levels = ['wcag_22_a']; // Default to WCAG A level
         // Close any other open modals first
         this.showUserManagement = false;
         this.showDeleteUserModal = false;
@@ -7485,6 +7488,8 @@ function dashboard() {
             };
             this.pageSearchQuery = '';
             this.pageFilterType = '';
+            this.cachedSelectedRequirements = [];
+            this.lastConformanceLevelsString = '';
         },
 
         // Load initial wizard data
@@ -7524,8 +7529,23 @@ function dashboard() {
                 if (response.success) {
                     this.availableCrawlers = response.data.map(crawler => ({
                         ...crawler,
-                        pages_count: crawler.total_pages || 0
+                        total_pages_found: crawler.total_pages || crawler.page_count || 0,
+                        pages_for_testing: crawler.pages_for_testing || crawler.total_pages || crawler.page_count || 0
                     }));
+                    
+                    // Load page counts for each crawler
+                    for (const crawler of this.availableCrawlers) {
+                        try {
+                            const pagesResponse = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=1`);
+                            if (pagesResponse.success && pagesResponse.pagination) {
+                                crawler.total_pages_found = pagesResponse.pagination.total || 0;
+                                crawler.pages_for_testing = pagesResponse.pagination.total || 0;
+                            }
+                        } catch (error) {
+                            console.warn(`Failed to load page count for crawler ${crawler.name}:`, error);
+                        }
+                    }
+                    
                     console.log(`✅ Loaded ${this.availableCrawlers.length} crawlers`);
                 } else {
                     throw new Error(response.error || 'Failed to load crawlers');
@@ -7549,14 +7569,30 @@ function dashboard() {
                     if (Array.isArray(requirements)) {
                         this.availableRequirements = requirements;
                         
-                        // Calculate requirement counts by conformance level
+                        // Debug first few requirements to check structure
+                        if (requirements.length > 0) {
+                            console.log('🔍 First requirement structure:', requirements[0]);
+                            console.log('🔍 Level property check:', {
+                                hasLevel: 'level' in requirements[0],
+                                levelValue: requirements[0].level,
+                                levelType: typeof requirements[0].level,
+                                allKeys: Object.keys(requirements[0])
+                            });
+                        }
+                        
+                        // Calculate requirement counts by conformance level - with null safety
                         this.requirementCounts = this.availableRequirements.reduce((counts, req) => {
-                            const key = `${req.requirement_type}_${req.level.toLowerCase()}`;
-                            counts[key] = (counts[key] || 0) + 1;
+                            if (req.level && req.requirement_type) {
+                                const key = `${req.requirement_type}_${req.level.toLowerCase()}`;
+                                counts[key] = (counts[key] || 0) + 1;
+                            } else {
+                                console.warn('⚠️ Requirement missing level or type:', req);
+                            }
                             return counts;
                         }, {});
                         
                         console.log(`✅ Loaded ${this.availableRequirements.length} requirements`);
+                        console.log('🔍 Requirement counts by level:', this.requirementCounts);
                     } else {
                         console.warn('⚠️ Requirements data is not an array:', requirements);
                         this.availableRequirements = [];
@@ -7583,12 +7619,24 @@ function dashboard() {
                 'section_508_base': 'section_508_base',
                 'section_508_enhanced': 'section_508_enhanced'
             };
-            return this.requirementCounts[mapping[level]] || 0;
+            const mappedLevel = mapping[level];
+            const count = this.requirementCounts[mappedLevel] || 0;
+            
+            // Debug only when needed
+            if (level && count === 0 && this.availableRequirements?.length > 0) {
+                console.log(`⚠️ No requirements found for ${level} (mapped to ${mappedLevel})`);
+            }
+            
+            return count;
         },
 
         // Set conformance levels (for quick selection buttons)
         setConformanceLevels(levels) {
             this.sessionWizard.conformance_levels = [...levels];
+            // Clear cache when conformance levels change
+            this.cachedSelectedRequirements = [];
+            this.lastConformanceLevelsString = '';
+            console.log(`✅ Set conformance levels:`, levels);
         },
 
         // Get total selected requirements count
@@ -7603,9 +7651,22 @@ function dashboard() {
             if (this.canProceedToNextStep()) {
                 if (this.wizardStep === 3) {
                     // Load combined pages when moving to page selection
+                    console.log('🎯 Moving from Step 3 (Crawlers) to Step 4 (Pages) - Loading combined pages...');
                     this.loadCombinedPages();
                 }
                 this.wizardStep++;
+            }
+        },
+
+        // Previous wizard step
+        previousWizardStep() {
+            if (this.wizardStep > 1) {
+                // If going back from step 4 (pages) to step 3 (crawlers), note for potential reload
+                if (this.wizardStep === 4) {
+                    console.log('🔄 Going back from Step 4 (Pages) to Step 3 (Crawlers)');
+                    // Note: Pages will be reloaded when user proceeds to step 4 again
+                }
+                this.wizardStep--;
             }
         },
 
@@ -7631,38 +7692,67 @@ function dashboard() {
         async loadCombinedPages() {
             try {
                 console.log('🔗 Loading combined pages from crawlers...');
+                console.log('🔗 Selected crawlers:', this.sessionWizard.selected_crawlers);
+                
+                if (!this.sessionWizard.selected_crawlers || this.sessionWizard.selected_crawlers.length === 0) {
+                    console.warn('⚠️ No crawlers selected');
+                    this.combinedPages = [];
+                    this.deduplicatedPages = [];
+                    this.sessionWizard.selected_pages = [];
+                    return;
+                }
                 
                 const allPages = [];
                 for (const crawlerId of this.sessionWizard.selected_crawlers) {
-                    const response = await this.apiCall(`/web-crawlers/${crawlerId}/pages`);
+                    console.log(`📄 Loading pages for crawler: ${crawlerId}`);
+                    const response = await this.apiCall(`/web-crawlers/crawlers/${crawlerId}/pages`);
                     if (response.success) {
-                        allPages.push(...response.data.map(page => ({
+                        const crawlerPages = response.data.map(page => ({
                             ...page,
                             crawler_id: crawlerId
-                        })));
+                        }));
+                        allPages.push(...crawlerPages);
+                        console.log(`  ✅ Loaded ${crawlerPages.length} pages from crawler ${crawlerId}`);
+                    } else {
+                        console.error(`  ❌ Failed to load pages from crawler ${crawlerId}:`, response.error);
                     }
                 }
+                
+                console.log(`📊 Total pages loaded: ${allPages.length}`);
                 
                 // Deduplicate by URL
                 const urlMap = new Map();
                 allPages.forEach(page => {
                     if (!urlMap.has(page.url)) {
                         urlMap.set(page.url, page);
+                    } else {
+                        console.log(`🔄 Duplicate URL found: ${page.url}`);
                     }
                 });
                 
                 this.combinedPages = allPages;
                 this.deduplicatedPages = Array.from(urlMap.values());
                 
-                // Auto-select all pages initially
+                // Auto-select all pages initially - this is the key feature requested
+                const previouslySelected = this.sessionWizard.selected_pages.length;
                 this.sessionWizard.selected_pages = this.deduplicatedPages.map(page => page.id);
                 
                 console.log(`✅ Combined ${allPages.length} pages, deduplicated to ${this.deduplicatedPages.length}`);
+                console.log(`🎯 Auto-selected all ${this.deduplicatedPages.length} pages (previously had ${previouslySelected} selected)`);
+                
+                // Show user notification about auto-selection
+                this.showNotification(
+                    'info',
+                    'Pages Auto-Selected',
+                    `All ${this.deduplicatedPages.length} pages from selected crawlers have been automatically selected. You can adjust selections below.`
+                );
                 
             } catch (error) {
                 console.error('Error loading combined pages:', error);
                 this.combinedPages = [];
                 this.deduplicatedPages = [];
+                this.sessionWizard.selected_pages = [];
+                this.showNotification('error', 'Load Failed', 'Failed to load pages from selected crawlers');
             }
         },
 
@@ -7670,13 +7760,25 @@ function dashboard() {
         getTotalPagesFromCrawlers() {
             return this.sessionWizard.selected_crawlers.reduce((total, crawlerId) => {
                 const crawler = this.availableCrawlers.find(c => c.id === crawlerId);
-                return total + (crawler?.pages_count || 0);
+                return total + (crawler?.total_pages_found || 0);
             }, 0);
         },
 
         // Get deduplicated pages count
         getDeduplicatedPagesCount() {
-            return this.deduplicatedPages.length;
+            // If we have actual deduplicated pages (from Step 4), use that count
+            if (this.deduplicatedPages && this.deduplicatedPages.length > 0) {
+                return this.deduplicatedPages.length;
+            }
+            
+            // Otherwise, estimate based on selected crawlers
+            // For now, assume 80% deduplication rate across multiple crawlers
+            const totalPages = this.getTotalPagesFromCrawlers();
+            if (this.sessionWizard.selected_crawlers.length <= 1) {
+                return totalPages; // No deduplication needed for single crawler
+            } else {
+                return Math.round(totalPages * 0.8); // Estimate 20% duplicate rate
+            }
         },
 
         // Get combined pages for display
@@ -7702,6 +7804,14 @@ function dashboard() {
 
         getSelectedPagesCount() {
             return this.sessionWizard.selected_pages.length;
+        },
+
+        getSelectedPages() {
+            if (!this.sessionWizard.selected_pages?.length || !this.deduplicatedPages?.length) return [];
+            
+            return this.deduplicatedPages.filter(page => 
+                this.sessionWizard.selected_pages.includes(page.id)
+            );
         },
 
         areAllPagesSelected() {
@@ -7744,35 +7854,157 @@ function dashboard() {
             return crawler?.name || 'Unknown';
         },
 
-        // Requirements filtering methods
+                // Requirements filtering methods
         getSelectedRequirements() {
-            if (!this.sessionWizard.conformance_levels.length) return [];
+            // If no conformance levels selected, return empty (reduce logging spam)
+            if (!this.sessionWizard?.conformance_levels?.length) {
+                // Only log once per session or when state changes
+                if (!this._loggedNoConformanceLevels) {
+                    console.log('❌ No conformance levels selected');
+                    this._loggedNoConformanceLevels = true;
+                }
+                return [];
+            }
             
-            return this.availableRequirements.filter(req => {
-                const levelKey = `${req.requirement_type}_${req.level.toLowerCase()}`;
-                return this.sessionWizard.conformance_levels.some(selectedLevel => {
-                    const mapping = {
-                        'wcag_22_a': 'wcag_a',
-                        'wcag_22_aa': 'wcag_aa',
-                        'wcag_22_aaa': 'wcag_aaa',
-                        'section_508_base': 'section_508_base',
-                        'section_508_enhanced': 'section_508_enhanced'
-                    };
-                    return mapping[selectedLevel] === levelKey;
+            // Reset the logging flag when we have conformance levels
+            this._loggedNoConformanceLevels = false;
+            
+            // Quick debug check
+            if (this.sessionWizard?.conformance_levels?.length > 0 && this.availableRequirements?.length === 0) {
+                console.log('⚠️ Requirements not loaded yet for selected conformance levels');
+            }
+            
+            // If we have cached requirements and same conformance levels, use cache
+            const levelsString = JSON.stringify(this.sessionWizard.conformance_levels.sort());
+            if (this.cachedSelectedRequirements?.length > 0 && 
+                this.lastConformanceLevelsString === levelsString) {
+                console.log(`✅ Using cached ${this.cachedSelectedRequirements.length} requirements`);
+                return this.cachedSelectedRequirements;
+            }
+            
+            // If no available requirements loaded, try to use cache
+            if (!this.availableRequirements?.length) {
+                if (this.cachedSelectedRequirements?.length > 0) {
+                    console.log('⚠️ No available requirements, using cache');
+                    return this.cachedSelectedRequirements;
+                }
+                console.log('❌ No available requirements and no cache');
+                return [];
+            }
+            
+            const mapping = {
+                'wcag_22_a': 'wcag_a',
+                'wcag_22_aa': 'wcag_aa', 
+                'wcag_22_aaa': 'wcag_aaa',
+                'section_508_base': 'section_508_base',
+                'section_508_enhanced': 'section_508_enhanced'
+            };
+            
+                            // Debug the filtering process
+                console.log('🔍 FILTERING DEBUG:');
+                console.log('  - Available requirements:', this.availableRequirements.length);
+                console.log('  - Selected conformance levels:', this.sessionWizard.conformance_levels);
+                console.log('  - Mapping object:', mapping);
+                
+                // Sample first few requirements for debugging
+                console.log('  - Sample requirements:', this.availableRequirements.slice(0, 3).map(req => ({
+                    requirement_id: req.requirement_id,
+                    criterion: req.criterion_number,
+                    type: req.requirement_type,
+                    level: req.level,
+                    levelKey: `${req.requirement_type}_${req.level?.toLowerCase()}`
+                })));
+
+                const filtered = this.availableRequirements.filter(req => {
+                    // Enhanced debugging for requirement validation
+                    const hasId = req && req.requirement_id;
+                    const hasType = req && req.requirement_type;
+                    const hasLevel = req && req.level && typeof req.level === 'string';
+                    
+                    if (!hasId || !hasType || !hasLevel) {
+                        // Only log first few missing requirements to avoid spam
+                        if (!this.debugLoggedMissingCount || this.debugLoggedMissingCount < 3) {
+                            console.log('❌ Filtering out requirement missing properties:', {
+                                requirement_id: req?.requirement_id,
+                                criterion: req?.criterion_number,
+                                hasId: hasId,
+                                hasType: hasType,
+                                hasLevel: hasLevel,
+                                levelType: typeof req?.level,
+                                levelValue: req?.level,
+                                requirement_type: req?.requirement_type
+                            });
+                            this.debugLoggedMissingCount = (this.debugLoggedMissingCount || 0) + 1;
+                        }
+                        return false;
+                    }
+                    
+                    const levelKey = `${req.requirement_type}_${req.level.toLowerCase()}`;
+                    
+                    const matches = this.sessionWizard.conformance_levels.some(selectedLevel => {
+                        const mappedLevel = mapping[selectedLevel];
+                        const isMatch = mappedLevel === levelKey;
+                        
+                        // Debug for first requirement only to avoid spam
+                        if (req.requirement_id === this.availableRequirements[0]?.requirement_id) {
+                            console.log(`🔍 MATCH DEBUG: selectedLevel="${selectedLevel}", mappedLevel="${mappedLevel}", levelKey="${levelKey}", match=${isMatch}`);
+                        }
+                        
+                        return isMatch;
+                    });
+                    
+                    return matches;
                 });
-            });
+            
+            // Remove duplicates by requirement_id
+            const deduplicated = filtered.filter((req, index, self) =>
+                index === self.findIndex(r => r.requirement_id === req.requirement_id)
+            );
+            
+            // Cache the results
+            this.cachedSelectedRequirements = deduplicated;
+            this.lastConformanceLevelsString = levelsString;
+            
+            // Only log when we actually found results, or when debugging zero results (but limit spam)
+            if (deduplicated.length > 0) {
+                console.log(`✅ Found and cached ${deduplicated.length} requirements for levels:`, this.sessionWizard.conformance_levels);
+            } else if (this.availableRequirements.length > 0) {
+                // Only log zero results debugging once per session or when conformance levels change
+                if (!this._loggedZeroResults || this._lastZeroResultsLevels !== levelsString) {
+                    console.log(`⚠️ Found and cached 0 requirements for levels:`, this.sessionWizard.conformance_levels);
+                    console.log('🚨 ZERO RESULTS DEBUG:');
+                    console.log('  - Total available:', this.availableRequirements.length);
+                    console.log('  - Expected mapping for wcag_22_a:', mapping['wcag_22_a']);
+                    console.log('  - Sample requirement levels:', this.availableRequirements.slice(0, 5).map(req => req.level));
+                    console.log('  - Sample requirement types:', this.availableRequirements.slice(0, 5).map(req => req.requirement_type));
+                    console.log('  - Sample levelKeys:', this.availableRequirements.slice(0, 5).map(req => `${req.requirement_type}_${req.level?.toLowerCase()}`));
+                    this._loggedZeroResults = true;
+                    this._lastZeroResultsLevels = levelsString;
+                }
+            }
+            
+            return deduplicated;
         },
 
         getApplicableRequirementsCount() {
-            if (!this.sessionWizard.smart_filtering) {
-                return this.getSelectedRequirements().length;
+            const selectedRequirements = this.getSelectedRequirements();
+            const selectedCount = selectedRequirements.length;
+            
+            if (!this.sessionWizard?.smart_filtering) {
+                return selectedCount;
             }
-            // Smart filtering logic would go here
-            return Math.floor(this.getSelectedRequirements().length * 0.8); // Placeholder
+            
+            // Smart filtering logic - for now, assume 80% of requirements are applicable
+            // But ensure we don't return 0 if we have requirements
+            const applicableCount = selectedCount > 0 ? Math.max(1, Math.floor(selectedCount * 0.8)) : 0;
+            
+            return applicableCount;
         },
 
         getFilteredOutRequirementsCount() {
-            return this.getSelectedRequirements().length - this.getApplicableRequirementsCount();
+            const selected = this.getSelectedRequirements().length;
+            const applicable = this.getApplicableRequirementsCount();
+            return selected - applicable;
         },
 
         // Final preview methods
@@ -7793,10 +8025,18 @@ function dashboard() {
         },
 
         getFinalRequirementsCount() {
+            // Always start with the base selected requirements
+            const baseCount = this.getSelectedRequirements().length;
+            
             if (this.sessionWizard.smart_filtering) {
+                // Apply smart filtering reduction
                 return this.getApplicableRequirementsCount();
             } else {
-                return this.sessionWizard.manual_requirements.length || this.getSelectedRequirements().length;
+                // Use manual selection if available, otherwise use base count
+                if (this.sessionWizard.manual_requirements && this.sessionWizard.manual_requirements.length > 0) {
+                    return this.sessionWizard.manual_requirements.length;
+                }
+                return baseCount;
             }
         },
 
@@ -7823,24 +8063,41 @@ function dashboard() {
             try {
                 this.sessionWizard.creating = true;
                 console.log('🚀 Creating testing session...', this.sessionWizard);
+                console.log('🔍 DEBUG: Original conformance levels:', this.sessionWizard.conformance_levels);
                 
+                // Send original frontend conformance levels to backend
+                // Backend will handle the wizard-level mapping correctly
                 const sessionData = {
-                    project_id: this.sessionWizard.project_id,
+                    project_id: this.sessionWizard.project_id || this.selectedProject,
                     name: this.sessionWizard.name,
-                    description: this.sessionWizard.description,
+                    description: this.sessionWizard.description || '',
                     conformance_levels: this.sessionWizard.conformance_levels,
-                    selected_crawler_ids: this.sessionWizard.selected_crawlers,
-                    selected_page_ids: this.sessionWizard.selected_pages,
-                    smart_filtering: this.sessionWizard.smart_filtering,
-                    manual_requirements: this.sessionWizard.manual_requirements
+                    selected_crawler_ids: this.sessionWizard.selected_crawlers || [],
+                    selected_page_ids: this.sessionWizard.selected_pages || [],
+                    smart_filtering: this.sessionWizard.smart_filtering !== false, // default to true
+                    manual_requirements: this.sessionWizard.manual_requirements || []
                 };
                 
-                const response = await this.apiCall('/testing-sessions', 'POST', sessionData);
+                console.log('🔍 DEBUG: Final conformance levels for DB:', sessionData.conformance_levels);
+
+                console.log('🔍 DEBUG: Session data being sent:', sessionData);
+                
+                const response = await this.apiCall('/testing-sessions', {
+                    method: 'POST',
+                    body: JSON.stringify(sessionData)
+                });
+                
+                console.log('🔍 DEBUG: Full API response:', response);
                 
                 if (response.success) {
                     console.log('✅ Session created successfully:', response.session);
+                    
+                    // Handle potential missing session data
+                    const sessionName = response.session?.name || this.sessionWizard.name || 'Unnamed Session';
+                    const testCount = response.test_instances_created || 0;
+                    
                     this.showNotification('success', 'Session Created', 
-                        `Testing session "${response.session.name}" created with ${response.test_instances_created} tests`);
+                        `Testing session "${sessionName}" created with ${testCount} tests`);
                     
                     this.closeSessionWizard();
                     await this.loadTestingSessions(); // Refresh the sessions list

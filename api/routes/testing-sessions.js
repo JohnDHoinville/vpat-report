@@ -290,7 +290,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
                     reviewer.username as reviewer_username
                 FROM test_instances ti
                 LEFT JOIN test_requirements tr ON ti.requirement_id = tr.id
-                LEFT JOIN discovered_pages dp ON ti.page_id = dp.id
+                LEFT JOIN crawler_discovered_pages dp ON ti.page_id = dp.id
                 LEFT JOIN users tester ON ti.assigned_tester = tester.id
                 LEFT JOIN users reviewer ON ti.reviewer = reviewer.id
                 WHERE ti.session_id = $1
@@ -386,8 +386,22 @@ router.post('/', authenticateToken, async (req, res) => {
             });
         }
         
-        // Create the testing session with multi-level conformance
-        const conformanceLevelString = conformance_levels.join(','); // Store as comma-separated for now
+        // Map wizard conformance levels to database values for session storage
+        const dbLevelMapping = {
+            'wcag_22_a': 'wcag_a',
+            'wcag_22_aa': 'wcag_aa',
+            'wcag_22_aaa': 'wcag_aaa',
+            'section_508_base': 'section_508',
+            'section_508_enhanced': 'section_508'
+        };
+        
+        const mappedLevels = conformance_levels.map(level => dbLevelMapping[level] || level);
+        const uniqueLevels = [...new Set(mappedLevels)]; // Remove duplicates
+        
+        // Database constraint allows single values or 'combined' for multiple
+        const dbConformanceLevel = uniqueLevels.length > 1 ? 'combined' : uniqueLevels[0] || 'combined';
+        
+        console.log('📋 Mapped conformance levels:', conformance_levels, '->', dbConformanceLevel);
         
         const sessionQuery = `
             INSERT INTO test_sessions (
@@ -398,7 +412,7 @@ router.post('/', authenticateToken, async (req, res) => {
         `;
         
         const sessionResult = await client.query(sessionQuery, [
-            project_id, name, description, conformanceLevelString, req.user.id
+            project_id, name, description, dbConformanceLevel, req.user.id
         ]);
         
         const session = sessionResult.rows[0];
@@ -778,13 +792,19 @@ async function getRequirementsForWizardLevels(conformanceLevels, smartFiltering 
     try {
         console.log('📋 Getting requirements for wizard levels:', conformanceLevels);
         
-        // Map wizard conformance levels to database values
+        // Map both wizard and database conformance levels to database values (use lowercase to match DB)
         const levelMapping = {
-            'wcag_22_a': { type: 'wcag', level: 'A' },
-            'wcag_22_aa': { type: 'wcag', level: 'AA' },
-            'wcag_22_aaa': { type: 'wcag', level: 'AAA' },
+            // Wizard format (preferred)
+            'wcag_22_a': { type: 'wcag', level: 'a' },
+            'wcag_22_aa': { type: 'wcag', level: 'aa' },
+            'wcag_22_aaa': { type: 'wcag', level: 'aaa' },
             'section_508_base': { type: 'section_508', level: 'base' },
-            'section_508_enhanced': { type: 'section_508', level: 'enhanced' }
+            'section_508_enhanced': { type: 'section_508', level: 'enhanced' },
+            // Database format (backward compatibility)
+            'wcag_a': { type: 'wcag', level: 'a' },
+            'wcag_aa': { type: 'wcag', level: 'aa' },
+            'wcag_aaa': { type: 'wcag', level: 'aaa' },
+            'section_508': { type: 'section_508', level: 'base' } // Default to base for section_508
         };
         
         const whereConditions = [];
@@ -794,9 +814,12 @@ async function getRequirementsForWizardLevels(conformanceLevels, smartFiltering 
         for (const conformanceLevel of conformanceLevels) {
             const mapping = levelMapping[conformanceLevel];
             if (mapping) {
+                console.log(`✅ Mapped ${conformanceLevel} -> ${mapping.type}:${mapping.level}`);
                 whereConditions.push(`(requirement_type = $${paramIndex} AND level = $${paramIndex + 1})`);
                 queryParams.push(mapping.type, mapping.level);
                 paramIndex += 2;
+            } else {
+                console.log(`❌ No mapping found for conformance level: ${conformanceLevel}`);
             }
         }
         
@@ -854,7 +877,7 @@ async function getSelectedPagesFromCrawlers(selectedPageIds, selectedCrawlerIds)
                 crawler_id,
                 status_code,
                 content_type,
-                created_at
+                first_discovered_at
             FROM crawler_discovered_pages 
             WHERE id = ANY($1)
             ORDER BY url

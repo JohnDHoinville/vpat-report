@@ -1,55 +1,67 @@
 <!-- Session Creation Wizard Modal -->
-<!-- DEBUG: Simple visibility test -->
-<div style="position: fixed; top: 10px; right: 10px; background: blue; color: white; padding: 10px; z-index: 99999;" x-text="'showSessionWizard: ' + showSessionWizard"></div>
 
-<!-- DEBUG: Super simple test modal -->
-<div x-show="showSessionWizard" style="position: fixed; top: 100px; left: 100px; width: 400px; height: 300px; background: green; color: white; padding: 20px; z-index: 100000; border: 5px solid yellow;">
-    <h1>🧙‍♂️ SIMPLE WIZARD TEST</h1>
-    <p>If you see this, the modal works!</p>
-    <p>showSessionWizard = <span x-text="showSessionWizard"></span></p>
-    <button onclick="dashboard().closeSessionWizard()" style="background: red; color: white; padding: 10px; margin-top: 20px;">CLOSE TEST</button>
-</div>
+<style>
+@media (max-width: 768px) {
+    .wizard-modal {
+        width: 98% !important;
+        margin: 0.5rem !important;
+        max-height: calc(100vh - 1rem) !important;
+    }
+    .wizard-header {
+        padding: 1rem 1rem 0 1rem !important;
+    }
+    .wizard-content {
+        padding: 1rem !important;
+    }
+    .wizard-footer {
+        padding: 1rem !important;
+    }
+}
+</style>
 
 <div x-show="showSessionWizard" 
-     class="fixed inset-0 bg-black bg-opacity-50 z-[60]"
-     @click.self="closeSessionWizard()"
-     style="display: none !important;">
+     style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 999999; overflow-y: auto;"
+     @click.self="closeSessionWizard()">
     
-    <div class="min-h-screen px-4 text-center">
-        <span class="inline-block h-screen align-middle" aria-hidden="true">&#8203;</span>
+    <div style="min-height: 100vh; padding: 1rem; display: flex; align-items: flex-start; justify-content: center; padding-top: 2rem; padding-bottom: 2rem;">
         
-        <div class="inline-block w-full max-w-6xl p-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-lg"
-             style="background: white !important; z-index: 70; position: relative !important; display: block !important; visibility: visible !important;">
+        <div class="wizard-modal" style="background: white; width: 95%; max-width: 72rem; min-height: 50vh; max-height: calc(100vh - 4rem); border-radius: 0.5rem; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); text-align: left; position: relative; z-index: 1000000; display: flex; flex-direction: column;">
             
-            <!-- Wizard Header -->
-            <div class="flex items-center justify-between mb-6">
-                <div>
-                    <h3 class="text-2xl font-bold text-gray-900">Create Testing Session</h3>
-                    <p class="text-sm text-gray-600 mt-1">Step <span x-text="wizardStep"></span> of 6</p>
+            <!-- Fixed Header -->
+            <div class="wizard-header" style="padding: 1.5rem 1.5rem 0 1.5rem; flex-shrink: 0; border-bottom: 1px solid #e5e7eb;">
+                <!-- Wizard Header -->
+                <div class="flex items-center justify-between mb-6">
+                    <div>
+                        <h3 class="text-2xl font-bold text-gray-900">Create Testing Session</h3>
+                        <p class="text-sm text-gray-600 mt-1">Step <span x-text="wizardStep"></span> of 6</p>
+                    </div>
+                    <button @click="closeSessionWizard()" 
+                            class="text-gray-400 hover:text-gray-600 transition-colors">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
                 </div>
-                <button @click="closeSessionWizard()" 
-                        class="text-gray-400 hover:text-gray-600 transition-colors">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                    </svg>
-                </button>
+
+                <!-- Progress Bar -->
+                <div class="mb-6">
+                    <div class="flex items-center justify-between text-sm text-gray-600 mb-2">
+                        <span class="font-medium" :class="wizardStep >= 1 ? 'text-blue-600' : ''">Basic Info</span>
+                        <span class="font-medium" :class="wizardStep >= 2 ? 'text-blue-600' : ''">Conformance</span>
+                        <span class="font-medium" :class="wizardStep >= 3 ? 'text-blue-600' : ''">Crawls</span>
+                        <span class="font-medium" :class="wizardStep >= 4 ? 'text-blue-600' : ''">Pages</span>
+                        <span class="font-medium" :class="wizardStep >= 5 ? 'text-blue-600' : ''">Requirements</span>
+                        <span class="font-medium" :class="wizardStep >= 6 ? 'text-blue-600' : ''">Preview</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2">
+                        <div class="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+                             :style="`width: ${(wizardStep / 6) * 100}%`"></div>
+                    </div>
+                </div>
             </div>
 
-            <!-- Progress Bar -->
-            <div class="mb-8">
-                <div class="flex items-center justify-between text-sm text-gray-600 mb-2">
-                    <span class="font-medium" :class="wizardStep >= 1 ? 'text-blue-600' : ''">Basic Info</span>
-                    <span class="font-medium" :class="wizardStep >= 2 ? 'text-blue-600' : ''">Conformance</span>
-                    <span class="font-medium" :class="wizardStep >= 3 ? 'text-blue-600' : ''">Crawls</span>
-                    <span class="font-medium" :class="wizardStep >= 4 ? 'text-blue-600' : ''">Pages</span>
-                    <span class="font-medium" :class="wizardStep >= 5 ? 'text-blue-600' : ''">Requirements</span>
-                    <span class="font-medium" :class="wizardStep >= 6 ? 'text-blue-600' : ''">Preview</span>
-                </div>
-                <div class="w-full bg-gray-200 rounded-full h-2">
-                    <div class="bg-blue-600 h-2 rounded-full transition-all duration-300" 
-                         :style="`width: ${(wizardStep / 6) * 100}%`"></div>
-                </div>
-            </div>
+            <!-- Scrollable Content Area -->
+            <div class="wizard-content" style="flex: 1; overflow-y: auto; padding: 1.5rem;">
 
             <!-- Step 1: Basic Information -->
             <div x-show="wizardStep === 1" class="space-y-6">
@@ -193,6 +205,8 @@
                         </span>
                     </p>
                 </div>
+
+
             </div>
 
             <!-- Step 3: Multi-Crawl Selection -->
@@ -217,7 +231,7 @@
                                 <div class="ml-3 flex-1">
                                     <div class="flex items-center justify-between">
                                         <span class="font-medium text-gray-900" x-text="crawler.name"></span>
-                                        <span class="text-sm text-gray-500" x-text="`${crawler.pages_count} pages`"></span>
+                                        <span class="text-sm text-gray-500" x-text="`${crawler.total_pages_found || 0} pages`"></span>
                                     </div>
                                     <p class="text-sm text-gray-600 mt-1" x-text="crawler.base_url"></p>
                                     <div class="flex items-center mt-2 text-xs text-gray-500">
@@ -233,17 +247,20 @@
                 </div>
 
                 <!-- Combined Pages Preview -->
-                <div x-show="sessionWizard.selected_crawlers.length > 0" class="bg-gray-50 p-4 rounded-lg">
-                    <h6 class="font-medium text-gray-900 mb-2">Combined Pages Preview:</h6>
-                    <div class="text-sm text-gray-600">
+                <div x-show="sessionWizard.selected_crawlers.length > 0" class="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                    <h6 class="font-medium text-blue-900 mb-2">Combined Pages Preview:</h6>
+                    <div class="text-sm text-blue-800">
                         <p>
-                            <span class="font-medium" x-text="getTotalPagesFromCrawlers()"></span> total pages 
+                            <span class="font-semibold" x-text="getTotalPagesFromCrawlers()"></span> total pages 
                             <span x-show="sessionWizard.selected_crawlers.length > 1">
-                                (after deduplication: <span class="font-medium" x-text="getDeduplicatedPagesCount()"></span> unique URLs)
+                                (estimated <span class="font-semibold" x-text="getDeduplicatedPagesCount()"></span> after deduplication)
                             </span>
                         </p>
                         <p class="mt-1">
-                            Selected from <span x-text="sessionWizard.selected_crawlers.length"></span> crawler(s)
+                            Selected from <span class="font-semibold" x-text="sessionWizard.selected_crawlers.length"></span> crawler(s)
+                        </p>
+                        <p class="mt-2 text-xs text-blue-600">
+                            💡 Exact page counts will be calculated in the next step
                         </p>
                     </div>
                 </div>
@@ -258,6 +275,20 @@
                         <strong>Smart Page Management:</strong> Review combined pages from selected crawlers. 
                         Use bulk operations to efficiently manage large page sets.
                     </p>
+                </div>
+
+                <!-- Auto-Selection Notice -->
+                <div x-show="getSelectedPagesCount() === getCombinedPages().length && getCombinedPages().length > 0" 
+                     class="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
+                    <div class="flex items-center">
+                        <svg class="w-5 h-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        <div class="text-sm">
+                            <span class="font-medium text-green-800">All pages auto-selected!</span>
+                            <span class="text-green-700"> - All URLs from your selected crawlers are ready for testing. Adjust selections below if needed.</span>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Page Management Controls -->
@@ -277,7 +308,7 @@
                         </button>
                     </div>
                     <div class="text-sm text-gray-600">
-                        <span x-text="getSelectedPagesCount()"></span> of <span x-text="getCombinedPages().length"></span> pages selected
+                        <span class="font-semibold text-blue-600" x-text="getSelectedPagesCount()"></span> of <span x-text="getCombinedPages().length"></span> pages selected
                     </div>
                 </div>
 
@@ -352,6 +383,22 @@
                     </p>
                 </div>
 
+                <!-- Selected Pages Summary -->
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <h6 class="font-medium text-blue-900">Selected Pages for Testing</h6>
+                        <span class="text-sm font-semibold text-blue-700" x-text="`${getSelectedPagesCount()} pages selected`"></span>
+                    </div>
+                    <div class="max-h-32 overflow-y-auto">
+                        <template x-for="page in getSelectedPages()" :key="page.id">
+                            <div class="text-xs text-blue-800 py-1 truncate" x-text="page.url"></div>
+                        </template>
+                    </div>
+                    <div class="mt-2 text-xs text-blue-600">
+                        Requirements will be applied to these <span x-text="getSelectedPagesCount()"></span> selected pages.
+                    </div>
+                </div>
+
                 <!-- Smart Filtering Toggle -->
                 <div class="flex items-center justify-between bg-gray-50 p-4 rounded-lg">
                     <div>
@@ -390,7 +437,11 @@
                 <!-- Smart Filtering Preview -->
                 <div x-show="sessionWizard.smart_filtering" class="space-y-4">
                     <h6 class="font-medium text-gray-900">Smart Filtering Results</h6>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                        <div class="bg-blue-50 p-3 rounded">
+                            <span class="font-medium text-blue-800">Total Requirements:</span>
+                            <span class="text-blue-700" x-text="getSelectedRequirements().length"></span>
+                        </div>
                         <div class="bg-green-50 p-3 rounded">
                             <span class="font-medium text-green-800">Applicable:</span>
                             <span class="text-green-700" x-text="getApplicableRequirementsCount()"></span> requirements
@@ -399,6 +450,11 @@
                             <span class="font-medium text-yellow-800">Filtered Out:</span>
                             <span class="text-yellow-700" x-text="getFilteredOutRequirementsCount()"></span> requirements
                         </div>
+                    </div>
+                    <div class="bg-gray-50 p-3 rounded">
+                        <p class="text-sm text-gray-700">
+                            <strong>Testing Plan:</strong> <span x-text="getApplicableRequirementsCount()"></span> requirements × <span x-text="getSelectedPagesCount()"></span> pages = <span x-text="getFinalTestCount()"></span> total tests
+                        </p>
                     </div>
                 </div>
             </div>
@@ -466,35 +522,39 @@
                 </div>
             </div>
 
-            <!-- Action Buttons -->
-            <div class="flex items-center justify-between mt-8 pt-6 border-t">
-                <button x-show="wizardStep > 1" 
-                        @click="wizardStep--"
-                        class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors">
-                    Previous
-                </button>
-                <div x-show="wizardStep === 1"></div>
+            </div>
 
-                <div class="flex space-x-3">
-                    <button @click="closeSessionWizard()" 
-                            class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors">
-                        Cancel
+            <!-- Fixed Footer with Action Buttons -->
+            <div class="wizard-footer" style="padding: 1.5rem; flex-shrink: 0; border-top: 1px solid #e5e7eb; background: white; border-radius: 0 0 0.5rem 0.5rem;">
+                <div class="flex items-center justify-between">
+                    <button x-show="wizardStep > 1" 
+                            @click="previousWizardStep()"
+                            class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors">
+                        Previous
                     </button>
-                    
-                    <button x-show="wizardStep < 6" 
-                            @click="nextWizardStep()"
-                            :disabled="!canProceedToNextStep()"
-                            class="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-                        Next
-                    </button>
-                    
-                    <button x-show="wizardStep === 6" 
-                            @click="createTestingSession()"
-                            :disabled="sessionWizard.creating"
-                            class="px-4 py-2 text-sm font-medium text-white bg-green-600 border border-transparent rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-                        <span x-show="!sessionWizard.creating">Create Session</span>
-                        <span x-show="sessionWizard.creating">Creating...</span>
-                    </button>
+                    <div x-show="wizardStep === 1"></div>
+
+                    <div class="flex space-x-3">
+                        <button @click="closeSessionWizard()" 
+                                class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors">
+                            Cancel
+                        </button>
+                        
+                        <button x-show="wizardStep < 6" 
+                                @click="nextWizardStep()"
+                                :disabled="!canProceedToNextStep()"
+                                class="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                            Next
+                        </button>
+                        
+                        <button x-show="wizardStep === 6" 
+                                @click="createTestingSession()"
+                                :disabled="sessionWizard.creating"
+                                class="px-4 py-2 text-sm font-medium text-white bg-green-600 border border-transparent rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                            <span x-show="!sessionWizard.creating">Create Session</span>
+                            <span x-show="sessionWizard.creating">Creating...</span>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

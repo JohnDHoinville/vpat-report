@@ -7,7 +7,7 @@
                 <h2 class="text-2xl font-bold text-gray-900">Testing Sessions</h2>
                 <p class="mt-2 text-gray-600">Manage unified accessibility testing sessions with comprehensive WCAG and Section 508 compliance</p>
             </div>
-            <button @click="openSessionWizard()" 
+            <button @click.stop="openSessionWizard()" 
                     :disabled="!selectedProject"
                     :class="!selectedProject ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'"
                     class="px-4 py-2 text-white rounded-lg font-medium transition-colors">
