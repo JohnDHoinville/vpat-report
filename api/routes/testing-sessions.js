@@ -322,7 +322,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
 
 /**
  * POST /api/testing-sessions
- * Create a new testing session with automatic requirement population
+ * Create a new testing session with wizard-based configuration
  */
 router.post('/', authenticateToken, async (req, res) => {
     const client = await pool.connect();
@@ -334,27 +334,45 @@ router.post('/', authenticateToken, async (req, res) => {
             project_id,
             name,
             description,
-            conformance_level,
-            include_pages = false,
-            selected_page_ids = []
+            conformance_levels = [],
+            selected_crawler_ids = [],
+            selected_page_ids = [],
+            smart_filtering = true,
+            manual_requirements = []
         } = req.body;
         
+        console.log('🧙‍♂️ Creating session with wizard data:', {
+            project_id,
+            name,
+            conformance_levels,
+            selected_crawler_ids,
+            selected_page_ids: selected_page_ids.length,
+            smart_filtering,
+            manual_requirements: manual_requirements.length
+        });
+        
         // Validate required fields
-        if (!project_id || !name || !conformance_level) {
+        if (!project_id || !name) {
             await client.query('ROLLBACK');
             return res.status(400).json({
                 success: false,
-                error: 'Missing required fields: project_id, name, conformance_level'
+                error: 'Missing required fields: project_id, name'
             });
         }
         
-        // Validate conformance level
-        const validConformanceLevels = ['wcag_a', 'wcag_aa', 'wcag_aaa', 'section_508', 'combined'];
-        if (!validConformanceLevels.includes(conformance_level)) {
+        if (conformance_levels.length === 0) {
             await client.query('ROLLBACK');
             return res.status(400).json({
                 success: false,
-                error: `Invalid conformance level. Must be one of: ${validConformanceLevels.join(', ')}`
+                error: 'At least one conformance level must be selected'
+            });
+        }
+        
+        if (selected_page_ids.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({
+                success: false,
+                error: 'At least one page must be selected for testing'
             });
         }
         
@@ -368,7 +386,9 @@ router.post('/', authenticateToken, async (req, res) => {
             });
         }
         
-        // Create the testing session
+        // Create the testing session with multi-level conformance
+        const conformanceLevelString = conformance_levels.join(','); // Store as comma-separated for now
+        
         const sessionQuery = `
             INSERT INTO test_sessions (
                 project_id, name, description, conformance_level,
@@ -378,32 +398,37 @@ router.post('/', authenticateToken, async (req, res) => {
         `;
         
         const sessionResult = await client.query(sessionQuery, [
-            project_id, name, description, conformance_level, req.user.id
+            project_id, name, description, conformanceLevelString, req.user.id
         ]);
         
         const session = sessionResult.rows[0];
+        console.log('✅ Session created:', session.id);
         
-        // Get requirements for the conformance level
-        const requirements = await getRequirementsForConformanceLevel(conformance_level);
+        // Get requirements for selected conformance levels
+        const requirements = await getRequirementsForWizardLevels(conformance_levels, smart_filtering, manual_requirements);
         
         if (requirements.length === 0) {
             await client.query('ROLLBACK');
             return res.status(400).json({
                 success: false,
-                error: `No active requirements found for conformance level: ${conformance_level}`
+                error: `No active requirements found for selected conformance levels: ${conformance_levels.join(', ')}`
             });
         }
         
-        // Get pages if requested
-        let pages = null;
-        if (include_pages && selected_page_ids.length > 0) {
-            const pagesQuery = `
-                SELECT * FROM discovered_pages 
-                WHERE id = ANY($1) AND project_id = $2
-            `;
-            const pagesResult = await client.query(pagesQuery, [selected_page_ids, project_id]);
-            pages = pagesResult.rows;
+        console.log(`📋 Found ${requirements.length} requirements for conformance levels`);
+        
+        // Get selected pages from crawler data (cross-crawler deduplication)
+        const pages = await getSelectedPagesFromCrawlers(selected_page_ids, selected_crawler_ids);
+        
+        if (pages.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({
+                success: false,
+                error: 'No valid pages found for selected page IDs'
+            });
         }
+        
+        console.log(`🗂️ Found ${pages.length} pages for testing`);
         
         // Create test instances
         const testInstances = await createTestInstances(client, session.id, requirements, pages);
@@ -743,5 +768,165 @@ router.post('/:id/duplicate', authenticateToken, async (req, res) => {
         client.release();
     }
 });
+
+// ===== WIZARD HELPER FUNCTIONS =====
+
+/**
+ * Get requirements for multiple conformance levels (wizard approach)
+ */
+async function getRequirementsForWizardLevels(conformanceLevels, smartFiltering = true, manualRequirements = []) {
+    try {
+        console.log('📋 Getting requirements for wizard levels:', conformanceLevels);
+        
+        // Map wizard conformance levels to database values
+        const levelMapping = {
+            'wcag_22_a': { type: 'wcag', level: 'A' },
+            'wcag_22_aa': { type: 'wcag', level: 'AA' },
+            'wcag_22_aaa': { type: 'wcag', level: 'AAA' },
+            'section_508_base': { type: 'section_508', level: 'base' },
+            'section_508_enhanced': { type: 'section_508', level: 'enhanced' }
+        };
+        
+        const whereConditions = [];
+        const queryParams = [];
+        let paramIndex = 1;
+        
+        for (const conformanceLevel of conformanceLevels) {
+            const mapping = levelMapping[conformanceLevel];
+            if (mapping) {
+                whereConditions.push(`(requirement_type = $${paramIndex} AND level = $${paramIndex + 1})`);
+                queryParams.push(mapping.type, mapping.level);
+                paramIndex += 2;
+            }
+        }
+        
+        if (whereConditions.length === 0) {
+            console.log('⚠️ No valid conformance levels provided');
+            return [];
+        }
+        
+        const query = `
+            SELECT * FROM test_requirements 
+            WHERE is_active = true 
+            AND (${whereConditions.join(' OR ')})
+            ORDER BY requirement_type, level, criterion_number
+        `;
+        
+        const result = await pool.query(query, queryParams);
+        let requirements = result.rows;
+        
+        console.log(`✅ Found ${requirements.length} requirements for levels: ${conformanceLevels.join(', ')}`);
+        
+        // Apply manual filtering if not using smart filtering
+        if (!smartFiltering && manualRequirements.length > 0) {
+            requirements = requirements.filter(req => manualRequirements.includes(req.id));
+            console.log(`🎯 Manual filtering applied: ${requirements.length} requirements selected`);
+        }
+        
+        // TODO: Implement smart filtering logic based on page content analysis
+        // For now, smart filtering just returns all applicable requirements
+        
+        return requirements;
+        
+    } catch (error) {
+        console.error('Error getting requirements for wizard levels:', error);
+        return [];
+    }
+}
+
+/**
+ * Get selected pages from multiple crawlers with deduplication
+ */
+async function getSelectedPagesFromCrawlers(selectedPageIds, selectedCrawlerIds) {
+    try {
+        console.log('🗂️ Getting pages from crawlers:', { selectedPageIds: selectedPageIds.length, selectedCrawlerIds });
+        
+        if (selectedPageIds.length === 0) {
+            return [];
+        }
+        
+        // Query to get pages from crawler_discovered_pages (web crawler data)
+        const query = `
+            SELECT 
+                id,
+                url,
+                title,
+                crawler_id,
+                status_code,
+                content_type,
+                created_at
+            FROM crawler_discovered_pages 
+            WHERE id = ANY($1)
+            ORDER BY url
+        `;
+        
+        const result = await pool.query(query, [selectedPageIds]);
+        const pages = result.rows;
+        
+        console.log(`✅ Retrieved ${pages.length} pages from crawler data`);
+        
+        // Additional deduplication by URL (in case same URL appears in multiple crawlers)
+        const urlMap = new Map();
+        pages.forEach(page => {
+            if (!urlMap.has(page.url)) {
+                urlMap.set(page.url, page);
+            }
+        });
+        
+        const deduplicatedPages = Array.from(urlMap.values());
+        
+        if (deduplicatedPages.length !== pages.length) {
+            console.log(`🔄 Deduplicated ${pages.length} pages to ${deduplicatedPages.length} unique URLs`);
+        }
+        
+        return deduplicatedPages;
+        
+    } catch (error) {
+        console.error('Error getting selected pages from crawlers:', error);
+        return [];
+    }
+}
+
+/**
+ * Create test instances with URL-based approach (Requirements × URLs = Tests)
+ */
+async function createTestInstances(client, sessionId, requirements, pages) {
+    console.log(`🧪 Creating test matrix: ${requirements.length} requirements × ${pages.length} pages = ${requirements.length * pages.length} tests`);
+    
+    const instances = [];
+    
+    for (const requirement of requirements) {
+        for (const page of pages) {
+            const instanceQuery = `
+                INSERT INTO test_instances (
+                    session_id, requirement_id, page_id, status, 
+                    test_method_used, created_at
+                ) VALUES ($1, $2, $3, 'pending', $4, CURRENT_TIMESTAMP)
+                RETURNING *
+            `;
+            
+            const testMethod = requirement.test_method === 'both' ? 'automated' : requirement.test_method;
+            
+            try {
+                const instanceResult = await client.query(instanceQuery, [
+                    sessionId, requirement.id, page.id, testMethod
+                ]);
+                
+                instances.push(instanceResult.rows[0]);
+                
+            } catch (error) {
+                // Handle unique constraint violations (requirement + page already exists)
+                if (error.code === '23505') {
+                    console.log(`⚠️ Skipping duplicate test: ${requirement.criterion_number} × ${page.url}`);
+                } else {
+                    throw error;
+                }
+            }
+        }
+    }
+    
+    console.log(`✅ Successfully created ${instances.length} test instances`);
+    return instances;
+}
 
 module.exports = router; 

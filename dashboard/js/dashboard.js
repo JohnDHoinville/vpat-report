@@ -248,6 +248,28 @@ function dashboard() {
         sessionDetailsTeam: {},
         sessionDetailsTestInstances: [],
         sessionDetailsPages: [],
+
+        // ===== SESSION CREATION WIZARD STATE =====
+        showSessionWizard: false,
+        wizardStep: 1,
+        sessionWizard: {
+            project_id: '',
+            name: '',
+            description: '',
+            conformance_levels: [],
+            selected_crawlers: [],
+            selected_pages: [],
+            smart_filtering: true,
+            manual_requirements: [],
+            creating: false
+        },
+        availableCrawlers: [],
+        combinedPages: [],
+        deduplicatedPages: [],
+        availableRequirements: [],
+        requirementCounts: {},
+        pageSearchQuery: '',
+        pageFilterType: '',
         automationSummary: {},
         userFormErrors: {},
         allUsers: [],
@@ -7403,6 +7425,390 @@ function dashboard() {
         },
 
         // Reset newTestingSession form (compatibility method)
+
+        // ===== SESSION CREATION WIZARD METHODS =====
+
+        // Open session wizard
+        openSessionWizard() {
+            console.log('🧙‍♂️ Opening session creation wizard');
+            this.resetSessionWizard();
+            this.showSessionWizard = true;
+            this.loadWizardData();
+        },
+
+        // Close session wizard
+        closeSessionWizard() {
+            console.log('🧙‍♂️ Closing session creation wizard');
+            this.showSessionWizard = false;
+            this.resetSessionWizard();
+        },
+
+        // Reset wizard state
+        resetSessionWizard() {
+            this.wizardStep = 1;
+            this.sessionWizard = {
+                project_id: '',
+                name: '',
+                description: '',
+                conformance_levels: [],
+                selected_crawlers: [],
+                selected_pages: [],
+                smart_filtering: true,
+                manual_requirements: [],
+                creating: false
+            };
+            this.pageSearchQuery = '';
+            this.pageFilterType = '';
+        },
+
+        // Load initial wizard data
+        async loadWizardData() {
+            try {
+                console.log('📊 Loading wizard data...');
+                
+                // Load crawlers and requirements in parallel
+                await Promise.all([
+                    this.loadAvailableCrawlers(),
+                    this.loadAvailableRequirements()
+                ]);
+                
+            } catch (error) {
+                console.error('Error loading wizard data:', error);
+                this.showNotification('error', 'Load Failed', 'Failed to load wizard data');
+            }
+        },
+
+        // Load available crawlers for project
+        async loadAvailableCrawlers() {
+            try {
+                console.log('🕷️ Loading available crawlers...');
+                
+                const response = await this.apiCall('/web-crawlers');
+                if (response.success) {
+                    this.availableCrawlers = response.data.map(crawler => ({
+                        ...crawler,
+                        pages_count: crawler.total_pages || 0
+                    }));
+                    console.log(`✅ Loaded ${this.availableCrawlers.length} crawlers`);
+                } else {
+                    throw new Error(response.error || 'Failed to load crawlers');
+                }
+            } catch (error) {
+                console.error('Error loading crawlers:', error);
+                this.availableCrawlers = [];
+            }
+        },
+
+        // Load available requirements
+        async loadAvailableRequirements() {
+            try {
+                console.log('📋 Loading available requirements...');
+                
+                const response = await this.apiCall('/requirements');
+                if (response.success) {
+                    this.availableRequirements = response.data;
+                    
+                    // Calculate requirement counts by conformance level
+                    this.requirementCounts = this.availableRequirements.reduce((counts, req) => {
+                        const key = `${req.requirement_type}_${req.level.toLowerCase()}`;
+                        counts[key] = (counts[key] || 0) + 1;
+                        return counts;
+                    }, {});
+                    
+                    console.log(`✅ Loaded ${this.availableRequirements.length} requirements`);
+                } else {
+                    throw new Error(response.error || 'Failed to load requirements');
+                }
+            } catch (error) {
+                console.error('Error loading requirements:', error);
+                this.availableRequirements = [];
+                this.requirementCounts = {};
+            }
+        },
+
+        // Get requirement count for conformance level
+        getRequirementCount(level) {
+            const mapping = {
+                'wcag_22_a': 'wcag_a',
+                'wcag_22_aa': 'wcag_aa', 
+                'wcag_22_aaa': 'wcag_aaa',
+                'section_508_base': 'section_508_base',
+                'section_508_enhanced': 'section_508_enhanced'
+            };
+            return this.requirementCounts[mapping[level]] || 0;
+        },
+
+        // Set conformance levels (for quick selection buttons)
+        setConformanceLevels(levels) {
+            this.sessionWizard.conformance_levels = [...levels];
+        },
+
+        // Get total selected requirements count
+        getTotalSelectedRequirements() {
+            return this.sessionWizard.conformance_levels.reduce((total, level) => {
+                return total + this.getRequirementCount(level);
+            }, 0);
+        },
+
+        // Next wizard step
+        nextWizardStep() {
+            if (this.canProceedToNextStep()) {
+                if (this.wizardStep === 3) {
+                    // Load combined pages when moving to page selection
+                    this.loadCombinedPages();
+                }
+                this.wizardStep++;
+            }
+        },
+
+        // Check if can proceed to next step
+        canProceedToNextStep() {
+            switch (this.wizardStep) {
+                case 1:
+                    return this.sessionWizard.project_id && this.sessionWizard.name;
+                case 2:
+                    return this.sessionWizard.conformance_levels.length > 0;
+                case 3:
+                    return this.sessionWizard.selected_crawlers.length > 0;
+                case 4:
+                    return this.sessionWizard.selected_pages.length > 0;
+                case 5:
+                    return true; // Always can proceed from requirements step
+                default:
+                    return true;
+            }
+        },
+
+        // Load combined pages from selected crawlers
+        async loadCombinedPages() {
+            try {
+                console.log('🔗 Loading combined pages from crawlers...');
+                
+                const allPages = [];
+                for (const crawlerId of this.sessionWizard.selected_crawlers) {
+                    const response = await this.apiCall(`/web-crawlers/${crawlerId}/pages`);
+                    if (response.success) {
+                        allPages.push(...response.data.map(page => ({
+                            ...page,
+                            crawler_id: crawlerId
+                        })));
+                    }
+                }
+                
+                // Deduplicate by URL
+                const urlMap = new Map();
+                allPages.forEach(page => {
+                    if (!urlMap.has(page.url)) {
+                        urlMap.set(page.url, page);
+                    }
+                });
+                
+                this.combinedPages = allPages;
+                this.deduplicatedPages = Array.from(urlMap.values());
+                
+                // Auto-select all pages initially
+                this.sessionWizard.selected_pages = this.deduplicatedPages.map(page => page.id);
+                
+                console.log(`✅ Combined ${allPages.length} pages, deduplicated to ${this.deduplicatedPages.length}`);
+                
+            } catch (error) {
+                console.error('Error loading combined pages:', error);
+                this.combinedPages = [];
+                this.deduplicatedPages = [];
+            }
+        },
+
+        // Get total pages from selected crawlers
+        getTotalPagesFromCrawlers() {
+            return this.sessionWizard.selected_crawlers.reduce((total, crawlerId) => {
+                const crawler = this.availableCrawlers.find(c => c.id === crawlerId);
+                return total + (crawler?.pages_count || 0);
+            }, 0);
+        },
+
+        // Get deduplicated pages count
+        getDeduplicatedPagesCount() {
+            return this.deduplicatedPages.length;
+        },
+
+        // Get combined pages for display
+        getCombinedPages() {
+            return this.deduplicatedPages;
+        },
+
+        // Page selection methods
+        selectAllPages() {
+            this.sessionWizard.selected_pages = this.deduplicatedPages.map(page => page.id);
+        },
+
+        deselectAllPages() {
+            this.sessionWizard.selected_pages = [];
+        },
+
+        selectHomepageOnly() {
+            const homepages = this.deduplicatedPages.filter(page => 
+                page.url.endsWith('/') || page.url.split('/').length <= 3
+            );
+            this.sessionWizard.selected_pages = homepages.map(page => page.id);
+        },
+
+        getSelectedPagesCount() {
+            return this.sessionWizard.selected_pages.length;
+        },
+
+        areAllPagesSelected() {
+            return this.sessionWizard.selected_pages.length === this.deduplicatedPages.length;
+        },
+
+        toggleAllPages() {
+            if (this.areAllPagesSelected()) {
+                this.deselectAllPages();
+            } else {
+                this.selectAllPages();
+            }
+        },
+
+        // Get filtered pages for display
+        getFilteredPages() {
+            let filtered = this.deduplicatedPages;
+            
+            // Apply search filter
+            if (this.pageSearchQuery) {
+                const query = this.pageSearchQuery.toLowerCase();
+                filtered = filtered.filter(page => 
+                    page.url.toLowerCase().includes(query) ||
+                    (page.title && page.title.toLowerCase().includes(query))
+                );
+            }
+            
+            // Apply type filter
+            if (this.pageFilterType) {
+                // This would need page content analysis - placeholder for now
+                // filtered = filtered.filter(page => page.type === this.pageFilterType);
+            }
+            
+            return filtered;
+        },
+
+        // Get crawler name by ID
+        getCrawlerName(crawlerId) {
+            const crawler = this.availableCrawlers.find(c => c.id === crawlerId);
+            return crawler?.name || 'Unknown';
+        },
+
+        // Requirements filtering methods
+        getSelectedRequirements() {
+            if (!this.sessionWizard.conformance_levels.length) return [];
+            
+            return this.availableRequirements.filter(req => {
+                const levelKey = `${req.requirement_type}_${req.level.toLowerCase()}`;
+                return this.sessionWizard.conformance_levels.some(selectedLevel => {
+                    const mapping = {
+                        'wcag_22_a': 'wcag_a',
+                        'wcag_22_aa': 'wcag_aa',
+                        'wcag_22_aaa': 'wcag_aaa',
+                        'section_508_base': 'section_508_base',
+                        'section_508_enhanced': 'section_508_enhanced'
+                    };
+                    return mapping[selectedLevel] === levelKey;
+                });
+            });
+        },
+
+        getApplicableRequirementsCount() {
+            if (!this.sessionWizard.smart_filtering) {
+                return this.getSelectedRequirements().length;
+            }
+            // Smart filtering logic would go here
+            return Math.floor(this.getSelectedRequirements().length * 0.8); // Placeholder
+        },
+
+        getFilteredOutRequirementsCount() {
+            return this.getSelectedRequirements().length - this.getApplicableRequirementsCount();
+        },
+
+        // Final preview methods
+        getProjectName(projectId) {
+            const project = this.projects.find(p => p.id === projectId);
+            return project?.name || 'Unknown Project';
+        },
+
+        formatConformanceLevel(level) {
+            const mapping = {
+                'wcag_22_a': 'WCAG 2.2 Level A',
+                'wcag_22_aa': 'WCAG 2.2 Level AA',
+                'wcag_22_aaa': 'WCAG 2.2 Level AAA',
+                'section_508_base': 'Section 508 Base',
+                'section_508_enhanced': 'Section 508 Enhanced'
+            };
+            return mapping[level] || level;
+        },
+
+        getFinalRequirementsCount() {
+            if (this.sessionWizard.smart_filtering) {
+                return this.getApplicableRequirementsCount();
+            } else {
+                return this.sessionWizard.manual_requirements.length || this.getSelectedRequirements().length;
+            }
+        },
+
+        getFinalTestCount() {
+            return this.getFinalRequirementsCount() * this.sessionWizard.selected_pages.length;
+        },
+
+        getEstimatedManualTime() {
+            const manualTests = Math.floor(this.getFinalTestCount() * 0.7); // Estimate 70% manual
+            const hoursPerTest = 0.25; // 15 minutes per test
+            const totalHours = Math.ceil(manualTests * hoursPerTest);
+            return `${totalHours} hours`;
+        },
+
+        getEstimatedAutomatedTime() {
+            const automatedTests = Math.floor(this.getFinalTestCount() * 0.3); // Estimate 30% automated
+            const minutesPerTest = 2; // 2 minutes per automated test
+            const totalMinutes = automatedTests * minutesPerTest;
+            return `${Math.ceil(totalMinutes / 60)} hours`;
+        },
+
+        // Create the testing session
+        async createTestingSession() {
+            try {
+                this.sessionWizard.creating = true;
+                console.log('🚀 Creating testing session...', this.sessionWizard);
+                
+                const sessionData = {
+                    project_id: this.sessionWizard.project_id,
+                    name: this.sessionWizard.name,
+                    description: this.sessionWizard.description,
+                    conformance_levels: this.sessionWizard.conformance_levels,
+                    selected_crawler_ids: this.sessionWizard.selected_crawlers,
+                    selected_page_ids: this.sessionWizard.selected_pages,
+                    smart_filtering: this.sessionWizard.smart_filtering,
+                    manual_requirements: this.sessionWizard.manual_requirements
+                };
+                
+                const response = await this.apiCall('/testing-sessions', 'POST', sessionData);
+                
+                if (response.success) {
+                    console.log('✅ Session created successfully:', response.session);
+                    this.showNotification('success', 'Session Created', 
+                        `Testing session "${response.session.name}" created with ${response.test_instances_created} tests`);
+                    
+                    this.closeSessionWizard();
+                    await this.loadTestingSessions(); // Refresh the sessions list
+                    
+                } else {
+                    throw new Error(response.error || 'Failed to create session');
+                }
+                
+            } catch (error) {
+                console.error('Error creating testing session:', error);
+                this.showNotification('error', 'Creation Failed', 
+                    error.message || 'Failed to create testing session');
+            } finally {
+                this.sessionWizard.creating = false;
+            }
+        }
     };
     
     // 🛡️ Mark as initialized and store instance
@@ -7428,6 +7834,10 @@ function dashboard() {
     // Admin Backup Global Functions
     window.showAdminBackup = () => componentInstance.showAdminBackup();
     window.closeAdminBackup = () => componentInstance.closeAdminBackup();
+    
+    // Session Wizard Global Functions
+    window.openSessionWizard = () => componentInstance.openSessionWizard();
+    window.closeSessionWizard = () => componentInstance.closeSessionWizard();
     
     return componentInstance;
 }

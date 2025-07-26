@@ -103,10 +103,22 @@ Error creating testing session: error: column "user_id" of relation "test_audit_
 
 ### Critical Learnings from Previous Implementations
 
+#### Core Architecture Understanding: Test Definition
+
+**FUNDAMENTAL PRINCIPLE**: A **Test** is defined as: `1 Requirement + 1 URL = 1 Test`
+
+- **Database Primary Key**: `(requirement_id, url_id)` ensures uniqueness
+- **Test Creation Formula**: `Number of Requirements × Number of Selected URLs = Total Tests`
+- **Example**: 17 Section 508 requirements × 5 selected URLs = 85 total tests
+- **URL Source**: Selected/excluded pages from Web Crawler "View Pages" are passed to Testing Sessions
+- **UI Hierarchy**: Requirements first → expand to show Tests (URLs) underneath each requirement
+
 #### Database Architecture Lessons
 
 - **Single Source of Truth**: Previous issues with file-based vs database storage (`fm-session.json` vs `crawler_auth_sessions`) showed the importance of consistent database-first architecture
 - **Project Context**: All sessions must be properly associated with projects for multi-project support and proper data isolation
+- **Test Instance Uniqueness**: Each test instance requires both requirement_id and url_id as compound primary key
+- **URL Integration**: Web crawler selected pages must be properly passed to testing session creation
 - **Audit Trail Requirements**: Every test change needs automatic logging with full context, user tracking, and IP logging for enterprise compliance
 - **Migration Safety**: All data migrations need rollback procedures and backward compatibility to prevent data loss
 - **Column Name Consistency**: Critical to match INSERT statement column names with actual table schema (current issue: `user_id` vs `changed_by`)
