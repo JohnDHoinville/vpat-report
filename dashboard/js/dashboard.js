@@ -194,6 +194,22 @@ function dashboard() {
             direction: 'asc'
         },
         
+        // ===== ADVANCED TEST GRID STATE =====
+        showTestGrid: false,
+        selectedTestSession: null,
+        testGridInstances: [],
+        filteredTestGridInstances: [],
+        selectedTestGridInstances: [],
+        testGridSearch: '',
+        testGridFilters: {
+            status: '',
+            level: '',
+            testMethod: '',
+            assignedTester: ''
+        },
+        testGridView: 'detailed', // 'compact' or 'detailed'
+        bulkOperation: '',
+        
         // ===== REQUIREMENTS VIEWER STATE =====
         showRequirementsModal: false,
         allRequirements: [],
@@ -1039,7 +1055,7 @@ function dashboard() {
                 this.showLogin = true;
             }
         },
-
+        
         async login() {
             this.loginError = '';
             this.loading = true;
@@ -4709,41 +4725,12 @@ function dashboard() {
             }
         },
 
-        // ===== USER MANAGEMENT METHODS =====
+        // ===== USER MANAGEMENT METHODS (Legacy - Deprecated) =====
+        // Note: Functionality moved to newer implementation below
 
-        // Show user management modal
-        showUserManagement() {
-            try {
-                document.getElementById('userManagementModal').classList.remove('hidden');
-                this.loadUserStats();
-                this.loadUsers();
-                this.setupUserManagementEventListeners();
-            } catch (error) {
-                console.error('❌ Error opening user management:', error);
-                this.showNotification('error', 'Load Failed', 'Failed to load user management');
-            }
-        },
+        // Legacy closeUserManagement removed - functionality moved to newer implementation
 
-        closeUserManagement() {
-            document.getElementById('userManagementModal').classList.add('hidden');
-            this.userManagement.editingUser = null;
-        },
-
-        async loadUserStats() {
-            try {
-                const response = await this.apiCall('/users/stats');
-                this.userManagement.stats = response.data;
-                
-                // Update stats display
-                document.getElementById('totalUsersCount').textContent = response.data.total_users || 0;
-                document.getElementById('activeUsersCount').textContent = response.data.active_users || 0;
-                document.getElementById('adminUsersCount').textContent = response.data.admin_users || 0;
-                document.getElementById('recentLoginsCount').textContent = response.data.recent_logins || 0;
-                
-            } catch (error) {
-                console.error('❌ Error loading user stats:', error);
-            }
-        },
+        // Legacy loadUserStats removed - functionality moved to calculateUserStats() method
 
         async loadUsers(page = 1) {
             try {
@@ -4996,7 +4983,7 @@ function dashboard() {
                 this.showNotification('success', 'User Saved', response.message || 'User saved successfully');
                 this.closeUserForm();
                 await this.loadUsers(this.userManagement.currentPage);
-                await this.loadUserStats();
+                this.calculateUserStats();
                 
             } catch (error) {
                 console.error('❌ Error saving user:', error);
@@ -5082,7 +5069,7 @@ function dashboard() {
                 this.showNotification('success', 'User Deleted', response.message || 'User deactivated successfully');
                 this.closeDeleteUserModal();
                 await this.loadUsers(this.userManagement.currentPage);
-                await this.loadUserStats();
+                this.calculateUserStats();
                 
             } catch (error) {
                 console.error('❌ Error deleting user:', error);
@@ -5100,7 +5087,7 @@ function dashboard() {
                 
                 this.showNotification('success', 'User Reactivated', response.message || 'User reactivated successfully');
                 await this.loadUsers(this.userManagement.currentPage);
-                await this.loadUserStats();
+                this.calculateUserStats();
                 
             } catch (error) {
                 console.error('❌ Error reactivating user:', error);
@@ -5108,56 +5095,7 @@ function dashboard() {
             }
         },
 
-        // Event Listeners
-        setupUserManagementEventListeners() {
-            // Search input
-            const searchInput = document.getElementById('userSearchInput');
-            if (searchInput && !searchInput.hasUserManagementListener) {
-                let searchTimeout;
-                searchInput.addEventListener('input', (e) => {
-                    clearTimeout(searchTimeout);
-                    searchTimeout = setTimeout(() => {
-                        this.userManagement.filters.search = e.target.value;
-                        this.loadUsers(1);
-                    }, 500);
-                });
-                searchInput.hasUserManagementListener = true;
-            }
-            
-            // Role filter
-            const roleFilter = document.getElementById('roleFilter');
-            if (roleFilter && !roleFilter.hasUserManagementListener) {
-                roleFilter.addEventListener('change', (e) => {
-                    this.userManagement.filters.role = e.target.value;
-                    this.loadUsers(1);
-                });
-                roleFilter.hasUserManagementListener = true;
-            }
-            
-            // Status filter
-            const statusFilter = document.getElementById('statusFilter');
-            if (statusFilter && !statusFilter.hasUserManagementListener) {
-                statusFilter.addEventListener('change', (e) => {
-                    this.userManagement.filters.status = e.target.value;
-                    this.loadUsers(1);
-                });
-                statusFilter.hasUserManagementListener = true;
-            }
-            
-            // User form
-            const userForm = document.getElementById('userForm');
-            if (userForm && !userForm.hasUserManagementListener) {
-                userForm.addEventListener('submit', (e) => this.handleUserFormSubmit(e));
-                userForm.hasUserManagementListener = true;
-            }
-            
-            // Password reset form
-            const passwordResetForm = document.getElementById('passwordResetForm');
-            if (passwordResetForm && !passwordResetForm.hasUserManagementListener) {
-                passwordResetForm.addEventListener('submit', (e) => this.handlePasswordResetSubmit(e));
-                passwordResetForm.hasUserManagementListener = true;
-            }
-        },
+        // Legacy setupUserManagementEventListeners removed - Alpine.js handles events through directives
 
         // Pagination Functions
         async previousUsersPage() {
@@ -5671,8 +5609,8 @@ function dashboard() {
         
         // ===== USER MANAGEMENT METHODS =====
         
-        // Show user management modal
-        async showUserManagement() {
+        // Open user management modal
+        async openUserManagement() {
             try {
                 console.log('🔍 Opening user management modal');
                 this.showUserManagement = true;
@@ -6022,46 +5960,34 @@ function dashboard() {
 
         // ===== TEST GRID METHODS =====
         
-        // View test grid for a session
+        // View test grid for a session (Modal Component)
         async viewTestGrid(session) {
             try {
                 console.log('🔍 Opening test grid for session:', session.name);
                 
                 // Store complete session information with progress
-                this.selectedSession = { ...session };
+                this.selectedTestSession = { ...session };
                 this.showTestGrid = true;
                 this.loadingTestInstances = true;
                 
-                // Initialize enhanced test grid state
-                this.selectedTestInstances = [];
-                this.bulkStatusUpdate = '';
-                this.bulkTesterAssignment = '';
+                // Initialize modal test grid state
+                this.selectedTestGridInstances = [];
+                this.testGridFilters = {
+                    status: '',
+                    level: '',
+                    testMethod: ''
+                };
                 this.testGridSort = {
                     field: 'criterion_number',
                     direction: 'asc'
                 };
                 
-                // Ensure progress data is available
-                if (!this.selectedSession.progress && session.progress) {
-                    this.selectedSession.progress = session.progress;
-                }
+                // Load test instances using the proper modal grid function
+                await this.loadTestInstancesForGrid(session.id);
                 
-                // Load test instances for this session
-                const response = await this.apiCall(`/test-instances?session_id=${session.id}`);
-                
-                if (response.success) {
-                    this.testInstances = response.test_instances || [];
-                    this.filteredTestInstances = this.testInstances;
-                    this.applyTestGridFilters();
-                    
-                    console.log('✅ Loaded test instances:', this.testInstances.length);
-                    
-                    // Show notification about which session is being managed
-                    this.showNotification('info', 'Enhanced Test Grid Opened', 
-                        `Now managing tests for "${this.selectedSession.name}" (${this.testInstances.length} test instances)`);
-                } else {
-                    throw new Error(response.error || 'Failed to load test instances');
-                }
+                // Show notification about which session is being managed
+                this.showNotification('info', 'Test Grid Opened', 
+                    `Now managing tests for "${this.selectedTestSession.name}" (${this.testGridInstances.length} test instances)`);
             } catch (error) {
                 console.error('Error loading test grid:', error);
                 this.showNotification('error', 'Grid Load Failed', error.message || 'Failed to load test instances');
@@ -6532,16 +6458,25 @@ function dashboard() {
         // Load session activities from audit trail
         async loadSessionActivities(sessionId) {
             try {
-                const response = await this.apiCall(`/audit-trail/timeline/${sessionId}?granularity=raw&limit=10`);
+                const response = await this.apiCall(`/audit-trail/session/${sessionId}?limit=10&include_metadata=true`);
                 
-                if (response.success && response.data.timeline) {
-                    // Flatten timeline events for display
-                    const activities = response.data.timeline.flatMap(period => 
-                        Array.isArray(period.events) ? period.events : [period]
-                    ).slice(0, 10);
+                if (response.success && response.data && Array.isArray(response.data.audit_entries)) {
+                    // Use audit entries directly - each entry is an individual activity
+                    const activities = response.data.audit_entries.map(entry => ({
+                        id: entry.id || `${entry.changed_at}-${entry.action_type}`,
+                        event_time: entry.changed_at || entry.timestamp,
+                        action_type: entry.action_type,
+                        description: entry.reason || entry.change_description || `${entry.action_type} action`,
+                        changed_by: entry.changed_by,
+                        metadata: entry.metadata,
+                        test_instance_id: entry.test_instance_id
+                    })).slice(0, 10);
                     
                     this.sessionDetailsActivities = activities;
-                    console.log('📋 Session activities loaded:', activities.length);
+                    console.log('📋 Session activities loaded:', this.sessionDetailsActivities.length);
+                } else {
+                    this.sessionDetailsActivities = [];
+                    console.log('📋 No session activities found or invalid response structure');
                 }
             } catch (error) {
                 console.error('Error loading session activities:', error);
@@ -6957,6 +6892,332 @@ function dashboard() {
             return this.getRequirementsWithPages().filter(group => group.pages.length > 0);
         },
 
+        // ===== ADVANCED TEST GRID METHODS =====
+        
+        // Load test instances for advanced grid
+        async loadTestInstancesForGrid(sessionId) {
+            try {
+                const response = await this.apiCall(`/test-instances?session_id=${sessionId}`);
+                
+                if (response.success) {
+                    this.testGridInstances = response.test_instances || [];
+                    
+                    // Add tester names to test instances
+                    for (const instance of this.testGridInstances) {
+                        if (instance.assigned_tester) {
+                            const tester = this.availableTesters.find(u => u.id === instance.assigned_tester);
+                            instance.assigned_tester_name = tester ? (tester.full_name || tester.username) : 'Unknown User';
+                        }
+                    }
+                    
+                    this.applyTestGridFilters();
+                    console.log('📊 Advanced test grid loaded:', this.testGridInstances.length, 'instances');
+                }
+            } catch (error) {
+                console.error('Error loading test instances for grid:', error);
+                this.testGridInstances = [];
+                this.filteredTestGridInstances = [];
+            }
+        },
+        
+        // Apply advanced filters to test grid
+        applyTestGridFilters() {
+            let filtered = [...this.testGridInstances];
+            
+            // Search filter
+            if (this.testGridSearch) {
+                const searchTerm = this.testGridSearch.toLowerCase();
+                filtered = filtered.filter(instance => 
+                    (instance.criterion_number || '').toLowerCase().includes(searchTerm) ||
+                    (instance.requirement_title || instance.title || '').toLowerCase().includes(searchTerm) ||
+                    (instance.description || '').toLowerCase().includes(searchTerm) ||
+                    (instance.page_url || '').toLowerCase().includes(searchTerm) ||
+                    (instance.page_title || '').toLowerCase().includes(searchTerm)
+                );
+            }
+            
+            // Status filter
+            if (this.testGridFilters.status) {
+                filtered = filtered.filter(instance => instance.status === this.testGridFilters.status);
+            }
+            
+            // Level filter
+            if (this.testGridFilters.level) {
+                filtered = filtered.filter(instance => 
+                    (instance.requirement_level || instance.level) === this.testGridFilters.level
+                );
+            }
+            
+            // Test method filter
+            if (this.testGridFilters.testMethod) {
+                filtered = filtered.filter(instance => 
+                    (instance.test_method_used || instance.requirement_test_method) === this.testGridFilters.testMethod
+                );
+            }
+            
+            // Assigned tester filter
+            if (this.testGridFilters.assignedTester) {
+                filtered = filtered.filter(instance => instance.assigned_tester === this.testGridFilters.assignedTester);
+            }
+            
+            this.filteredTestGridInstances = filtered;
+            this.applyTestGridSort();
+            
+            // Clear selections when filters change
+            this.selectedTestGridInstances = [];
+        },
+        
+        // Apply sorting to test grid
+        applyTestGridSort() {
+            if (!this.filteredTestGridInstances) return;
+            
+            const { field, direction } = this.testGridSort;
+            
+            this.filteredTestGridInstances.sort((a, b) => {
+                let aVal = this.getTestGridSortValue(a, field);
+                let bVal = this.getTestGridSortValue(b, field);
+                
+                // Handle null/undefined values
+                if (aVal === null || aVal === undefined) aVal = '';
+                if (bVal === null || bVal === undefined) bVal = '';
+                
+                // Convert to strings for comparison
+                aVal = aVal.toString().toLowerCase();
+                bVal = bVal.toString().toLowerCase();
+                
+                let result = aVal.localeCompare(bVal);
+                return direction === 'desc' ? -result : result;
+            });
+        },
+        
+        // Get sort value for test grid
+        getTestGridSortValue(instance, field) {
+            switch (field) {
+                case 'criterion_number':
+                    return instance.criterion_number || '';
+                case 'requirement_level':
+                    return instance.requirement_level || instance.level || '';
+                case 'test_method_used':
+                    return instance.test_method_used || instance.requirement_test_method || '';
+                case 'status':
+                    return instance.status || '';
+                case 'assigned_tester':
+                    return instance.assigned_tester_name || instance.assigned_tester || '';
+                case 'updated_at':
+                    return instance.updated_at || '';
+                case 'page_url':
+                    return instance.page_url || '';
+                default:
+                    return '';
+            }
+        },
+        
+        // Sort test grid by field
+        sortTestGridBy(field) {
+            if (this.testGridSort.field === field) {
+                this.testGridSort.direction = this.testGridSort.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                this.testGridSort.field = field;
+                this.testGridSort.direction = 'asc';
+            }
+            this.applyTestGridSort();
+        },
+        
+        // Get sort icon for test grid headers
+        getTestGridSortIcon(field) {
+            if (this.testGridSort.field !== field) {
+                return 'fa-sort text-gray-400';
+            }
+            return this.testGridSort.direction === 'asc' ? 'fa-sort-up text-purple-600' : 'fa-sort-down text-purple-600';
+        },
+        
+        // Toggle select all for test grid
+        toggleSelectAllTestGrid(event) {
+            if (event.target.checked) {
+                this.selectedTestGridInstances = this.filteredTestGridInstances.map(instance => instance.id);
+            } else {
+                this.selectedTestGridInstances = [];
+            }
+            this.bulkOperation = '';
+        },
+        
+        // Toggle individual test instance selection
+        toggleTestGridInstanceSelection(instanceId, event) {
+            if (event.target.checked) {
+                if (!this.selectedTestGridInstances.includes(instanceId)) {
+                    this.selectedTestGridInstances.push(instanceId);
+                }
+            } else {
+                this.selectedTestGridInstances = this.selectedTestGridInstances.filter(id => id !== instanceId);
+            }
+            this.bulkOperation = '';
+        },
+        
+        // Clear test grid selection
+        clearTestGridSelection() {
+            this.selectedTestGridInstances = [];
+            this.bulkOperation = '';
+        },
+        
+        // Clear all filters
+        clearAllFilters() {
+            this.testGridSearch = '';
+            this.testGridFilters = {
+                status: '',
+                level: '',
+                testMethod: '',
+                assignedTester: ''
+            };
+            this.applyTestGridFilters();
+        },
+        
+        // Apply bulk operations
+        async applyBulkOperation() {
+            if (!this.bulkOperation || this.selectedTestGridInstances.length === 0) return;
+            
+            try {
+                console.log(`🔄 Applying bulk operation: ${this.bulkOperation} to ${this.selectedTestGridInstances.length} instances`);
+                
+                switch (this.bulkOperation) {
+                    case 'mark_passed':
+                    case 'mark_failed':
+                    case 'mark_in_progress':
+                    case 'mark_not_applicable':
+                        const status = this.bulkOperation.replace('mark_', '').replace('_', '_');
+                        await this.bulkUpdateStatus(status);
+                        break;
+                    case 'assign_tester':
+                        await this.showBulkTesterAssignment();
+                        break;
+                    case 'run_automation':
+                        await this.bulkRunAutomation();
+                        break;
+                }
+                
+                this.bulkOperation = '';
+            } catch (error) {
+                console.error('Error applying bulk operation:', error);
+                this.showNotification('error', 'Bulk Operation Failed', error.message);
+            }
+        },
+        
+        // Bulk update status
+        async bulkUpdateStatus(status) {
+            const promises = this.selectedTestGridInstances.map(instanceId => 
+                this.updateTestInstanceStatus(instanceId, status)
+            );
+            
+            await Promise.all(promises);
+            
+            this.showNotification('success', 'Bulk Update Complete', 
+                `Updated ${this.selectedTestGridInstances.length} test instances to "${status.replace('_', ' ')}"`);
+            
+            this.clearTestGridSelection();
+            await this.loadTestInstancesForGrid(this.selectedTestSession.id);
+        },
+        
+        // Assign tester to test instance
+        async assignTestInstanceTester(instanceId, testerId) {
+            try {
+                const response = await this.apiCall(`/test-instances/${instanceId}`, 'PUT', {
+                    assigned_tester: testerId || null
+                });
+                
+                if (response.success) {
+                    // Update local data
+                    const instance = this.testGridInstances.find(t => t.id === instanceId);
+                    if (instance) {
+                        instance.assigned_tester = testerId;
+                        const tester = this.availableTesters.find(u => u.id === testerId);
+                        instance.assigned_tester_name = tester ? (tester.full_name || tester.username) : 'Unassigned';
+                    }
+                    
+                    this.applyTestGridFilters(); // Refresh the filtered view
+                }
+            } catch (error) {
+                console.error('Error assigning tester:', error);
+                this.showNotification('error', 'Assignment Failed', error.message);
+            }
+        },
+        
+        // Get test status select class
+        getTestStatusSelectClass(status) {
+            const classes = {
+                'pending': 'bg-gray-100 text-gray-800',
+                'in_progress': 'bg-blue-100 text-blue-800',
+                'passed': 'bg-green-100 text-green-800',
+                'failed': 'bg-red-100 text-red-800',
+                'untestable': 'bg-yellow-100 text-yellow-800',
+                'not_applicable': 'bg-gray-100 text-gray-600'
+            };
+            return classes[status] || 'bg-gray-100 text-gray-800';
+        },
+        
+        // Get test grid status count
+        getTestGridStatusCount(status) {
+            return this.filteredTestGridInstances.filter(instance => instance.status === status).length;
+        },
+        
+        // Export test grid
+        async exportTestGrid() {
+            try {
+                const data = {
+                    session: this.selectedTestSession,
+                    test_instances: this.filteredTestGridInstances,
+                    exported_at: new Date().toISOString()
+                };
+                
+                const blob = new Blob([JSON.stringify(data, null, 2)], {
+                    type: 'application/json'
+                });
+                
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `test-grid-${this.selectedTestSession.name}-${new Date().toISOString().split('T')[0]}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+                this.showNotification('success', 'Test Grid Exported', 'Test grid data exported successfully');
+            } catch (error) {
+                console.error('Error exporting test grid:', error);
+                this.showNotification('error', 'Export Failed', error.message);
+            }
+        },
+        
+        // Refresh test grid
+        async refreshTestGrid() {
+            if (this.selectedTestSession) {
+                await this.loadTestInstancesForGrid(this.selectedTestSession.id);
+                this.showNotification('success', 'Test Grid Refreshed', 'Test grid data refreshed successfully');
+            }
+        },
+        
+        // Close test grid
+        closeTestGrid() {
+            this.showTestGrid = false;
+            this.selectedTestSession = null;
+            this.testGridInstances = [];
+            this.filteredTestGridInstances = [];
+            this.selectedTestGridInstances = [];
+            this.testGridSearch = '';
+            this.testGridFilters = {
+                status: '',
+                level: '',
+                testMethod: '',
+                assignedTester: ''
+            };
+            this.bulkOperation = '';
+        },
+        
+        // Add test evidence
+        addTestEvidence(instance) {
+            console.log('📎 Adding evidence for test instance:', instance.id);
+            this.showNotification('info', 'Feature Coming Soon', 'Evidence management will be implemented in the next update');
+        },
+
         // ===== ENHANCED SESSION MODAL METHODS =====
         
         // Get requirements count for preview
@@ -7159,8 +7420,8 @@ function dashboard() {
     window.previousUsersPage = () => componentInstance.previousUsersPage();
     window.nextUsersPage = () => componentInstance.nextUsersPage();
     window.sortUsers = (field) => componentInstance.sortUsers(field);
-            window.closeUserManagement = () => componentInstance.closeUserManagement();
-        window.showUserManagement = () => componentInstance.showUserManagement();
+    window.closeUserManagement = () => componentInstance.closeUserManagement();
+        window.showUserManagement = () => componentInstance.openUserManagement();
         window.showAddUserForm = () => componentInstance.showAddUserForm();
         window.closeUserForm = () => componentInstance.closeUserForm();
     

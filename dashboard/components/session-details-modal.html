@@ -569,7 +569,7 @@
                             <div class="bg-gray-50 rounded-lg p-4">
                                 <h4 class="font-semibold text-gray-900 mb-3">Recent Test Activities</h4>
                                 <div class="space-y-2">
-                                    <template x-for="activity in sessionDetailsActivities?.slice(0, 5)" :key="activity.id">
+                                    <template x-for="(activity, index) in sessionDetailsActivities?.slice(0, 5)" :key="`recent-${index}-${activity.event_time || Date.now()}`">
                                         <div class="flex items-center justify-between bg-white p-3 rounded border">
                                             <div class="flex items-center space-x-3">
                                                 <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium"
@@ -578,12 +578,19 @@
                                                 </div>
                                                 <div>
                                                     <div class="text-sm font-medium text-gray-900" x-text="activity.description"></div>
-                                                    <div class="text-xs text-gray-500" x-text="activity.context"></div>
+                                                    <div class="text-xs text-gray-500" x-text="activity.context || ''"></div>
                                                 </div>
                                             </div>
                                             <div class="text-xs text-gray-400" x-text="formatTimeAgo(activity.event_time)"></div>
                                         </div>
                                     </template>
+                                    
+                                    <!-- No activities message -->
+                                    <div x-show="!sessionDetailsActivities || sessionDetailsActivities.length === 0" 
+                                         class="text-center py-6 text-gray-500">
+                                        <i class="fas fa-clock text-2xl mb-2"></i>
+                                        <p>No recent activities</p>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -664,7 +671,7 @@
 
                             <!-- Timeline -->
                             <div class="space-y-4">
-                                <template x-for="activity in sessionDetailsActivities" :key="activity.event_time">
+                                <template x-for="(activity, index) in sessionDetailsActivities" :key="`timeline-${index}-${activity.event_time || Date.now()}-${activity.action_type || 'unknown'}`">
                                     <div class="flex items-start space-x-3 p-4 bg-gray-50 rounded-lg">
                                         <div class="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium"
                                              :class="getActivityIconClass(activity.action_type)">
@@ -676,12 +683,20 @@
                                                 <p class="text-xs text-gray-500" x-text="formatDate(activity.event_time)"></p>
                                             </div>
                                             <div class="mt-1">
-                                                <p class="text-xs text-gray-600" x-text="activity.context"></p>
+                                                <p class="text-xs text-gray-600" x-text="activity.context || ''"></p>
                                                 <p class="text-xs text-gray-500" x-text="`by ${activity.full_name || activity.username || 'System'}`"></p>
                                             </div>
                                         </div>
                                     </div>
                                 </template>
+                                
+                                <!-- No activities message -->
+                                <div x-show="!sessionDetailsActivities || sessionDetailsActivities.length === 0" 
+                                     class="text-center py-8 text-gray-500">
+                                    <i class="fas fa-history text-3xl mb-3"></i>
+                                    <p class="text-lg">No audit trail available</p>
+                                    <p class="text-sm">Activities will appear here as testing progresses</p>
+                                </div>
                             </div>
                         </div>
 

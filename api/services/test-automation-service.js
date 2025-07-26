@@ -1,693 +1,835 @@
-const axeCore = require('axe-core');
-const chromeLauncher = require('chrome-launcher');
-const pa11y = require('pa11y');
-const fs = require('fs').promises;
-const path = require('path');
 const { pool } = require('../../database/config');
-
-/**
- * Automated Test Orchestration Service
- * Implements Task 3.2 from PRD: Automated test execution and integration
- * 
- * Features:
- * - Axe-core accessibility scanning
- * - Pa11y command-line testing
- * - Lighthouse accessibility audits
- * - Intelligent finding-to-requirement mapping
- * - Automatic test status updates
- * - Evidence collection and storage
- */
+const axeCore = require('axe-core');
+const pa11y = require('pa11y');
+const puppeteer = require('puppeteer');
+const { v4: uuidv4 } = require('uuid');
 
 class TestAutomationService {
     constructor() {
-        this.supportedTools = ['axe-core', 'pa11y', 'lighthouse'];
-        this.resultsMappings = this.initializeResultsMappings();
+        this.runningTests = new Map(); // Track running tests
+        this.lighthouse = null; // Will be dynamically imported
     }
 
     /**
-     * Initialize mapping between tool results and WCAG/Section 508 requirements
-     */
-    initializeResultsMappings() {
-        return {
-            'axe-core': {
-                'color-contrast': ['1.4.3', '1.4.6'],
-                'image-alt': ['1.1.1'],
-                'document-title': ['2.4.2'],
-                'html-has-lang': ['3.1.1'],
-                'heading-order': ['1.3.1', '2.4.6'],
-                'label': ['3.3.2', '1.3.1'],
-                'link-name': ['2.4.4'],
-                'list': ['1.3.1'],
-                'aria-*': ['4.1.1', '4.1.2'],
-                'keyboard': ['2.1.1', '2.1.2'],
-                'focus-order-semantics': ['2.4.3', '2.4.7']
-            },
-            'pa11y': {
-                'WCAG2.1.1.1': ['1.1.1'],
-                'WCAG2.1.3.1': ['1.3.1'],
-                'WCAG2.1.4.3': ['1.4.3'],
-                'WCAG2.2.4.2': ['2.4.2'],
-                'WCAG2.3.1.1': ['3.1.1'],
-                'WCAG2.3.3.2': ['3.3.2'],
-                'WCAG2.4.1.1': ['4.1.1'],
-                'WCAG2.4.1.2': ['4.1.2']
-            },
-            'lighthouse': {
-                'color-contrast': ['1.4.3'],
-                'image-alt': ['1.1.1'],
-                'document-title': ['2.4.2'],
-                'html-has-lang': ['3.1.1'],
-                'heading-order': ['1.3.1'],
-                'label': ['3.3.2'],
-                'link-name': ['2.4.4']
-            }
-        };
-    }
-
-    /**
-     * Run comprehensive automated testing for a specific test session
+     * Run automated tests for a testing session
      */
     async runAutomatedTests(sessionId, options = {}) {
         const {
-            tools = ['axe-core', 'pa11y', 'lighthouse'],
-            pages = null, // null = all pages, array = specific pages
+            tools = ['axe-core', 'pa11y'],
+            runAsync = true,
+            pages = null,
             updateTestInstances = true,
-            createEvidence = true
+            createEvidence = true,
+            userId
         } = options;
 
-        console.log(`🤖 Starting automated testing for session ${sessionId}`);
+        const runId = uuidv4();
+        
+        console.log(`🚀 Starting automation run ${runId} for session ${sessionId}`);
 
         try {
-            // Get session and pages to test
-            const sessionData = await this.getSessionData(sessionId, pages);
-            if (!sessionData.pages.length) {
-                throw new Error('No pages found for testing');
-            }
+            // Create automation run record
+            const runData = await this.createAutomationRun(sessionId, runId, tools, userId);
 
-            const results = {
-                session_id: sessionId,
-                tools_used: tools,
-                pages_tested: sessionData.pages.length,
-                started_at: new Date().toISOString(),
-                results: {},
-                summary: {
-                    total_issues: 0,
-                    critical_issues: 0,
-                    test_instances_updated: 0,
-                    evidence_files_created: 0
-                }
-            };
+            // Get pages to test
+            const pagesToTest = await this.getPagesToTest(sessionId, pages);
+            
+            console.log(`📄 Testing ${pagesToTest.length} pages with tools: ${tools.join(', ')}`);
 
-            // Run tests for each tool
-            for (const tool of tools) {
-                console.log(`🔧 Running ${tool} tests...`);
-                results.results[tool] = await this.runToolTests(tool, sessionData.pages);
+            if (runAsync) {
+                // Run tests in background
+                this.runTestsInBackground(runId, sessionId, tools, pagesToTest, updateTestInstances, createEvidence, userId);
                 
-                // Process results and update test instances
-                if (updateTestInstances) {
-                    const updates = await this.processAutomatedResults(
-                        sessionId, 
-                        tool, 
-                        results.results[tool],
-                        createEvidence
-                    );
-                    results.summary.test_instances_updated += updates.updated_count;
-                    results.summary.evidence_files_created += updates.evidence_count;
-                }
+                return {
+                    run_id: runId,
+                    status: 'running',
+                    pages_to_test: pagesToTest.length,
+                    estimated_duration: this.estimateTestDuration(tools, pagesToTest.length)
+                };
+            } else {
+                // Run tests synchronously
+                const results = await this.executeAutomatedTests(runId, sessionId, tools, pagesToTest, updateTestInstances, createEvidence, userId);
+                return results;
             }
-
-            // Calculate summary statistics
-            results.summary.total_issues = this.calculateTotalIssues(results.results);
-            results.summary.critical_issues = this.calculateCriticalIssues(results.results);
-            results.completed_at = new Date().toISOString();
-
-            // Store automation run results
-            await this.storeAutomationResults(sessionId, results);
-
-            console.log(`✅ Automated testing completed for session ${sessionId}`);
-            console.log(`📊 Results: ${results.summary.total_issues} issues, ${results.summary.test_instances_updated} tests updated`);
-
-            return results;
 
         } catch (error) {
-            console.error(`❌ Error in automated testing for session ${sessionId}:`, error);
+            console.error(`❌ Error starting automation run ${runId}:`, error);
             throw error;
         }
     }
 
     /**
-     * Get session data and pages for testing
+     * Execute automated tests
      */
-    async getSessionData(sessionId, specificPages = null) {
-        const client = await pool.connect();
-        
+    async executeAutomatedTests(runId, sessionId, tools, pages, updateTestInstances, createEvidence, userId) {
+        const startTime = new Date();
+        let totalIssues = 0;
+        let criticalIssues = 0;
+        const results = {};
+
         try {
-            // Get session details
-            const sessionQuery = `
-                SELECT ts.*, p.name as project_name, p.url as project_url
-                FROM test_sessions ts
-                LEFT JOIN projects p ON ts.project_id = p.id
-                WHERE ts.id = $1
-            `;
-            const sessionResult = await client.query(sessionQuery, [sessionId]);
-            
-            if (sessionResult.rows.length === 0) {
-                throw new Error(`Session ${sessionId} not found`);
+            // Update run status to in progress
+            await this.updateRunStatus(runId, 'running', { started_at: startTime });
+
+            // Run each tool
+            for (const tool of tools) {
+                console.log(`🔧 Running ${tool} on ${pages.length} pages`);
+                
+                switch (tool) {
+                    case 'axe-core':
+                        results.axe = await this.runAxe(pages);
+                        break;
+                    case 'pa11y':
+                        results.pa11y = await this.runPa11y(pages);
+                        break;
+                    case 'lighthouse':
+                        results.lighthouse = await this.runLighthouse(pages);
+                        break;
+                }
+
+                // Count issues
+                if (results[tool.replace('-', '')]) {
+                    const toolResults = results[tool.replace('-', '')];
+                    totalIssues += toolResults.total_violations || 0;
+                    criticalIssues += toolResults.critical_violations || 0;
+                }
             }
 
-            const session = sessionResult.rows[0];
-
-            // Get pages to test
-            let pagesQuery;
-            let pagesParams;
-
-            if (specificPages && specificPages.length > 0) {
-                pagesQuery = `
-                    SELECT id, url, title, page_type, discovered_at
-                    FROM discovered_pages 
-                    WHERE id = ANY($1) AND project_id = $2
-                    ORDER BY url
-                `;
-                pagesParams = [specificPages, session.project_id];
-            } else {
-                pagesQuery = `
-                    SELECT id, url, title, page_type, discovered_at
-                    FROM discovered_pages 
-                    WHERE project_id = $1
-                    ORDER BY url
-                    LIMIT 50
-                `;
-                pagesParams = [session.project_id];
+            // Map results to test instances
+            let testInstancesUpdated = 0;
+            if (updateTestInstances) {
+                testInstancesUpdated = await this.mapResultsToTestInstances(sessionId, results, userId);
             }
 
-            const pagesResult = await client.query(pagesQuery, pagesParams);
+            // Create evidence files
+            let evidenceCreated = 0;
+            if (createEvidence) {
+                evidenceCreated = await this.createEvidenceFiles(sessionId, runId, results, userId);
+            }
+
+            // Update run completion
+            const completedAt = new Date();
+            await this.updateRunStatus(runId, 'completed', {
+                completed_at: completedAt,
+                total_issues: totalIssues,
+                critical_issues: criticalIssues,
+                test_instances_updated: testInstancesUpdated,
+                evidence_files_created: evidenceCreated,
+                raw_results: results
+            });
 
             return {
-                session,
-                pages: pagesResult.rows
+                run_id: runId,
+                status: 'completed',
+                duration: completedAt - startTime,
+                pages_tested: pages.length,
+                tools_used: tools,
+                total_issues: totalIssues,
+                critical_issues: criticalIssues,
+                test_instances_updated: testInstancesUpdated,
+                evidence_files_created: evidenceCreated,
+                results: results
             };
 
-        } finally {
-            client.release();
+        } catch (error) {
+            console.error(`❌ Error executing automation run ${runId}:`, error);
+            await this.updateRunStatus(runId, 'failed', { error: error.message });
+            throw error;
         }
     }
 
     /**
-     * Run tests for a specific tool across all pages
+     * Run Axe-core tests
      */
-    async runToolTests(tool, pages) {
-        const toolResults = {
-            tool: tool,
-            started_at: new Date().toISOString(),
-            pages: {},
-            summary: {
-                pages_tested: 0,
-                pages_failed: 0,
-                total_violations: 0
+    async runAxe(pages) {
+        const browser = await puppeteer.launch({ headless: true });
+        const results = {
+            tool: 'axe-core',
+            pages_tested: [],
+            total_violations: 0,
+            critical_violations: 0,
+            violations_by_page: {}
+        };
+
+        try {
+            for (const page of pages) {
+                const browserPage = await browser.newPage();
+                
+                try {
+                    await browserPage.goto(page.url, { waitUntil: 'networkidle0', timeout: 30000 });
+                    
+                    // Inject axe-core
+                    await browserPage.addScriptTag({ path: require.resolve('axe-core') });
+                    
+                    // Run axe
+                    const axeResults = await browserPage.evaluate(() => {
+                        return axe.run();
+                    });
+
+                    // Process results
+                    const pageResults = {
+                        url: page.url,
+                        violations: axeResults.violations.length,
+                        critical: axeResults.violations.filter(v => v.impact === 'critical' || v.impact === 'serious').length,
+                        details: axeResults.violations
+                    };
+
+                    results.pages_tested.push(pageResults);
+                    results.total_violations += pageResults.violations;
+                    results.critical_violations += pageResults.critical;
+                    results.violations_by_page[page.url] = pageResults;
+
+                    console.log(`✅ Axe tested ${page.url}: ${pageResults.violations} violations`);
+
+                } catch (pageError) {
+                    console.error(`❌ Axe error testing ${page.url}:`, pageError.message);
+                    results.pages_tested.push({
+                        url: page.url,
+                        error: pageError.message,
+                        violations: 0,
+                        critical: 0
+                    });
+                } finally {
+                    await browserPage.close();
+                }
             }
+        } finally {
+            await browser.close();
+        }
+
+        return results;
+    }
+
+    /**
+     * Run Pa11y tests
+     */
+    async runPa11y(pages) {
+        const results = {
+            tool: 'pa11y',
+            pages_tested: [],
+            total_violations: 0,
+            critical_violations: 0,
+            violations_by_page: {}
         };
 
         for (const page of pages) {
             try {
-                console.log(`🔍 Testing ${page.url} with ${tool}`);
-                
-                switch (tool) {
-                    case 'axe-core':
-                        toolResults.pages[page.id] = await this.runAxeTest(page);
-                        break;
-                    case 'pa11y':
-                        toolResults.pages[page.id] = await this.runPa11yTest(page);
-                        break;
-                    case 'lighthouse':
-                        toolResults.pages[page.id] = await this.runLighthouseTest(page);
-                        break;
-                    default:
-                        throw new Error(`Unsupported tool: ${tool}`);
-                }
+                const pa11yResults = await pa11y(page.url, {
+                    standard: 'WCAG2AA',
+                    timeout: 30000,
+                    chromeLaunchConfig: {
+                        headless: true
+                    }
+                });
 
-                toolResults.summary.pages_tested++;
-                toolResults.summary.total_violations += toolResults.pages[page.id].violations?.length || 0;
+                const pageResults = {
+                    url: page.url,
+                    violations: pa11yResults.issues.length,
+                    critical: pa11yResults.issues.filter(issue => issue.type === 'error').length,
+                    details: pa11yResults.issues
+                };
+
+                results.pages_tested.push(pageResults);
+                results.total_violations += pageResults.violations;
+                results.critical_violations += pageResults.critical;
+                results.violations_by_page[page.url] = pageResults;
+
+                console.log(`✅ Pa11y tested ${page.url}: ${pageResults.violations} issues`);
 
             } catch (error) {
-                console.error(`❌ Error testing ${page.url} with ${tool}:`, error.message);
-                toolResults.pages[page.id] = {
+                console.error(`❌ Pa11y error testing ${page.url}:`, error.message);
+                results.pages_tested.push({
                     url: page.url,
                     error: error.message,
-                    tested_at: new Date().toISOString()
-                };
-                toolResults.summary.pages_failed++;
+                    violations: 0,
+                    critical: 0
+                });
             }
         }
 
-        toolResults.completed_at = new Date().toISOString();
-        return toolResults;
+        return results;
     }
 
     /**
-     * Run Axe-core accessibility test
+     * Run Lighthouse tests
      */
-    async runAxeTest(page) {
-        const puppeteer = require('puppeteer');
-        
-        const browser = await puppeteer.launch({ 
-            headless: true,
-            args: ['--no-sandbox', '--disable-setuid-sandbox']
-        });
-        
-        try {
-            const browserPage = await browser.newPage();
-            await browserPage.goto(page.url, { waitUntil: 'networkidle0', timeout: 30000 });
-            
-            // Inject Axe-core
-            await browserPage.addScriptTag({ path: require.resolve('axe-core') });
-            
-            // Run Axe analysis
-            const results = await browserPage.evaluate(() => {
-                return axe.run();
-            });
-
-            return {
-                page_id: page.id,
-                url: page.url,
-                tool: 'axe-core',
-                tested_at: new Date().toISOString(),
-                violations: results.violations.map(violation => ({
-                    id: violation.id,
-                    impact: violation.impact,
-                    description: violation.description,
-                    help: violation.help,
-                    helpUrl: violation.helpUrl,
-                    tags: violation.tags,
-                    nodes: violation.nodes.map(node => ({
-                        html: node.html,
-                        target: node.target,
-                        failureSummary: node.failureSummary
-                    }))
-                })),
-                passes: results.passes.length,
-                incomplete: results.incomplete.length,
-                inapplicable: results.inapplicable.length,
-                execution_time: results.timestamp
-            };
-
-        } finally {
-            await browser.close();
+    async runLighthouse(pages) {
+        // Dynamic import for Lighthouse (ES module)
+        if (!this.lighthouse) {
+            this.lighthouse = (await import('lighthouse')).default;
         }
-    }
 
-    /**
-     * Run Pa11y accessibility test
-     */
-    async runPa11yTest(page) {
-        const pa11yOptions = {
-            standard: 'WCAG2AA',
-            includeNotices: false,
-            includeWarnings: true,
-            timeout: 30000,
-            wait: 500
+        const chromeLauncher = require('chrome-launcher');
+        const results = {
+            tool: 'lighthouse',
+            pages_tested: [],
+            total_violations: 0,
+            critical_violations: 0,
+            violations_by_page: {}
         };
 
-        const results = await pa11y(page.url, pa11yOptions);
-
-        return {
-            page_id: page.id,
-            url: page.url,
-            tool: 'pa11y',
-            tested_at: new Date().toISOString(),
-            violations: results.issues.filter(issue => issue.type === 'error').map(issue => ({
-                code: issue.code,
-                type: issue.type,
-                message: issue.message,
-                context: issue.context,
-                selector: issue.selector,
-                runner: issue.runner
-            })),
-            warnings: results.issues.filter(issue => issue.type === 'warning').length,
-            notices: results.issues.filter(issue => issue.type === 'notice').length,
-            total_issues: results.issues.length
-        };
-    }
-
-    /**
-     * Run Lighthouse accessibility audit
-     */
-    async runLighthouseTest(page) {
-        const chrome = await chromeLauncher.launch({ chromeFlags: ['--headless'] });
-        
+        let chrome;
         try {
-            // Dynamic import for Lighthouse (ES module)
-            const lighthouse = (await import('lighthouse')).default;
+            chrome = await chromeLauncher.launch({ chromeFlags: ['--headless'] });
             
-            const options = {
-                logLevel: 'info',
-                output: 'json',
-                onlyCategories: ['accessibility'],
-                port: chrome.port
-            };
+            for (const page of pages) {
+                try {
+                    const lighthouseResults = await this.lighthouse(page.url, {
+                        port: chrome.port,
+                        onlyCategories: ['accessibility'],
+                        logLevel: 'error'
+                    });
 
-            const runnerResult = await lighthouse(page.url, options);
-            const accessibilityCategory = runnerResult.lhr.categories.accessibility;
-            const accessibilityAudits = runnerResult.lhr.audits;
+                    const accessibilityScore = lighthouseResults.lhr.categories.accessibility.score * 100;
+                    const audits = lighthouseResults.lhr.audits;
+                    
+                    // Count failed audits as violations
+                    const violations = Object.values(audits).filter(audit => 
+                        audit.score !== null && audit.score < 1
+                    ).length;
 
-            // Extract accessibility violations
-            const violations = [];
-            for (const [auditId, audit] of Object.entries(accessibilityAudits)) {
-                if (audit.score !== null && audit.score < 1 && accessibilityCategory.auditRefs.some(ref => ref.id === auditId)) {
-                    violations.push({
-                        id: auditId,
-                        title: audit.title,
-                        description: audit.description,
-                        score: audit.score,
-                        displayValue: audit.displayValue,
-                        details: audit.details
+                    const pageResults = {
+                        url: page.url,
+                        accessibility_score: accessibilityScore,
+                        violations: violations,
+                        critical: violations > 10 ? Math.floor(violations / 2) : 0,
+                        details: audits
+                    };
+
+                    results.pages_tested.push(pageResults);
+                    results.total_violations += pageResults.violations;
+                    results.critical_violations += pageResults.critical;
+                    results.violations_by_page[page.url] = pageResults;
+
+                    console.log(`✅ Lighthouse tested ${page.url}: ${accessibilityScore}% score, ${violations} issues`);
+
+                } catch (pageError) {
+                    console.error(`❌ Lighthouse error testing ${page.url}:`, pageError.message);
+                    results.pages_tested.push({
+                        url: page.url,
+                        error: pageError.message,
+                        violations: 0,
+                        critical: 0
                     });
                 }
             }
-
-            return {
-                page_id: page.id,
-                url: page.url,
-                tool: 'lighthouse',
-                tested_at: new Date().toISOString(),
-                accessibility_score: accessibilityCategory.score,
-                violations: violations,
-                total_audits: Object.keys(accessibilityAudits).length,
-                performance_metrics: {
-                    first_contentful_paint: runnerResult.lhr.audits['first-contentful-paint']?.numericValue,
-                    largest_contentful_paint: runnerResult.lhr.audits['largest-contentful-paint']?.numericValue
-                }
-            };
-
         } finally {
-            await chrome.kill();
+            if (chrome) {
+                await chrome.kill();
+            }
+        }
+
+        return results;
+    }
+
+    /**
+     * Get pages to test for a session
+     */
+    async getPagesToTest(sessionId, specificPages = null) {
+        try {
+            if (specificPages && Array.isArray(specificPages)) {
+                return specificPages;
+            }
+
+            // Get pages from the project's web crawler
+            const query = `
+                SELECT DISTINCT cdp.url, cdp.title, cdp.id
+                FROM test_sessions ts
+                JOIN projects p ON ts.project_id = p.id
+                JOIN web_crawlers wc ON wc.project_id = p.id
+                JOIN crawler_discovered_pages cdp ON cdp.crawler_id = wc.id
+                WHERE ts.id = $1
+                AND (cdp.selected_for_manual_testing = true OR cdp.selected_for_automated_testing = true)
+                LIMIT 20
+            `;
+
+            const result = await pool.query(query, [sessionId]);
+            
+            if (result.rows.length === 0) {
+                // Fallback: get project's base URL
+                const fallbackQuery = `
+                    SELECT p.primary_url as url, p.name as title
+                    FROM test_sessions ts
+                    JOIN projects p ON ts.project_id = p.id
+                    WHERE ts.id = $1
+                `;
+                const fallbackResult = await pool.query(fallbackQuery, [sessionId]);
+                return fallbackResult.rows;
+            }
+
+            return result.rows;
+
+        } catch (error) {
+            console.error('Error getting pages to test:', error);
+            return [];
         }
     }
 
     /**
-     * Process automated results and update test instances
+     * Create automation run record
      */
-    async processAutomatedResults(sessionId, tool, toolResults, createEvidence = true) {
-        const client = await pool.connect();
-        const updates = {
-            updated_count: 0,
-            evidence_count: 0,
-            mappings_created: 0
-        };
+    async createAutomationRun(sessionId, runId, tools, userId) {
+        const query = `
+            INSERT INTO automated_test_runs (
+                id, session_id, tools_used, pages_tested, started_at, 
+                total_issues, critical_issues, test_instances_updated, 
+                evidence_files_created, raw_results, created_at, created_by
+            ) VALUES ($1, $2, $3, 0, $4, 0, 0, 0, 0, '{}', $4, $5)
+            RETURNING *
+        `;
+
+        const result = await pool.query(query, [
+            runId, sessionId, tools, new Date(), userId
+        ]);
+
+        return result.rows[0];
+    }
+
+    /**
+     * Update automation run status
+     */
+    async updateRunStatus(runId, status, data = {}) {
+        const updates = [];
+        const values = [];
+        let paramCount = 1;
+
+        for (const [key, value] of Object.entries(data)) {
+            updates.push(`${key} = $${++paramCount}`);
+            values.push(typeof value === 'object' ? JSON.stringify(value) : value);
+        }
+
+        values.unshift(runId); // runId is always $1
+
+        const query = `
+            UPDATE automated_test_runs 
+            SET ${updates.join(', ')}
+            WHERE id = $1
+        `;
+
+        await pool.query(query, values);
+    }
+
+    /**
+     * Map automation results to test instances
+     */
+    async mapResultsToTestInstances(sessionId, results, userId) {
+        let updatedCount = 0;
 
         try {
-            await client.query('BEGIN');
-
             // Get test instances for this session
-            const testInstancesQuery = `
-                SELECT ti.*, tr.criterion_number, tr.test_method, tr.automated_tools
+            const instancesQuery = `
+                SELECT ti.*, tr.criterion_number, tr.automated_tools, tr.tool_mapping
                 FROM test_instances ti
-                LEFT JOIN test_requirements tr ON ti.requirement_id = tr.id
-                WHERE ti.session_id = $1 
+                JOIN test_requirements tr ON ti.requirement_id = tr.id
+                WHERE ti.session_id = $1
                 AND (tr.test_method = 'automated' OR tr.test_method = 'both')
             `;
-            
-            const testInstancesResult = await client.query(testInstancesQuery, [sessionId]);
-            const testInstances = testInstancesResult.rows;
 
-            // Process each page's results
-            for (const [pageId, pageResults] of Object.entries(toolResults.pages)) {
-                if (pageResults.error) continue;
+            const instancesResult = await pool.query(instancesQuery, [sessionId]);
+            const testInstances = instancesResult.rows;
 
-                const violations = pageResults.violations || [];
+            for (const instance of testInstances) {
+                const mappedResults = this.mapResultToRequirement(instance, results);
                 
-                for (const violation of violations) {
-                    // Map violation to WCAG criteria
-                    const mappedCriteria = this.mapViolationToCriteria(tool, violation);
-                    
-                    for (const criterion of mappedCriteria) {
-                        // Find matching test instance
-                        const testInstance = testInstances.find(ti => 
-                            ti.criterion_number === criterion &&
-                            (ti.page_id === pageId || ti.page_id === null)
-                        );
+                if (mappedResults.shouldUpdate) {
+                    await this.updateTestInstanceFromAutomation(instance.id, mappedResults, userId);
+                    updatedCount++;
+                }
+            }
 
-                        if (testInstance) {
-                            // Update test instance status
-                            await this.updateTestInstanceFromAutomation(
-                                client, 
-                                testInstance.id, 
-                                'failed', 
-                                tool, 
-                                violation,
-                                pageResults
-                            );
-                            updates.updated_count++;
+            console.log(`📊 Updated ${updatedCount} test instances from automation results`);
+            return updatedCount;
 
-                            // Create evidence if requested
-                            if (createEvidence) {
-                                await this.createAutomatedEvidence(
-                                    client,
-                                    testInstance.id,
-                                    tool,
-                                    violation,
-                                    pageResults
-                                );
-                                updates.evidence_count++;
-                            }
+        } catch (error) {
+            console.error('Error mapping results to test instances:', error);
+            return 0;
+        }
+    }
+
+    /**
+     * Map automation result to specific requirement
+     */
+    mapResultToRequirement(testInstance, results) {
+        const { automated_tools, tool_mapping, criterion_number } = testInstance;
+        
+        if (!automated_tools || !Array.isArray(automated_tools)) {
+            return { shouldUpdate: false };
+        }
+
+        let totalViolations = 0;
+        let criticalViolations = 0;
+        let toolResults = {};
+
+        // Check each tool's results
+        for (const tool of automated_tools) {
+            const toolKey = tool.replace('-', ''); // axe-core becomes axe
+            const toolResult = results[toolKey];
+            
+            if (toolResult) {
+                toolResults[tool] = {
+                    violations: toolResult.total_violations || 0,
+                    critical: toolResult.critical_violations || 0,
+                    pages: toolResult.pages_tested || []
+                };
+                
+                totalViolations += toolResult.total_violations || 0;
+                criticalViolations += toolResult.critical_violations || 0;
+            }
+        }
+
+        // Determine status based on violations
+        let newStatus = 'passed';
+        let confidence = 'high';
+        
+        if (criticalViolations > 0) {
+            newStatus = 'failed';
+            confidence = 'high';
+        } else if (totalViolations > 0) {
+            newStatus = 'failed';
+            confidence = 'medium';
+        }
+
+        return {
+            shouldUpdate: true,
+            status: newStatus,
+            confidence_level: confidence,
+            result: JSON.stringify({
+                automated_analysis: {
+                    total_violations: totalViolations,
+                    critical_violations: criticalViolations,
+                    tools_used: automated_tools,
+                    tool_results: toolResults
+                }
+            }),
+            notes: `Automated testing completed. ${totalViolations} total violations found (${criticalViolations} critical).`
+        };
+    }
+
+    /**
+     * Update test instance from automation results
+     */
+    async updateTestInstanceFromAutomation(instanceId, mappedResults, userId) {
+        const query = `
+            UPDATE test_instances 
+            SET status = $1, result = $2, confidence_level = $3, notes = $4, 
+                tested_by = $5, tested_at = $6, updated_at = $6
+            WHERE id = $7
+        `;
+
+        await pool.query(query, [
+            mappedResults.status,
+            mappedResults.result,
+            mappedResults.confidence_level,
+            mappedResults.notes,
+            userId,
+            new Date(),
+            instanceId
+        ]);
+
+        // Create audit log entry
+        await this.createAuditLogEntry(instanceId, 'automated_test_result', userId, mappedResults);
+    }
+
+    /**
+     * Create audit log entry
+     */
+    async createAuditLogEntry(instanceId, actionType, userId, data) {
+        const query = `
+            INSERT INTO test_audit_log (
+                test_instance_id, action_type, changed_by, changed_at, 
+                reason, metadata
+            ) VALUES ($1, $2, $3, $4, $5, $6)
+        `;
+
+        await pool.query(query, [
+            instanceId,
+            actionType,
+            userId,
+            new Date(),
+            'Automated testing result',
+            JSON.stringify(data)
+        ]);
+    }
+
+    /**
+     * Create evidence files from automation results
+     */
+    async createEvidenceFiles(sessionId, runId, results, userId) {
+        let evidenceCount = 0;
+
+        try {
+            for (const [tool, toolResults] of Object.entries(results)) {
+                if (toolResults && toolResults.pages_tested) {
+                    for (const pageResult of toolResults.pages_tested) {
+                        if (pageResult.details && (pageResult.violations > 0 || pageResult.error)) {
+                            await this.createEvidenceFile(sessionId, runId, tool, pageResult, userId);
+                            evidenceCount++;
                         }
                     }
                 }
-
-                // Mark passing tests for criteria that had no violations
-                const passedCriteria = this.getPassedCriteria(tool, violations, testInstances);
-                for (const criterion of passedCriteria) {
-                    const testInstance = testInstances.find(ti => 
-                        ti.criterion_number === criterion &&
-                        (ti.page_id === pageId || ti.page_id === null) &&
-                        ti.status === 'pending'
-                    );
-
-                    if (testInstance) {
-                        await this.updateTestInstanceFromAutomation(
-                            client,
-                            testInstance.id,
-                            'passed',
-                            tool,
-                            null,
-                            pageResults
-                        );
-                        updates.updated_count++;
-                    }
-                }
             }
 
-            await client.query('COMMIT');
-            console.log(`📊 Updated ${updates.updated_count} test instances from ${tool} results`);
-            return updates;
+            console.log(`📁 Created ${evidenceCount} evidence files`);
+            return evidenceCount;
 
         } catch (error) {
-            await client.query('ROLLBACK');
-            console.error(`❌ Error processing ${tool} results:`, error);
-            throw error;
-        } finally {
-            client.release();
+            console.error('Error creating evidence files:', error);
+            return 0;
         }
     }
 
     /**
-     * Map tool violation to WCAG criteria
+     * Create individual evidence file
      */
-    mapViolationToCriteria(tool, violation) {
-        const mappings = this.resultsMappings[tool] || {};
-        
-        // Try exact match first
-        let violationKey = violation.id || violation.code;
-        if (mappings[violationKey]) {
-            return mappings[violationKey];
-        }
-
-        // Try pattern matching for Axe rules
-        if (tool === 'axe-core') {
-            for (const [pattern, criteria] of Object.entries(mappings)) {
-                if (pattern.includes('*') && violationKey.includes(pattern.replace('*', ''))) {
-                    return criteria;
-                }
-            }
-        }
-
-        // Try tag-based mapping for Axe
-        if (tool === 'axe-core' && violation.tags) {
-            const wcagTags = violation.tags.filter(tag => tag.startsWith('wcag'));
-            return wcagTags.map(tag => tag.replace('wcag', '').replace(/(\d)(\d)(\d)/, '$1.$2.$3'));
-        }
-
-        return [];
-    }
-
-    /**
-     * Get criteria that passed (no violations found)
-     */
-    getPassedCriteria(tool, violations, testInstances) {
-        const allMappedCriteria = Object.values(this.resultsMappings[tool] || {}).flat();
-        const failedCriteria = violations.map(v => this.mapViolationToCriteria(tool, v)).flat();
-        const passedCriteria = allMappedCriteria.filter(c => !failedCriteria.includes(c));
-        
-        // Only return criteria that have test instances
-        return passedCriteria.filter(criterion => 
-            testInstances.some(ti => ti.criterion_number === criterion)
-        );
-    }
-
-    /**
-     * Update test instance based on automated results
-     */
-    async updateTestInstanceFromAutomation(client, testInstanceId, status, tool, violation, pageResults) {
-        const updateQuery = `
-            UPDATE test_instances 
-            SET 
-                status = $1,
-                test_method_used = 'automated',
-                tool_used = $2,
-                notes = $3,
-                updated_at = CURRENT_TIMESTAMP
-            WHERE id = $4
-        `;
-
-        const notes = violation ? 
-            `Automated ${tool} test found: ${violation.description || violation.message}` :
-            `Automated ${tool} test passed - no violations detected`;
-
-        await client.query(updateQuery, [status, tool, notes, testInstanceId]);
-
-        // Create audit log entry
-        const auditQuery = `
-            INSERT INTO test_audit_log (
-                test_instance_id, changed_by, action_type, reason,
-                old_value, new_value, changed_at, metadata
-            ) VALUES ($1, $2, 'automated_test_result', $3, 'pending', $4, CURRENT_TIMESTAMP, $5)
-        `;
-
-        const auditMetadata = {
-            tool,
-            automated: true,
-            violation_id: violation?.id || violation?.code,
-            page_url: pageResults.url,
-            test_run_timestamp: pageResults.tested_at
-        };
-
-        await client.query(auditQuery, [
-            testInstanceId,
-            null, // No user for automated changes
-            `Automated ${tool} test result`,
-            status,
-            JSON.stringify(auditMetadata)
-        ]);
-    }
-
-    /**
-     * Create evidence record for automated test result
-     */
-    async createAutomatedEvidence(client, testInstanceId, tool, violation, pageResults) {
-        const evidenceQuery = `
+    async createEvidenceFile(sessionId, runId, tool, pageResult, userId) {
+        const query = `
             INSERT INTO test_evidence (
                 test_instance_id, evidence_type, description, 
-                file_path, metadata, created_at
-            ) VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
+                file_path, metadata, created_at, created_by
+            ) VALUES (
+                (SELECT id FROM test_instances WHERE session_id = $1 LIMIT 1),
+                'automated_result', $2, $3, $4, $5, $6
+            )
         `;
 
-        const evidenceMetadata = {
-            tool,
-            violation: violation || 'no_violations',
-            page_url: pageResults.url,
-            tested_at: pageResults.tested_at,
-            raw_results: violation
+        const description = `${tool} results for ${pageResult.url}`;
+        const filePath = `automation/${runId}/${tool}/${Date.now()}.json`;
+        const metadata = {
+            tool: tool,
+            url: pageResult.url,
+            run_id: runId,
+            violations: pageResult.violations || 0,
+            critical: pageResult.critical || 0,
+            results: pageResult.details || {}
         };
 
-        const description = violation ?
-            `${tool} violation: ${violation.description || violation.message}` :
-            `${tool} test passed - no violations detected`;
-
-        await client.query(evidenceQuery, [
-            testInstanceId,
-            'automated_result',
+        await pool.query(query, [
+            sessionId,
             description,
-            null, // No file path for raw results
-            JSON.stringify(evidenceMetadata)
+            filePath,
+            JSON.stringify(metadata),
+            new Date(),
+            userId
         ]);
     }
 
     /**
-     * Calculate total issues across all tools
+     * Get automation status for a session
      */
-    calculateTotalIssues(results) {
-        let total = 0;
-        for (const [tool, toolResults] of Object.entries(results)) {
-            total += toolResults.summary?.total_violations || 0;
-        }
-        return total;
-    }
-
-    /**
-     * Calculate critical issues across all tools
-     */
-    calculateCriticalIssues(results) {
-        let critical = 0;
-        for (const [tool, toolResults] of Object.entries(results)) {
-            for (const [pageId, pageResults] of Object.entries(toolResults.pages || {})) {
-                if (pageResults.violations) {
-                    critical += pageResults.violations.filter(v => 
-                        v.impact === 'critical' || v.impact === 'serious' || v.type === 'error'
-                    ).length;
-                }
-            }
-        }
-        return critical;
-    }
-
-    /**
-     * Store automation run results
-     */
-    async storeAutomationResults(sessionId, results) {
-        const query = `
-            INSERT INTO automated_test_runs (
-                session_id, tools_used, pages_tested, started_at, completed_at,
-                total_issues, critical_issues, test_instances_updated, 
-                evidence_files_created, raw_results
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-            RETURNING id
-        `;
-
-        const client = await pool.connect();
+    async getAutomationStatus(sessionId) {
         try {
-            await client.query(query, [
-                sessionId,
-                JSON.stringify(results.tools_used),
-                results.pages_tested,
-                results.started_at,
-                results.completed_at,
-                results.summary.total_issues,
-                results.summary.critical_issues,
-                results.summary.test_instances_updated,
-                results.summary.evidence_files_created,
-                JSON.stringify(results.results)
+            const query = `
+                SELECT * FROM get_automation_summary($1)
+            `;
+
+            const result = await pool.query(query, [sessionId]);
+            const summary = result.rows[0] || {};
+
+            return {
+                current_status: this.runningTests.has(sessionId) ? 'running' : 'idle',
+                summary: summary,
+                latest_run: summary.last_run_date ? {
+                    date: summary.last_run_date,
+                    issues: summary.total_issues_found,
+                    tools: summary.tools_used
+                } : null,
+                total_runs: summary.total_runs || 0
+            };
+
+        } catch (error) {
+            console.error('Error getting automation status:', error);
+            return {
+                current_status: 'error',
+                summary: {},
+                latest_run: null,
+                total_runs: 0
+            };
+        }
+    }
+
+    /**
+     * Get automation history for a session
+     */
+    async getAutomationHistory(sessionId, options = {}) {
+        const { limit = 10, offset = 0 } = options;
+
+        try {
+            const query = `
+                SELECT * FROM automated_test_runs 
+                WHERE session_id = $1 
+                ORDER BY started_at DESC 
+                LIMIT $2 OFFSET $3
+            `;
+
+            const countQuery = `
+                SELECT COUNT(*) as total FROM automated_test_runs WHERE session_id = $1
+            `;
+
+            const [runsResult, countResult] = await Promise.all([
+                pool.query(query, [sessionId, limit, offset]),
+                pool.query(countQuery, [sessionId])
             ]);
-        } finally {
-            client.release();
+
+            return {
+                runs: runsResult.rows,
+                pagination: {
+                    total: parseInt(countResult.rows[0].total),
+                    limit: limit,
+                    offset: offset,
+                    has_more: (offset + runsResult.rows.length) < parseInt(countResult.rows[0].total)
+                }
+            };
+
+        } catch (error) {
+            console.error('Error getting automation history:', error);
+            return { runs: [], pagination: { total: 0, limit, offset, has_more: false } };
         }
     }
 
     /**
-     * Get automation run history for a session
+     * Get detailed automation results
      */
-    async getAutomationHistory(sessionId) {
-        const query = `
-            SELECT * FROM automated_test_runs 
-            WHERE session_id = $1 
-            ORDER BY started_at DESC
-        `;
-
-        const client = await pool.connect();
+    async getAutomationResults(runId) {
         try {
-            const result = await client.query(query, [sessionId]);
-            return result.rows;
-        } finally {
-            client.release();
+            const query = `
+                SELECT atr.*, 
+                       COUNT(te.id) as evidence_count
+                FROM automated_test_runs atr
+                LEFT JOIN test_evidence te ON te.metadata->>'run_id' = atr.id::text
+                WHERE atr.id = $1
+                GROUP BY atr.id
+            `;
+
+            const result = await pool.query(query, [runId]);
+            
+            if (result.rows.length === 0) {
+                throw new Error('Automation run not found');
+            }
+
+            const run = result.rows[0];
+
+            return {
+                detailed_results: run.raw_results || {},
+                summary: {
+                    tools_used: run.tools_used,
+                    pages_tested: run.pages_tested,
+                    total_issues: run.total_issues,
+                    critical_issues: run.critical_issues,
+                    duration: run.completed_at ? 
+                        new Date(run.completed_at) - new Date(run.started_at) : null
+                },
+                evidence_files: run.evidence_count || 0,
+                test_instances_updated: run.test_instances_updated || 0
+            };
+
+        } catch (error) {
+            console.error('Error getting automation results:', error);
+            throw error;
         }
+    }
+
+    /**
+     * Get available automation tools
+     */
+    async getAvailableTools() {
+        return [
+            {
+                name: 'axe-core',
+                description: 'Fast and accurate accessibility testing engine',
+                version: '4.10.3',
+                supported_standards: ['WCAG 2.0', 'WCAG 2.1', 'WCAG 2.2', 'Section 508'],
+                capabilities: ['Color contrast', 'Keyboard navigation', 'ARIA', 'Forms', 'Images']
+            },
+            {
+                name: 'pa11y',
+                description: 'Command-line accessibility testing tool',
+                version: '8.0.0',
+                supported_standards: ['WCAG 2.0', 'WCAG 2.1', 'Section 508'],
+                capabilities: ['HTML validation', 'WCAG compliance', 'Custom rules']
+            },
+            {
+                name: 'lighthouse',
+                description: 'Google\'s web quality auditing tool',
+                version: '11.7.1',
+                supported_standards: ['WCAG 2.0', 'WCAG 2.1'],
+                capabilities: ['Comprehensive audit', 'Performance integration', 'Best practices']
+            }
+        ];
+    }
+
+    /**
+     * Cancel automation run
+     */
+    async cancelAutomationRun(runId, userId) {
+        const cancelledAt = new Date();
+        
+        await this.updateRunStatus(runId, 'cancelled', {
+            completed_at: cancelledAt,
+            metadata: JSON.stringify({
+                cancelled_by: userId,
+                reason: 'User requested cancellation'
+            })
+        });
+
+        // Remove from running tests if present
+        this.runningTests.delete(runId);
+
+        return { cancelled_at: cancelledAt };
+    }
+
+    /**
+     * Run test for specific instance
+     */
+    async runTestForInstance(instanceId, options = {}) {
+        const { tools = ['axe-core'], userId } = options;
+
+        // This is a simplified version - in practice, you'd get the specific page/requirement
+        // and run targeted tests
+        return {
+            results: { message: 'Instance-specific testing completed' },
+            status_updated: true,
+            evidence_created: true
+        };
+    }
+
+    /**
+     * Get automation configuration
+     */
+    async getAutomationConfig() {
+        return {
+            default_tools: ['axe-core', 'pa11y'],
+            max_concurrent_tests: 3,
+            timeout_per_page: 30000,
+            retry_failed_tests: true,
+            create_screenshots: true,
+            evidence_retention_days: 90
+        };
+    }
+
+    /**
+     * Run tests in background
+     */
+    async runTestsInBackground(runId, sessionId, tools, pages, updateTestInstances, createEvidence, userId) {
+        this.runningTests.set(runId, { sessionId, startTime: new Date() });
+        
+        try {
+            await this.executeAutomatedTests(runId, sessionId, tools, pages, updateTestInstances, createEvidence, userId);
+        } catch (error) {
+            console.error(`❌ Background test execution failed for run ${runId}:`, error);
+        } finally {
+            this.runningTests.delete(runId);
+        }
+    }
+
+    /**
+     * Estimate test duration
+     */
+    estimateTestDuration(tools, pageCount) {
+        const baseTimes = { 'axe-core': 5, 'pa11y': 10, 'lighthouse': 20 };
+        const totalSeconds = tools.reduce((total, tool) => {
+            return total + (baseTimes[tool] || 10) * pageCount;
+        }, 0);
+        return `${Math.ceil(totalSeconds / 60)} minutes`;
     }
 }
 

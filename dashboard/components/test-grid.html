@@ -1,0 +1,389 @@
+<!-- Advanced Test Grid Component - Spreadsheet-like Test Management -->
+<div x-show="showTestGrid" 
+     x-transition:enter="transition ease-out duration-300"
+     x-transition:enter-start="opacity-0"
+     x-transition:enter-end="opacity-100"
+     x-transition:leave="transition ease-in duration-200"
+     x-transition:leave-start="opacity-100"
+     x-transition:leave-end="opacity-0"
+     class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+     
+    <div class="bg-white rounded-lg shadow-xl w-full max-w-[98vw] max-h-[95vh] overflow-hidden flex flex-col">
+        
+        <!-- Test Grid Header -->
+        <div class="bg-gradient-to-r from-purple-50 to-indigo-50 px-6 py-4 border-b border-purple-200 flex-shrink-0">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <div class="flex-shrink-0">
+                        <div class="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
+                            <i class="fas fa-table text-purple-600 text-xl"></i>
+                        </div>
+                    </div>
+                    <div>
+                        <h2 class="text-2xl font-bold text-gray-900" x-text="selectedTestSession?.name || 'Test Grid'"></h2>
+                        <div class="flex items-center space-x-4 mt-1">
+                            <span class="text-sm text-gray-600" x-text="selectedTestSession?.project_name || 'Project'"></span>
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
+                                  :class="getConformanceLevelBadgeClass(selectedTestSession?.conformance_level)"
+                                  x-text="getConformanceLevelDisplay(selectedTestSession?.conformance_level)"></span>
+                            <span class="text-sm text-gray-500" x-text="`${filteredTestGridInstances?.length || 0} of ${testGridInstances?.length || 0} tests`"></span>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <button @click="exportTestGrid()" 
+                            class="px-3 py-2 text-sm bg-green-600 text-white rounded hover:bg-green-700 transition-colors">
+                        <i class="fas fa-download mr-1"></i>Export
+                    </button>
+                    <button @click="refreshTestGrid()" 
+                            class="px-3 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors">
+                        <i class="fas fa-sync mr-1"></i>Refresh
+                    </button>
+                    <button @click="closeTestGrid()" 
+                            class="px-3 py-2 text-sm bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors">
+                        <i class="fas fa-times mr-1"></i>Close
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Advanced Filter and Controls Bar -->
+        <div class="px-6 py-4 bg-gray-50 border-b border-gray-200 flex-shrink-0">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 items-center">
+                
+                <!-- Search and Filters -->
+                <div class="space-y-2">
+                    <div class="flex items-center space-x-2">
+                        <input x-model="testGridSearch" 
+                               @input="applyTestGridFilters()"
+                               type="text" 
+                               placeholder="Search tests, requirements, URLs..."
+                               class="flex-1 px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-purple-500">
+                        <button @click="clearAllFilters()" 
+                                class="px-2 py-2 text-xs text-gray-600 border border-gray-300 rounded hover:bg-gray-50">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="flex items-center space-x-2 text-xs">
+                        <select x-model="testGridFilters.status" @change="applyTestGridFilters()" 
+                                class="px-2 py-1 border border-gray-300 rounded">
+                            <option value="">All Status</option>
+                            <option value="pending">Not Started</option>
+                            <option value="in_progress">In Progress</option>
+                            <option value="passed">Passed</option>
+                            <option value="failed">Failed</option>
+                            <option value="untestable">Untestable</option>
+                            <option value="not_applicable">Not Applicable</option>
+                        </select>
+                        <select x-model="testGridFilters.level" @change="applyTestGridFilters()" 
+                                class="px-2 py-1 border border-gray-300 rounded">
+                            <option value="">All Levels</option>
+                            <option value="a">WCAG A</option>
+                            <option value="aa">WCAG AA</option>
+                            <option value="aaa">WCAG AAA</option>
+                            <option value="base">508 Base</option>
+                            <option value="enhanced">508 Enhanced</option>
+                        </select>
+                        <select x-model="testGridFilters.testMethod" @change="applyTestGridFilters()" 
+                                class="px-2 py-1 border border-gray-300 rounded">
+                            <option value="">All Methods</option>
+                            <option value="manual">Manual</option>
+                            <option value="automated">Automated</option>
+                            <option value="both">Hybrid</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Bulk Operations -->
+                <div x-show="selectedTestGridInstances.length > 0" 
+                     class="bg-blue-50 p-3 rounded border border-blue-200">
+                    <div class="flex items-center justify-between text-sm">
+                        <span class="font-medium text-blue-800" x-text="`${selectedTestGridInstances.length} selected`"></span>
+                        <div class="flex items-center space-x-2">
+                            <select x-model="bulkOperation" @change="applyBulkOperation()" 
+                                    class="px-2 py-1 text-xs border border-blue-300 rounded">
+                                <option value="">Bulk Action</option>
+                                <option value="mark_passed">Mark Passed</option>
+                                <option value="mark_failed">Mark Failed</option>
+                                <option value="mark_in_progress">Set In Progress</option>
+                                <option value="mark_not_applicable">Mark N/A</option>
+                                <option value="assign_tester">Assign Tester</option>
+                                <option value="run_automation">Run Automation</option>
+                            </select>
+                            <button @click="clearTestGridSelection()" 
+                                    class="px-2 py-1 text-xs text-blue-600 border border-blue-300 rounded hover:bg-blue-100">
+                                Clear
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sort and View Controls -->
+                <div class="flex items-center justify-end space-x-2">
+                    <div class="flex items-center space-x-2 text-sm">
+                        <span class="text-gray-600">Sort:</span>
+                        <select x-model="testGridSort.field" @change="applyTestGridSort()" 
+                                class="px-2 py-1 text-xs border border-gray-300 rounded">
+                            <option value="criterion_number">Requirement</option>
+                            <option value="requirement_level">Level</option>
+                            <option value="status">Status</option>
+                            <option value="test_method_used">Method</option>
+                            <option value="updated_at">Last Updated</option>
+                            <option value="assigned_tester">Assigned To</option>
+                            <option value="page_url">URL</option>
+                        </select>
+                        <button @click="toggleSortDirection()" 
+                                class="px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50"
+                                :class="testGridSort.direction === 'asc' ? 'bg-gray-100' : ''">
+                            <i class="fas" :class="testGridSort.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down'"></i>
+                        </button>
+                    </div>
+                    <div class="flex items-center space-x-1">
+                        <button @click="testGridView = 'compact'" 
+                                :class="testGridView === 'compact' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-600'"
+                                class="px-2 py-1 text-xs rounded">
+                            Compact
+                        </button>
+                        <button @click="testGridView = 'detailed'" 
+                                :class="testGridView === 'detailed' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-600'"
+                                class="px-2 py-1 text-xs rounded">
+                            Detailed
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Test Grid Table -->
+        <div class="flex-1 overflow-hidden">
+            <div class="h-full overflow-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50 sticky top-0 z-10">
+                        <tr>
+                            <!-- Bulk Select -->
+                            <th class="px-3 py-3 text-left w-10">
+                                <input type="checkbox" 
+                                       @change="toggleSelectAllTestGrid($event)" 
+                                       :checked="selectedTestGridInstances.length === filteredTestGridInstances.length && filteredTestGridInstances.length > 0"
+                                       class="h-4 w-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500">
+                            </th>
+                            
+                            <!-- Sortable Headers -->
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                                @click="sortTestGridBy('criterion_number')">
+                                <div class="flex items-center">
+                                    Requirement
+                                    <i class="fas fa-sort ml-1" :class="getTestGridSortIcon('criterion_number')"></i>
+                                </div>
+                            </th>
+                            
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                                @click="sortTestGridBy('requirement_level')">
+                                <div class="flex items-center">
+                                    Level
+                                    <i class="fas fa-sort ml-1" :class="getTestGridSortIcon('requirement_level')"></i>
+                                </div>
+                            </th>
+                            
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                                @click="sortTestGridBy('test_method_used')">
+                                <div class="flex items-center">
+                                    Method
+                                    <i class="fas fa-sort ml-1" :class="getTestGridSortIcon('test_method_used')"></i>
+                                </div>
+                            </th>
+                            
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                                @click="sortTestGridBy('status')">
+                                <div class="flex items-center">
+                                    Status
+                                    <i class="fas fa-sort ml-1" :class="getTestGridSortIcon('status')"></i>
+                                </div>
+                            </th>
+                            
+                            <th x-show="testGridView === 'detailed'" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                URL/Page
+                            </th>
+                            
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                                @click="sortTestGridBy('assigned_tester')">
+                                <div class="flex items-center">
+                                    Assigned To
+                                    <i class="fas fa-sort ml-1" :class="getTestGridSortIcon('assigned_tester')"></i>
+                                </div>
+                            </th>
+                            
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                                @click="sortTestGridBy('updated_at')">
+                                <div class="flex items-center">
+                                    Last Updated
+                                    <i class="fas fa-sort ml-1" :class="getTestGridSortIcon('updated_at')"></i>
+                                </div>
+                            </th>
+                            
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Actions
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        <template x-for="instance in filteredTestGridInstances" :key="instance.id">
+                            <tr class="hover:bg-gray-50 transition-colors"
+                                :class="selectedTestGridInstances.includes(instance.id) ? 'bg-purple-50 border-l-4 border-purple-500' : ''">
+                                
+                                <!-- Selection Checkbox -->
+                                <td class="px-3 py-4">
+                                    <input type="checkbox" 
+                                           :value="instance.id"
+                                           @change="toggleTestGridInstanceSelection(instance.id, $event)"
+                                           :checked="selectedTestGridInstances.includes(instance.id)"
+                                           class="h-4 w-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500">
+                                </td>
+                                
+                                <!-- Requirement -->
+                                <td class="px-6 py-4">
+                                    <div class="flex flex-col">
+                                        <div class="text-sm font-medium text-gray-900" x-text="instance.criterion_number"></div>
+                                        <div class="text-sm text-gray-600" x-text="instance.requirement_title || instance.title"></div>
+                                        <div x-show="testGridView === 'detailed' && instance.description" 
+                                             class="text-xs text-gray-500 mt-1 line-clamp-2" 
+                                             x-text="instance.description"></div>
+                                    </div>
+                                </td>
+                                
+                                <!-- Level -->
+                                <td class="px-6 py-4">
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
+                                          :class="getRequirementLevelBadgeClass(instance.requirement_level || instance.level)"
+                                          x-text="getRequirementLevelDisplay(instance.requirement_level || instance.level)"></span>
+                                </td>
+                                
+                                <!-- Test Method -->
+                                <td class="px-6 py-4">
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
+                                          :class="getTestMethodBadgeClass(instance.test_method_used || instance.requirement_test_method)"
+                                          x-text="getTestMethodDisplay(instance.test_method_used || instance.requirement_test_method)"></span>
+                                </td>
+                                
+                                <!-- Status -->
+                                <td class="px-6 py-4">
+                                    <select :value="instance.status" 
+                                            @change="updateTestInstanceStatus(instance.id, $event.target.value)"
+                                            class="text-xs rounded-full border-0 px-2 py-1 font-medium focus:ring-2 focus:ring-purple-500"
+                                            :class="getTestStatusSelectClass(instance.status)">
+                                        <option value="pending">Not Started</option>
+                                        <option value="in_progress">In Progress</option>
+                                        <option value="passed">Passed</option>
+                                        <option value="failed">Failed</option>
+                                        <option value="untestable">Untestable</option>
+                                        <option value="not_applicable">Not Applicable</option>
+                                    </select>
+                                </td>
+                                
+                                <!-- URL/Page (Detailed View Only) -->
+                                <td x-show="testGridView === 'detailed'" class="px-6 py-4">
+                                    <div x-show="instance.page_url">
+                                        <a :href="instance.page_url" target="_blank" 
+                                           class="text-xs text-blue-600 hover:text-blue-800 break-all" 
+                                           x-text="instance.page_url"></a>
+                                        <div class="text-xs text-gray-500" x-text="instance.page_title || 'Page'"></div>
+                                    </div>
+                                    <div x-show="!instance.page_url" class="text-xs text-gray-500">
+                                        All applicable pages
+                                    </div>
+                                </td>
+                                
+                                <!-- Assigned To -->
+                                <td class="px-6 py-4">
+                                    <select :value="instance.assigned_tester || ''" 
+                                            @change="assignTestInstanceTester(instance.id, $event.target.value)"
+                                            class="text-xs border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-purple-500">
+                                        <option value="">Unassigned</option>
+                                        <template x-for="user in availableTesters" :key="user.id">
+                                            <option :value="user.id" x-text="user.full_name || user.username"></option>
+                                        </template>
+                                    </select>
+                                </td>
+                                
+                                <!-- Last Updated -->
+                                <td class="px-6 py-4">
+                                    <div class="text-xs text-gray-900" x-text="formatDate(instance.updated_at)"></div>
+                                </td>
+                                
+                                <!-- Actions -->
+                                <td class="px-6 py-4">
+                                    <div class="flex items-center space-x-1">
+                                        <button @click="viewTestInstanceDetails(instance)" 
+                                                class="text-blue-600 hover:text-blue-800 text-xs p-1"
+                                                title="View Details">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                        <button @click="editTestInstance(instance)" 
+                                                class="text-green-600 hover:text-green-800 text-xs p-1"
+                                                title="Edit">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button x-show="(instance.test_method_used || instance.requirement_test_method) === 'automated' || (instance.test_method_used || instance.requirement_test_method) === 'both'"
+                                                @click="runAutomatedTestForInstance(instance)" 
+                                                class="text-purple-600 hover:text-purple-800 text-xs p-1"
+                                                title="Run Automated Test">
+                                            <i class="fas fa-robot"></i>
+                                        </button>
+                                        <button @click="addTestEvidence(instance)" 
+                                                class="text-orange-600 hover:text-orange-800 text-xs p-1"
+                                                title="Add Evidence">
+                                            <i class="fas fa-paperclip"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </template>
+                        
+                        <!-- Empty State -->
+                        <tr x-show="filteredTestGridInstances.length === 0">
+                            <td colspan="9" class="px-6 py-12 text-center">
+                                <div class="text-gray-500">
+                                    <i class="fas fa-search text-4xl mb-4"></i>
+                                    <p class="text-lg">No test instances found</p>
+                                    <p class="text-sm">Try adjusting your search criteria or filters</p>
+                                    <button @click="clearAllFilters()" 
+                                            class="mt-3 px-4 py-2 text-sm bg-purple-600 text-white rounded hover:bg-purple-700">
+                                        Clear All Filters
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Test Grid Footer with Stats -->
+        <div class="bg-gray-50 px-6 py-3 border-t border-gray-200 flex-shrink-0">
+            <div class="flex items-center justify-between text-sm">
+                <div class="flex items-center space-x-6 text-gray-600">
+                    <span x-text="`${filteredTestGridInstances.length} of ${testGridInstances.length} tests shown`"></span>
+                    <span x-text="`${selectedTestGridInstances.length} selected`"></span>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div class="flex items-center space-x-2">
+                        <span class="text-green-600">●</span>
+                        <span x-text="`${getTestGridStatusCount('passed')} Passed`"></span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <span class="text-red-600">●</span>
+                        <span x-text="`${getTestGridStatusCount('failed')} Failed`"></span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <span class="text-blue-600">●</span>
+                        <span x-text="`${getTestGridStatusCount('in_progress')} In Progress`"></span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <span class="text-gray-600">●</span>
+                        <span x-text="`${getTestGridStatusCount('pending')} Pending`"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div> 

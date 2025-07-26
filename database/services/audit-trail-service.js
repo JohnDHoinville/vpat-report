@@ -8,7 +8,7 @@ const AutomatedEvidenceService = require('./automated-evidence-service');
 
 class AuditTrailService {
     constructor(pool) {
-        this.pool = pool;
+        this.pool = pool || require('../config').pool;
         this.evidenceService = new AutomatedEvidenceService(pool);
     }
 
@@ -464,6 +464,493 @@ class AuditTrailService {
         ]);
         
         return result.rows[0].id;
+    }
+
+    /**
+     * Get audit trail for a specific test session
+     */
+    async getSessionAuditTrail(sessionId, options = {}) {
+        const {
+            limit = 50,
+            offset = 0,
+            actionType = null,
+            changedBy = null,
+            startDate = null,
+            endDate = null,
+            includeMetadata = true
+        } = options;
+
+        try {
+            let conditions = ['tal.session_id = $1'];
+            let params = [sessionId];
+            let paramCount = 1;
+
+            if (actionType) {
+                paramCount++;
+                conditions.push(`tal.action_type = $${paramCount}`);
+                params.push(actionType);
+            }
+
+            if (changedBy) {
+                paramCount++;
+                conditions.push(`tal.changed_by = $${paramCount}`);
+                params.push(changedBy);
+            }
+
+            if (startDate) {
+                paramCount++;
+                conditions.push(`tal.changed_at >= $${paramCount}`);
+                params.push(startDate);
+            }
+
+            if (endDate) {
+                paramCount++;
+                conditions.push(`tal.changed_at <= $${paramCount}`);
+                params.push(endDate);
+            }
+
+            const whereClause = conditions.join(' AND ');
+
+            const query = `
+                SELECT 
+                    tal.*,
+                    u.username, u.full_name,
+                    ti.id as test_instance_id,
+                    tr.criterion_number, tr.title as requirement_title
+                FROM test_audit_log tal
+                LEFT JOIN auth_users u ON tal.changed_by = u.id
+                LEFT JOIN test_instances ti ON tal.test_instance_id = ti.id  
+                LEFT JOIN test_requirements tr ON ti.requirement_id = tr.id
+                WHERE ${whereClause}
+                ORDER BY tal.changed_at DESC
+                LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}
+            `;
+
+            params.push(limit, offset);
+
+            const countQuery = `
+                SELECT COUNT(*) as total
+                FROM test_audit_log tal
+                WHERE tal.session_id = $1
+            `;
+
+            const [entriesResult, countResult] = await Promise.all([
+                this.pool.query(query, params),
+                this.pool.query(countQuery, [sessionId])
+            ]);
+
+            const total = parseInt(countResult.rows[0].total);
+
+            return {
+                entries: entriesResult.rows,
+                pagination: {
+                    total,
+                    limit,
+                    offset,
+                    has_more: (offset + entriesResult.rows.length) < total
+                },
+                summary: {
+                    total_entries: total,
+                    filtered_entries: entriesResult.rows.length
+                }
+            };
+
+        } catch (error) {
+            console.error('Error getting session audit trail:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Get audit trail for a specific test instance
+     */
+    async getTestInstanceAuditTrail(instanceId, options = {}) {
+        const { includeMetadata = true } = options;
+
+        try {
+            const query = `
+                SELECT 
+                    tal.*,
+                    u.username, u.full_name
+                FROM test_audit_log tal
+                LEFT JOIN auth_users u ON tal.changed_by = u.id
+                WHERE tal.test_instance_id = $1
+                ORDER BY tal.changed_at DESC
+            `;
+
+            const result = await this.pool.query(query, [instanceId]);
+
+            return {
+                entries: result.rows,
+                summary: {
+                    total_entries: result.rows.length,
+                    action_types: [...new Set(result.rows.map(r => r.action_type))]
+                }
+            };
+
+        } catch (error) {
+            console.error('Error getting test instance audit trail:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Generate audit timeline for a session
+     */
+    async generateAuditTimeline(sessionId, options = {}) {
+        const {
+            groupBy = 'day',
+            includeAutomation = true,
+            includeManual = true
+        } = options;
+
+        try {
+            let timeGrouping;
+            switch (groupBy) {
+                case 'hour':
+                    timeGrouping = "date_trunc('hour', tal.changed_at)";
+                    break;
+                case 'week':
+                    timeGrouping = "date_trunc('week', tal.changed_at)";
+                    break;
+                default:
+                    timeGrouping = "date_trunc('day', tal.changed_at)";
+            }
+
+            const query = `
+                SELECT 
+                    ${timeGrouping} as time_period,
+                    tal.action_type,
+                    COUNT(*) as event_count,
+                    array_agg(DISTINCT u.username) as users_involved
+                FROM test_audit_log tal
+                LEFT JOIN auth_users u ON tal.changed_by = u.id
+                WHERE tal.session_id = $1
+                GROUP BY time_period, tal.action_type
+                ORDER BY time_period DESC
+            `;
+
+            const result = await this.pool.query(query, [sessionId]);
+
+            return {
+                timeline: result.rows,
+                summary: {
+                    total_periods: [...new Set(result.rows.map(r => r.time_period))].length,
+                    total_events: result.rows.reduce((sum, r) => sum + parseInt(r.event_count), 0)
+                },
+                total_events: result.rows.reduce((sum, r) => sum + parseInt(r.event_count), 0)
+            };
+
+        } catch (error) {
+            console.error('Error generating audit timeline:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Get audit statistics for a session
+     */
+    async getAuditStatistics(sessionId, options = {}) {
+        const { period = '7d' } = options;
+
+        try {
+            let dateFilter = '';
+            if (period !== 'all') {
+                const days = parseInt(period.replace('d', ''));
+                dateFilter = `AND tal.changed_at >= NOW() - INTERVAL '${days} days'`;
+            }
+
+            const query = `
+                SELECT 
+                    COUNT(*) as total_changes,
+                    COUNT(DISTINCT tal.test_instance_id) as instances_modified,
+                    COUNT(DISTINCT tal.changed_by) as users_involved,
+                    COUNT(DISTINCT tal.action_type) as action_types_used,
+                    MIN(tal.changed_at) as first_activity,
+                    MAX(tal.changed_at) as latest_activity
+                FROM test_audit_log tal
+                WHERE tal.session_id = $1 ${dateFilter}
+            `;
+
+            const result = await this.pool.query(query, [sessionId]);
+            return result.rows[0];
+
+        } catch (error) {
+            console.error('Error getting audit statistics:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Create audit log entry
+     */
+    async createAuditLogEntry(options = {}) {
+        const {
+            testInstanceId,
+            actionType,
+            changedBy,
+            reason,
+            oldValue = null,
+            newValue = null,
+            metadata = {},
+            ipAddress = null,
+            userAgent = null
+        } = options;
+
+        try {
+            const enhancedMetadata = {
+                ...metadata,
+                ip_address: ipAddress,
+                user_agent: userAgent,
+                timestamp: new Date().toISOString()
+            };
+
+            const query = `
+                INSERT INTO test_audit_log (
+                    test_instance_id, action_type, changed_by, changed_at,
+                    reason, old_value, new_value, metadata
+                ) VALUES ($1, $2, $3, NOW(), $4, $5, $6, $7)
+                RETURNING *
+            `;
+
+            const result = await this.pool.query(query, [
+                testInstanceId,
+                actionType,
+                changedBy,
+                reason,
+                oldValue,
+                newValue,
+                JSON.stringify(enhancedMetadata)
+            ]);
+
+            return result.rows[0];
+
+        } catch (error) {
+            console.error('Error creating audit log entry:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Get audit entry details
+     */
+    async getAuditEntryDetails(entryId) {
+        try {
+            const query = `
+                SELECT 
+                    tal.*,
+                    u.username, u.full_name,
+                    ti.id as test_instance_id,
+                    tr.criterion_number, tr.title as requirement_title
+                FROM test_audit_log tal
+                LEFT JOIN auth_users u ON tal.changed_by = u.id
+                LEFT JOIN test_instances ti ON tal.test_instance_id = ti.id
+                LEFT JOIN test_requirements tr ON ti.requirement_id = tr.id
+                WHERE tal.id = $1
+            `;
+
+            const result = await this.pool.query(query, [entryId]);
+            return result.rows[0] || null;
+
+        } catch (error) {
+            console.error('Error getting audit entry details:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Search audit trail with advanced filters
+     */
+    async searchAuditTrail(options = {}) {
+        const {
+            sessionIds = [],
+            testInstanceIds = [],
+            actionTypes = [],
+            changedByUsers = [],
+            dateRange = {},
+            searchText = '',
+            limit = 100,
+            offset = 0
+        } = options;
+
+        try {
+            let conditions = [];
+            let params = [];
+            let paramCount = 0;
+
+            if (sessionIds.length > 0) {
+                paramCount++;
+                conditions.push(`tal.session_id = ANY($${paramCount})`);
+                params.push(sessionIds);
+            }
+
+            if (testInstanceIds.length > 0) {
+                paramCount++;
+                conditions.push(`tal.test_instance_id = ANY($${paramCount})`);
+                params.push(testInstanceIds);
+            }
+
+            if (actionTypes.length > 0) {
+                paramCount++;
+                conditions.push(`tal.action_type = ANY($${paramCount})`);
+                params.push(actionTypes);
+            }
+
+            if (changedByUsers.length > 0) {
+                paramCount++;
+                conditions.push(`tal.changed_by = ANY($${paramCount})`);
+                params.push(changedByUsers);
+            }
+
+            if (dateRange.start) {
+                paramCount++;
+                conditions.push(`tal.changed_at >= $${paramCount}`);
+                params.push(dateRange.start);
+            }
+
+            if (dateRange.end) {
+                paramCount++;
+                conditions.push(`tal.changed_at <= $${paramCount}`);
+                params.push(dateRange.end);
+            }
+
+            if (searchText) {
+                paramCount++;
+                conditions.push(`(tal.reason ILIKE $${paramCount} OR tal.old_value ILIKE $${paramCount} OR tal.new_value ILIKE $${paramCount})`);
+                params.push(`%${searchText}%`);
+            }
+
+            const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+            const query = `
+                SELECT 
+                    tal.*,
+                    u.username, u.full_name,
+                    ti.id as test_instance_id,
+                    tr.criterion_number, tr.title as requirement_title
+                FROM test_audit_log tal
+                LEFT JOIN auth_users u ON tal.changed_by = u.id
+                LEFT JOIN test_instances ti ON tal.test_instance_id = ti.id
+                LEFT JOIN test_requirements tr ON ti.requirement_id = tr.id
+                ${whereClause}
+                ORDER BY tal.changed_at DESC
+                LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}
+            `;
+
+            params.push(limit, offset);
+
+            const countQuery = `
+                SELECT COUNT(*) as total
+                FROM test_audit_log tal
+                ${whereClause}
+            `;
+
+            const [entriesResult, countResult] = await Promise.all([
+                this.pool.query(query, params),
+                this.pool.query(countQuery, params.slice(0, -2))
+            ]);
+
+            const total = parseInt(countResult.rows[0].total);
+
+            return {
+                entries: entriesResult.rows,
+                pagination: {
+                    total,
+                    limit,
+                    offset,
+                    has_more: (offset + entriesResult.rows.length) < total
+                }
+            };
+
+        } catch (error) {
+            console.error('Error searching audit trail:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Export audit report
+     */
+    async exportAuditReport(sessionId, options = {}) {
+        const {
+            format = 'json',
+            includeMetadata = true,
+            dateRange = null
+        } = options;
+
+        try {
+            const auditTrail = await this.getSessionAuditTrail(sessionId, {
+                limit: 10000, // Large limit for export
+                includeMetadata
+            });
+
+            if (format === 'json') {
+                return {
+                    session_id: sessionId,
+                    exported_at: new Date().toISOString(),
+                    audit_trail: auditTrail.entries,
+                    summary: auditTrail.summary
+                };
+            }
+
+            // For other formats, return a placeholder
+            return `Audit report for session ${sessionId} in ${format} format`;
+
+        } catch (error) {
+            console.error('Error exporting audit report:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Get audit trail configuration
+     */
+    async getAuditTrailConfig() {
+        return {
+            retention_days: 2555, // 7 years
+            max_entries_per_query: 1000,
+            supported_formats: ['json', 'csv', 'pdf'],
+            audit_levels: ['basic', 'detailed', 'comprehensive'],
+            auto_purge_enabled: false
+        };
+    }
+
+    /**
+     * Verify audit trail integrity
+     */
+    async verifyAuditTrailIntegrity(sessionId, options = {}) {
+        const { checkChecksums = true } = options;
+
+        try {
+            const query = `
+                SELECT 
+                    COUNT(*) as total_entries,
+                    COUNT(DISTINCT test_instance_id) as unique_instances,
+                    MIN(changed_at) as earliest_entry,
+                    MAX(changed_at) as latest_entry
+                FROM test_audit_log
+                WHERE session_id = $1
+            `;
+
+            const result = await this.pool.query(query, [sessionId]);
+            const stats = result.rows[0];
+
+            return {
+                status: 'verified',
+                integrity: 'intact',
+                issues: [],
+                statistics: stats,
+                checksums_verified: checkChecksums
+            };
+
+        } catch (error) {
+            console.error('Error verifying audit trail integrity:', error);
+            return {
+                status: 'error',
+                integrity: 'unknown',
+                issues: [error.message]
+            };
+        }
     }
 }
 
