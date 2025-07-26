@@ -39,7 +39,7 @@ const unifiedRequirementsRoutes = require('./routes/unified-requirements');
 const webCrawlersRoutes = require('./routes/web-crawlers');
 const adminRoutes = require('./routes/admin');
 const auditTrailRoutes = require('./routes/audit-trail');
-// const automatedTestingRoutes = require('./routes/automated-testing');
+const automatedTestingRoutes = require('./routes/automated-testing');
 
 // Import services
 const WebSocketService = require('./services/websocket-service');
@@ -231,7 +231,7 @@ app.use('/api/unified-requirements', unifiedRequirementsRoutes);
 app.use('/api/web-crawlers', webCrawlersRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/audit-trail', auditTrailRoutes);
-// app.use('/api/automated-testing', automatedTestingRoutes);
+app.use('/api/automated-testing', automatedTestingRoutes);
 
 // Add API health check endpoint
 app.get('/api/health', asyncHandler(async (req, res) => {

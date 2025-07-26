@@ -6836,12 +6836,23 @@ function dashboard() {
             try {
                 console.log('🤖 Running automated test for instance:', testInstance.id);
                 
-                // For now, show a notification - this would trigger specific automated tests
-                this.showNotification('info', 'Automated Test Triggered', 
-                    `Running automated test for requirement ${testInstance.criterion_number}`);
+                this.showNotification('info', 'Automated Test Starting',
+                    `Running automated test for requirement ${testInstance.criterion_number}...`);
                 
-                // In a full implementation, this would call the automation API for specific requirements
-                // const response = await this.apiCall(`/automated-testing/run-instance/${testInstance.id}`, 'POST');
+                // Call the actual automation API
+                const response = await this.apiCall(`/automated-testing/run-instance/${testInstance.id}`, 'POST', {
+                    tools: ['axe-core', 'pa11y']
+                });
+                
+                if (response.success) {
+                    this.showNotification('success', 'Automated Test Completed',
+                        `Test completed for requirement ${testInstance.criterion_number}`);
+                    
+                    // Refresh the test grid to show updated results
+                    this.applyTestGridFilters();
+                } else {
+                    throw new Error(response.error || 'Failed to run automated test');
+                }
                 
             } catch (error) {
                 console.error('Error running automated test for instance:', error);
