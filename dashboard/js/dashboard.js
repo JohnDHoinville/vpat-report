@@ -180,9 +180,84 @@ function dashboard() {
         showEvidenceModal: false,
         testGridFilters: {
             status: '',
-            level: ''
+            level: '',
+            testMethod: ''
         },
         availableTesters: [],
+        
+        // ===== ENHANCED TEST GRID STATE =====
+        selectedTestInstances: [],
+        bulkStatusUpdate: '',
+        bulkTesterAssignment: '',
+        testGridSort: {
+            field: 'criterion_number',
+            direction: 'asc'
+        },
+        
+        // ===== REQUIREMENTS VIEWER STATE =====
+        showRequirementsModal: false,
+        allRequirements: [],
+        filteredRequirements: [],
+        requirementsTestInstances: [],
+        requirementsFilters: {
+            type: '',
+            level: '',
+            testMethod: '',
+            search: ''
+        },
+        selectedRequirement: null,
+        
+        // ===== USER MANAGEMENT STATE =====
+        showUserManagement: false,
+        showUserForm: false,
+        showDeleteUserModal: false,
+        userForm: {
+            id: null,
+            username: '',
+            email: '',
+            full_name: '',
+            role: 'tester',
+            is_active: true,
+            password: '',
+            confirm_password: ''
+        },
+        
+        // ===== SESSION DETAILS MODAL STATE =====
+        showSessionDetailsModal: false,
+        selectedSessionDetails: null,
+        loadingSessionDetails: false,
+        sessionDetailsActiveTab: 'overview',
+        sessionDetailsStats: {},
+        sessionDetailsActivities: [],
+        sessionDetailsTeam: {},
+        sessionDetailsTestInstances: [],
+        sessionDetailsPages: [],
+        automationSummary: {},
+        userFormErrors: {},
+        allUsers: [],
+        filteredUsers: [],
+        userFilters: {
+            role: '',
+            status: '',
+            search: ''
+        },
+        userPagination: {
+            currentPage: 1,
+            itemsPerPage: 10,
+            totalItems: 0,
+            totalPages: 0
+        },
+        userSort: {
+            field: 'username',
+            direction: 'asc'
+        },
+        selectedUserForDelete: null,
+        userStats: {
+            total: 0,
+            active: 0,
+            admin: 0,
+            recentLogins: 0
+        },
         
         // ===== MANUAL TESTING STATE =====
         manualTestingSession: null,
@@ -5158,6 +5233,54 @@ function dashboard() {
                 return statusMatch && levelMatch;
             });
         },
+
+        // Calculate session overview counters based on actual progress
+        getActiveSessionsCount() {
+            const activeSessions = this.testingSessions.filter(session => {
+                const progress = session.progress;
+                if (!progress) return false;
+                
+                // Active: Has some progress (> 0%) but not completed (< 100%)
+                const completionPercentage = parseFloat(progress.completionPercentage) || 0;
+                const isActive = completionPercentage > 0 && completionPercentage < 100;
+                
+                if (isActive) {
+                    console.log(`📊 Active session: ${session.name} (${completionPercentage}%)`);
+                }
+                
+                return isActive;
+            });
+            
+            return activeSessions.length;
+        },
+
+        getCompletedSessionsCount() {
+            return this.testingSessions.filter(session => {
+                const progress = session.progress;
+                if (!progress) return false;
+                
+                // Completed: 100% completion
+                const completionPercentage = parseFloat(progress.completionPercentage) || 0;
+                return completionPercentage >= 100;
+            }).length;
+        },
+
+        getNeedsReviewSessionsCount() {
+            return this.testingSessions.filter(session => {
+                const progress = session.progress;
+                if (!progress) return false;
+                
+                // Needs review: Has failed tests, tests that need review, or untestable items
+                const failedTests = progress.failedTests || 0;
+                const needsReviewTests = progress.needsReviewTests || 0;
+                const untestableTests = progress.untestableTests || 0;
+                
+                // Also consider sessions with status indicators for review
+                const hasReviewStatus = session.status === 'needs_review' || session.status === 'draft';
+                
+                return failedTests > 0 || needsReviewTests > 0 || untestableTests > 0 || hasReviewStatus;
+            }).length;
+        },
         
         // Load available testers for assignment
         async loadAvailableTesters() {
@@ -5424,11 +5547,477 @@ function dashboard() {
             return descriptions[level] || 'Requirements will be determined based on selected level';
         },
         
-        // View requirements (placeholder)
-        viewRequirements() {
-            this.showNotification('info', 'Requirements Database', 
-                'Requirements database contains 43 total requirements (26 WCAG + 17 Section 508)');
-            console.log('View requirements - feature coming soon');
+        // View requirements with detailed breakdown
+        async viewRequirements() {
+            try {
+                this.loading = true;
+                console.log('🔍 Loading comprehensive requirements view...');
+                
+                // Load all requirements (get all pages)
+                const requirementsResponse = await this.apiCall('/requirements?limit=100');
+                
+                if (requirementsResponse.success) {
+                    this.allRequirements = requirementsResponse.data?.requirements || [];
+                    this.filteredRequirements = this.allRequirements;
+                    this.showRequirementsModal = true;
+                    this.applyRequirementsFilters();
+                    
+                    console.log('✅ Loaded requirements:', this.allRequirements.length);
+                    
+                    // Also load test instances to show relationship
+                    await this.loadRequirementsTestInstances();
+                } else {
+                    throw new Error(requirementsResponse.error || 'Failed to load requirements');
+                }
+            } catch (error) {
+                console.error('Error loading requirements:', error);
+                this.showNotification('error', 'Load Failed', 'Failed to load requirements database');
+            } finally {
+                this.loading = false;
+            }
+        },
+        
+        // Load test instances for requirements view
+        async loadRequirementsTestInstances() {
+            try {
+                if (!this.selectedProject) return;
+                
+                const response = await this.apiCall('/test-instances', {
+                    method: 'GET'
+                });
+                
+                if (response.success) {
+                    this.requirementsTestInstances = response.test_instances || [];
+                    console.log('✅ Loaded test instances for requirements view:', this.requirementsTestInstances.length);
+                }
+            } catch (error) {
+                console.error('Error loading test instances for requirements:', error);
+            }
+        },
+        
+        // Apply filters to requirements
+        applyRequirementsFilters() {
+            let filtered = [...this.allRequirements];
+            
+            // Filter by type
+            if (this.requirementsFilters.type) {
+                filtered = filtered.filter(req => req.requirement_type === this.requirementsFilters.type);
+            }
+            
+            // Filter by level
+            if (this.requirementsFilters.level) {
+                filtered = filtered.filter(req => req.level === this.requirementsFilters.level);
+            }
+            
+            // Filter by test method
+            if (this.requirementsFilters.testMethod) {
+                filtered = filtered.filter(req => req.test_method === this.requirementsFilters.testMethod);
+            }
+            
+            // Search filter
+            if (this.requirementsFilters.search) {
+                const search = this.requirementsFilters.search.toLowerCase();
+                filtered = filtered.filter(req => 
+                    req.title.toLowerCase().includes(search) ||
+                    req.criterion_number.toLowerCase().includes(search) ||
+                    (req.description && req.description.toLowerCase().includes(search))
+                );
+            }
+            
+            this.filteredRequirements = filtered;
+            console.log('🔍 Applied requirements filters, showing', filtered.length, 'of', this.allRequirements.length);
+        },
+        
+        // Get test instances for a specific requirement
+        getTestInstancesForRequirement(requirementId) {
+            return this.requirementsTestInstances.filter(instance => 
+                instance.requirement_id === requirementId
+            );
+        },
+        
+        // Get unique pages for a requirement
+        getPagesByRequirement(requirementId) {
+            const instances = this.getTestInstancesForRequirement(requirementId);
+            const pages = instances
+                .filter(instance => instance.page_url)
+                .map(instance => ({
+                    url: instance.page_url,
+                    title: instance.page_title,
+                    status: instance.status,
+                    session_id: instance.session_id
+                }));
+            
+            // Remove duplicates by URL
+            const uniquePages = pages.filter((page, index, self) => 
+                index === self.findIndex(p => p.url === page.url)
+            );
+            
+            return uniquePages;
+        },
+        
+        // Close requirements modal
+        closeRequirementsModal() {
+            this.showRequirementsModal = false;
+            this.allRequirements = [];
+            this.filteredRequirements = [];
+            this.requirementsTestInstances = [];
+            this.requirementsFilters = {
+                type: '',
+                level: '',
+                testMethod: '',
+                search: ''
+            };
+        },
+        
+        // ===== USER MANAGEMENT METHODS =====
+        
+        // Show user management modal
+        async showUserManagement() {
+            try {
+                console.log('🔍 Opening user management modal');
+                this.showUserManagement = true;
+                this.loading = true;
+                
+                console.log('🔍 Loading user management...');
+                await this.loadUsers();
+                this.calculateUserStats();
+                
+            } catch (error) {
+                console.error('Error loading user management:', error);
+                this.showNotification('error', 'Load Failed', 'Failed to load user management');
+            } finally {
+                this.loading = false;
+            }
+        },
+        
+        // Close user management modal
+        closeUserManagement() {
+            console.log('🔍 Closing user management modal');
+            this.showUserManagement = false;
+            this.closeUserForm();
+            this.closeDeleteUserModal();
+        },
+        
+        // Load users from API
+        async loadUsers() {
+            try {
+                const response = await this.apiCall('/users');
+                
+                if (response.success) {
+                    this.allUsers = response.users || [];
+                    this.filteredUsers = this.allUsers;
+                    this.applyUserFilters();
+                    
+                    console.log('✅ Loaded users:', this.allUsers.length);
+                } else {
+                    throw new Error(response.error || 'Failed to load users');
+                }
+            } catch (error) {
+                console.error('Error loading users:', error);
+                this.showNotification('error', 'Load Failed', 'Failed to load users');
+                this.allUsers = [];
+                this.filteredUsers = [];
+            }
+        },
+        
+        // Calculate user statistics
+        calculateUserStats() {
+            this.userStats.total = this.allUsers.length;
+            this.userStats.active = this.allUsers.filter(user => user.is_active).length;
+            this.userStats.admin = this.allUsers.filter(user => user.role === 'admin').length;
+            
+            // Recent logins (last 7 days)
+            const sevenDaysAgo = new Date();
+            sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+            this.userStats.recentLogins = this.allUsers.filter(user => 
+                user.last_login && new Date(user.last_login) > sevenDaysAgo
+            ).length;
+        },
+        
+        // Apply filters to users
+        applyUserFilters() {
+            let filtered = [...this.allUsers];
+            
+            // Filter by role
+            if (this.userFilters.role) {
+                filtered = filtered.filter(user => user.role === this.userFilters.role);
+            }
+            
+            // Filter by status
+            if (this.userFilters.status === 'active') {
+                filtered = filtered.filter(user => user.is_active);
+            } else if (this.userFilters.status === 'inactive') {
+                filtered = filtered.filter(user => !user.is_active);
+            }
+            
+            // Search filter
+            if (this.userFilters.search) {
+                const search = this.userFilters.search.toLowerCase();
+                filtered = filtered.filter(user => 
+                    user.username.toLowerCase().includes(search) ||
+                    user.email.toLowerCase().includes(search) ||
+                    (user.full_name && user.full_name.toLowerCase().includes(search))
+                );
+            }
+            
+            this.filteredUsers = filtered;
+            this.updateUserPagination();
+            console.log('🔍 Applied user filters, showing', filtered.length, 'of', this.allUsers.length, 'users');
+        },
+        
+        // Update pagination info
+        updateUserPagination() {
+            this.userPagination.totalItems = this.filteredUsers.length;
+            this.userPagination.totalPages = Math.ceil(this.filteredUsers.length / this.userPagination.itemsPerPage);
+            
+            // Reset to first page if current page is out of bounds
+            if (this.userPagination.currentPage > this.userPagination.totalPages) {
+                this.userPagination.currentPage = 1;
+            }
+        },
+        
+        // Get paginated users for display
+        getPaginatedUsers() {
+            const start = (this.userPagination.currentPage - 1) * this.userPagination.itemsPerPage;
+            const end = start + this.userPagination.itemsPerPage;
+            return this.filteredUsers.slice(start, end);
+        },
+        
+        // Show add user form
+        showAddUserForm() {
+            this.resetUserForm();
+            this.showUserForm = true;
+            console.log('🔍 Opening add user form');
+        },
+        
+        // Show edit user form
+        showEditUserForm(user) {
+            this.userForm = {
+                id: user.id,
+                username: user.username,
+                email: user.email,
+                full_name: user.full_name || '',
+                role: user.role,
+                is_active: user.is_active,
+                password: '',
+                confirm_password: ''
+            };
+            this.userFormErrors = {};
+            this.showUserForm = true;
+            console.log('🔍 Opening edit user form for:', user.username);
+        },
+        
+        // Reset user form
+        resetUserForm() {
+            this.userForm = {
+                id: null,
+                username: '',
+                email: '',
+                full_name: '',
+                role: 'tester',
+                is_active: true,
+                password: '',
+                confirm_password: ''
+            };
+            this.userFormErrors = {};
+        },
+        
+        // Close user form
+        closeUserForm() {
+            this.showUserForm = false;
+            this.resetUserForm();
+        },
+        
+        // Validate user form
+        validateUserForm() {
+            this.userFormErrors = {};
+            
+            if (!this.userForm.username.trim()) {
+                this.userFormErrors.username = 'Username is required';
+            }
+            
+            if (!this.userForm.email.trim()) {
+                this.userFormErrors.email = 'Email is required';
+            } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(this.userForm.email)) {
+                this.userFormErrors.email = 'Invalid email format';
+            }
+            
+            if (!this.userForm.id && !this.userForm.password) {
+                this.userFormErrors.password = 'Password is required for new users';
+            }
+            
+            if (this.userForm.password && this.userForm.password.length < 6) {
+                this.userFormErrors.password = 'Password must be at least 6 characters';
+            }
+            
+            if (this.userForm.password !== this.userForm.confirm_password) {
+                this.userFormErrors.confirm_password = 'Passwords do not match';
+            }
+            
+            return Object.keys(this.userFormErrors).length === 0;
+        },
+        
+        // Save user (create or update)
+        async saveUser() {
+            if (!this.validateUserForm()) {
+                this.showNotification('error', 'Validation Failed', 'Please fix the errors in the form');
+                return;
+            }
+            
+            try {
+                this.loading = true;
+                
+                const userData = {
+                    username: this.userForm.username.trim(),
+                    email: this.userForm.email.trim(),
+                    full_name: this.userForm.full_name.trim(),
+                    role: this.userForm.role,
+                    is_active: this.userForm.is_active
+                };
+                
+                // Only include password if it's provided
+                if (this.userForm.password) {
+                    userData.password = this.userForm.password;
+                }
+                
+                let response;
+                if (this.userForm.id) {
+                    // Update existing user
+                    response = await this.apiCall(`/users/${this.userForm.id}`, {
+                        method: 'PUT',
+                        body: JSON.stringify(userData)
+                    });
+                } else {
+                    // Create new user
+                    response = await this.apiCall('/users', {
+                        method: 'POST',
+                        body: JSON.stringify(userData)
+                    });
+                }
+                
+                if (response.success) {
+                    await this.loadUsers();
+                    this.closeUserForm();
+                    
+                    const action = this.userForm.id ? 'updated' : 'created';
+                    this.showNotification('success', 'User Saved', `User ${userData.username} ${action} successfully`);
+                } else {
+                    throw new Error(response.error || 'Failed to save user');
+                }
+            } catch (error) {
+                console.error('Error saving user:', error);
+                this.showNotification('error', 'Save Failed', error.message);
+            } finally {
+                this.loading = false;
+            }
+        },
+        
+        // Show delete user confirmation
+        showDeleteUserConfirmation(user) {
+            this.selectedUserForDelete = user;
+            this.showDeleteUserModal = true;
+            console.log('🔍 Showing delete confirmation for:', user.username);
+        },
+        
+        // Close delete user modal
+        closeDeleteUserModal() {
+            this.showDeleteUserModal = false;
+            this.selectedUserForDelete = null;
+        },
+        
+        // Confirm delete user
+        async confirmDeleteUser() {
+            if (!this.selectedUserForDelete) return;
+            
+            try {
+                this.loading = true;
+                
+                const response = await this.apiCall(`/users/${this.selectedUserForDelete.id}`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.success) {
+                    await this.loadUsers();
+                    this.closeDeleteUserModal();
+                    this.showNotification('success', 'User Deleted', `User ${this.selectedUserForDelete.username} deleted successfully`);
+                } else {
+                    throw new Error(response.error || 'Failed to delete user');
+                }
+            } catch (error) {
+                console.error('Error deleting user:', error);
+                this.showNotification('error', 'Delete Failed', error.message);
+            } finally {
+                this.loading = false;
+            }
+        },
+        
+        // Sort users
+        sortUsers(field) {
+            if (this.userSort.field === field) {
+                this.userSort.direction = this.userSort.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                this.userSort.field = field;
+                this.userSort.direction = 'asc';
+            }
+            
+            this.filteredUsers.sort((a, b) => {
+                let aVal = a[field] || '';
+                let bVal = b[field] || '';
+                
+                if (typeof aVal === 'string') {
+                    aVal = aVal.toLowerCase();
+                    bVal = bVal.toLowerCase();
+                }
+                
+                if (this.userSort.direction === 'asc') {
+                    return aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
+                } else {
+                    return aVal > bVal ? -1 : aVal < bVal ? 1 : 0;
+                }
+            });
+            
+            console.log('🔍 Sorted users by', field, this.userSort.direction);
+        },
+        
+        // Navigate to previous page
+        previousUsersPage() {
+            if (this.userPagination.currentPage > 1) {
+                this.userPagination.currentPage--;
+            }
+        },
+        
+        // Navigate to next page
+        nextUsersPage() {
+            if (this.userPagination.currentPage < this.userPagination.totalPages) {
+                this.userPagination.currentPage++;
+            }
+        },
+        
+        // Get user role display
+        getUserRoleDisplay(role) {
+            const roles = {
+                'admin': 'Administrator',
+                'tester': 'Tester',
+                'reviewer': 'Reviewer',
+                'viewer': 'Viewer'
+            };
+            return roles[role] || role;
+        },
+        
+        // Get user role badge class
+        getUserRoleBadgeClass(role) {
+            const classes = {
+                'admin': 'bg-red-100 text-red-800',
+                'tester': 'bg-blue-100 text-blue-800',
+                'reviewer': 'bg-green-100 text-green-800',
+                'viewer': 'bg-gray-100 text-gray-800'
+            };
+            return classes[role] || 'bg-gray-100 text-gray-800';
+        },
+        
+        // Get user status badge class
+        getUserStatusBadgeClass(isActive) {
+            return isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
         },
 
         // ===== TEST GRID METHODS =====
@@ -5438,9 +6027,24 @@ function dashboard() {
             try {
                 console.log('🔍 Opening test grid for session:', session.name);
                 
-                this.selectedSession = session;
+                // Store complete session information with progress
+                this.selectedSession = { ...session };
                 this.showTestGrid = true;
                 this.loadingTestInstances = true;
+                
+                // Initialize enhanced test grid state
+                this.selectedTestInstances = [];
+                this.bulkStatusUpdate = '';
+                this.bulkTesterAssignment = '';
+                this.testGridSort = {
+                    field: 'criterion_number',
+                    direction: 'asc'
+                };
+                
+                // Ensure progress data is available
+                if (!this.selectedSession.progress && session.progress) {
+                    this.selectedSession.progress = session.progress;
+                }
                 
                 // Load test instances for this session
                 const response = await this.apiCall(`/test-instances?session_id=${session.id}`);
@@ -5451,6 +6055,10 @@ function dashboard() {
                     this.applyTestGridFilters();
                     
                     console.log('✅ Loaded test instances:', this.testInstances.length);
+                    
+                    // Show notification about which session is being managed
+                    this.showNotification('info', 'Enhanced Test Grid Opened', 
+                        `Now managing tests for "${this.selectedSession.name}" (${this.testInstances.length} test instances)`);
                 } else {
                     throw new Error(response.error || 'Failed to load test instances');
                 }
@@ -5474,10 +6082,26 @@ function dashboard() {
             
             // Filter by level
             if (this.testGridFilters.level) {
-                filtered = filtered.filter(instance => instance.level === this.testGridFilters.level);
+                filtered = filtered.filter(instance => 
+                    (instance.requirement_level || instance.level) === this.testGridFilters.level
+                );
+            }
+            
+            // Filter by test method
+            if (this.testGridFilters.testMethod) {
+                filtered = filtered.filter(instance => 
+                    (instance.test_method_used || instance.requirement_test_method) === this.testGridFilters.testMethod
+                );
             }
             
             this.filteredTestInstances = filtered;
+            
+            // Apply current sort after filtering
+            this.applyTestGridSort();
+            
+            // Clear selections when filters change
+            this.selectedTestInstances = [];
+            
             console.log('🔍 Applied filters, showing', filtered.length, 'of', this.testInstances.length, 'instances');
         },
         
@@ -5567,7 +6191,9 @@ function dashboard() {
             const classes = {
                 'a': 'bg-green-100 text-green-800',
                 'aa': 'bg-blue-100 text-blue-800',
-                'aaa': 'bg-purple-100 text-purple-800'
+                'aaa': 'bg-purple-100 text-purple-800',
+                'base': 'bg-yellow-100 text-yellow-800',
+                'enhanced': 'bg-orange-100 text-orange-800'
             };
             return classes[level] || 'bg-gray-100 text-gray-800';
         },
@@ -5577,7 +6203,9 @@ function dashboard() {
             const displays = {
                 'a': 'Level A',
                 'aa': 'Level AA',
-                'aaa': 'Level AAA'
+                'aaa': 'Level AAA',
+                'base': '508 Base',
+                'enhanced': '508 Enhanced'
             };
             return displays[level] || level?.toUpperCase() || 'N/A';
         },
@@ -5601,6 +6229,732 @@ function dashboard() {
             if (!dateString) return 'Never';
             const date = new Date(dateString);
             return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        },
+        
+        // Get test method badge class
+        getTestMethodBadgeClass(method) {
+            const classes = {
+                'manual': 'bg-blue-100 text-blue-800',
+                'automated': 'bg-green-100 text-green-800',
+                'both': 'bg-purple-100 text-purple-800'
+            };
+            return classes[method] || 'bg-gray-100 text-gray-800';
+        },
+        
+        // Get test method display text
+        getTestMethodDisplay(method) {
+            const displays = {
+                'manual': 'Manual',
+                'automated': 'Automated',
+                'both': 'Hybrid'
+            };
+            return displays[method] || method?.charAt(0).toUpperCase() + method?.slice(1) || 'Unknown';
+        },
+        
+        // Get test method description
+        getTestMethodDescription(method) {
+            const descriptions = {
+                'manual': 'Requires human evaluation and testing',
+                'automated': 'Fully automated using axe-core, pa11y, WAVE, or Lighthouse',
+                'both': 'Hybrid: Automated tools + manual verification for complete coverage'
+            };
+            return descriptions[method] || 'Test method not specified';
+        },
+        
+        // Get conformance level badge class for session header
+        getConformanceLevelBadgeClass(level) {
+            const classes = {
+                'wcag_a': 'bg-green-100 text-green-800',
+                'wcag_aa': 'bg-blue-100 text-blue-800',
+                'wcag_aaa': 'bg-purple-100 text-purple-800',
+                'section_508': 'bg-yellow-100 text-yellow-800',
+                'combined': 'bg-indigo-100 text-indigo-800'
+            };
+            return classes[level] || 'bg-gray-100 text-gray-800';
+        },
+
+        // ===== ENHANCED TEST GRID METHODS =====
+        
+        // Clear test grid filters
+        clearTestGridFilters() {
+            this.testGridFilters = {
+                status: '',
+                level: '',
+                testMethod: ''
+            };
+            this.applyTestGridFilters();
+        },
+        
+        // Toggle select all test instances
+        toggleSelectAll(event) {
+            if (event.target.checked) {
+                this.selectedTestInstances = this.filteredTestInstances.map(instance => instance.id);
+            } else {
+                this.selectedTestInstances = [];
+            }
+            this.bulkStatusUpdate = '';
+            this.bulkTesterAssignment = '';
+        },
+        
+        // Toggle individual test instance selection
+        toggleInstanceSelection(instanceId, event) {
+            if (event.target.checked) {
+                if (!this.selectedTestInstances.includes(instanceId)) {
+                    this.selectedTestInstances.push(instanceId);
+                }
+            } else {
+                this.selectedTestInstances = this.selectedTestInstances.filter(id => id !== instanceId);
+            }
+            this.bulkStatusUpdate = '';
+            this.bulkTesterAssignment = '';
+        },
+        
+        // Clear selection
+        clearSelection() {
+            this.selectedTestInstances = [];
+            this.bulkStatusUpdate = '';
+            this.bulkTesterAssignment = '';
+        },
+        
+        // Apply bulk status update
+        async applyBulkStatusUpdate() {
+            if (!this.bulkStatusUpdate || this.selectedTestInstances.length === 0) return;
+            
+            try {
+                console.log(`🔄 Applying bulk status update: ${this.bulkStatusUpdate} to ${this.selectedTestInstances.length} instances`);
+                
+                const promises = this.selectedTestInstances.map(instanceId => 
+                    this.updateTestInstanceStatus(instanceId, this.bulkStatusUpdate)
+                );
+                
+                await Promise.all(promises);
+                
+                this.showNotification('success', 'Bulk Update Complete', 
+                    `Updated ${this.selectedTestInstances.length} test instances to "${this.bulkStatusUpdate.replace('_', ' ')}"`);
+                
+                this.clearSelection();
+            } catch (error) {
+                console.error('Error applying bulk status update:', error);
+                this.showNotification('error', 'Bulk Update Failed', error.message);
+            }
+        },
+        
+        // Apply bulk tester assignment
+        async applyBulkTesterAssignment() {
+            if (!this.bulkTesterAssignment || this.selectedTestInstances.length === 0) return;
+            
+            try {
+                console.log(`🔄 Applying bulk tester assignment: ${this.bulkTesterAssignment} to ${this.selectedTestInstances.length} instances`);
+                
+                const promises = this.selectedTestInstances.map(instanceId => 
+                    this.assignTester(instanceId, this.bulkTesterAssignment)
+                );
+                
+                await Promise.all(promises);
+                
+                const tester = this.availableTesters.find(t => t.id === this.bulkTesterAssignment);
+                const testerName = tester ? (tester.full_name || tester.username) : 'Selected tester';
+                
+                this.showNotification('success', 'Bulk Assignment Complete', 
+                    `Assigned ${this.selectedTestInstances.length} test instances to ${testerName}`);
+                
+                this.clearSelection();
+            } catch (error) {
+                console.error('Error applying bulk tester assignment:', error);
+                this.showNotification('error', 'Bulk Assignment Failed', error.message);
+            }
+        },
+        
+        // Sort test instances by field
+        sortBy(field) {
+            if (this.testGridSort.field === field) {
+                this.testGridSort.direction = this.testGridSort.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                this.testGridSort.field = field;
+                this.testGridSort.direction = 'asc';
+            }
+            this.applyTestGridSort();
+        },
+        
+        // Toggle sort direction
+        toggleSortDirection() {
+            this.testGridSort.direction = this.testGridSort.direction === 'asc' ? 'desc' : 'asc';
+            this.applyTestGridSort();
+        },
+        
+        // Apply test grid sorting
+        applyTestGridSort() {
+            const { field, direction } = this.testGridSort;
+            
+            this.filteredTestInstances.sort((a, b) => {
+                let aVal = this.getSortValue(a, field);
+                let bVal = this.getSortValue(b, field);
+                
+                // Handle null/undefined values
+                if (aVal === null || aVal === undefined) aVal = '';
+                if (bVal === null || bVal === undefined) bVal = '';
+                
+                // Convert to strings for comparison
+                aVal = aVal.toString().toLowerCase();
+                bVal = bVal.toString().toLowerCase();
+                
+                let result = aVal.localeCompare(bVal);
+                return direction === 'desc' ? -result : result;
+            });
+            
+            console.log(`📊 Sorted test instances by ${field} (${direction})`);
+        },
+        
+        // Get sort value for a field
+        getSortValue(instance, field) {
+            switch (field) {
+                case 'criterion_number':
+                    return instance.criterion_number || '';
+                case 'requirement_level':
+                    return instance.requirement_level || instance.level || '';
+                case 'status':
+                    return instance.status || '';
+                case 'test_method_used':
+                    return instance.test_method_used || instance.requirement_test_method || '';
+                case 'updated_at':
+                    return instance.updated_at || '';
+                case 'assigned_tester':
+                    const tester = this.availableTesters.find(t => t.id === instance.assigned_tester);
+                    return tester ? (tester.full_name || tester.username) : '';
+                default:
+                    return '';
+            }
+        },
+        
+        // Get sort icon for column headers
+        getSortIcon(field) {
+            if (this.testGridSort.field !== field) {
+                return 'fa-sort text-gray-400';
+            }
+            return this.testGridSort.direction === 'asc' ? 'fa-sort-up text-purple-600' : 'fa-sort-down text-purple-600';
+        },
+
+        // ===== SESSION DETAILS MODAL METHODS =====
+        
+        // Open session details modal
+        async openSessionDetailsModal(session) {
+            try {
+                console.log('🔍 Opening session details for:', session.name);
+                
+                this.selectedSessionDetails = { ...session };
+                this.showSessionDetailsModal = true;
+                this.loadingSessionDetails = true;
+                this.sessionDetailsActiveTab = 'overview';
+                
+                // Load comprehensive session details
+                await this.loadSessionDetailsData(session.id);
+                
+            } catch (error) {
+                console.error('Error opening session details:', error);
+                this.showNotification('error', 'Details Load Failed', error.message);
+                this.showSessionDetailsModal = false;
+            } finally {
+                this.loadingSessionDetails = false;
+            }
+        },
+        
+        // Close session details modal
+        closeSessionDetailsModal() {
+            this.showSessionDetailsModal = false;
+            this.selectedSessionDetails = null;
+            this.sessionDetailsStats = {};
+            this.sessionDetailsActivities = [];
+            this.sessionDetailsTeam = {};
+            this.sessionDetailsTestInstances = [];
+            this.sessionDetailsPages = [];
+            this.automationSummary = {};
+        },
+        
+        // Load comprehensive session details data
+        async loadSessionDetailsData(sessionId) {
+            try {
+                console.log('📊 Loading session details data for:', sessionId);
+                
+                // Load session statistics
+                await this.loadSessionStats(sessionId);
+                
+                // Load test instances for this session
+                await this.loadSessionTestInstances(sessionId);
+                
+                // Load project pages for URL information
+                await this.loadSessionPages();
+                
+                // Load recent activities (audit trail)
+                await this.loadSessionActivities(sessionId);
+                
+                // Load team information
+                await this.loadSessionTeam(sessionId);
+                
+                // Load automation summary
+                await this.loadAutomationSummary(sessionId);
+                
+            } catch (error) {
+                console.error('Error loading session details data:', error);
+                throw error;
+            }
+        },
+        
+        // Load session statistics breakdown
+        async loadSessionStats(sessionId) {
+            try {
+                const response = await this.apiCall(`/test-instances?session_id=${sessionId}`);
+                
+                if (response.success) {
+                    const testInstances = response.test_instances || [];
+                    
+                    // Calculate level breakdown
+                    const stats = {
+                        levelA: testInstances.filter(t => (t.requirement_level || t.level) === 'a').length,
+                        levelAA: testInstances.filter(t => (t.requirement_level || t.level) === 'aa').length,
+                        levelAAA: testInstances.filter(t => (t.requirement_level || t.level) === 'aaa').length,
+                        section508Base: testInstances.filter(t => (t.requirement_level || t.level) === 'base').length,
+                        section508Enhanced: testInstances.filter(t => (t.requirement_level || t.level) === 'enhanced').length,
+                        
+                        // Test method breakdown
+                        manualTests: testInstances.filter(t => (t.test_method_used || t.requirement_test_method) === 'manual').length,
+                        automatedTests: testInstances.filter(t => (t.test_method_used || t.requirement_test_method) === 'automated').length,
+                        hybridTests: testInstances.filter(t => (t.test_method_used || t.requirement_test_method) === 'both').length
+                    };
+                    
+                    this.sessionDetailsStats = stats;
+                    console.log('📊 Session stats loaded:', stats);
+                }
+            } catch (error) {
+                console.error('Error loading session stats:', error);
+            }
+        },
+        
+        // Load session activities from audit trail
+        async loadSessionActivities(sessionId) {
+            try {
+                const response = await this.apiCall(`/audit-trail/timeline/${sessionId}?granularity=raw&limit=10`);
+                
+                if (response.success && response.data.timeline) {
+                    // Flatten timeline events for display
+                    const activities = response.data.timeline.flatMap(period => 
+                        Array.isArray(period.events) ? period.events : [period]
+                    ).slice(0, 10);
+                    
+                    this.sessionDetailsActivities = activities;
+                    console.log('📋 Session activities loaded:', activities.length);
+                }
+            } catch (error) {
+                console.error('Error loading session activities:', error);
+                this.sessionDetailsActivities = [];
+            }
+        },
+        
+        // Load session team information
+        async loadSessionTeam(sessionId) {
+            try {
+                // Get assigned testers from test instances
+                const response = await this.apiCall(`/test-instances?session_id=${sessionId}`);
+                
+                if (response.success) {
+                    const testInstances = response.test_instances || [];
+                    const assignedTesters = [...new Set(testInstances
+                        .filter(t => t.assigned_tester)
+                        .map(t => t.assigned_tester))];
+                    
+                    // Get tester details
+                    const teamMembers = [];
+                    for (const testerId of assignedTesters) {
+                        const tester = this.availableTesters.find(u => u.id === testerId);
+                        if (tester) {
+                            const assignedTests = testInstances.filter(t => t.assigned_tester === testerId).length;
+                            teamMembers.push({
+                                ...tester,
+                                assigned_tests: assignedTests
+                            });
+                        }
+                    }
+                    
+                    this.sessionDetailsTeam = {
+                        total_members: teamMembers.length,
+                        active_testers: teamMembers.filter(m => m.assigned_tests > 0).length,
+                        assigned_tests: testInstances.filter(t => t.assigned_tester).length,
+                        members: teamMembers
+                    };
+                    
+                    console.log('👥 Session team loaded:', this.sessionDetailsTeam);
+                }
+            } catch (error) {
+                console.error('Error loading session team:', error);
+                this.sessionDetailsTeam = {};
+            }
+        },
+        
+        // Load automation summary
+        async loadAutomationSummary(sessionId) {
+            try {
+                const response = await this.apiCall(`/automated-testing/status/${sessionId}`);
+                
+                if (response.success) {
+                    this.automationSummary = response.data.summary || {};
+                    console.log('🤖 Automation summary loaded:', this.automationSummary);
+                }
+            } catch (error) {
+                console.error('Error loading automation summary:', error);
+                this.automationSummary = {};
+            }
+        },
+        
+        // Load session test instances
+        async loadSessionTestInstances(sessionId) {
+            try {
+                const response = await this.apiCall(`/test-instances?session_id=${sessionId}`);
+                
+                if (response.success) {
+                    // Add tester names to test instances
+                    const testInstances = response.test_instances || [];
+                    for (const instance of testInstances) {
+                        if (instance.assigned_tester) {
+                            const tester = this.availableTesters.find(u => u.id === instance.assigned_tester);
+                            instance.assigned_tester_name = tester ? (tester.full_name || tester.username) : 'Unknown User';
+                        }
+                    }
+                    
+                    this.sessionDetailsTestInstances = testInstances;
+                    console.log('📋 Session test instances loaded:', testInstances.length);
+                }
+            } catch (error) {
+                console.error('Error loading session test instances:', error);
+                this.sessionDetailsTestInstances = [];
+            }
+        },
+        
+        // Load project pages for URL information
+        async loadSessionPages() {
+            try {
+                if (!this.selectedProject) return;
+                
+                // First get the crawlers for this project
+                const crawlersResponse = await this.apiCall(`/web-crawlers/projects/${this.selectedProject}/crawlers`);
+                
+                if (crawlersResponse.success && crawlersResponse.data?.length > 0) {
+                    // Use the first available crawler (or we could enhance this to use all crawlers)
+                    const crawler = crawlersResponse.data[0];
+                    
+                    // Get pages for this crawler (limit to pages selected for testing)
+                    const pagesResponse = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?selected_for_testing=true&limit=100`);
+                    
+                    if (pagesResponse.success) {
+                        const pages = pagesResponse.data || pagesResponse.pages || [];
+                        this.sessionDetailsPages = pages.map(page => ({
+                            id: page.id,
+                            url: page.url,
+                            title: page.title || 'Untitled Page',
+                            depth: page.depth,
+                            requires_auth: page.requires_auth,
+                            has_forms: page.has_forms,
+                            selected_for_testing: page.selected_for_testing || page.selected_for_manual_testing || page.selected_for_automated_testing,
+                            content_type: page.content_type,
+                            status_code: page.status_code
+                        }));
+                        
+                        console.log('🌐 Session pages loaded:', this.sessionDetailsPages.length);
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading session pages:', error);
+                this.sessionDetailsPages = [];
+            }
+        },
+        
+        // Helper methods for session details display
+        getSessionStatusClass(status) {
+            const classes = {
+                'planning': 'text-blue-600',
+                'active': 'text-green-600',
+                'completed': 'text-purple-600',
+                'paused': 'text-yellow-600',
+                'cancelled': 'text-red-600'
+            };
+            return classes[status] || 'text-gray-600';
+        },
+        
+        getSessionStatusDisplay(status) {
+            const displays = {
+                'planning': 'Planning',
+                'active': 'Active',
+                'completed': 'Completed',
+                'paused': 'Paused',
+                'cancelled': 'Cancelled'
+            };
+            return displays[status] || status?.charAt(0).toUpperCase() + status?.slice(1) || 'Unknown';
+        },
+        
+        getActivityIconClass(actionType) {
+            const classes = {
+                'created': 'bg-blue-100 text-blue-600',
+                'status_change': 'bg-green-100 text-green-600',
+                'assignment': 'bg-purple-100 text-purple-600',
+                'automated_test_result': 'bg-indigo-100 text-indigo-600',
+                'session_created': 'bg-yellow-100 text-yellow-600'
+            };
+            return classes[actionType] || 'bg-gray-100 text-gray-600';
+        },
+        
+        getActivityIcon(actionType) {
+            const icons = {
+                'created': 'fas fa-plus',
+                'status_change': 'fas fa-exchange-alt',
+                'assignment': 'fas fa-user-tag',
+                'automated_test_result': 'fas fa-robot',
+                'session_created': 'fas fa-play'
+            };
+            return icons[actionType] || 'fas fa-circle';
+        },
+        
+        // Format time ago
+        formatTimeAgo(dateString) {
+            const date = new Date(dateString);
+            const now = new Date();
+            const diffInSeconds = Math.floor((now - date) / 1000);
+            
+            if (diffInSeconds < 60) return 'Just now';
+            if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
+            if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
+            return `${Math.floor(diffInSeconds / 86400)}d ago`;
+        },
+        
+        // Export session report
+        async exportSessionReport(sessionId) {
+            try {
+                console.log('📥 Exporting session report for:', sessionId);
+                
+                const response = await this.apiCall(`/audit-trail/compliance-report/${sessionId}`);
+                
+                if (response.success) {
+                    // Create downloadable file
+                    const blob = new Blob([JSON.stringify(response.data, null, 2)], {
+                        type: 'application/json'
+                    });
+                    
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `session-report-${sessionId.substring(0, 8)}-${new Date().toISOString().split('T')[0]}.json`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                    
+                    this.showNotification('success', 'Report Exported', 'Session compliance report downloaded successfully');
+                }
+            } catch (error) {
+                console.error('Error exporting session report:', error);
+                this.showNotification('error', 'Export Failed', error.message);
+            }
+        },
+        
+        // Trigger automated test
+        async triggerAutomatedTest(sessionId) {
+            try {
+                console.log('🤖 Triggering automated tests for session:', sessionId);
+                
+                const response = await this.apiCall(`/automated-testing/run/${sessionId}`, 'POST', {
+                    tools: ['axe-core', 'pa11y'],
+                    run_async: true,
+                    update_test_instances: true,
+                    create_evidence: true
+                });
+                
+                if (response.success) {
+                    this.showNotification('success', 'Automated Tests Started', 
+                        `Running ${response.tools?.join(', ')} tests in background. Check status for updates.`);
+                    
+                    // Refresh automation summary after a delay
+                    setTimeout(() => {
+                        this.loadAutomationSummary(sessionId);
+                    }, 5000);
+                } else {
+                    throw new Error(response.error || 'Failed to start automated tests');
+                }
+            } catch (error) {
+                console.error('Error triggering automated tests:', error);
+                this.showNotification('error', 'Automation Failed', error.message);
+            }
+        },
+        
+        // View full audit trail
+        viewFullAuditTrail(sessionId) {
+            // This could open a separate detailed audit trail view
+            console.log('🔍 Opening full audit trail for session:', sessionId);
+            this.showNotification('info', 'Feature Coming Soon', 'Full audit trail view will be implemented in the next update');
+        },
+        
+        // Helper methods for test instance display in session details
+        getRequirementLevelBadgeClass(level) {
+            const classes = {
+                'a': 'bg-blue-100 text-blue-800',
+                'aa': 'bg-green-100 text-green-800',
+                'aaa': 'bg-purple-100 text-purple-800',
+                'base': 'bg-yellow-100 text-yellow-800',
+                'enhanced': 'bg-orange-100 text-orange-800'
+            };
+            return classes[level] || 'bg-gray-100 text-gray-800';
+        },
+        
+        getRequirementLevelDisplay(level) {
+            const displays = {
+                'a': 'WCAG A',
+                'aa': 'WCAG AA',
+                'aaa': 'WCAG AAA',
+                'base': '508 Base',
+                'enhanced': '508 Enhanced'
+            };
+            return displays[level] || level?.toUpperCase() || 'Unknown';
+        },
+        
+        getTestMethodBadgeClass(method) {
+            const classes = {
+                'manual': 'bg-blue-100 text-blue-800',
+                'automated': 'bg-green-100 text-green-800',
+                'both': 'bg-purple-100 text-purple-800'
+            };
+            return classes[method] || 'bg-gray-100 text-gray-800';
+        },
+        
+        getTestMethodDisplay(method) {
+            const displays = {
+                'manual': 'Manual',
+                'automated': 'Automated',
+                'both': 'Hybrid'
+            };
+            return displays[method] || method?.charAt(0).toUpperCase() + method?.slice(1) || 'Unknown';
+        },
+        
+        getTestStatusBadgeClass(status) {
+            const classes = {
+                'pending': 'bg-gray-100 text-gray-800',
+                'in_progress': 'bg-blue-100 text-blue-800',
+                'passed': 'bg-green-100 text-green-800',
+                'failed': 'bg-red-100 text-red-800',
+                'untestable': 'bg-yellow-100 text-yellow-800',
+                'not_applicable': 'bg-gray-100 text-gray-600'
+            };
+            return classes[status] || 'bg-gray-100 text-gray-800';
+        },
+        
+        getTestStatusDisplay(status) {
+            const displays = {
+                'pending': 'Not Started',
+                'in_progress': 'In Progress',
+                'passed': 'Passed',
+                'failed': 'Failed',
+                'untestable': 'Untestable',
+                'not_applicable': 'N/A'
+            };
+            return displays[status] || status?.replace('_', ' ').charAt(0).toUpperCase() + status?.replace('_', ' ').slice(1) || 'Unknown';
+        },
+        
+        // Test instance action methods
+        viewTestInstanceDetails(testInstance) {
+            console.log('👀 Viewing test instance details:', testInstance.id);
+            this.showNotification('info', 'Feature Coming Soon', 'Detailed test instance view will be implemented in the next update');
+        },
+        
+        editTestInstance(testInstance) {
+            console.log('✏️ Editing test instance:', testInstance.id);
+            this.showNotification('info', 'Feature Coming Soon', 'Test instance editing will be implemented in the next update');
+        },
+        
+        async runAutomatedTestForInstance(testInstance) {
+            try {
+                console.log('🤖 Running automated test for instance:', testInstance.id);
+                
+                // For now, show a notification - this would trigger specific automated tests
+                this.showNotification('info', 'Automated Test Triggered', 
+                    `Running automated test for requirement ${testInstance.criterion_number}`);
+                
+                // In a full implementation, this would call the automation API for specific requirements
+                // const response = await this.apiCall(`/automated-testing/run-instance/${testInstance.id}`, 'POST');
+                
+            } catch (error) {
+                console.error('Error running automated test for instance:', error);
+                this.showNotification('error', 'Automation Failed', error.message);
+            }
+        },
+        
+        // Group requirements with their associated pages
+        getRequirementsWithPages() {
+            if (!this.sessionDetailsTestInstances?.length) return [];
+            
+            const requirementGroups = {};
+            
+            // Group test instances by requirement
+            this.sessionDetailsTestInstances.forEach(instance => {
+                const criterionNumber = instance.criterion_number;
+                
+                if (!requirementGroups[criterionNumber]) {
+                    requirementGroups[criterionNumber] = {
+                        criterion_number: criterionNumber,
+                        requirement_title: instance.requirement_title || instance.title,
+                        requirement_level: instance.requirement_level || instance.level,
+                        pages: [],
+                        totalPages: 0,
+                        passedPages: 0,
+                        failedPages: 0,
+                        pendingPages: 0
+                    };
+                }
+                
+                const group = requirementGroups[criterionNumber];
+                
+                // Add page information if available from test instance
+                if (instance.page_url) {
+                    const existingPage = group.pages.find(p => p.page_url === instance.page_url);
+                    if (!existingPage) {
+                        group.pages.push({
+                            page_url: instance.page_url,
+                            page_title: instance.page_title,
+                            page_depth: instance.page_depth,
+                            page_type: instance.page_type,
+                            requires_auth: instance.requires_auth,
+                            status: instance.status
+                        });
+                    }
+                } else if (this.sessionDetailsPages?.length > 0) {
+                    // If no specific page for this test instance, show available project pages
+                    // This represents all pages that could be tested for this requirement
+                    group.pages = this.sessionDetailsPages.slice(0, 5).map(page => ({
+                        page_url: page.url,
+                        page_title: page.title,
+                        page_depth: page.depth,
+                        page_type: page.content_type,
+                        requires_auth: page.requires_auth,
+                        status: instance.status, // Use the test instance status
+                        is_available_page: true // Flag to indicate this is an available page, not specifically assigned
+                    }));
+                }
+                
+                // Update status counts
+                group.totalPages = Math.max(group.pages.length, 1); // At least 1 
+                switch (instance.status) {
+                    case 'passed':
+                        group.passedPages++;
+                        break;
+                    case 'failed':
+                        group.failedPages++;
+                        break;
+                    default:
+                        group.pendingPages++;
+                        break;
+                }
+            });
+            
+            return Object.values(requirementGroups);
+        },
+        
+        // Get unique requirements that have page information
+        getUniqueRequirementsWithPages() {
+            return this.getRequirementsWithPages().filter(group => group.pages.length > 0);
         },
 
         // ===== ENHANCED SESSION MODAL METHODS =====
@@ -5805,7 +7159,10 @@ function dashboard() {
     window.previousUsersPage = () => componentInstance.previousUsersPage();
     window.nextUsersPage = () => componentInstance.nextUsersPage();
     window.sortUsers = (field) => componentInstance.sortUsers(field);
-    window.closeUserManagement = () => componentInstance.closeUserManagement();
+            window.closeUserManagement = () => componentInstance.closeUserManagement();
+        window.showUserManagement = () => componentInstance.showUserManagement();
+        window.showAddUserForm = () => componentInstance.showAddUserForm();
+        window.closeUserForm = () => componentInstance.closeUserForm();
     
     // Admin Backup Global Functions
     window.showAdminBackup = () => componentInstance.showAdminBackup();

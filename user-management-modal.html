@@ -1,5 +1,14 @@
 <!-- User Management Modal -->
-<div id="userManagementModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden">
+<div x-show="showUserManagement" 
+     x-transition:enter="transition ease-out duration-300"
+     x-transition:enter-start="opacity-0"
+     x-transition:enter-end="opacity-100"
+     x-transition:leave="transition ease-in duration-200"
+     x-transition:leave-start="opacity-100"
+     x-transition:leave-end="opacity-0"
+     @keydown.escape="closeUserManagement()"
+     @click.self="closeUserManagement()"
+     class="fixed inset-0 bg-black bg-opacity-50 z-50" style="display: none;">
     <div class="flex items-center justify-center min-h-screen p-4">
         <div class="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-hidden">
             <!-- Modal Header -->
@@ -11,7 +20,7 @@
                         </svg>
                         User Management
                     </h2>
-                    <button onclick="closeUserManagement()" class="text-white hover:text-gray-200 transition-colors">
+                    <button @click="closeUserManagement()" class="text-white hover:text-gray-200 transition-colors">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                         </svg>
@@ -66,7 +75,7 @@
                     </div>
                     
                     <!-- Add User Button -->
-                    <button onclick="showAddUserForm()" class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center">
+                    <button @click="showAddUserForm()" class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center">
                         <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
                         </svg>
@@ -153,14 +162,23 @@
 </div>
 
 <!-- Add/Edit User Form Modal -->
-<div id="userFormModal" class="fixed inset-0 bg-black bg-opacity-50 z-80 hidden">
+<div x-show="showUserForm" 
+     x-transition:enter="transition ease-out duration-300"
+     x-transition:enter-start="opacity-0"
+     x-transition:enter-end="opacity-100"
+     x-transition:leave="transition ease-in duration-200"
+     x-transition:leave-start="opacity-100"
+     x-transition:leave-end="opacity-0"
+     @keydown.escape="closeUserForm()"
+     @click.self="closeUserForm()"
+     class="fixed inset-0 bg-black bg-opacity-50 z-80" style="display: none;">
     <div class="flex items-center justify-center min-h-screen p-4">
         <div class="bg-white rounded-lg shadow-xl max-w-md w-full">
             <!-- Form Header -->
             <div class="bg-gradient-to-r from-green-600 to-green-700 text-white p-6 rounded-t-lg">
                 <div class="flex justify-between items-center">
                     <h3 class="text-xl font-bold" id="userFormTitle">Add New User</h3>
-                    <button onclick="closeUserForm()" class="text-white hover:text-gray-200 transition-colors">
+                    <button @click="closeUserForm()" class="text-white hover:text-gray-200 transition-colors">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                         </svg>

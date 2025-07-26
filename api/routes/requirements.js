@@ -66,6 +66,8 @@ router.get('/', authenticateToken, async (req, res) => {
             category,
             enabled,
             search,
+            test_method,
+            requirement_type,
             page = 1,
             limit = 50,
             sort = 'conformance_level',
@@ -79,14 +81,26 @@ router.get('/', authenticateToken, async (req, res) => {
 
         if (conformance_level) {
             paramCount++;
-            conditions.push(`requirement_type = $${paramCount}`);
+            conditions.push(`level = $${paramCount}`);
             params.push(conformance_level);
+        }
+
+        if (requirement_type) {
+            paramCount++;
+            conditions.push(`requirement_type = $${paramCount}`);
+            params.push(requirement_type);
         }
 
         if (category) {
             paramCount++;
             conditions.push(`test_method = $${paramCount}`);
             params.push(category);
+        }
+
+        if (test_method) {
+            paramCount++;
+            conditions.push(`test_method = $${paramCount}`);
+            params.push(test_method);
         }
 
         if (enabled !== undefined) {
@@ -142,6 +156,9 @@ router.get('/', authenticateToken, async (req, res) => {
                 is_active as enabled,
                 priority,
                 estimated_time_minutes,
+                automated_tools,
+                tool_mapping,
+                automation_confidence,
                 created_at,
                 updated_at
             FROM test_requirements

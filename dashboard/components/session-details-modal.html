@@ -1,0 +1,738 @@
+<!-- Session Details Modal - Comprehensive Session Information View -->
+<div x-show="showSessionDetailsModal" 
+     x-transition:enter="transition ease-out duration-300"
+     x-transition:enter-start="opacity-0"
+     x-transition:enter-end="opacity-100"
+     x-transition:leave="transition ease-in duration-200"
+     x-transition:leave-start="opacity-100"
+     x-transition:leave-end="opacity-0"
+     class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
+     @click.self="closeSessionDetailsModal()">
+     
+    <div class="bg-white rounded-lg shadow-xl w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col"
+         @click.stop>
+         
+        <!-- Modal Header -->
+        <div class="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 border-b border-blue-200 flex-shrink-0">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <div class="flex-shrink-0">
+                        <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                            <i class="fas fa-info-circle text-blue-600 text-xl"></i>
+                        </div>
+                    </div>
+                    <div>
+                        <h2 class="text-2xl font-bold text-gray-900" x-text="selectedSessionDetails?.name || 'Session Details'"></h2>
+                        <div class="flex items-center space-x-4 mt-1">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
+                                  :class="getConformanceLevelBadgeClass(selectedSessionDetails?.conformance_level)"
+                                  x-text="getConformanceLevelDisplay(selectedSessionDetails?.conformance_level)"></span>
+                            <span class="text-sm text-gray-600" x-text="selectedSessionDetails?.project_name"></span>
+                            <span class="text-sm text-gray-500" x-text="'ID: ' + (selectedSessionDetails?.id?.substring(0, 8) || '')"></span>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <button @click="exportSessionReport(selectedSessionDetails?.id)" 
+                            class="px-3 py-2 text-sm bg-green-600 text-white rounded hover:bg-green-700 transition-colors">
+                        <i class="fas fa-download mr-1"></i>Export Report
+                    </button>
+                    <button @click="closeSessionDetailsModal()" 
+                            class="p-2 text-gray-400 hover:text-gray-600 transition-colors">
+                        <i class="fas fa-times text-lg"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal Content -->
+        <div class="flex-1 overflow-y-auto">
+            <!-- Loading State -->
+            <div x-show="loadingSessionDetails" class="flex items-center justify-center py-12">
+                <div class="text-center">
+                    <i class="fas fa-spinner fa-spin text-4xl text-gray-400 mb-4"></i>
+                    <p class="text-gray-600">Loading session details...</p>
+                </div>
+            </div>
+
+            <!-- Session Details Content -->
+            <div x-show="!loadingSessionDetails && selectedSessionDetails" class="p-6 space-y-6">
+                
+                <!-- Session Overview Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                    <!-- Progress Card -->
+                    <div class="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-lg border border-blue-200">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-blue-600">Completion</p>
+                                <p class="text-2xl font-bold text-blue-800" x-text="(selectedSessionDetails?.progress?.completionPercentage || 0) + '%'"></p>
+                            </div>
+                            <div class="w-12 h-12 bg-blue-200 rounded-full flex items-center justify-center">
+                                <i class="fas fa-chart-pie text-blue-600"></i>
+                            </div>
+                        </div>
+                        <div class="mt-2">
+                            <div class="w-full bg-blue-200 rounded-full h-2">
+                                <div class="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+                                     :style="`width: ${selectedSessionDetails?.progress?.completionPercentage || 0}%`"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Total Tests Card -->
+                    <div class="bg-gradient-to-br from-purple-50 to-purple-100 p-4 rounded-lg border border-purple-200">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-purple-600">Total Tests</p>
+                                <p class="text-2xl font-bold text-purple-800" x-text="selectedSessionDetails?.progress?.totalTests || 0"></p>
+                            </div>
+                            <div class="w-12 h-12 bg-purple-200 rounded-full flex items-center justify-center">
+                                <i class="fas fa-list-check text-purple-600"></i>
+                            </div>
+                        </div>
+                        <p class="text-xs text-purple-600 mt-2" x-text="`${selectedSessionDetails?.progress?.completedTests || 0} completed`"></p>
+                    </div>
+
+                    <!-- Passed Tests Card -->
+                    <div class="bg-gradient-to-br from-green-50 to-green-100 p-4 rounded-lg border border-green-200">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-green-600">Passed</p>
+                                <p class="text-2xl font-bold text-green-800" x-text="selectedSessionDetails?.progress?.passedTests || 0"></p>
+                            </div>
+                            <div class="w-12 h-12 bg-green-200 rounded-full flex items-center justify-center">
+                                <i class="fas fa-check-circle text-green-600"></i>
+                            </div>
+                        </div>
+                        <p class="text-xs text-green-600 mt-2">Successfully validated</p>
+                    </div>
+
+                    <!-- Issues Card -->
+                    <div class="bg-gradient-to-br from-red-50 to-red-100 p-4 rounded-lg border border-red-200">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-red-600">Issues</p>
+                                <p class="text-2xl font-bold text-red-800" x-text="(selectedSessionDetails?.progress?.failedTests || 0) + (selectedSessionDetails?.progress?.needsReviewTests || 0)"></p>
+                            </div>
+                            <div class="w-12 h-12 bg-red-200 rounded-full flex items-center justify-center">
+                                <i class="fas fa-exclamation-triangle text-red-600"></i>
+                            </div>
+                        </div>
+                        <p class="text-xs text-red-600 mt-2" x-text="`${selectedSessionDetails?.progress?.failedTests || 0} failed, ${selectedSessionDetails?.progress?.needsReviewTests || 0} review`"></p>
+                    </div>
+                </div>
+
+                <!-- Tabbed Content -->
+                <div class="bg-white rounded-lg border border-gray-200">
+                    <!-- Tab Headers -->
+                    <div class="border-b border-gray-200">
+                        <nav class="flex space-x-8 px-6" aria-label="Session Details Tabs">
+                            <button @click="sessionDetailsActiveTab = 'overview'" 
+                                    :class="sessionDetailsActiveTab === 'overview' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
+                                    class="py-4 px-1 border-b-2 font-medium text-sm transition-colors">
+                                <i class="fas fa-chart-bar mr-2"></i>Overview
+                            </button>
+                            <button @click="sessionDetailsActiveTab = 'tests'" 
+                                    :class="sessionDetailsActiveTab === 'tests' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
+                                    class="py-4 px-1 border-b-2 font-medium text-sm transition-colors">
+                                <i class="fas fa-tasks mr-2"></i>Test Breakdown
+                            </button>
+                            <button @click="sessionDetailsActiveTab = 'automation'" 
+                                    :class="sessionDetailsActiveTab === 'automation' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
+                                    class="py-4 px-1 border-b-2 font-medium text-sm transition-colors">
+                                <i class="fas fa-robot mr-2"></i>Automation
+                            </button>
+                            <button @click="sessionDetailsActiveTab = 'audit'" 
+                                    :class="sessionDetailsActiveTab === 'audit' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
+                                    class="py-4 px-1 border-b-2 font-medium text-sm transition-colors">
+                                <i class="fas fa-history mr-2"></i>Audit Trail
+                            </button>
+                            <button @click="sessionDetailsActiveTab = 'team'" 
+                                    :class="sessionDetailsActiveTab === 'team' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
+                                    class="py-4 px-1 border-b-2 font-medium text-sm transition-colors">
+                                <i class="fas fa-users mr-2"></i>Team
+                            </button>
+                        </nav>
+                    </div>
+
+                    <!-- Tab Content -->
+                    <div class="p-6">
+                        
+                        <!-- Overview Tab -->
+                        <div x-show="sessionDetailsActiveTab === 'overview'" class="space-y-6">
+                            <!-- Session Metadata -->
+                            <div class="bg-gray-50 rounded-lg p-4">
+                                <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                                    <i class="fas fa-info-circle mr-2 text-blue-600"></i>Session Information
+                                </h3>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div class="space-y-3">
+                                        <div class="flex justify-between">
+                                            <span class="text-sm font-medium text-gray-600">Description:</span>
+                                            <span class="text-sm text-gray-900" x-text="selectedSessionDetails?.description || 'No description'"></span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-sm font-medium text-gray-600">Status:</span>
+                                            <span class="text-sm" :class="getSessionStatusClass(selectedSessionDetails?.status)" x-text="getSessionStatusDisplay(selectedSessionDetails?.status)"></span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-sm font-medium text-gray-600">Testing Approach:</span>
+                                            <span class="text-sm text-gray-900" x-text="selectedSessionDetails?.testing_approach || 'comprehensive'"></span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-sm font-medium text-gray-600">Auth Configuration:</span>
+                                            <span class="text-sm text-gray-900" x-text="selectedSessionDetails?.auth_description || 'None'"></span>
+                                        </div>
+                                    </div>
+                                    <div class="space-y-3">
+                                        <div class="flex justify-between">
+                                            <span class="text-sm font-medium text-gray-600">Created:</span>
+                                            <span class="text-sm text-gray-900" x-text="formatDate(selectedSessionDetails?.created_at)"></span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-sm font-medium text-gray-600">Last Updated:</span>
+                                            <span class="text-sm text-gray-900" x-text="formatDate(selectedSessionDetails?.updated_at)"></span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-sm font-medium text-gray-600">Created By:</span>
+                                            <span class="text-sm text-gray-900" x-text="selectedSessionDetails?.created_by_username || 'Unknown'"></span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-sm font-medium text-gray-600">Started:</span>
+                                            <span class="text-sm text-gray-900" x-text="selectedSessionDetails?.started_at ? formatDate(selectedSessionDetails.started_at) : 'Not started'"></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Requirements Breakdown -->
+                            <div class="bg-gray-50 rounded-lg p-4">
+                                <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                                    <i class="fas fa-layer-group mr-2 text-purple-600"></i>Requirements Breakdown
+                                </h3>
+                                <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+                                    <div class="text-center">
+                                        <div class="text-2xl font-bold text-blue-600" x-text="sessionDetailsStats?.levelA || 0"></div>
+                                        <div class="text-xs text-gray-600">WCAG Level A</div>
+                                    </div>
+                                    <div class="text-center">
+                                        <div class="text-2xl font-bold text-green-600" x-text="sessionDetailsStats?.levelAA || 0"></div>
+                                        <div class="text-xs text-gray-600">WCAG Level AA</div>
+                                    </div>
+                                    <div class="text-center">
+                                        <div class="text-2xl font-bold text-purple-600" x-text="sessionDetailsStats?.levelAAA || 0"></div>
+                                        <div class="text-xs text-gray-600">WCAG Level AAA</div>
+                                    </div>
+                                    <div class="text-center">
+                                        <div class="text-2xl font-bold text-yellow-600" x-text="sessionDetailsStats?.section508Base || 0"></div>
+                                        <div class="text-xs text-gray-600">508 Base</div>
+                                    </div>
+                                    <div class="text-center">
+                                        <div class="text-2xl font-bold text-orange-600" x-text="sessionDetailsStats?.section508Enhanced || 0"></div>
+                                        <div class="text-xs text-gray-600">508 Enhanced</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Test Method Distribution -->
+                            <div class="bg-gray-50 rounded-lg p-4">
+                                <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                                    <i class="fas fa-cogs mr-2 text-indigo-600"></i>Test Method Distribution
+                                </h3>
+                                <div class="grid grid-cols-3 gap-4">
+                                    <div class="text-center bg-white rounded-lg p-4 border">
+                                        <div class="text-2xl font-bold text-blue-600" x-text="sessionDetailsStats?.manualTests || 0"></div>
+                                        <div class="text-sm text-gray-600">Manual Tests</div>
+                                        <div class="text-xs text-gray-500 mt-1">Human evaluation</div>
+                                    </div>
+                                    <div class="text-center bg-white rounded-lg p-4 border">
+                                        <div class="text-2xl font-bold text-green-600" x-text="sessionDetailsStats?.automatedTests || 0"></div>
+                                        <div class="text-sm text-gray-600">Automated Tests</div>
+                                        <div class="text-xs text-gray-500 mt-1">Tool-based scanning</div>
+                                    </div>
+                                    <div class="text-center bg-white rounded-lg p-4 border">
+                                        <div class="text-2xl font-bold text-purple-600" x-text="sessionDetailsStats?.hybridTests || 0"></div>
+                                        <div class="text-sm text-gray-600">Hybrid Tests</div>
+                                        <div class="text-xs text-gray-500 mt-1">Automated + manual</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Test Breakdown Tab -->
+                        <div x-show="sessionDetailsActiveTab === 'tests'" class="space-y-4">
+                            <div class="flex justify-between items-center">
+                                <h3 class="text-lg font-semibold text-gray-900">Test Instance Details</h3>
+                                <button @click="viewTestGrid(selectedSessionDetails)" 
+                                        class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                                    <i class="fas fa-table mr-2"></i>Open Test Grid
+                                </button>
+                            </div>
+                            
+                            <!-- Test Status Summary -->
+                            <div class="grid grid-cols-2 md:grid-cols-6 gap-3 mb-4">
+                                <div class="bg-gray-50 p-3 rounded text-center">
+                                    <div class="text-lg font-bold text-gray-600" x-text="selectedSessionDetails?.progress?.totalTests || 0"></div>
+                                    <div class="text-xs text-gray-500">Total</div>
+                                </div>
+                                <div class="bg-blue-50 p-3 rounded text-center">
+                                    <div class="text-lg font-bold text-blue-600" x-text="(selectedSessionDetails?.progress?.totalTests || 0) - (selectedSessionDetails?.progress?.completedTests || 0)"></div>
+                                    <div class="text-xs text-blue-500">Pending</div>
+                                </div>
+                                <div class="bg-green-50 p-3 rounded text-center">
+                                    <div class="text-lg font-bold text-green-600" x-text="selectedSessionDetails?.progress?.passedTests || 0"></div>
+                                    <div class="text-xs text-green-500">Passed</div>
+                                </div>
+                                <div class="bg-red-50 p-3 rounded text-center">
+                                    <div class="text-lg font-bold text-red-600" x-text="selectedSessionDetails?.progress?.failedTests || 0"></div>
+                                    <div class="text-xs text-red-500">Failed</div>
+                                </div>
+                                <div class="bg-yellow-50 p-3 rounded text-center">
+                                    <div class="text-lg font-bold text-yellow-600" x-text="selectedSessionDetails?.progress?.needsReviewTests || 0"></div>
+                                    <div class="text-xs text-yellow-500">Review</div>
+                                </div>
+                                <div class="bg-gray-50 p-3 rounded text-center">
+                                    <div class="text-lg font-bold text-gray-600" x-text="selectedSessionDetails?.progress?.notApplicableTests || 0"></div>
+                                    <div class="text-xs text-gray-500">N/A</div>
+                                </div>
+                            </div>
+
+                            <!-- URLs by Requirement -->
+                            <div class="bg-white rounded-lg border border-gray-200 mb-6">
+                                <div class="px-6 py-4 border-b border-gray-200 bg-blue-50">
+                                    <div class="flex items-center justify-between">
+                                        <h4 class="text-lg font-semibold text-gray-900">
+                                            <i class="fas fa-globe mr-2 text-blue-600"></i>
+                                            URLs by Requirement
+                                        </h4>
+                                        <span class="text-sm text-blue-600" x-text="`${getUniqueRequirementsWithPages()?.length || 0} requirements with pages`"></span>
+                                    </div>
+                                </div>
+                                
+                                <!-- Requirements with Pages Table -->
+                                <div class="overflow-x-auto max-h-80 overflow-y-auto">
+                                    <table class="min-w-full divide-y divide-gray-200">
+                                        <thead class="bg-blue-50 sticky top-0">
+                                            <tr>
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-blue-600 uppercase tracking-wider">
+                                                    Requirement
+                                                </th>
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-blue-600 uppercase tracking-wider">
+                                                    Pages Being Tested
+                                                </th>
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-blue-600 uppercase tracking-wider">
+                                                    Status
+                                                </th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="bg-white divide-y divide-gray-200">
+                                            <template x-for="reqGroup in getRequirementsWithPages()" :key="reqGroup.criterion_number">
+                                                <tr class="hover:bg-blue-50">
+                                                    <!-- Requirement -->
+                                                    <td class="px-6 py-4 align-top">
+                                                        <div class="text-sm font-medium text-gray-900" x-text="reqGroup.criterion_number"></div>
+                                                        <div class="text-sm text-gray-600" x-text="reqGroup.requirement_title"></div>
+                                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium mt-1"
+                                                              :class="getRequirementLevelBadgeClass(reqGroup.requirement_level)"
+                                                              x-text="getRequirementLevelDisplay(reqGroup.requirement_level)"></span>
+                                                    </td>
+                                                    
+                                                    <!-- Pages -->
+                                                    <td class="px-6 py-4">
+                                                        <div x-show="reqGroup.pages.length > 0" class="space-y-2">
+                                                            <template x-for="page in reqGroup.pages" :key="page.page_url">
+                                                                <div class="bg-gray-50 rounded-md p-3 border"
+                                                                     :class="page.is_available_page ? 'border-blue-200 bg-blue-50' : 'border-gray-200'">
+                                                                    <div class="flex items-start space-x-2">
+                                                                        <i class="fas fa-globe text-blue-500 text-xs mt-0.5"></i>
+                                                                        <div class="flex-1">
+                                                                            <div class="flex items-center space-x-2">
+                                                                                <div class="text-xs font-medium text-gray-800" x-text="page.page_title || 'Untitled Page'"></div>
+                                                                                <span x-show="page.is_available_page" class="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                                                                    Available
+                                                                                </span>
+                                                                            </div>
+                                                                            <a :href="page.page_url" target="_blank" 
+                                                                               class="text-xs text-blue-600 hover:text-blue-800 break-all" 
+                                                                               x-text="page.page_url"></a>
+                                                                            <div class="flex items-center space-x-3 mt-1 text-xs text-gray-500">
+                                                                                <span x-show="page.page_depth !== null">
+                                                                                    <i class="fas fa-layer-group mr-1"></i>Depth: <span x-text="page.page_depth || 0"></span>
+                                                                                </span>
+                                                                                <span x-show="page.page_type">
+                                                                                    <i class="fas fa-file-alt mr-1"></i><span x-text="page.page_type"></span>
+                                                                                </span>
+                                                                                <span x-show="page.requires_auth" class="text-orange-600">
+                                                                                    <i class="fas fa-lock mr-1"></i>Auth Required
+                                                                                </span>
+                                                                                <span x-show="!page.is_available_page" class="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium"
+                                                                                      :class="getTestStatusBadgeClass(page.status)"
+                                                                                      x-text="getTestStatusDisplay(page.status)"></span>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </template>
+                                                            <div x-show="reqGroup.pages.some(p => p.is_available_page)" class="text-xs text-blue-600 bg-blue-50 p-2 rounded border border-blue-200">
+                                                                <i class="fas fa-info-circle mr-1"></i>
+                                                                Showing sample pages available for testing this requirement. 
+                                                                <span x-text="sessionDetailsPages?.length || 0"></span> total pages discovered.
+                                                            </div>
+                                                        </div>
+                                                        <div x-show="reqGroup.pages.length === 0" class="text-xs text-blue-600 bg-blue-50 p-2 rounded">
+                                                            <i class="fas fa-globe mr-1"></i>Testing across all applicable pages
+                                                        </div>
+                                                    </td>
+                                                    
+                                                    <!-- Status Summary -->
+                                                    <td class="px-6 py-4 align-top">
+                                                        <div class="text-xs text-gray-600">
+                                                            <div><span x-text="reqGroup.totalPages"></span> pages</div>
+                                                            <div class="mt-1">
+                                                                <span x-text="reqGroup.passedPages"></span> passed,
+                                                                <span x-text="reqGroup.failedPages"></span> failed,
+                                                                <span x-text="reqGroup.pendingPages"></span> pending
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            </template>
+                                            
+                                            <!-- Empty State -->
+                                            <tr x-show="getRequirementsWithPages().length === 0">
+                                                <td colspan="3" class="px-6 py-8 text-center">
+                                                    <div class="text-gray-500">
+                                                        <i class="fas fa-globe text-2xl mb-2"></i>
+                                                        <p>No specific pages assigned to requirements yet</p>
+                                                        <p class="text-sm">All requirements are currently set to test across all applicable pages</p>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <!-- Test Instances by Requirement -->
+                            <div class="bg-white rounded-lg border border-gray-200">
+                                <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
+                                    <div class="flex items-center justify-between">
+                                        <h4 class="text-lg font-semibold text-gray-900">
+                                            <i class="fas fa-list-check mr-2 text-purple-600"></i>
+                                            Test Instances by Requirement
+                                        </h4>
+                                        <span class="text-sm text-gray-600" x-text="`${sessionDetailsTestInstances?.length || 0} test instances`"></span>
+                                    </div>
+                                </div>
+                                
+                                <!-- Test Instances Table -->
+                                <div class="overflow-x-auto max-h-96 overflow-y-auto">
+                                    <table class="min-w-full divide-y divide-gray-200">
+                                        <thead class="bg-gray-50 sticky top-0">
+                                            <tr>
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                    Requirement
+                                                </th>
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                    Level
+                                                </th>
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                    Test Method
+                                                </th>
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                    Status
+                                                </th>
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                    Assigned To
+                                                </th>
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                    Last Updated
+                                                </th>
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                    Actions
+                                                </th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="bg-white divide-y divide-gray-200">
+                                            <template x-for="testInstance in sessionDetailsTestInstances" :key="testInstance.id">
+                                                <tr class="hover:bg-gray-50">
+                                                                                        <!-- Requirement -->
+                                    <td class="px-6 py-4">
+                                        <div class="flex flex-col">
+                                            <div class="text-sm font-medium text-gray-900" x-text="testInstance.criterion_number"></div>
+                                            <div class="text-sm text-gray-600" x-text="testInstance.requirement_title || testInstance.title"></div>
+                                            <div x-show="testInstance.description" class="text-xs text-gray-500 mt-1" style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;" x-text="testInstance.description"></div>
+                                            
+                                            <!-- URL/Page Information -->
+                                            <div x-show="testInstance.page_url" class="mt-2 p-2 bg-gray-50 rounded-md border">
+                                                <div class="flex items-start space-x-2">
+                                                    <i class="fas fa-globe text-blue-500 text-xs mt-0.5"></i>
+                                                    <div class="flex-1">
+                                                        <div class="text-xs font-medium text-gray-800" x-text="testInstance.page_title || 'Page'"></div>
+                                                        <a :href="testInstance.page_url" target="_blank" 
+                                                           class="text-xs text-blue-600 hover:text-blue-800 break-all" 
+                                                           x-text="testInstance.page_url"></a>
+                                                        <div class="flex items-center space-x-3 mt-1 text-xs text-gray-500">
+                                                            <span x-show="testInstance.page_depth !== null">
+                                                                <i class="fas fa-layer-group mr-1"></i>Depth: <span x-text="testInstance.page_depth || 0"></span>
+                                                            </span>
+                                                            <span x-show="testInstance.page_type">
+                                                                <i class="fas fa-file-alt mr-1"></i><span x-text="testInstance.page_type"></span>
+                                                            </span>
+                                                            <span x-show="testInstance.requires_auth" class="text-orange-600">
+                                                                <i class="fas fa-lock mr-1"></i>Auth Required
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            <!-- Show when testing all pages or no specific page -->
+                                            <div x-show="!testInstance.page_url" class="mt-2 p-2 bg-blue-50 rounded-md border border-blue-200">
+                                                <div class="flex items-center space-x-2">
+                                                    <i class="fas fa-globe text-blue-500 text-xs"></i>
+                                                    <span class="text-xs text-blue-700 font-medium">Testing across all applicable pages</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                                    
+                                                    <!-- Level -->
+                                                    <td class="px-6 py-4">
+                                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
+                                                              :class="getRequirementLevelBadgeClass(testInstance.requirement_level || testInstance.level)"
+                                                              x-text="getRequirementLevelDisplay(testInstance.requirement_level || testInstance.level)"></span>
+                                                    </td>
+                                                    
+                                                    <!-- Test Method -->
+                                                    <td class="px-6 py-4">
+                                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
+                                                              :class="getTestMethodBadgeClass(testInstance.test_method_used || testInstance.requirement_test_method)"
+                                                              x-text="getTestMethodDisplay(testInstance.test_method_used || testInstance.requirement_test_method)"></span>
+                                                    </td>
+                                                    
+                                                    <!-- Status -->
+                                                    <td class="px-6 py-4">
+                                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
+                                                              :class="getTestStatusBadgeClass(testInstance.status)"
+                                                              x-text="getTestStatusDisplay(testInstance.status)"></span>
+                                                    </td>
+                                                    
+                                                    <!-- Assigned To -->
+                                                    <td class="px-6 py-4">
+                                                        <div class="text-sm text-gray-900" x-text="testInstance.assigned_tester_name || 'Unassigned'"></div>
+                                                    </td>
+                                                    
+                                                    <!-- Last Updated -->
+                                                    <td class="px-6 py-4">
+                                                        <div class="text-sm text-gray-900" x-text="formatDate(testInstance.updated_at)"></div>
+                                                    </td>
+                                                    
+                                                    <!-- Actions -->
+                                                    <td class="px-6 py-4">
+                                                        <div class="flex items-center space-x-2">
+                                                            <button @click="viewTestInstanceDetails(testInstance)" 
+                                                                    class="text-blue-600 hover:text-blue-800 text-sm">
+                                                                <i class="fas fa-eye"></i>
+                                                            </button>
+                                                            <button @click="editTestInstance(testInstance)" 
+                                                                    class="text-green-600 hover:text-green-800 text-sm">
+                                                                <i class="fas fa-edit"></i>
+                                                            </button>
+                                                            <button x-show="testInstance.test_method_used === 'automated' || testInstance.requirement_test_method === 'automated'"
+                                                                    @click="runAutomatedTestForInstance(testInstance)" 
+                                                                    class="text-purple-600 hover:text-purple-800 text-sm"
+                                                                    title="Run Automated Test">
+                                                                <i class="fas fa-robot"></i>
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            </template>
+                                            
+                                            <!-- Empty State -->
+                                            <tr x-show="!sessionDetailsTestInstances?.length">
+                                                <td colspan="7" class="px-6 py-8 text-center">
+                                                    <div class="text-gray-500">
+                                                        <i class="fas fa-inbox text-2xl mb-2"></i>
+                                                        <p>No test instances found for this session</p>
+                                                        <p class="text-sm">Test instances will appear here once the session is activated</p>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <!-- Recent Test Activities -->
+                            <div class="bg-gray-50 rounded-lg p-4">
+                                <h4 class="font-semibold text-gray-900 mb-3">Recent Test Activities</h4>
+                                <div class="space-y-2">
+                                    <template x-for="activity in sessionDetailsActivities?.slice(0, 5)" :key="activity.id">
+                                        <div class="flex items-center justify-between bg-white p-3 rounded border">
+                                            <div class="flex items-center space-x-3">
+                                                <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium"
+                                                     :class="getActivityIconClass(activity.action_type)">
+                                                    <i :class="getActivityIcon(activity.action_type)"></i>
+                                                </div>
+                                                <div>
+                                                    <div class="text-sm font-medium text-gray-900" x-text="activity.description"></div>
+                                                    <div class="text-xs text-gray-500" x-text="activity.context"></div>
+                                                </div>
+                                            </div>
+                                            <div class="text-xs text-gray-400" x-text="formatTimeAgo(activity.event_time)"></div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Automation Tab -->
+                        <div x-show="sessionDetailsActiveTab === 'automation'" class="space-y-4">
+                            <div class="flex justify-between items-center">
+                                <h3 class="text-lg font-semibold text-gray-900">Automated Testing</h3>
+                                <button @click="triggerAutomatedTest(selectedSessionDetails?.id)" 
+                                        class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+                                    <i class="fas fa-play mr-2"></i>Run Automated Tests
+                                </button>
+                            </div>
+
+                            <!-- Automation Summary -->
+                            <div class="bg-gray-50 rounded-lg p-4">
+                                <h4 class="font-semibold text-gray-900 mb-3">Automation Summary</h4>
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div class="bg-white p-4 rounded border">
+                                        <div class="text-lg font-bold text-blue-600" x-text="automationSummary?.total_runs || 0"></div>
+                                        <div class="text-sm text-gray-600">Total Runs</div>
+                                        <div class="text-xs text-gray-500" x-text="automationSummary?.last_run_date ? `Last: ${formatDate(automationSummary.last_run_date)}` : 'Never run'"></div>
+                                    </div>
+                                    <div class="bg-white p-4 rounded border">
+                                        <div class="text-lg font-bold text-red-600" x-text="automationSummary?.total_issues_found || 0"></div>
+                                        <div class="text-sm text-gray-600">Issues Found</div>
+                                        <div class="text-xs text-gray-500" x-text="`${automationSummary?.critical_issues_found || 0} critical`"></div>
+                                    </div>
+                                    <div class="bg-white p-4 rounded border">
+                                        <div class="text-lg font-bold text-green-600" x-text="automationSummary?.test_instances_updated || 0"></div>
+                                        <div class="text-sm text-gray-600">Tests Updated</div>
+                                        <div class="text-xs text-gray-500">Auto-validated</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Available Tools -->
+                            <div class="bg-gray-50 rounded-lg p-4">
+                                <h4 class="font-semibold text-gray-900 mb-3">Available Tools</h4>
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div class="bg-white p-4 rounded border">
+                                        <div class="flex items-center mb-2">
+                                            <i class="fas fa-cog text-blue-600 mr-2"></i>
+                                            <span class="font-medium">Axe-core</span>
+                                        </div>
+                                        <div class="text-xs text-gray-500">Fast accessibility testing engine</div>
+                                        <div class="text-xs text-green-600 mt-1">✓ WCAG 2.2, Section 508</div>
+                                    </div>
+                                    <div class="bg-white p-4 rounded border">
+                                        <div class="flex items-center mb-2">
+                                            <i class="fas fa-terminal text-green-600 mr-2"></i>
+                                            <span class="font-medium">Pa11y</span>
+                                        </div>
+                                        <div class="text-xs text-gray-500">Command-line testing tool</div>
+                                        <div class="text-xs text-green-600 mt-1">✓ WCAG 2.1, Section 508</div>
+                                    </div>
+                                    <div class="bg-white p-4 rounded border">
+                                        <div class="flex items-center mb-2">
+                                            <i class="fas fa-lighthouse text-yellow-600 mr-2"></i>
+                                            <span class="font-medium">Lighthouse</span>
+                                        </div>
+                                        <div class="text-xs text-gray-500">Google's web quality auditing</div>
+                                        <div class="text-xs text-green-600 mt-1">✓ WCAG 2.1, Performance</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Audit Trail Tab -->
+                        <div x-show="sessionDetailsActiveTab === 'audit'">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="text-lg font-semibold text-gray-900">Audit Trail</h3>
+                                <button @click="viewFullAuditTrail(selectedSessionDetails?.id)" 
+                                        class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
+                                    <i class="fas fa-external-link-alt mr-2"></i>View Full Trail
+                                </button>
+                            </div>
+
+                            <!-- Timeline -->
+                            <div class="space-y-4">
+                                <template x-for="activity in sessionDetailsActivities" :key="activity.event_time">
+                                    <div class="flex items-start space-x-3 p-4 bg-gray-50 rounded-lg">
+                                        <div class="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium"
+                                             :class="getActivityIconClass(activity.action_type)">
+                                            <i :class="getActivityIcon(activity.action_type)"></i>
+                                        </div>
+                                        <div class="flex-1 min-w-0">
+                                            <div class="flex items-center justify-between">
+                                                <p class="text-sm font-medium text-gray-900" x-text="activity.description"></p>
+                                                <p class="text-xs text-gray-500" x-text="formatDate(activity.event_time)"></p>
+                                            </div>
+                                            <div class="mt-1">
+                                                <p class="text-xs text-gray-600" x-text="activity.context"></p>
+                                                <p class="text-xs text-gray-500" x-text="`by ${activity.full_name || activity.username || 'System'}`"></p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+
+                        <!-- Team Tab -->
+                        <div x-show="sessionDetailsActiveTab === 'team'">
+                            <h3 class="text-lg font-semibold text-gray-900 mb-4">Team Members</h3>
+                            
+                            <!-- Team Statistics -->
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                                <div class="bg-blue-50 p-4 rounded-lg">
+                                    <div class="text-lg font-bold text-blue-600" x-text="sessionDetailsTeam?.total_members || 0"></div>
+                                    <div class="text-sm text-blue-600">Team Members</div>
+                                </div>
+                                <div class="bg-green-50 p-4 rounded-lg">
+                                    <div class="text-lg font-bold text-green-600" x-text="sessionDetailsTeam?.active_testers || 0"></div>
+                                    <div class="text-sm text-green-600">Active Testers</div>
+                                </div>
+                                <div class="bg-purple-50 p-4 rounded-lg">
+                                    <div class="text-lg font-bold text-purple-600" x-text="sessionDetailsTeam?.assigned_tests || 0"></div>
+                                    <div class="text-sm text-purple-600">Assigned Tests</div>
+                                </div>
+                            </div>
+
+                            <!-- Team Members List -->
+                            <div class="bg-gray-50 rounded-lg p-4">
+                                <h4 class="font-semibold text-gray-900 mb-3">Current Team</h4>
+                                <div class="space-y-3">
+                                    <template x-for="member in sessionDetailsTeam?.members" :key="member.id">
+                                        <div class="flex items-center justify-between bg-white p-3 rounded border">
+                                            <div class="flex items-center space-x-3">
+                                                <div class="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
+                                                    <i class="fas fa-user text-gray-500 text-sm"></i>
+                                                </div>
+                                                <div>
+                                                    <div class="text-sm font-medium text-gray-900" x-text="member.full_name || member.username"></div>
+                                                    <div class="text-xs text-gray-500" x-text="member.role"></div>
+                                                </div>
+                                            </div>
+                                            <div class="text-right">
+                                                <div class="text-sm font-medium text-gray-900" x-text="member.assigned_tests || 0"></div>
+                                                <div class="text-xs text-gray-500">assigned tests</div>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div> 

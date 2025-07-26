@@ -78,30 +78,33 @@
                     </div>
                 </div>
             </div>
-            <div class="bg-green-50 p-4 rounded-lg">
+            <div class="bg-green-50 p-4 rounded-lg" title="Sessions with progress > 0% but not completed">
                 <div class="flex items-center">
                     <i class="fas fa-play-circle text-green-600 text-xl mr-3"></i>
                     <div>
                         <p class="text-sm text-green-600 font-medium">Active Sessions</p>
-                        <p class="text-xl font-bold text-green-800" x-text="testingSessions.filter(s => s.status === 'active').length"></p>
+                        <p class="text-xl font-bold text-green-800" x-text="getActiveSessionsCount()"></p>
+                        <p class="text-xs text-green-600 mt-1">In progress</p>
                     </div>
                 </div>
             </div>
-            <div class="bg-purple-50 p-4 rounded-lg">
+            <div class="bg-purple-50 p-4 rounded-lg" title="Sessions with 100% completion">
                 <div class="flex items-center">
                     <i class="fas fa-check-circle text-purple-600 text-xl mr-3"></i>
                     <div>
                         <p class="text-sm text-purple-600 font-medium">Completed</p>
-                        <p class="text-xl font-bold text-purple-800" x-text="testingSessions.filter(s => s.status === 'completed').length"></p>
+                        <p class="text-xl font-bold text-purple-800" x-text="getCompletedSessionsCount()"></p>
+                        <p class="text-xs text-purple-600 mt-1">100% finished</p>
                     </div>
                 </div>
             </div>
-            <div class="bg-yellow-50 p-4 rounded-lg">
+            <div class="bg-yellow-50 p-4 rounded-lg" title="Sessions with failed tests or items needing review">
                 <div class="flex items-center">
                     <i class="fas fa-exclamation-triangle text-yellow-600 text-xl mr-3"></i>
                     <div>
                         <p class="text-sm text-yellow-600 font-medium">Needs Review</p>
-                        <p class="text-xl font-bold text-yellow-800" x-text="testingSessions.filter(s => s.status === 'draft').length"></p>
+                        <p class="text-xl font-bold text-yellow-800" x-text="getNeedsReviewSessionsCount()"></p>
+                        <p class="text-xs text-yellow-600 mt-1">Failed or review items</p>
                     </div>
                 </div>
             </div>
@@ -222,9 +225,9 @@
                             <!-- Action Buttons -->
                             <div class="ml-6 flex flex-col space-y-2">
                                 <!-- Primary Actions -->
-                                <button @click="viewSessionDetails(session)" 
+                                <button @click="openSessionDetailsModal(session)" 
                                         class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors text-sm">
-                                    <i class="fas fa-eye mr-1"></i>View Details
+                                    <i class="fas fa-info-circle mr-1"></i>View Details
                                 </button>
                                 
                                 <button x-show="session.status === 'draft'" @click="activateSession(session)" 
@@ -232,9 +235,9 @@
                                     <i class="fas fa-play mr-1"></i>Activate
                                 </button>
                                 
-                                <button x-show="session.status === 'active'" @click="viewTestingMatrix(session)" 
+                                <button x-show="session.status === 'active'" @click="viewTestGrid(session)" 
                                         class="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors text-sm">
-                                    <i class="fas fa-th mr-1"></i>Test Matrix
+                                    <i class="fas fa-table mr-1"></i>Test Grid
                                 </button>
                                 
                                 <!-- Secondary Actions -->
@@ -264,28 +267,111 @@
         </div>
     </div>
 
+    <!-- Breadcrumb Navigation for Test Grid -->
+    <div x-show="selectedSession && showTestGrid" class="mb-4">
+        <nav class="flex" aria-label="Breadcrumb">
+            <ol class="inline-flex items-center space-x-1 md:space-x-3">
+                <li class="inline-flex items-center">
+                    <button @click="showTestGrid = false" class="inline-flex items-center text-sm font-medium text-gray-700 hover:text-blue-600">
+                        <i class="fas fa-home w-4 h-4 mr-2"></i>
+                        Testing Sessions
+                    </button>
+                </li>
+                <li>
+                    <div class="flex items-center">
+                        <i class="fas fa-chevron-right text-gray-400 mx-1"></i>
+                        <span class="ml-1 text-sm font-medium text-gray-500 md:ml-2" x-text="selectedSession ? selectedSession.name : 'Test Session'"></span>
+                    </div>
+                </li>
+                <li aria-current="page">
+                    <div class="flex items-center">
+                        <i class="fas fa-chevron-right text-gray-400 mx-1"></i>
+                        <span class="ml-1 text-sm font-medium text-purple-600 md:ml-2">Test Grid</span>
+                    </div>
+                </li>
+            </ol>
+        </nav>
+    </div>
+
     <!-- Test Grid Component -->
-    <div x-show="selectedSession && showTestGrid" class="bg-white rounded-lg shadow">
-        <div class="px-6 py-4 border-b border-gray-200">
-            <div class="flex justify-between items-center">
+    <div x-show="selectedSession && showTestGrid" class="bg-white rounded-lg shadow border-l-4 border-purple-500">
+        <!-- Session Header -->
+        <div class="bg-gradient-to-r from-purple-50 to-indigo-50 px-6 py-4 border-b border-purple-200">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <div class="flex-shrink-0">
+                        <div class="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
+                            <i class="fas fa-clipboard-check text-purple-600 text-xl"></i>
+                        </div>
+                    </div>
+                    <div>
+                        <h2 class="text-xl font-bold text-gray-900" x-text="selectedSession ? selectedSession.name : 'Test Session'"></h2>
+                        <div class="flex items-center space-x-4 mt-1">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
+                                  :class="getConformanceLevelBadgeClass(selectedSession?.conformance_level)"
+                                  x-text="selectedSession ? getConformanceLevelDisplay(selectedSession.conformance_level) : ''"></span>
+                            <span class="text-sm text-gray-600" x-text="selectedSession ? `${selectedSession.progress?.totalTests || 0} test instances` : ''"></span>
+                            <span class="text-sm text-gray-600" x-text="selectedSession ? `${selectedSession.progress?.completionPercentage || 0}% complete` : ''"></span>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <div class="text-right">
+                        <div class="text-sm font-medium text-gray-900">Currently Testing</div>
+                        <div class="text-xs text-purple-600 font-medium">Active Session</div>
+                    </div>
+                    <div class="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
+                </div>
+            </div>
+            
+            <!-- Session Description -->
+            <div x-show="selectedSession?.description" class="mt-3 text-sm text-gray-700 bg-white/50 rounded p-2" x-text="selectedSession?.description"></div>
+            
+            <!-- Progress Bar -->
+            <div x-show="selectedSession?.progress" class="mt-3">
+                <div class="flex items-center justify-between mb-1">
+                    <span class="text-xs font-medium text-gray-700">Session Progress</span>
+                    <span class="text-xs text-gray-600" x-text="selectedSession ? `${selectedSession.progress?.completedTests || 0} of ${selectedSession.progress?.totalTests || 0} tests completed` : ''"></span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-2">
+                    <div class="bg-gradient-to-r from-purple-500 to-indigo-500 h-2 rounded-full transition-all duration-300" 
+                         :style="`width: ${selectedSession?.progress?.completionPercentage || 0}%`"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Enhanced Test Grid Controls -->
+        <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
+            <div class="flex justify-between items-center mb-4">
                 <div>
                     <h3 class="text-lg font-medium text-gray-900 flex items-center">
                         <i class="fas fa-table mr-2"></i>Test Instance Grid
-                        <span x-show="selectedSession" class="ml-2 text-sm text-gray-600" x-text="selectedSession ? `for ${selectedSession.name}` : ''"></span>
+                        <span class="ml-2 text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded-full" x-text="filteredTestInstances.length + ' tests'"></span>
                     </h3>
-                    <p class="text-sm text-gray-600 mt-1">Manage individual test instances and track progress</p>
+                    <p class="text-sm text-gray-600 mt-1">Spreadsheet-like test management with bulk operations</p>
                 </div>
+                <div class="flex items-center space-x-2">
+                    <button @click="showTestGrid = false" 
+                            class="px-3 py-2 text-sm bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors">
+                        <i class="fas fa-arrow-left mr-1"></i>Back to Sessions
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Filter and Bulk Operations Bar -->
+            <div class="flex flex-wrap items-center justify-between gap-4">
+                <!-- Filter Controls -->
                 <div class="flex items-center space-x-3">
-                    <!-- Test Grid Controls -->
+                    <span class="text-sm font-medium text-gray-700">Filters:</span>
                     <select x-model="testGridFilters.status" @change="applyTestGridFilters()" 
                             class="px-3 py-1 text-sm border border-gray-300 rounded">
                         <option value="">All Statuses</option>
-                                                                <option value="pending">Not Started</option>
-                                        <option value="in_progress">In Progress</option>
-                                        <option value="passed">Passed</option>
-                                        <option value="failed">Failed</option>
-                                        <option value="untestable">Untestable</option>
-                                        <option value="not_applicable">Not Applicable</option>
+                        <option value="pending">Not Started</option>
+                        <option value="in_progress">In Progress</option>
+                        <option value="passed">Passed</option>
+                        <option value="failed">Failed</option>
+                        <option value="untestable">Untestable</option>
+                        <option value="not_applicable">Not Applicable</option>
                     </select>
                     <select x-model="testGridFilters.level" @change="applyTestGridFilters()" 
                             class="px-3 py-1 text-sm border border-gray-300 rounded">
@@ -293,10 +379,62 @@
                         <option value="a">Level A</option>
                         <option value="aa">Level AA</option>
                         <option value="aaa">Level AAA</option>
+                        <option value="base">508 Base</option>
+                        <option value="enhanced">508 Enhanced</option>
                     </select>
-                    <button @click="showTestGrid = false" 
-                            class="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50">
-                        <i class="fas fa-times mr-1"></i>Close Grid
+                    <select x-model="testGridFilters.testMethod" @change="applyTestGridFilters()" 
+                            class="px-3 py-1 text-sm border border-gray-300 rounded">
+                        <option value="">All Methods</option>
+                        <option value="manual">Manual</option>
+                        <option value="automated">Automated</option>
+                        <option value="both">Hybrid</option>
+                    </select>
+                    <button @click="clearTestGridFilters()" 
+                            class="px-2 py-1 text-xs text-gray-600 border border-gray-300 rounded hover:bg-gray-50">
+                        Clear
+                    </button>
+                </div>
+                
+                <!-- Bulk Operations -->
+                <div x-show="selectedTestInstances.length > 0" class="flex items-center space-x-3 bg-blue-50 px-3 py-2 rounded">
+                    <span class="text-sm font-medium text-blue-800" x-text="selectedTestInstances.length + ' selected'"></span>
+                    <select x-model="bulkStatusUpdate" @change="applyBulkStatusUpdate()" 
+                            class="px-2 py-1 text-xs border border-blue-300 rounded">
+                        <option value="">Bulk Status</option>
+                        <option value="in_progress">Set In Progress</option>
+                        <option value="passed">Mark Passed</option>
+                        <option value="failed">Mark Failed</option>
+                        <option value="not_applicable">Mark N/A</option>
+                    </select>
+                    <select x-model="bulkTesterAssignment" @change="applyBulkTesterAssignment()" 
+                            class="px-2 py-1 text-xs border border-blue-300 rounded">
+                        <option value="">Bulk Assign</option>
+                        <template x-for="user in availableTesters" :key="user.id">
+                            <option :value="user.id" x-text="user.full_name || user.username"></option>
+                        </template>
+                    </select>
+                    <button @click="clearSelection()" 
+                            class="px-2 py-1 text-xs text-blue-600 border border-blue-300 rounded hover:bg-blue-100">
+                        Clear Selection
+                    </button>
+                </div>
+                
+                <!-- Sort Controls -->
+                <div class="flex items-center space-x-2">
+                    <span class="text-sm font-medium text-gray-700">Sort:</span>
+                    <select x-model="testGridSort.field" @change="applyTestGridSort()" 
+                            class="px-3 py-1 text-sm border border-gray-300 rounded">
+                        <option value="criterion_number">Requirement</option>
+                        <option value="requirement_level">Level</option>
+                        <option value="status">Status</option>
+                        <option value="test_method_used">Method</option>
+                        <option value="updated_at">Last Updated</option>
+                        <option value="assigned_tester">Assigned To</option>
+                    </select>
+                    <button @click="toggleSortDirection()" 
+                            class="px-2 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50"
+                            :class="testGridSort.direction === 'asc' ? 'bg-gray-100' : ''">
+                        <i class="fas" :class="testGridSort.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down'"></i>
                     </button>
                 </div>
             </div>
@@ -309,25 +447,66 @@
                 <p class="text-gray-600">Loading test instances...</p>
             </div>
 
-            <!-- Test Instances Grid -->
+            <!-- Enhanced Test Instances Grid -->
             <div x-show="!loadingTestInstances && filteredTestInstances.length > 0" class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200">
+                <table class="min-w-full divide-y divide-gray-200 border border-gray-300">
                     <thead class="bg-gray-50">
                         <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Requirement
+                            <!-- Bulk Selection Checkbox -->
+                            <th class="px-3 py-3 text-left w-10">
+                                <input type="checkbox" 
+                                       @change="toggleSelectAll($event)" 
+                                       :checked="selectedTestInstances.length === filteredTestInstances.length && filteredTestInstances.length > 0"
+                                       class="h-4 w-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500">
                             </th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Level
+                            <!-- Sortable Column Headers -->
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                                @click="sortBy('criterion_number')">
+                                <div class="flex items-center">
+                                    Requirement
+                                    <i class="fas fa-sort ml-1 text-gray-400" 
+                                       :class="getSortIcon('criterion_number')"></i>
+                                </div>
                             </th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Status
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                                @click="sortBy('test_method_used')">
+                                <div class="flex items-center">
+                                    Test Method
+                                    <i class="fas fa-sort ml-1 text-gray-400" 
+                                       :class="getSortIcon('test_method_used')"></i>
+                                </div>
                             </th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Assigned To
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                                @click="sortBy('requirement_level')">
+                                <div class="flex items-center">
+                                    Level
+                                    <i class="fas fa-sort ml-1 text-gray-400" 
+                                       :class="getSortIcon('requirement_level')"></i>
+                                </div>
                             </th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Last Updated
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                                @click="sortBy('status')">
+                                <div class="flex items-center">
+                                    Status
+                                    <i class="fas fa-sort ml-1 text-gray-400" 
+                                       :class="getSortIcon('status')"></i>
+                                </div>
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                                @click="sortBy('assigned_tester')">
+                                <div class="flex items-center">
+                                    Assigned To
+                                    <i class="fas fa-sort ml-1 text-gray-400" 
+                                       :class="getSortIcon('assigned_tester')"></i>
+                                </div>
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                                @click="sortBy('updated_at')">
+                                <div class="flex items-center">
+                                    Last Updated
+                                    <i class="fas fa-sort ml-1 text-gray-400" 
+                                       :class="getSortIcon('updated_at')"></i>
+                                </div>
                             </th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Actions
@@ -336,18 +515,47 @@
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-200">
                         <template x-for="instance in filteredTestInstances" :key="instance.id">
-                            <tr class="hover:bg-gray-50">
+                            <tr class="hover:bg-gray-50 border-l-2 border-transparent"
+                                :class="selectedTestInstances.includes(instance.id) ? 'bg-blue-50 border-l-blue-500' : ''">
+                                <!-- Selection Checkbox -->
+                                <td class="px-3 py-4">
+                                    <input type="checkbox" 
+                                           :value="instance.id"
+                                           @change="toggleInstanceSelection(instance.id, $event)"
+                                           :checked="selectedTestInstances.includes(instance.id)"
+                                           class="h-4 w-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500">
+                                </td>
                                 <td class="px-6 py-4">
                                     <div class="flex flex-col">
                                         <div class="text-sm font-medium text-gray-900" x-text="instance.criterion_number"></div>
-                                        <div class="text-sm text-gray-600" x-text="instance.title"></div>
-                                        <div x-show="instance.description" class="text-xs text-gray-500 mt-1" style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;" x-text="instance.description"></div>
+                                        <div class="text-sm text-gray-600" x-text="instance.requirement_title || instance.title"></div>
+                                        <div x-show="instance.description" class="text-xs text-gray-500 mt-1" style="display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;" x-text="instance.description"></div>
                                     </div>
                                 </td>
                                 <td class="px-6 py-4">
+                                                                                    <div class="flex flex-col space-y-1">
+                                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
+                                                          :class="getTestMethodBadgeClass(instance.test_method_used || instance.requirement_test_method)"
+                                                          x-text="getTestMethodDisplay(instance.test_method_used || instance.requirement_test_method)"></span>
+                                                    <div class="text-xs text-gray-500" x-text="getTestMethodDescription(instance.test_method_used || instance.requirement_test_method)"></div>
+                                                    
+                                                    <!-- Show automated tools if available -->
+                                                    <div x-show="instance.automated_tools && instance.automated_tools.length > 0" class="flex flex-wrap gap-1 mt-1">
+                                                        <template x-for="tool in (instance.automated_tools || [])" :key="tool">
+                                                            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-indigo-50 text-indigo-700 border border-indigo-200" x-text="tool"></span>
+                                                        </template>
+                                                    </div>
+                                                    
+                                                    <!-- Show tool used if specified -->
+                                                    <div x-show="instance.tool_used" class="text-xs text-green-600 font-medium">
+                                                        <i class="fas fa-robot mr-1"></i><span x-text="'Tool: ' + instance.tool_used"></span>
+                                                    </div>
+                                                </div>
+                                </td>
+                                <td class="px-6 py-4">
                                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
-                                          :class="getLevelBadgeClass(instance.level)"
-                                          x-text="getLevelDisplay(instance.level)"></span>
+                                          :class="getLevelBadgeClass(instance.requirement_level || instance.level)"
+                                          x-text="getLevelDisplay(instance.requirement_level || instance.level)"></span>
                                 </td>
                                 <td class="px-6 py-4">
                                     <select :value="instance.status" 
@@ -412,7 +620,7 @@
                         No test instances match your current filters.
                     </span>
                 </p>
-                <button @click="testGridFilters = { status: '', level: '' }; applyTestGridFilters()" 
+                <button @click="testGridFilters = { status: '', level: '', testMethod: '' }; applyTestGridFilters()" 
                         class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
                     <i class="fas fa-filter mr-2"></i>Clear Filters
                 </button>
@@ -420,7 +628,8 @@
 
             <!-- Grid Summary Stats -->
             <div x-show="!loadingTestInstances && filteredTestInstances.length > 0" class="mt-6 pt-6 border-t border-gray-200">
-                <div class="grid grid-cols-2 md:grid-cols-6 gap-4">
+                <h4 class="text-sm font-medium text-gray-900 mb-3">Test Status Summary</h4>
+                <div class="grid grid-cols-2 md:grid-cols-6 gap-4 mb-6">
                     <div class="bg-gray-50 p-3 rounded text-center">
                         <p class="text-xs font-medium text-gray-600">Total</p>
                         <p class="text-lg font-bold text-gray-900" x-text="filteredTestInstances.length"></p>
@@ -444,6 +653,259 @@
                     <div class="bg-gray-50 p-3 rounded text-center">
                         <p class="text-xs font-medium text-gray-600">Not Started</p>
                         <p class="text-lg font-bold text-gray-800" x-text="filteredTestInstances.filter(t => t.status === 'pending' || t.status === 'not_started').length"></p>
+                    </div>
+                </div>
+                
+                <h4 class="text-sm font-medium text-gray-900 mb-3">Test Method Breakdown</h4>
+                <div class="grid grid-cols-3 gap-4">
+                    <div class="bg-blue-50 p-3 rounded text-center">
+                        <p class="text-xs font-medium text-blue-600">Manual Tests</p>
+                        <p class="text-lg font-bold text-blue-800" x-text="filteredTestInstances.filter(t => (t.test_method_used || t.requirement_test_method) === 'manual').length"></p>
+                        <p class="text-xs text-blue-600">Human evaluation required</p>
+                    </div>
+                    <div class="bg-green-50 p-3 rounded text-center">
+                        <p class="text-xs font-medium text-green-600">Automated Tests</p>
+                        <p class="text-lg font-bold text-green-800" x-text="filteredTestInstances.filter(t => (t.test_method_used || t.requirement_test_method) === 'automated').length"></p>
+                        <p class="text-xs text-green-600">axe-core, pa11y, WAVE, Lighthouse</p>
+                    </div>
+                    <div class="bg-purple-50 p-3 rounded text-center">
+                        <p class="text-xs font-medium text-purple-600">Hybrid Tests</p>
+                        <p class="text-lg font-bold text-purple-800" x-text="filteredTestInstances.filter(t => (t.test_method_used || t.requirement_test_method) === 'both').length"></p>
+                        <p class="text-xs text-purple-600">Automated + manual verification</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Requirements Viewer Modal -->
+    <div x-show="showRequirementsModal" 
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         class="fixed inset-0 z-50 overflow-y-auto"
+         style="display: none;">
+        
+        <!-- Background overlay -->
+        <div class="fixed inset-0 bg-black bg-opacity-50 transition-opacity"></div>
+        
+        <!-- Modal content -->
+        <div class="flex min-h-full items-center justify-center p-4">
+            <div class="relative w-full max-w-7xl bg-white rounded-lg shadow-xl"
+                 x-transition:enter="transition ease-out duration-300"
+                 x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                 x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100"
+                 x-transition:leave="transition ease-in duration-200"
+                 x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
+                 x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95">
+                
+                <!-- Header -->
+                <div class="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 border-b border-blue-200 rounded-t-lg">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                                <i class="fas fa-list-check text-blue-600 text-lg"></i>
+                            </div>
+                            <div>
+                                <h2 class="text-xl font-bold text-gray-900">Requirements Database</h2>
+                                <p class="text-sm text-gray-600" x-text="`${filteredRequirements.length} of ${allRequirements.length} requirements`"></p>
+                            </div>
+                        </div>
+                        <button @click="closeRequirementsModal()" 
+                                class="text-gray-400 hover:text-gray-600 text-xl">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    
+                    <!-- Filters -->
+                    <div class="mt-4 flex flex-wrap gap-3">
+                        <input x-model="requirementsFilters.search" 
+                               @input="applyRequirementsFilters()"
+                               placeholder="Search requirements..."
+                               class="px-3 py-2 border border-gray-300 rounded-md text-sm flex-1 min-w-64">
+                        
+                        <select x-model="requirementsFilters.type" @change="applyRequirementsFilters()" 
+                                class="px-3 py-2 border border-gray-300 rounded-md text-sm">
+                            <option value="">All Types</option>
+                            <option value="wcag">WCAG</option>
+                            <option value="section_508">Section 508</option>
+                        </select>
+                        
+                        <select x-model="requirementsFilters.level" @change="applyRequirementsFilters()" 
+                                class="px-3 py-2 border border-gray-300 rounded-md text-sm">
+                            <option value="">All Levels</option>
+                            <option value="a">Level A</option>
+                            <option value="aa">Level AA</option>
+                            <option value="aaa">Level AAA</option>
+                            <option value="base">508 Base</option>
+                            <option value="enhanced">508 Enhanced</option>
+                        </select>
+                        
+                        <select x-model="requirementsFilters.testMethod" @change="applyRequirementsFilters()" 
+                                class="px-3 py-2 border border-gray-300 rounded-md text-sm">
+                            <option value="">All Methods</option>
+                            <option value="manual">Manual</option>
+                            <option value="automated">Automated</option>
+                            <option value="both">Hybrid</option>
+                        </select>
+                        
+                        <button @click="requirementsFilters = { type: '', level: '', testMethod: '', search: '' }; applyRequirementsFilters()" 
+                                class="px-3 py-2 bg-gray-600 text-white rounded-md text-sm hover:bg-gray-700">
+                            Clear Filters
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Content -->
+                <div class="max-h-96 overflow-y-auto">
+                    <!-- Loading State -->
+                    <div x-show="loading" class="text-center py-12">
+                        <i class="fas fa-spinner fa-spin text-4xl text-gray-400 mb-4"></i>
+                        <p class="text-gray-600">Loading requirements...</p>
+                    </div>
+                    
+                    <!-- Requirements List -->
+                    <div x-show="!loading && filteredRequirements.length > 0" class="divide-y divide-gray-200">
+                        <template x-for="requirement in filteredRequirements" :key="requirement.requirement_id">
+                            <div class="p-6 hover:bg-gray-50">
+                                <!-- Requirement Header -->
+                                <div class="flex items-start justify-between mb-3">
+                                    <div class="flex-1">
+                                        <div class="flex items-center space-x-3 mb-2">
+                                            <h3 class="text-lg font-semibold text-gray-900" x-text="requirement.criterion_number"></h3>
+                                            <span class="px-2.5 py-0.5 rounded-full text-xs font-medium"
+                                                  :class="getLevelBadgeClass(requirement.level)"
+                                                  x-text="getLevelDisplay(requirement.level)"></span>
+                                            <span class="px-2.5 py-0.5 rounded-full text-xs font-medium"
+                                                  :class="getTestMethodBadgeClass(requirement.test_method)"
+                                                  x-text="getTestMethodDisplay(requirement.test_method)"></span>
+                                            <span class="px-2.5 py-0.5 rounded-full text-xs font-medium"
+                                                  :class="requirement.requirement_type === 'wcag' ? 'bg-blue-100 text-blue-800' : 'bg-yellow-100 text-yellow-800'"
+                                                  x-text="requirement.requirement_type === 'wcag' ? 'WCAG 2.2' : 'Section 508'"></span>
+                                        </div>
+                                        <h4 class="text-md font-medium text-gray-800 mb-2" x-text="requirement.title"></h4>
+                                        <p class="text-sm text-gray-600 mb-3" x-text="requirement.description"></p>
+                                    </div>
+                                </div>
+                                
+                                <!-- Automated Tools Information -->
+                                <div x-show="requirement.automated_tools && requirement.automated_tools.length > 0" class="mt-4">
+                                    <h5 class="text-sm font-medium text-indigo-900 mb-2">Automated Testing Tools</h5>
+                                    <div class="flex flex-wrap gap-2 mb-2">
+                                        <template x-for="tool in (requirement.automated_tools || [])" :key="tool">
+                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800" x-text="tool"></span>
+                                        </template>
+                                    </div>
+                                    <div x-show="requirement.automation_confidence" class="text-xs text-gray-600">
+                                        <span class="font-medium">Automation Confidence:</span>
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ml-1"
+                                              :class="requirement.automation_confidence === 'high' ? 'bg-green-100 text-green-800' : 
+                                                     requirement.automation_confidence === 'medium' ? 'bg-yellow-100 text-yellow-800' : 
+                                                     'bg-red-100 text-red-800'"
+                                              x-text="requirement.automation_confidence"></span>
+                                    </div>
+                                    
+                                    <!-- Tool Details Expandable -->
+                                    <div x-data="{ showToolDetails: false }" x-show="requirement.tool_mapping" class="mt-2">
+                                        <button @click="showToolDetails = !showToolDetails" 
+                                                class="text-xs text-indigo-600 hover:text-indigo-800 flex items-center">
+                                            <i class="fas fa-chevron-right transition-transform mr-1" :class="showToolDetails ? 'rotate-90' : ''"></i>
+                                            <span>Tool Configuration Details</span>
+                                        </button>
+                                        <div x-show="showToolDetails" x-transition class="mt-2 p-2 bg-gray-50 rounded text-xs">
+                                            <pre class="text-gray-700 whitespace-pre-wrap font-mono text-xs" x-text="JSON.stringify(requirement.tool_mapping, null, 2)"></pre>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Test Instances for this Requirement -->
+                                <div x-data="{ showInstances: false }" class="mt-4">
+                                    <button @click="showInstances = !showInstances" 
+                                            class="flex items-center space-x-2 text-sm font-medium text-blue-600 hover:text-blue-800">
+                                        <i class="fas fa-chevron-right transition-transform" :class="showInstances ? 'rotate-90' : ''"></i>
+                                        <span x-text="`Show Tests & URLs (${getTestInstancesForRequirement(requirement.requirement_id).length} instances)`"></span>
+                                    </button>
+                                    
+                                    <div x-show="showInstances" x-transition class="mt-3 pl-4 border-l-2 border-blue-200">
+                                        <!-- Test Instances -->
+                                        <template x-for="instance in getTestInstancesForRequirement(requirement.requirement_id)" :key="instance.id">
+                                            <div class="mb-3 p-3 bg-gray-50 rounded-md">
+                                                <div class="flex items-center justify-between">
+                                                    <div class="flex-1">
+                                                        <div class="flex items-center space-x-2 mb-1">
+                                                            <span class="text-xs font-medium text-gray-700">Test Instance</span>
+                                                            <span class="px-2 py-0.5 rounded text-xs font-medium"
+                                                                  :class="getStatusTextClass(instance.status)"
+                                                                  x-text="instance.status.replace('_', ' ')"></span>
+                                                        </div>
+                                                        <div x-show="instance.page_url" class="text-sm">
+                                                            <span class="font-medium text-gray-700">URL:</span>
+                                                            <a :href="instance.page_url" target="_blank" 
+                                                               class="text-blue-600 hover:text-blue-800 underline ml-1"
+                                                               x-text="instance.page_url"></a>
+                                                        </div>
+                                                        <div x-show="instance.page_title" class="text-sm text-gray-600">
+                                                            <span class="font-medium">Page:</span>
+                                                            <span x-text="instance.page_title" class="ml-1"></span>
+                                                        </div>
+                                                        <div x-show="!instance.page_url" class="text-sm text-gray-500 italic">
+                                                            No specific page assigned - applies to all pages
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </template>
+                                        
+                                        <!-- No Test Instances -->
+                                        <div x-show="getTestInstancesForRequirement(requirement.requirement_id).length === 0" 
+                                             class="text-sm text-gray-500 italic p-3">
+                                            No test instances created for this requirement yet.
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Testing Instructions -->
+                                <div x-show="requirement.testing_instructions" class="mt-4 p-3 bg-blue-50 rounded-md">
+                                    <h5 class="text-sm font-medium text-blue-900 mb-2">Testing Instructions</h5>
+                                    <p class="text-sm text-blue-800" x-text="requirement.testing_instructions"></p>
+                                </div>
+                                
+                                <!-- Acceptance Criteria -->
+                                <div x-show="requirement.acceptance_criteria" class="mt-3 p-3 bg-green-50 rounded-md">
+                                    <h5 class="text-sm font-medium text-green-900 mb-2">Acceptance Criteria</h5>
+                                    <p class="text-sm text-green-800" x-text="requirement.acceptance_criteria"></p>
+                                </div>
+                                
+                                <!-- Failure Examples -->
+                                <div x-show="requirement.failure_examples" class="mt-3 p-3 bg-red-50 rounded-md">
+                                    <h5 class="text-sm font-medium text-red-900 mb-2">Common Failures</h5>
+                                    <p class="text-sm text-red-800" x-text="requirement.failure_examples"></p>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                    
+                    <!-- No Requirements Found -->
+                    <div x-show="!loading && filteredRequirements.length === 0" class="text-center py-12">
+                        <i class="fas fa-search text-6xl text-gray-300 mb-4"></i>
+                        <h3 class="text-lg font-medium text-gray-900 mb-2">No Requirements Found</h3>
+                        <p class="text-gray-600">Try adjusting your filters to see more requirements.</p>
+                    </div>
+                </div>
+                
+                <!-- Footer -->
+                <div class="bg-gray-50 px-6 py-4 rounded-b-lg">
+                    <div class="flex items-center justify-between">
+                        <div class="text-sm text-gray-600">
+                            <span x-text="`Showing ${filteredRequirements.length} of ${allRequirements.length} requirements`"></span>
+                        </div>
+                        <button @click="closeRequirementsModal()" 
+                                class="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors">
+                            Close
+                        </button>
                     </div>
                 </div>
             </div>
@@ -498,4 +960,7 @@
             </div>
         </div>
     </div>
+    
+    <!-- Session Details Modal -->
+    <!-- Modal will be included from session-details-modal.html -->
 </div> 

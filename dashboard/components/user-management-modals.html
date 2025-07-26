@@ -1,5 +1,12 @@
 <!-- User Management Modal Component -->
-<div id="userManagementModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden">
+<div x-show="showUserManagement" 
+     x-transition:enter="transition ease-out duration-300"
+     x-transition:enter-start="opacity-0"
+     x-transition:enter-end="opacity-100"
+     x-transition:leave="transition ease-in duration-200"
+     x-transition:leave-start="opacity-100"
+     x-transition:leave-end="opacity-0"
+     class="fixed inset-0 bg-black bg-opacity-50 z-50" style="display: none;">
     <div class="flex items-center justify-center min-h-screen p-4">
         <div class="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-hidden">
             <!-- Modal Header -->
@@ -11,7 +18,7 @@
                         </svg>
                         User Management
                     </h2>
-                    <button onclick="closeUserManagement()" class="text-white hover:text-gray-200 transition-colors">
+                    <button @click="closeUserManagement()" class="text-white hover:text-gray-200 transition-colors">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                         </svg>
@@ -22,19 +29,19 @@
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4" id="userStatsCards">
                     <div class="bg-white bg-opacity-20 rounded-lg p-3">
                         <div class="text-sm opacity-90">Total Users</div>
-                        <div class="text-2xl font-bold" id="totalUsersCount">-</div>
+                        <div class="text-2xl font-bold" x-text="userStats.total">-</div>
                     </div>
                     <div class="bg-white bg-opacity-20 rounded-lg p-3">
                         <div class="text-sm opacity-90">Active Users</div>
-                        <div class="text-2xl font-bold" id="activeUsersCount">-</div>
+                        <div class="text-2xl font-bold" x-text="userStats.active">-</div>
                     </div>
                     <div class="bg-white bg-opacity-20 rounded-lg p-3">
                         <div class="text-sm opacity-90">Admin Users</div>
-                        <div class="text-2xl font-bold" id="adminUsersCount">-</div>
+                        <div class="text-2xl font-bold" x-text="userStats.admin">-</div>
                     </div>
                     <div class="bg-white bg-opacity-20 rounded-lg p-3">
                         <div class="text-sm opacity-90">Recent Logins</div>
-                        <div class="text-2xl font-bold" id="recentLoginsCount">-</div>
+                        <div class="text-2xl font-bold" x-text="userStats.recentLogins">-</div>
                     </div>
                 </div>
             </div>
@@ -46,19 +53,20 @@
                     <!-- Search and Filters -->
                     <div class="flex-1 flex flex-col sm:flex-row gap-2">
                         <div class="relative flex-1">
-                            <input type="text" id="userSearchInput" placeholder="Search users..." 
+                            <input type="text" x-model="userFilters.search" @input="applyUserFilters()" placeholder="Search users..." 
                                    class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                             <svg class="w-5 h-5 text-gray-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                             </svg>
                         </div>
-                        <select id="roleFilter" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        <select x-model="userFilters.role" @change="applyUserFilters()" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                             <option value="">All Roles</option>
                             <option value="admin">Admin</option>
-                            <option value="user">User</option>
+                            <option value="tester">Tester</option>
+                            <option value="reviewer">Reviewer</option>
                             <option value="viewer">Viewer</option>
                         </select>
-                        <select id="statusFilter" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        <select x-model="userFilters.status" @change="applyUserFilters()" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                             <option value="">All Status</option>
                             <option value="active">Active</option>
                             <option value="inactive">Inactive</option>
@@ -66,7 +74,7 @@
                     </div>
                     
                     <!-- Add User Button -->
-                    <button onclick="showAddUserForm()" class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center">
+                    <button @click="showAddUserForm()" class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center">
                         <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
                         </svg>
@@ -80,7 +88,7 @@
                         <table class="min-w-full divide-y divide-gray-200">
                             <thead class="bg-gray-50">
                                 <tr>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onclick="sortUsers('username')">
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" @click="sortUsers('username')">
                                         Username
                                         <svg class="w-4 h-4 inline ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"></path>
@@ -92,13 +100,13 @@
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                         Email
                                     </th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onclick="sortUsers('role')">
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" @click="sortUsers('role')">
                                         Role
                                     </th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                         Status
                                     </th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onclick="sortUsers('last_login')">
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" @click="sortUsers('last_login')">
                                         Last Login
                                     </th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -106,8 +114,73 @@
                                     </th>
                                 </tr>
                             </thead>
-                            <tbody id="usersTableBody" class="bg-white divide-y divide-gray-200">
-                                <!-- Users will be populated here -->
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                <!-- Loading State -->
+                                <tr x-show="loading">
+                                    <td colspan="7" class="px-6 py-12 text-center">
+                                        <i class="fas fa-spinner fa-spin text-4xl text-gray-400 mb-4"></i>
+                                        <p class="text-gray-600">Loading users...</p>
+                                    </td>
+                                </tr>
+                                
+                                <!-- Users Data -->
+                                <template x-for="user in getPaginatedUsers()" :key="user.id">
+                                    <tr class="hover:bg-gray-50">
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="flex items-center">
+                                                <div class="flex-shrink-0 h-10 w-10">
+                                                    <div class="h-10 w-10 rounded-full bg-gradient-to-r from-purple-400 to-pink-400 flex items-center justify-center text-white font-semibold"
+                                                         x-text="user.username.charAt(0).toUpperCase()"></div>
+                                                </div>
+                                                <div class="ml-4">
+                                                    <div class="text-sm font-medium text-gray-900" x-text="user.username"></div>
+                                                    <div class="text-sm text-gray-500" x-text="user.id"></div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="text-sm text-gray-900" x-text="user.full_name || 'Not provided'"></div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="text-sm text-gray-900" x-text="user.email"></div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
+                                                  :class="getUserRoleBadgeClass(user.role)"
+                                                  x-text="getUserRoleDisplay(user.role)"></span>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
+                                                  :class="getUserStatusBadgeClass(user.is_active)"
+                                                  x-text="user.is_active ? 'Active' : 'Inactive'"></span>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                            <span x-text="user.last_login ? formatDate(user.last_login) : 'Never'"></span>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                            <div class="flex items-center space-x-2">
+                                                <button @click="showEditUserForm(user)" 
+                                                        class="text-blue-600 hover:text-blue-900 transition-colors">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                                <button @click="showDeleteUserConfirmation(user)" 
+                                                        class="text-red-600 hover:text-red-900 transition-colors"
+                                                        x-show="user.role !== 'admin' || user.id !== user.id">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </template>
+                                
+                                <!-- No Users Found -->
+                                <tr x-show="!loading && getPaginatedUsers().length === 0">
+                                    <td colspan="7" class="px-6 py-12 text-center">
+                                        <i class="fas fa-users text-6xl text-gray-300 mb-4"></i>
+                                        <h3 class="text-lg font-medium text-gray-900 mb-2">No Users Found</h3>
+                                        <p class="text-gray-600">No users match your current filters.</p>
+                                    </td>
+                                </tr>
                             </tbody>
                         </table>
                     </div>
@@ -136,13 +209,13 @@
                 <!-- Pagination -->
                 <div class="flex items-center justify-between mt-6" id="usersPagination">
                     <div class="text-sm text-gray-700">
-                        Showing <span id="usersShowingStart">0</span> to <span id="usersShowingEnd">0</span> of <span id="usersTotalCount">0</span> users
+                        <span x-text="`Showing ${((userPagination.currentPage - 1) * userPagination.itemsPerPage) + 1} to ${Math.min(userPagination.currentPage * userPagination.itemsPerPage, userPagination.totalItems)} of ${userPagination.totalItems} users`"></span>
                     </div>
                     <div class="flex space-x-2">
-                        <button id="usersPrevPage" onclick="previousUsersPage()" class="px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+                        <button id="usersPrevPage" @click="previousUsersPage()" class="px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed" :disabled="userPagination.currentPage === 1">
                             Previous
                         </button>
-                        <button id="usersNextPage" onclick="nextUsersPage()" class="px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+                        <button id="usersNextPage" @click="nextUsersPage()" class="px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed" :disabled="userPagination.currentPage >= userPagination.totalPages">
                             Next
                         </button>
                     </div>
@@ -153,14 +226,21 @@
 </div>
 
 <!-- Add/Edit User Form Modal -->
-<div id="userFormModal" class="fixed inset-0 bg-black bg-opacity-50 z-60 hidden">
+<div x-show="showUserForm" 
+     x-transition:enter="transition ease-out duration-300"
+     x-transition:enter-start="opacity-0"
+     x-transition:enter-end="opacity-100"
+     x-transition:leave="transition ease-in duration-200"
+     x-transition:leave-start="opacity-100"
+     x-transition:leave-end="opacity-0"
+     class="fixed inset-0 bg-black bg-opacity-50 z-60" style="display: none;">
     <div class="flex items-center justify-center min-h-screen p-4">
         <div class="bg-white rounded-lg shadow-xl max-w-md w-full">
             <!-- Form Header -->
             <div class="bg-gradient-to-r from-green-600 to-green-700 text-white p-6 rounded-t-lg">
                 <div class="flex justify-between items-center">
-                    <h3 class="text-xl font-bold" id="userFormTitle">Add New User</h3>
-                    <button onclick="closeUserForm()" class="text-white hover:text-gray-200 transition-colors">
+                    <h3 class="text-xl font-bold" x-text="userForm.id ? 'Edit User' : 'Add New User'">Add New User</h3>
+                    <button @click="closeUserForm()" class="text-white hover:text-gray-200 transition-colors">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                         </svg>
@@ -169,53 +249,71 @@
             </div>
 
             <!-- Form Content -->
-            <form id="userForm" class="p-6 space-y-4">
-                <input type="hidden" id="userId" name="userId">
+            <form @submit.prevent="saveUser()" class="p-6 space-y-4">
                 
                 <!-- Username -->
                 <div>
-                    <label for="userUsername" class="block text-sm font-medium text-gray-700 mb-1">Username *</label>
-                    <input type="text" id="userUsername" name="username" required 
-                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Username *</label>
+                    <input type="text" x-model="userForm.username" required 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                           :class="userFormErrors.username ? 'border-red-500' : 'border-gray-300'">
+                    <p x-show="userFormErrors.username" class="text-red-500 text-xs mt-1" x-text="userFormErrors.username"></p>
                 </div>
 
                 <!-- Email -->
                 <div>
-                    <label for="userEmail" class="block text-sm font-medium text-gray-700 mb-1">Email *</label>
-                    <input type="email" id="userEmail" name="email" required 
-                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+                    <input type="email" x-model="userForm.email" required 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                           :class="userFormErrors.email ? 'border-red-500' : 'border-gray-300'">
+                    <p x-show="userFormErrors.email" class="text-red-500 text-xs mt-1" x-text="userFormErrors.email"></p>
                 </div>
 
                 <!-- Full Name -->
                 <div>
-                    <label for="userFullName" class="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
-                    <input type="text" id="userFullName" name="full_name" 
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+                    <input type="text" x-model="userForm.full_name" 
                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-transparent">
                 </div>
 
                 <!-- Role -->
                 <div>
-                    <label for="userRole" class="block text-sm font-medium text-gray-700 mb-1">Role *</label>
-                    <select id="userRole" name="role" required 
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Role *</label>
+                    <select x-model="userForm.role" required 
                             class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-transparent">
-                        <option value="user">User</option>
+                        <option value="tester">Tester</option>
+                        <option value="reviewer">Reviewer</option>
                         <option value="admin">Admin</option>
                         <option value="viewer">Viewer</option>
                     </select>
                 </div>
 
-                <!-- Password (only for new users) -->
-                <div id="passwordField">
-                    <label for="userPassword" class="block text-sm font-medium text-gray-700 mb-1">Password *</label>
-                    <input type="password" id="userPassword" name="password" 
-                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-transparent">
-                    <p class="text-xs text-gray-500 mt-1">Minimum 8 characters</p>
+                <!-- Password -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        <span x-text="userForm.id ? 'New Password (leave blank to keep current)' : 'Password *'"></span>
+                    </label>
+                    <input type="password" x-model="userForm.password" 
+                           :required="!userForm.id"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                           :class="userFormErrors.password ? 'border-red-500' : 'border-gray-300'">
+                    <p x-show="userFormErrors.password" class="text-red-500 text-xs mt-1" x-text="userFormErrors.password"></p>
+                    <p class="text-xs text-gray-500 mt-1">Minimum 6 characters</p>
+                </div>
+
+                <!-- Confirm Password -->
+                <div x-show="userForm.password">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Confirm Password *</label>
+                    <input type="password" x-model="userForm.confirm_password" 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                           :class="userFormErrors.confirm_password ? 'border-red-500' : 'border-gray-300'">
+                    <p x-show="userFormErrors.confirm_password" class="text-red-500 text-xs mt-1" x-text="userFormErrors.confirm_password"></p>
                 </div>
 
                 <!-- Status -->
                 <div>
                     <label class="flex items-center">
-                        <input type="checkbox" id="userIsActive" name="is_active" checked 
+                        <input type="checkbox" x-model="userForm.is_active" 
                                class="rounded border-gray-300 text-green-600 focus:ring-green-500">
                         <span class="ml-2 text-sm text-gray-700">Active User</span>
                     </label>
@@ -223,17 +321,20 @@
 
                 <!-- Form Actions -->
                 <div class="flex justify-end space-x-3 pt-4 border-t">
-                    <button type="button" onclick="closeUserForm()" 
+                                            <button type="button" @click="closeUserForm()" 
                             class="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors">
                         Cancel
                     </button>
-                    <button type="submit" id="userFormSubmitBtn" 
+                    <button type="submit" :disabled="loading"
                             class="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed">
-                        <span id="userFormSubmitText">Create User</span>
-                        <svg id="userFormSubmitSpinner" class="animate-spin -ml-1 mr-3 h-4 w-4 text-white hidden" fill="none" viewBox="0 0 24 24">
-                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
+                        <span x-show="!loading" x-text="userForm.id ? 'Update User' : 'Create User'">Create User</span>
+                        <span x-show="loading" class="flex items-center">
+                            <svg class="animate-spin -ml-1 mr-3 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Saving...
+                        </span>
                     </button>
                 </div>
             </form>
@@ -292,13 +393,20 @@
 </div>
 
 <!-- Delete Confirmation Modal -->
-<div id="deleteUserModal" class="fixed inset-0 bg-black bg-opacity-50 z-70 hidden">
+<div x-show="showDeleteUserModal"
+     x-transition:enter="transition ease-out duration-300"
+     x-transition:enter-start="opacity-0"
+     x-transition:enter-end="opacity-100"
+     x-transition:leave="transition ease-in duration-200"
+     x-transition:leave-start="opacity-100"
+     x-transition:leave-end="opacity-0"
+     class="fixed inset-0 bg-black bg-opacity-50 z-70" style="display: none;">
     <div class="flex items-center justify-center min-h-screen p-4">
         <div class="bg-white rounded-lg shadow-xl max-w-md w-full">
             <div class="bg-gradient-to-r from-red-600 to-red-700 text-white p-6 rounded-t-lg">
                 <div class="flex justify-between items-center">
                     <h3 class="text-xl font-bold">Confirm Deletion</h3>
-                    <button onclick="closeDeleteUserModal()" class="text-white hover:text-gray-200 transition-colors">
+                    <button @click="closeDeleteUserModal()" class="text-white hover:text-gray-200 transition-colors">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                         </svg>
@@ -313,19 +421,26 @@
                     </svg>
                     <h3 class="mt-2 text-lg font-medium text-gray-900">Delete User</h3>
                     <p class="mt-2 text-sm text-gray-500">
-                        Are you sure you want to deactivate <strong id="deleteUserName"></strong>? 
+                        Are you sure you want to deactivate <strong x-text="selectedUserForDelete?.username"></strong>? 
                         This action will deactivate the user account and invalidate all their sessions.
                     </p>
                 </div>
 
                 <div class="flex justify-end space-x-3">
-                    <button type="button" onclick="closeDeleteUserModal()" 
+                    <button type="button" @click="closeDeleteUserModal()" 
                             class="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors">
                         Cancel
                     </button>
-                    <button onclick="confirmDeleteUser()" id="deleteUserConfirmBtn" 
+                    <button @click="confirmDeleteUser()" :disabled="loading"
                             class="px-6 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed">
-                        Deactivate User
+                        <span x-show="!loading">Deactivate User</span>
+                        <span x-show="loading" class="flex items-center">
+                            <svg class="animate-spin -ml-1 mr-3 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Deactivating...
+                        </span>
                     </button>
                 </div>
             </div>
