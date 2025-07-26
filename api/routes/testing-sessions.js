@@ -879,7 +879,7 @@ async function getSelectedPagesFromCrawlers(selectedPageIds, selectedCrawlerIds)
                 content_type,
                 first_discovered_at
             FROM crawler_discovered_pages 
-            WHERE id = ANY($1)
+            WHERE id = ANY($1::uuid[])
             ORDER BY url
         `;
         
@@ -887,6 +887,11 @@ async function getSelectedPagesFromCrawlers(selectedPageIds, selectedCrawlerIds)
         const pages = result.rows;
         
         console.log(`✅ Retrieved ${pages.length} pages from crawler data`);
+        
+        // Map first_discovered_at to created_at for backward compatibility
+        pages.forEach(page => {
+            page.created_at = page.first_discovered_at;
+        });
         
         // Additional deduplication by URL (in case same URL appears in multiple crawlers)
         const urlMap = new Map();

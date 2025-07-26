@@ -15,6 +15,10 @@ const {
     getErrorStats
 } = require('./middleware/error-handler');
 
+// Import enhanced logging and health monitoring
+const { logger, requestLoggingMiddleware } = require('./utils/logger');
+const healthRoutes = require('./routes/health');
+
 // Import routes
 const authRoutes = require('./routes/auth');
 const projectRoutes = require('./routes/projects');
@@ -87,6 +91,9 @@ app.use('/api', limiter);
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Enhanced request logging middleware
+app.use(requestLoggingMiddleware);
 
 // Serve uploaded files statically
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
@@ -197,6 +204,10 @@ app.get('/health', asyncHandler(async (req, res) => {
         });
     }
 }));
+
+// Enhanced health monitoring routes
+app.use('/health', healthRoutes);
+app.use('/api/health', healthRoutes);
 
 // API routes
 app.use('/api/auth', authRoutes);
@@ -399,6 +410,10 @@ process.on('SIGINT', () => {
 
 // Handle uncaught exceptions
 process.on('uncaughtException', (error) => {
+    logger.error('Uncaught Exception detected', error, { 
+        type: 'uncaughtException',
+        fatal: true 
+    });
     console.error('🚨 Uncaught Exception:', error);
     console.error('Stack:', error.stack);
     process.exit(1);
@@ -406,6 +421,11 @@ process.on('uncaughtException', (error) => {
 
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (reason, promise) => {
+    logger.error('Unhandled Promise Rejection detected', reason, { 
+        type: 'unhandledRejection',
+        promise: promise.toString(),
+        fatal: true 
+    });
     console.error('🚨 Unhandled Rejection at:', promise, 'reason:', reason);
     process.exit(1);
 });
@@ -413,13 +433,66 @@ process.on('unhandledRejection', (reason, promise) => {
 const PORT = process.env.PORT || 3001;
 const HOST = process.env.HOST || 'localhost';
 
-server.listen(PORT, HOST, () => {
+// Enhanced server startup with health validation
+server.listen(PORT, HOST, async () => {
+    logger.info('Server startup initiated', {
+        port: PORT,
+        host: HOST,
+        nodeVersion: process.version,
+        environment: process.env.NODE_ENV || 'development'
+    });
+
+    // Validate system health on startup
+    try {
+        // Test database connectivity
+        const { pool } = require('../database/config');
+        await pool.query('SELECT 1');
+        logger.info('Database connectivity verified');
+        
+        // Validate critical tables
+        const criticalTables = ['test_sessions', 'test_requirements', 'projects'];
+        for (const table of criticalTables) {
+            await pool.query(`SELECT 1 FROM ${table} LIMIT 1`);
+        }
+        logger.info('Critical database tables validated');
+        
+    } catch (error) {
+        logger.error('Startup health check failed', error, { fatal: true });
+        console.error('🚨 STARTUP FAILED: Database connectivity issue');
+        process.exit(1);
+    }
+
+    // Schedule periodic health monitoring
+    setInterval(() => {
+        const memUsage = process.memoryUsage();
+        logger.debug('Periodic health check', {
+            uptime: process.uptime(),
+            memory: {
+                heapUsed: Math.round(memUsage.heapUsed / 1024 / 1024),
+                heapTotal: Math.round(memUsage.heapTotal / 1024 / 1024)
+            },
+            wsConnections: wsService.getStats().connectedClients
+        });
+    }, 5 * 60 * 1000); // Every 5 minutes
+
+    // Schedule log rotation
+    setInterval(() => {
+        logger.rotateLogFiles();
+    }, 24 * 60 * 60 * 1000); // Daily
+
     console.log(`🚀 Accessibility Testing API Server running on http://${HOST}:${PORT}`);
     console.log(`📊 Health check: http://${HOST}:${PORT}/health`);
+    console.log(`📊 Detailed health: http://${HOST}:${PORT}/health/detailed`);
     console.log(`📚 API docs: http://${HOST}:${PORT}/api`);
     console.log(`🔄 WebSocket service initialized`);
     console.log(`🛡️  Security features: Helmet, CORS, Rate Limiting`);
-    console.log(`📝 Logging: Access and Error logs enabled`);
+    console.log(`📝 Enhanced structured logging enabled`);
+    console.log(`🔍 Health monitoring and error tracking active`);
+    
+    logger.info('Server startup completed successfully', {
+        features: ['health_monitoring', 'structured_logging', 'websocket', 'security_headers'],
+        startupTime: process.uptime()
+    });
 });
 
 module.exports = { app, server, wsService }; 
