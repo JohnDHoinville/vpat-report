@@ -419,7 +419,7 @@
                 <div x-show="!sessionWizard.smart_filtering" class="space-y-4">
                     <h6 class="font-medium text-gray-900">Manual Requirement Selection</h6>
                     <div class="max-h-64 overflow-y-auto border border-gray-200 rounded-lg p-4">
-                        <template x-for="requirement in getSelectedRequirements()" :key="requirement.id">
+                        <template x-for="requirement in getSelectedRequirements()" :key="requirement.requirement_id">
                             <label class="flex items-start py-2">
                                 <input type="checkbox" 
                                        x-model="sessionWizard.manual_requirements"
