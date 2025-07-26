@@ -243,7 +243,7 @@ class AuditTrailService {
                     tr.title as requirement_title,
                     tr.criterion_number
                 FROM test_instance_audit_log al
-                LEFT JOIN auth_users au ON al.changed_by_user = au.id
+                LEFT JOIN users au ON al.changed_by_user = au.id
                 LEFT JOIN test_instances ti ON al.test_instance_id = ti.id
                 LEFT JOIN test_requirements tr ON ti.requirement_id = tr.id
                 WHERE al.test_instance_id = $1
@@ -518,7 +518,7 @@ class AuditTrailService {
                     ti.id as test_instance_id,
                     tr.criterion_number, tr.title as requirement_title
                 FROM test_audit_log tal
-                LEFT JOIN auth_users u ON tal.changed_by = u.id
+                LEFT JOIN users u ON tal.changed_by = u.id
                 LEFT JOIN test_instances ti ON tal.test_instance_id = ti.id  
                 LEFT JOIN test_requirements tr ON ti.requirement_id = tr.id
                 WHERE ${whereClause}
@@ -573,7 +573,7 @@ class AuditTrailService {
                     tal.*,
                     u.username, u.full_name
                 FROM test_audit_log tal
-                LEFT JOIN auth_users u ON tal.changed_by = u.id
+                LEFT JOIN users u ON tal.changed_by = u.id
                 WHERE tal.test_instance_id = $1
                 ORDER BY tal.changed_at DESC
             `;
@@ -624,7 +624,7 @@ class AuditTrailService {
                     COUNT(*) as event_count,
                     array_agg(DISTINCT u.username) as users_involved
                 FROM test_audit_log tal
-                LEFT JOIN auth_users u ON tal.changed_by = u.id
+                LEFT JOIN users u ON tal.changed_by = u.id
                 WHERE tal.session_id = $1
                 GROUP BY time_period, tal.action_type
                 ORDER BY time_period DESC
@@ -743,7 +743,7 @@ class AuditTrailService {
                     ti.id as test_instance_id,
                     tr.criterion_number, tr.title as requirement_title
                 FROM test_audit_log tal
-                LEFT JOIN auth_users u ON tal.changed_by = u.id
+                LEFT JOIN users u ON tal.changed_by = u.id
                 LEFT JOIN test_instances ti ON tal.test_instance_id = ti.id
                 LEFT JOIN test_requirements tr ON ti.requirement_id = tr.id
                 WHERE tal.id = $1
@@ -829,7 +829,7 @@ class AuditTrailService {
                     ti.id as test_instance_id,
                     tr.criterion_number, tr.title as requirement_title
                 FROM test_audit_log tal
-                LEFT JOIN auth_users u ON tal.changed_by = u.id
+                LEFT JOIN users u ON tal.changed_by = u.id
                 LEFT JOIN test_instances ti ON tal.test_instance_id = ti.id
                 LEFT JOIN test_requirements tr ON ti.requirement_id = tr.id
                 ${whereClause}

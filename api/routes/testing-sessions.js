@@ -957,4 +957,382 @@ async function createTestInstances(client, sessionId, requirements, pages) {
     return instances;
 }
 
+/**
+ * Generate VPAT report for a testing session
+ * GET /api/testing-sessions/:sessionId/vpat
+ */
+router.get('/:sessionId/vpat', authenticateToken, async (req, res) => {
+    try {
+        const { sessionId } = req.params;
+        const { 
+            format = 'html',
+            include_evidence = 'true',
+            organization_name = '',
+            product_name = '',
+            product_version = '',
+            evaluation_date = new Date().toISOString().split('T')[0]
+        } = req.query;
+
+        console.log(`📋 Generating VPAT report for session ${sessionId}`);
+
+        // Get session information
+        const sessionQuery = `
+            SELECT ts.*, p.name as project_name, p.description as project_description
+            FROM test_sessions ts
+            JOIN projects p ON ts.project_id = p.id
+            WHERE ts.id = $1
+        `;
+        const sessionResult = await pool.query(sessionQuery, [sessionId]);
+        
+        if (sessionResult.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Testing session not found'
+            });
+        }
+
+        const session = sessionResult.rows[0];
+
+        // Get test results for VPAT generation
+        const testResultsQuery = `
+            WITH test_results AS (
+                SELECT 
+                    ti.id,
+                    ti.status,
+                    ti.result,
+                    tr.criterion_number as wcag_criterion,
+                    tr.title as requirement_title,
+                    tr.level as wcag_level,
+                    tr.section_508_equivalent,
+                    cdp.url as page_url,
+                    cdp.title as page_title,
+                    u.username as tester_name,
+                    ti.tested_at,
+                    ti.notes,
+                    te.evidence_type,
+                    te.file_path as evidence_file
+                FROM test_instances ti
+                JOIN test_requirements tr ON ti.requirement_id = tr.id
+                LEFT JOIN crawler_discovered_pages cdp ON ti.page_id = cdp.id
+                LEFT JOIN users u ON ti.tested_by = u.id
+                LEFT JOIN test_evidence te ON ti.id = te.test_instance_id
+                WHERE ti.session_id = $1
+            )
+            SELECT 
+                wcag_criterion,
+                requirement_title,
+                wcag_level,
+                section_508_equivalent,
+                COUNT(*) as total_tests,
+                COUNT(CASE WHEN result = 'pass' THEN 1 END) as passed_tests,
+                COUNT(CASE WHEN result = 'fail' THEN 1 END) as failed_tests,
+                COUNT(CASE WHEN result = 'not_applicable' THEN 1 END) as na_tests,
+                COUNT(CASE WHEN status = 'pending' THEN 1 END) as pending_tests,
+                COUNT(DISTINCT page_url) as pages_tested,
+                string_agg(DISTINCT page_url, '; ') as tested_pages,
+                array_agg(DISTINCT evidence_file) FILTER (WHERE evidence_file IS NOT NULL) as evidence_files
+            FROM test_results
+            GROUP BY wcag_criterion, requirement_title, wcag_level, section_508_equivalent
+            ORDER BY wcag_criterion
+        `;
+
+        const resultsResult = await pool.query(testResultsQuery, [sessionId]);
+        const testResults = resultsResult.rows;
+
+        // Calculate overall compliance
+        const overallStats = testResults.reduce((acc, row) => {
+            acc.totalTests += parseInt(row.total_tests);
+            acc.passedTests += parseInt(row.passed_tests);
+            acc.failedTests += parseInt(row.failed_tests);
+            acc.naTests += parseInt(row.na_tests);
+            acc.pendingTests += parseInt(row.pending_tests);
+            return acc;
+        }, { totalTests: 0, passedTests: 0, failedTests: 0, naTests: 0, pendingTests: 0 });
+
+        const complianceRate = overallStats.totalTests > 0 ? 
+            Math.round((overallStats.passedTests / overallStats.totalTests) * 100) : 0;
+
+        // Determine compliance level for each criterion
+        const vpatResults = testResults.map(result => {
+            const total = parseInt(result.total_tests);
+            const passed = parseInt(result.passed_tests);
+            const failed = parseInt(result.failed_tests);
+            const pending = parseInt(result.pending_tests);
+
+            let conformanceLevel;
+            let remarks;
+
+            if (pending > 0) {
+                conformanceLevel = 'Not Evaluated';
+                remarks = `Testing in progress (${pending} tests pending)`;
+            } else if (failed > 0) {
+                conformanceLevel = 'Does Not Support';
+                remarks = `${failed} failed test${failed > 1 ? 's' : ''} found across ${result.pages_tested} page${result.pages_tested > 1 ? 's' : ''}`;
+            } else if (passed === total && total > 0) {
+                conformanceLevel = 'Supports';
+                remarks = `All ${passed} tests passed across ${result.pages_tested} page${result.pages_tested > 1 ? 's' : ''}`;
+            } else if (parseInt(result.na_tests) === total) {
+                conformanceLevel = 'Not Applicable';
+                remarks = 'This criterion does not apply to the tested content';
+            } else {
+                conformanceLevel = 'Partially Supports';
+                remarks = `${passed} passed, ${failed} failed tests`;
+            }
+
+            return {
+                criterion: result.wcag_criterion,
+                title: result.requirement_title,
+                level: result.wcag_level,
+                section508: result.section_508_equivalent,
+                conformanceLevel,
+                remarks,
+                testDetails: {
+                    total,
+                    passed,
+                    failed,
+                    pending,
+                    pagesCount: parseInt(result.pages_tested),
+                    testedPages: result.tested_pages
+                },
+                evidenceFiles: include_evidence === 'true' ? result.evidence_files : null
+            };
+        });
+
+        // Build VPAT document
+        const vpatDocument = {
+            metadata: {
+                generatedAt: new Date().toISOString(),
+                generatedBy: req.user?.username || 'System',
+                vpatVersion: '2.4 Rev 508',
+                sessionId: session.id,
+                sessionName: session.name,
+                projectName: session.project_name,
+                evaluationDate,
+                organizationInfo: {
+                    name: organization_name || session.project_name,
+                    productName: product_name || session.name,
+                    productVersion: product_version || '1.0',
+                    evaluationType: 'Web Application Accessibility Assessment',
+                    conformanceLevel: 'Level AA',
+                    evaluationScope: `${testResults.length} WCAG 2.2 criteria tested across ${[...new Set(testResults.flatMap(r => r.tested_pages?.split('; ') || []))].length} pages`
+                }
+            },
+            executiveSummary: {
+                overallComplianceRate: complianceRate,
+                complianceLevel: complianceRate >= 95 ? 'Excellent' : complianceRate >= 80 ? 'Good' : complianceRate >= 60 ? 'Fair' : 'Needs Improvement',
+                totalCriteria: testResults.length,
+                totalTests: overallStats.totalTests,
+                passedTests: overallStats.passedTests,
+                failedTests: overallStats.failedTests,
+                pendingTests: overallStats.pendingTests,
+                keyFindings: vpatResults.filter(r => r.conformanceLevel === 'Does Not Support').length === 0 ? 
+                    'No critical accessibility barriers identified' : 
+                    `${vpatResults.filter(r => r.conformanceLevel === 'Does Not Support').length} criteria require remediation`
+            },
+            wcagResults: vpatResults,
+            section508Mapping: vpatResults.filter(r => r.section508).map(r => ({
+                section508Criterion: r.section508,
+                wcagEquivalent: r.criterion,
+                conformanceLevel: r.conformanceLevel,
+                remarks: r.remarks
+            })),
+            recommendations: vpatResults
+                .filter(r => r.conformanceLevel === 'Does Not Support')
+                .map(r => ({
+                    criterion: r.criterion,
+                    title: r.title,
+                    priority: r.level === 'AA' ? 'High' : r.level === 'A' ? 'Critical' : 'Medium',
+                    recommendation: `Address failures in ${r.criterion}: ${r.title}`
+                }))
+        };
+
+        if (format === 'json') {
+            res.json({
+                success: true,
+                vpat: vpatDocument
+            });
+        } else {
+            // Generate HTML VPAT
+            const htmlVpat = generateHTMLVPAT(vpatDocument);
+            
+            res.set({
+                'Content-Type': 'text/html',
+                'Content-Disposition': `attachment; filename="VPAT-${session.name}-${new Date().toISOString().split('T')[0]}.html"`
+            });
+            res.send(htmlVpat);
+        }
+
+        console.log(`✅ VPAT report generated successfully for session ${sessionId}`);
+
+    } catch (error) {
+        console.error('Error generating VPAT report:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to generate VPAT report',
+            message: error.message
+        });
+    }
+});
+
+/**
+ * Generate HTML VPAT document
+ */
+function generateHTMLVPAT(vpatDocument) {
+    const { metadata, executiveSummary, wcagResults, section508Mapping, recommendations } = vpatDocument;
+    
+    return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VPAT ${metadata.vpatVersion} - ${metadata.organizationInfo.productName}</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; }
+        .header { text-align: center; margin-bottom: 40px; border-bottom: 2px solid #333; padding-bottom: 20px; }
+        .section { margin: 30px 0; }
+        .section h2 { color: #333; border-bottom: 1px solid #ccc; padding-bottom: 10px; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+        th { background-color: #f5f5f5; font-weight: bold; }
+        .supports { background-color: #d4edda; }
+        .does-not-support { background-color: #f8d7da; }
+        .partially-supports { background-color: #fff3cd; }
+        .not-applicable { background-color: #f8f9fa; }
+        .not-evaluated { background-color: #e2e3e5; }
+        .summary-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin: 20px 0; }
+        .stat-card { padding: 20px; border: 1px solid #ddd; border-radius: 8px; text-align: center; }
+        .generated-info { font-size: 0.9em; color: #666; margin-top: 40px; border-top: 1px solid #ccc; padding-top: 20px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Voluntary Product Accessibility Template (VPAT®)</h1>
+        <h2>${metadata.vpatVersion}</h2>
+        <h3>${metadata.organizationInfo.productName}</h3>
+        <p><strong>Organization:</strong> ${metadata.organizationInfo.name}</p>
+        <p><strong>Evaluation Date:</strong> ${metadata.evaluationDate}</p>
+        <p><strong>Product Version:</strong> ${metadata.organizationInfo.productVersion}</p>
+    </div>
+
+    <div class="section">
+        <h2>Executive Summary</h2>
+        <div class="summary-stats">
+            <div class="stat-card">
+                <h3>Overall Compliance</h3>
+                <p style="font-size: 2em; margin: 0; color: ${executiveSummary.overallComplianceRate >= 80 ? '#28a745' : '#dc3545'};">
+                    ${executiveSummary.overallComplianceRate}%
+                </p>
+                <p>${executiveSummary.complianceLevel}</p>
+            </div>
+            <div class="stat-card">
+                <h3>Criteria Tested</h3>
+                <p style="font-size: 2em; margin: 0;">${executiveSummary.totalCriteria}</p>
+                <p>WCAG 2.2 Criteria</p>
+            </div>
+            <div class="stat-card">
+                <h3>Tests Passed</h3>
+                <p style="font-size: 2em; margin: 0; color: #28a745;">${executiveSummary.passedTests}</p>
+                <p>of ${executiveSummary.totalTests} total tests</p>
+            </div>
+            <div class="stat-card">
+                <h3>Issues Found</h3>
+                <p style="font-size: 2em; margin: 0; color: ${executiveSummary.failedTests > 0 ? '#dc3545' : '#28a745'};">${executiveSummary.failedTests}</p>
+                <p>Failed Tests</p>
+            </div>
+        </div>
+        <p><strong>Key Findings:</strong> ${executiveSummary.keyFindings}</p>
+        <p><strong>Evaluation Scope:</strong> ${metadata.organizationInfo.evaluationScope}</p>
+    </div>
+
+    <div class="section">
+        <h2>WCAG 2.2 Conformance Report</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Criterion</th>
+                    <th>Title</th>
+                    <th>Level</th>
+                    <th>Conformance Level</th>
+                    <th>Remarks and Explanations</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${wcagResults.map(result => `
+                    <tr class="${result.conformanceLevel.toLowerCase().replace(/\s+/g, '-')}">
+                        <td>${result.criterion}</td>
+                        <td>${result.title}</td>
+                        <td>${result.level}</td>
+                        <td><strong>${result.conformanceLevel}</strong></td>
+                        <td>${result.remarks}</td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    </div>
+
+    ${section508Mapping.length > 0 ? `
+    <div class="section">
+        <h2>Section 508 Compliance Report</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Section 508 Criterion</th>
+                    <th>WCAG 2.2 Equivalent</th>
+                    <th>Conformance Level</th>
+                    <th>Remarks</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${section508Mapping.map(mapping => `
+                    <tr class="${mapping.conformanceLevel.toLowerCase().replace(/\s+/g, '-')}">
+                        <td>${mapping.section508Criterion}</td>
+                        <td>${mapping.wcagEquivalent}</td>
+                        <td><strong>${mapping.conformanceLevel}</strong></td>
+                        <td>${mapping.remarks}</td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    </div>
+    ` : ''}
+
+    ${recommendations.length > 0 ? `
+    <div class="section">
+        <h2>Recommendations for Remediation</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Priority</th>
+                    <th>Criterion</th>
+                    <th>Issue</th>
+                    <th>Recommendation</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${recommendations.map(rec => `
+                    <tr>
+                        <td><strong>${rec.priority}</strong></td>
+                        <td>${rec.criterion}</td>
+                        <td>${rec.title}</td>
+                        <td>${rec.recommendation}</td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    </div>
+    ` : '<div class="section"><h2>Recommendations</h2><p><strong>Excellent!</strong> No issues found that require remediation.</p></div>'}
+
+    <div class="generated-info">
+        <p><strong>Report Generated:</strong> ${metadata.generatedAt}</p>
+        <p><strong>Generated By:</strong> ${metadata.generatedBy}</p>
+        <p><strong>Testing Session:</strong> ${metadata.sessionName}</p>
+        <p><strong>VPAT Version:</strong> ${metadata.vpatVersion}</p>
+        <p><em>This report was automatically generated from accessibility test results using the VPAT Accessibility Testing Platform.</em></p>
+    </div>
+</body>
+</html>
+    `.trim();
+}
+
 module.exports = router; 

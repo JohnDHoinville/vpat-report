@@ -144,8 +144,19 @@ router.get('/', authenticateToken, async (req, res) => {
             test_method_used,
             limit = 50,
             offset = 0,
+            page = null,
+            search = null,
+            testMethod = null,
+            level = null,
             include_details = 'false'
         } = req.query;
+
+        // Calculate offset from page if provided
+        const actualLimit = parseInt(limit);
+        let actualOffset = parseInt(offset);
+        if (page) {
+            actualOffset = (parseInt(page) - 1) * actualLimit;
+        }
         
         let query = `
             SELECT ti.*,
@@ -195,21 +206,43 @@ router.get('/', authenticateToken, async (req, res) => {
             params.push(assigned_tester);
         }
         
-        if (test_method_used) {
+        if (test_method_used || testMethod) {
             paramCount++;
             query += ` AND ti.test_method_used = $${paramCount}`;
-            params.push(test_method_used);
+            params.push(test_method_used || testMethod);
+        }
+
+        // Add search functionality
+        if (search) {
+            paramCount++;
+            query += ` AND (
+                LOWER(tr.criterion_number) LIKE LOWER($${paramCount}) OR
+                LOWER(tr.title) LIKE LOWER($${paramCount}) OR
+                LOWER(cdp.url) LIKE LOWER($${paramCount}) OR
+                LOWER(cdp.title) LIKE LOWER($${paramCount}) OR
+                LOWER(ti.notes) LIKE LOWER($${paramCount})
+            )`;
+            params.push(`%${search}%`);
+        }
+
+        // Add level filter
+        if (level) {
+            paramCount++;
+            query += ` AND tr.level = $${paramCount}`;
+            params.push(level);
         }
         
         query += ` ORDER BY ti.updated_at DESC LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}`;
-        params.push(limit, offset);
+        params.push(actualLimit, actualOffset);
         
         const result = await pool.query(query, params);
         
-        // Get total count
+        // Get total count with same filters
         let countQuery = `
             SELECT COUNT(*) as total
             FROM test_instances ti
+            LEFT JOIN test_requirements tr ON ti.requirement_id = tr.id
+            LEFT JOIN crawler_discovered_pages cdp ON ti.page_id = cdp.id
             WHERE 1=1
         `;
         
@@ -227,18 +260,77 @@ router.get('/', authenticateToken, async (req, res) => {
             countQuery += ` AND ti.status = $${countParamCount}`;
             countParams.push(status);
         }
+
+        if (requirement_id) {
+            countParamCount++;
+            countQuery += ` AND ti.requirement_id = $${countParamCount}`;
+            countParams.push(requirement_id);
+        }
+        
+        if (page_id) {
+            countParamCount++;
+            countQuery += ` AND ti.page_id = $${countParamCount}`;
+            countParams.push(page_id);
+        }
+        
+        if (assigned_tester) {
+            countParamCount++;
+            countQuery += ` AND ti.assigned_tester = $${countParamCount}`;
+            countParams.push(assigned_tester);
+        }
+        
+        if (test_method_used || testMethod) {
+            countParamCount++;
+            countQuery += ` AND ti.test_method_used = $${countParamCount}`;
+            countParams.push(test_method_used || testMethod);
+        }
+
+        if (search) {
+            countParamCount++;
+            countQuery += ` AND (
+                LOWER(tr.criterion_number) LIKE LOWER($${countParamCount}) OR
+                LOWER(tr.title) LIKE LOWER($${countParamCount}) OR
+                LOWER(cdp.url) LIKE LOWER($${countParamCount}) OR
+                LOWER(cdp.title) LIKE LOWER($${countParamCount}) OR
+                LOWER(ti.notes) LIKE LOWER($${countParamCount})
+            )`;
+            countParams.push(`%${search}%`);
+        }
+
+        if (level) {
+            countParamCount++;
+            countQuery += ` AND tr.level = $${countParamCount}`;
+            countParams.push(level);
+        }
         
         const countResult = await pool.query(countQuery, countParams);
         const total = parseInt(countResult.rows[0].total);
+        const currentPage = page ? parseInt(page) : Math.floor(actualOffset / actualLimit) + 1;
+        const totalPages = Math.ceil(total / actualLimit);
         
         res.json({
             success: true,
             test_instances: result.rows,
             pagination: {
                 total,
-                limit: parseInt(limit),
-                offset: parseInt(offset),
-                has_more: (parseInt(offset) + parseInt(limit)) < total
+                total_pages: totalPages,
+                current_page: currentPage,
+                page_size: actualLimit,
+                offset: actualOffset,
+                has_more: actualOffset + actualLimit < total,
+                has_previous: currentPage > 1
+            },
+            performance: {
+                query_time: Date.now(),
+                results_count: result.rows.length,
+                filters_applied: {
+                    session_id: !!session_id,
+                    status: !!status,
+                    search: !!search,
+                    level: !!level,
+                    test_method: !!(test_method_used || testMethod),
+                    assigned_tester: !!assigned_tester
+                }
             }
         });
         

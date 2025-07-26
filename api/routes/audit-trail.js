@@ -374,6 +374,68 @@ router.get('/export/:sessionId', authenticateToken, async (req, res) => {
 });
 
 /**
+ * Export audit trail for session (alternate route for frontend compatibility)
+ * GET /api/audit-trail/session/:sessionId/export
+ */
+router.get('/session/:sessionId/export', authenticateToken, async (req, res) => {
+    try {
+        const { sessionId } = req.params;
+        const { 
+            format = 'json',
+            include_metadata = 'true',
+            start_date = null,
+            end_date = null,
+            action_type = null,
+            user_id = null
+        } = req.query;
+
+        console.log(`📤 Exporting audit timeline for session ${sessionId} in ${format} format`);
+
+        // Build filters object
+        const filters = {};
+        if (start_date) filters.start_date = start_date;
+        if (end_date) filters.end_date = end_date;
+        if (action_type) filters.action_type = action_type;
+        if (user_id) filters.user_id = user_id;
+
+        const report = await auditService.exportAuditReport(sessionId, {
+            format: format,
+            includeMetadata: include_metadata === 'true',
+            filters: filters
+        });
+
+        // Set appropriate headers for download
+        const contentTypes = {
+            'json': 'application/json',
+            'csv': 'text/csv',
+            'pdf': 'application/pdf'
+        };
+
+        const timestamp = new Date().toISOString().split('T')[0];
+        const filename = `audit-timeline-${sessionId}-${timestamp}.${format}`;
+
+        res.setHeader('Content-Type', contentTypes[format] || 'application/octet-stream');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+
+        if (format === 'json') {
+            res.json({
+                success: true,
+                data: report
+            });
+        } else {
+            res.send(report);
+        }
+
+    } catch (error) {
+        console.error('Error exporting audit timeline:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message || 'Failed to export audit timeline'
+        });
+    }
+});
+
+/**
  * Get audit trail configuration
  * GET /api/audit-trail/config
  */
