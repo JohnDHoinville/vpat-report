@@ -17,7 +17,7 @@
             </button>
             
             <!-- 3. Web Crawler Tab -->
-            <button @click="setActiveTab('web-crawler'); loadWebCrawlers()"
+            <button @click="setActiveTab('web-crawler'); loadWebCrawlers(); loadCrawlerPageCounts(true)"
                 :class="activeTab === 'web-crawler' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
                 class="whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm focus:outline-none transition-colors">
                 <i class="fas fa-spider mr-2"></i>Web Crawler

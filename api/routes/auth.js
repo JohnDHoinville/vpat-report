@@ -330,7 +330,7 @@ router.post('/register', registerLimiter, authenticateToken, requireRole('admin'
 router.get('/profile', authenticateToken, async (req, res) => {
     try {
         const userQuery = `
-            SELECT id, username, email, full_name, role, is_active, last_login, created_at, profile_data
+            SELECT id, username, email, full_name, role, is_active, last_login, created_at
             FROM users 
             WHERE id = $1
         `;
@@ -356,7 +356,7 @@ router.get('/profile', authenticateToken, async (req, res) => {
                 is_active: user.is_active,
                 last_login: user.last_login,
                 created_at: user.created_at,
-                profile_data: user.profile_data
+                // profile_data removed - column doesn't exist
             }
         });
         
@@ -375,7 +375,7 @@ router.get('/profile', authenticateToken, async (req, res) => {
  */
 router.put('/profile', authenticateToken, async (req, res) => {
     try {
-        const { full_name, email, profile_data } = req.body;
+        const { full_name, email } = req.body;
         
         const updates = [];
         const values = [];
@@ -404,10 +404,7 @@ router.put('/profile', authenticateToken, async (req, res) => {
             values.push(email);
         }
         
-        if (profile_data !== undefined) {
-            updates.push(`profile_data = $${paramCount++}`);
-            values.push(JSON.stringify(profile_data));
-        }
+        // profile_data updates removed - column doesn't exist
         
         if (updates.length === 0) {
             return res.status(400).json({
@@ -422,7 +419,7 @@ router.put('/profile', authenticateToken, async (req, res) => {
         const query = `
             UPDATE users SET ${updates.join(', ')}
             WHERE id = $${paramCount}
-            RETURNING id, username, email, full_name, role, updated_at, profile_data
+            RETURNING id, username, email, full_name, role, updated_at
         `;
         
         const result = await pool.query(query, values);

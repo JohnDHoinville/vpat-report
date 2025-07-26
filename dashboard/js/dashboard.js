@@ -1616,11 +1616,43 @@ function dashboard() {
                         
                         // Update the crawler with page counts from pagination (more accurate)
                         crawler.total_pages_found = totalCount;
-                        crawler.pages_for_testing = pages.filter(p => 
-                            p.selected_for_manual_testing || p.selected_for_automated_testing
-                        ).length || totalCount; // Default to all pages if none selected
+                        
+                        // Count only explicitly selected pages for testing
+                        const selectedPagesCount = pages.filter(p => 
+                            p.selected_for_testing === true
+                        ).length;
+                        
+                        // Page count analysis for debugging
+                        console.log(`  - Total pages received: ${pages.length}`);
+                        console.log(`  - Total count from API: ${totalCount}`);
+                        console.log(`  - Pages with selected_for_testing=true: ${selectedPagesCount}`);
+                        console.log(`  - Sample page data:`, pages.slice(0, 3).map(p => ({
+                            url: p.url,
+                            selected_for_testing: p.selected_for_testing
+                        })));
+                        
+                        // If no explicit selections exist, check if all pages are implicitly selected
+                        // by checking if this is a fresh crawl or if selections were explicitly made
+                        if (selectedPagesCount === 0 && pages.length === totalCount) {
+                            // This might be a fresh crawl - check if any pages have explicit selection flags
+                            const hasExplicitSelections = pages.some(p => 
+                                p.hasOwnProperty('selected_for_testing')
+                            );
+                            
+                            if (!hasExplicitSelections) {
+                                // Fresh crawl - all pages are implicitly selected
+                                crawler.pages_for_testing = totalCount;
+                            } else {
+                                // Pages have explicit selections but none are selected
+                                crawler.pages_for_testing = 0;
+                            }
+                        } else {
+                            // Use the actual count of selected pages
+                            crawler.pages_for_testing = selectedPagesCount;
+                        }
                         
                         console.log(`🔍 DEBUG: Updated ${crawler.name}: ${crawler.total_pages_found} total, ${crawler.pages_for_testing} for testing`);
+                        console.log(`🔍 DEBUG: Final counts - Total: ${crawler.total_pages_found}, For Testing: ${crawler.pages_for_testing}, Excluded: ${crawler.total_pages_found - crawler.pages_for_testing}`);
                         console.log(`🔍 DEBUG: API returned ${pages.length} pages, pagination says ${totalCount} total`);
                     } else {
                         console.warn(`Failed to load pages for crawler ${crawler.name}:`, response.status);
@@ -2681,6 +2713,9 @@ function dashboard() {
                     
                     this.updateFilteredCrawlerPages();
                     
+                    // Refresh crawler page counts to reflect actual selections
+                    this.loadCrawlerPageCounts(true);
+                    
                     console.log('🔍 DEBUG: Filtered pages count:', this.filteredCrawlerPages.length);
                     console.log('🔍 DEBUG: Opening modal with showCrawlerPagesModal =', true);
                     
@@ -2745,7 +2780,7 @@ function dashboard() {
                         break;
                     case 'selected':
                         filtered = filtered.filter(page => 
-                            page.selected_for_manual_testing || page.selected_for_automated_testing
+                            page.selected_for_testing === true
                         );
                         break;
                 }
@@ -2770,6 +2805,9 @@ function dashboard() {
                 // Update local data
                 page.selected_for_testing = newValue;
                 this.updateFilteredCrawlerPages();
+                
+                // Refresh crawler page counts to update the UI display
+                this.loadCrawlerPageCounts(true);
 
                 this.showNotification(
                     'success',
@@ -2820,6 +2858,8 @@ function dashboard() {
                 this.showNotification('error', 'Bulk Update Failed', 'Failed to update page selections');
             } finally {
                 this.loading = false;
+                // Refresh crawler page counts to update the UI display
+                this.loadCrawlerPageCounts(true);
             }
         },
 
@@ -2860,6 +2900,8 @@ function dashboard() {
                 this.showNotification('error', 'Bulk Update Failed', 'Failed to update page selections');
             } finally {
                 this.loading = false;
+                // Refresh crawler page counts to update the UI display
+                this.loadCrawlerPageCounts(true);
             }
         },
 
@@ -5065,41 +5107,7 @@ function dashboard() {
             }
         },
 
-        // Delete User Functions
-        showDeleteUserModal(userId, username) {
-            this.userManagement.deletingUserId = userId;
-            document.getElementById('deleteUserName').textContent = username;
-            document.getElementById('deleteUserModal').classList.remove('hidden');
-        },
-
-        closeDeleteUserModal() {
-            document.getElementById('deleteUserModal').classList.add('hidden');
-            this.userManagement.deletingUserId = null;
-        },
-
-        async confirmDeleteUser() {
-            if (!this.userManagement.deletingUserId) return;
-            
-            try {
-                const confirmBtn = document.getElementById('deleteUserConfirmBtn');
-                confirmBtn.disabled = true;
-                
-                const response = await this.apiCall(`/users/${this.userManagement.deletingUserId}`, {
-                    method: 'DELETE'
-                });
-                
-                this.showNotification('success', 'User Deleted', response.message || 'User deactivated successfully');
-                this.closeDeleteUserModal();
-                await this.loadUsers(this.userManagement.currentPage);
-                this.calculateUserStats();
-                
-            } catch (error) {
-                console.error('❌ Error deleting user:', error);
-                this.showNotification('error', 'Delete Failed', error.message || 'Failed to delete user');
-            } finally {
-                document.getElementById('deleteUserConfirmBtn').disabled = false;
-            }
-        },
+        // NOTE: Delete User Functions moved to Alpine.js section below (lines ~5917)
 
         async reactivateUser(userId) {
             try {
@@ -5873,7 +5881,7 @@ function dashboard() {
         },
         
         // Show delete user confirmation
-        showDeleteUserConfirmation(user) {
+        confirmUserDeletion(user) {
             this.selectedUserForDelete = user;
             this.showDeleteUserModal = true;
             console.log('🔍 Showing delete confirmation for:', user.username);
@@ -6609,7 +6617,7 @@ function dashboard() {
                             depth: page.depth,
                             requires_auth: page.requires_auth,
                             has_forms: page.has_forms,
-                            selected_for_testing: page.selected_for_testing || page.selected_for_manual_testing || page.selected_for_automated_testing,
+                            selected_for_testing: page.selected_for_testing,
                             content_type: page.content_type,
                             status_code: page.status_code
                         }));
@@ -7428,13 +7436,31 @@ function dashboard() {
 
         // ===== SESSION CREATION WIZARD METHODS =====
 
-        // Open session wizard
-        openSessionWizard() {
-            console.log('🧙‍♂️ Opening session creation wizard');
-            this.resetSessionWizard();
-            this.showSessionWizard = true;
-            this.loadWizardData();
-        },
+            // Open session wizard
+    openSessionWizard() {
+        console.log('🧙‍♂️ Opening session creation wizard');
+        console.log('🧙‍♂️ DEBUG: selectedProject =', this.selectedProject);
+        console.log('🧙‍♂️ DEBUG: showSessionWizard BEFORE =', this.showSessionWizard);
+        
+        // Ensure project is selected
+        if (!this.selectedProject) {
+            console.error('⚠️ No project selected');
+            this.showNotification('error', 'Project Required', 'Please select a project first');
+            return;
+        }
+        
+        this.resetSessionWizard();
+        this.sessionWizard.project_id = this.selectedProject; // Set project ID
+        // Close any other open modals first
+        this.showUserManagement = false;
+        this.showDeleteUserModal = false;
+        this.showTestGrid = false;
+        this.showSessionDetails = false;
+        
+        this.showSessionWizard = true;
+        console.log('🧙‍♂️ DEBUG: showSessionWizard AFTER =', this.showSessionWizard);
+        this.loadWizardData();
+    },
 
         // Close session wizard
         closeSessionWizard() {
@@ -7472,9 +7498,14 @@ function dashboard() {
                     this.loadAvailableRequirements()
                 ]);
                 
+                console.log('✅ Wizard data loaded successfully');
+                
             } catch (error) {
                 console.error('Error loading wizard data:', error);
-                this.showNotification('error', 'Load Failed', 'Failed to load wizard data');
+                this.showNotification('error', 'Load Failed', 'Failed to load wizard data. Please try again.');
+                
+                // Close wizard on critical failure
+                this.closeSessionWizard();
             }
         },
 
@@ -7483,7 +7514,13 @@ function dashboard() {
             try {
                 console.log('🕷️ Loading available crawlers...');
                 
-                const response = await this.apiCall('/web-crawlers');
+                if (!this.selectedProject) {
+                    console.warn('⚠️ No project selected for crawler loading');
+                    this.availableCrawlers = [];
+                    return;
+                }
+                
+                const response = await this.apiCall(`/web-crawlers/projects/${this.selectedProject}/crawlers`);
                 if (response.success) {
                     this.availableCrawlers = response.data.map(crawler => ({
                         ...crawler,
@@ -7505,19 +7542,30 @@ function dashboard() {
                 console.log('📋 Loading available requirements...');
                 
                 const response = await this.apiCall('/requirements');
-                if (response.success) {
-                    this.availableRequirements = response.data;
+                if (response.success && response.data) {
+                    // Handle the actual API response structure: response.data.requirements
+                    const requirements = response.data.requirements || response.data;
                     
-                    // Calculate requirement counts by conformance level
-                    this.requirementCounts = this.availableRequirements.reduce((counts, req) => {
-                        const key = `${req.requirement_type}_${req.level.toLowerCase()}`;
-                        counts[key] = (counts[key] || 0) + 1;
-                        return counts;
-                    }, {});
-                    
-                    console.log(`✅ Loaded ${this.availableRequirements.length} requirements`);
+                    if (Array.isArray(requirements)) {
+                        this.availableRequirements = requirements;
+                        
+                        // Calculate requirement counts by conformance level
+                        this.requirementCounts = this.availableRequirements.reduce((counts, req) => {
+                            const key = `${req.requirement_type}_${req.level.toLowerCase()}`;
+                            counts[key] = (counts[key] || 0) + 1;
+                            return counts;
+                        }, {});
+                        
+                        console.log(`✅ Loaded ${this.availableRequirements.length} requirements`);
+                    } else {
+                        console.warn('⚠️ Requirements data is not an array:', requirements);
+                        this.availableRequirements = [];
+                        this.requirementCounts = {};
+                    }
                 } else {
-                    throw new Error(response.error || 'Failed to load requirements');
+                    console.warn('⚠️ Invalid requirements response structure:', response);
+                    this.availableRequirements = [];
+                    this.requirementCounts = {};
                 }
             } catch (error) {
                 console.error('Error loading requirements:', error);

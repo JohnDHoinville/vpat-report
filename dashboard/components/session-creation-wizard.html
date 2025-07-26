@@ -1,17 +1,25 @@
 <!-- Session Creation Wizard Modal -->
+<!-- DEBUG: Simple visibility test -->
+<div style="position: fixed; top: 10px; right: 10px; background: blue; color: white; padding: 10px; z-index: 99999;" x-text="'showSessionWizard: ' + showSessionWizard"></div>
+
+<!-- DEBUG: Super simple test modal -->
+<div x-show="showSessionWizard" style="position: fixed; top: 100px; left: 100px; width: 400px; height: 300px; background: green; color: white; padding: 20px; z-index: 100000; border: 5px solid yellow;">
+    <h1>🧙‍♂️ SIMPLE WIZARD TEST</h1>
+    <p>If you see this, the modal works!</p>
+    <p>showSessionWizard = <span x-text="showSessionWizard"></span></p>
+    <button onclick="dashboard().closeSessionWizard()" style="background: red; color: white; padding: 10px; margin-top: 20px;">CLOSE TEST</button>
+</div>
+
 <div x-show="showSessionWizard" 
-     x-transition:enter="transition ease-out duration-300"
-     x-transition:enter-start="opacity-0"
-     x-transition:enter-end="opacity-100"
-     x-transition:leave="transition ease-in duration-200"
-     x-transition:leave-start="opacity-100"
-     x-transition:leave-end="opacity-0"
-     class="fixed inset-0 bg-black bg-opacity-50 z-50">
+     class="fixed inset-0 bg-black bg-opacity-50 z-[60]"
+     @click.self="closeSessionWizard()"
+     style="display: none !important;">
     
     <div class="min-h-screen px-4 text-center">
         <span class="inline-block h-screen align-middle" aria-hidden="true">&#8203;</span>
         
-        <div class="inline-block w-full max-w-6xl p-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-lg">
+        <div class="inline-block w-full max-w-6xl p-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-lg"
+             style="background: white !important; z-index: 70; position: relative !important; display: block !important; visibility: visible !important;">
             
             <!-- Wizard Header -->
             <div class="flex items-center justify-between mb-6">
