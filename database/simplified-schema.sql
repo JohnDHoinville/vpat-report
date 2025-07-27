@@ -1,4 +1,4 @@
--- Accessibility Testing Platform Database Schema
+498 -- Accessibility Testing Platform Database Schema
 -- Single-user simplified design for PostgreSQL 12+
 -- Created: Database Conversion Project
 

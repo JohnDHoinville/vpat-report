@@ -1178,6 +1178,41 @@ function dashboard() {
             this.showNotification('info', 'Logged Out', 'You have been logged out');
         },
         
+        /**
+         * Get authentication token from localStorage or session
+         */
+        getAuthToken() {
+            // Try to get token from localStorage first
+            let token = localStorage.getItem('authToken') || localStorage.getItem('accessToken');
+            
+            // If no token in localStorage, try sessionStorage
+            if (!token) {
+                token = sessionStorage.getItem('authToken') || sessionStorage.getItem('accessToken');
+            }
+            
+            // If still no token, try to get from current session/user context
+            if (!token && this.currentUser?.token) {
+                token = this.currentUser.token;
+            }
+            
+            // Try auth object
+            if (!token && this.auth?.token) {
+                token = this.auth.token;
+            }
+            
+            // Try token property
+            if (!token && this.token) {
+                token = this.token;
+            }
+            
+            // Return a default token for development if none found
+            if (!token) {
+                console.warn('No authentication token found. Using default "test" token for development.');
+                return 'test'; // Default token for development
+            }
+            return token;
+        },
+
         getAuthHeaders() {
             const headers = { 'Content-Type': 'application/json' };
             if (this.auth.token) {
@@ -1195,8 +1230,9 @@ function dashboard() {
                 };
                 
                 // Add auth token if available
-                if (this.token || this.auth.token) {
-                    headers['Authorization'] = `Bearer ${this.token || this.auth.token}`;
+                const authToken = this.getAuthToken();
+                if (authToken) {
+                    headers['Authorization'] = `Bearer ${authToken}`;
                 }
                 
                 const finalUrl = `${this.config.apiBaseUrl}/api${endpoint}`;
@@ -5701,6 +5737,11 @@ function dashboard() {
             this.closeUserForm();
             this.closeDeleteUserModal();
         },
+
+        // Global function alias for Alpine.js calls
+        showUserManagement() {
+            return this.openUserManagement();
+        },
         
         // Load users from API
         async loadUsers() {
@@ -6759,11 +6800,14 @@ function dashboard() {
             try {
                 console.log('🤖 Triggering automated tests for session:', sessionId);
                 
-                const response = await this.apiCall(`/automated-testing/run/${sessionId}`, 'POST', {
-                    tools: ['axe-core', 'pa11y'],
-                    run_async: true,
-                    update_test_instances: true,
-                    create_evidence: true
+                const response = await this.apiCall(`/automated-testing/run/${sessionId}`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        tools: ['axe-core', 'pa11y'],
+                        run_async: true,
+                        update_test_instances: true,
+                        create_evidence: true
+                    })
                 });
                 
                 if (response.success) {
@@ -6870,20 +6914,34 @@ function dashboard() {
             try {
                 console.log('🤖 Running automated test for instance:', testInstance.id);
                 
+                // Check if we have a selected session
+                if (!this.selectedTestSession) {
+                    throw new Error('No test session selected. Please open a test session first.');
+                }
+                
                 this.showNotification('info', 'Automated Test Starting',
                     `Running automated test for requirement ${testInstance.criterion_number}...`);
                 
-                // Call the actual automation API
-                const response = await this.apiCall(`/automated-testing/run-instance/${testInstance.id}`, 'POST', {
-                    tools: ['axe-core', 'pa11y']
+                // Call the session-level automation API with specific pages and requirements
+                const response = await this.apiCall(`/automated-testing/run/${this.selectedTestSession.id}`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        tools: ['axe-core', 'pa11y'],
+                        pages: [testInstance.page_id],
+                        requirements: [testInstance.requirement_id],
+                        update_test_instances: true,
+                        create_evidence: true
+                    })
                 });
                 
                 if (response.success) {
-                    this.showNotification('success', 'Automated Test Completed',
-                        `Test completed for requirement ${testInstance.criterion_number}`);
+                    this.showNotification('success', 'Automated Test Started',
+                        `Automated test started for requirement ${testInstance.criterion_number}`);
                     
                     // Refresh the test grid to show updated results
-                    this.applyTestGridFilters();
+                    setTimeout(() => {
+                        this.loadTestInstancesForGrid(this.selectedTestSession.id, this.testGridPagination.currentPage, true);
+                    }, 2000);
                 } else {
                     throw new Error(response.error || 'Failed to run automated test');
                 }
@@ -7322,8 +7380,11 @@ function dashboard() {
                     const instance = this.testGridInstances.find(t => t.id === instanceId);
                     if (instance) {
                         instance.testing_priority = priority;
-                        return this.apiCall(`/test-instances/${instanceId}`, 'PUT', {
-                            testing_priority: priority
+                        return this.apiCall(`/test-instances/${instanceId}`, {
+                            method: 'PUT',
+                            body: JSON.stringify({
+                                testing_priority: priority
+                            })
                         });
                     }
                 });
@@ -7347,8 +7408,11 @@ function dashboard() {
                         const existingNotes = instance.notes || '';
                         const newNotes = existingNotes ? `${existingNotes}\n\n[Bulk Update]: ${notes}` : notes;
                         instance.notes = newNotes;
-                        return this.apiCall(`/test-instances/${instanceId}`, 'PUT', {
-                            notes: newNotes
+                        return this.apiCall(`/test-instances/${instanceId}`, {
+                            method: 'PUT',
+                            body: JSON.stringify({
+                                notes: newNotes
+                            })
                         });
                     }
                 });
@@ -7399,7 +7463,10 @@ function dashboard() {
                     const instance = this.testGridInstances.find(t => t.id === instanceId);
                     if (instance) {
                         Object.assign(instance, template);
-                        return this.apiCall(`/test-instances/${instanceId}`, 'PUT', template);
+                        return this.apiCall(`/test-instances/${instanceId}`, {
+                            method: 'PUT',
+                            body: JSON.stringify(template)
+                        });
                     }
                 });
 
@@ -7536,8 +7603,11 @@ function dashboard() {
         // Assign tester to test instance
         async assignTestInstanceTester(instanceId, testerId) {
             try {
-                const response = await this.apiCall(`/test-instances/${instanceId}`, 'PUT', {
-                    assigned_tester: testerId || null
+                const response = await this.apiCall(`/test-instances/${instanceId}`, {
+                    method: 'PUT',
+                    body: JSON.stringify({
+                        assigned_tester: testerId || null
+                    })
                 });
                 
                 if (response.success) {

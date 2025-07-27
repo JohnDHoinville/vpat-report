@@ -379,7 +379,7 @@ class TestAutomationService {
         `;
 
         const result = await pool.query(query, [
-            runId, sessionId, tools, new Date(), userId
+            runId, sessionId, JSON.stringify(tools), new Date(), userId
         ]);
 
         return result.rows[0];
@@ -735,24 +735,21 @@ class TestAutomationService {
         return [
             {
                 name: 'axe-core',
-                description: 'Fast and accurate accessibility testing engine',
-                version: '4.10.3',
-                supported_standards: ['WCAG 2.0', 'WCAG 2.1', 'WCAG 2.2', 'Section 508'],
-                capabilities: ['Color contrast', 'Keyboard navigation', 'ARIA', 'Forms', 'Images']
+                description: 'Industry-leading accessibility testing engine',
+                version: '4.8.0',
+                capabilities: ['wcag-compliance', 'color-contrast', 'keyboard-navigation']
             },
             {
                 name: 'pa11y',
                 description: 'Command-line accessibility testing tool',
-                version: '8.0.0',
-                supported_standards: ['WCAG 2.0', 'WCAG 2.1', 'Section 508'],
-                capabilities: ['HTML validation', 'WCAG compliance', 'Custom rules']
+                version: '6.2.3',
+                capabilities: ['wcag-compliance', 'html-validation', 'screen-reader-testing']
             },
             {
                 name: 'lighthouse',
-                description: 'Google\'s web quality auditing tool',
-                version: '11.7.1',
-                supported_standards: ['WCAG 2.0', 'WCAG 2.1'],
-                capabilities: ['Comprehensive audit', 'Performance integration', 'Best practices']
+                description: 'Google\'s web performance and accessibility auditing tool',
+                version: '10.0.0',
+                capabilities: ['performance', 'accessibility', 'best-practices']
             }
         ];
     }

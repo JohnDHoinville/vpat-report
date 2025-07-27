@@ -154,20 +154,17 @@ router.get('/results/:runId', authenticateToken, async (req, res) => {
 });
 
 /**
- * Get available automation tools and their capabilities
+ * Get available automation tools
  * GET /api/automated-testing/tools
  */
 router.get('/tools', authenticateToken, async (req, res) => {
     try {
-        const tools = await automationService.getAvailableTools();
+        const availableTools = await automationService.getAvailableTools();
         
         res.json({
             success: true,
-            data: {
-                tools: tools,
-                default_tools: ['axe-core', 'pa11y'],
-                total_tools: tools.length
-            }
+            tools: availableTools,
+            message: 'Available automation tools retrieved successfully'
         });
 
     } catch (error) {

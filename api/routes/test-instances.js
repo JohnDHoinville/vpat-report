@@ -48,7 +48,9 @@ async function createTestInstancesForPages(client, sessionId, pageIds) {
     
     // Get page details
     const pagesQuery = `
-        SELECT * FROM crawler_discovered_pages 
+        SELECT id, url, title, crawler_id, status_code, content_type, 
+               first_discovered_at as created_at, discovered_at, last_crawled_at
+        FROM crawler_discovered_pages 
         WHERE id = ANY($1)
     `;
     
@@ -663,7 +665,9 @@ router.post('/bulk-create', authenticateToken, async (req, res) => {
         
         // Get page details
         const pagesQuery = `
-            SELECT * FROM crawler_discovered_pages 
+            SELECT id, url, title, crawler_id, status_code, content_type, 
+                   first_discovered_at as created_at, discovered_at, last_crawled_at
+            FROM crawler_discovered_pages 
             WHERE id = ANY($1)
         `;
         
