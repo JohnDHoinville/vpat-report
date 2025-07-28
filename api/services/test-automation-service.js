@@ -379,7 +379,7 @@ class TestAutomationService {
                     await browserPage.goto(page.url, { waitUntil: 'networkidle0', timeout: 30000 });
                     
                     // Wait for additional time to ensure dynamic content loads
-                    await browserPage.waitForTimeout(2000);
+                    await browserPage.evaluate(() => new Promise(resolve => setTimeout(resolve, 2000)));
                     
                     // Wait for the title to be set (either by static HTML or JavaScript)
                     await browserPage.waitForFunction(() => {
@@ -487,7 +487,7 @@ class TestAutomationService {
                     await browserPage.goto(page.url, { waitUntil: 'networkidle0', timeout: 30000 });
                     
                     // Wait for additional time to ensure dynamic content loads
-                    await browserPage.waitForTimeout(2000);
+                    await browserPage.evaluate(() => new Promise(resolve => setTimeout(resolve, 2000)));
                     
                     // Wait for the title to be set (either by static HTML or JavaScript)
                     await browserPage.waitForFunction(() => {
@@ -533,8 +533,8 @@ class TestAutomationService {
                         wait: 3000, // Wait 3 seconds after page load
                         // Custom page preparation
                         beforeScript: (page) => {
-                            // Additional wait for dynamic content
-                            return page.waitForTimeout(2000);
+                            // Additional wait for dynamic content using evaluate
+                            return page.evaluate(() => new Promise(resolve => setTimeout(resolve, 2000)));
                         }
                     });
 
