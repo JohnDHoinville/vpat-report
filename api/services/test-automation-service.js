@@ -5,9 +5,10 @@ const puppeteer = require('puppeteer');
 const { v4: uuidv4 } = require('uuid');
 
 class TestAutomationService {
-    constructor() {
+    constructor(wsService = null) {
         this.runningTests = new Map(); // Track running tests
         this.lighthouse = null; // Will be dynamically imported
+        this.wsService = wsService; // WebSocket service for real-time updates
     }
 
     /**
@@ -18,6 +19,7 @@ class TestAutomationService {
             tools = ['axe-core', 'pa11y'],
             runAsync = true,
             pages = null,
+            requirements = null,
             updateTestInstances = true,
             createEvidence = true,
             userId
@@ -38,7 +40,7 @@ class TestAutomationService {
 
             if (runAsync) {
                 // Run tests in background
-                this.runTestsInBackground(runId, sessionId, tools, pagesToTest, updateTestInstances, createEvidence, userId);
+                this.runTestsInBackground(runId, sessionId, tools, pagesToTest, updateTestInstances, createEvidence, userId, requirements);
                 
                 return {
                     run_id: runId,
@@ -48,7 +50,7 @@ class TestAutomationService {
                 };
             } else {
                 // Run tests synchronously
-                const results = await this.executeAutomatedTests(runId, sessionId, tools, pagesToTest, updateTestInstances, createEvidence, userId);
+                const results = await this.executeAutomatedTests(runId, sessionId, tools, pagesToTest, updateTestInstances, createEvidence, userId, requirements);
                 return results;
             }
 
@@ -61,7 +63,7 @@ class TestAutomationService {
     /**
      * Execute automated tests
      */
-    async executeAutomatedTests(runId, sessionId, tools, pages, updateTestInstances, createEvidence, userId) {
+    async executeAutomatedTests(runId, sessionId, tools, pages, updateTestInstances, createEvidence, userId, requirements = null) {
         const startTime = new Date();
         let totalIssues = 0;
         let criticalIssues = 0;
@@ -70,10 +72,36 @@ class TestAutomationService {
         try {
             // Update run status to in progress
             await this.updateRunStatus(runId, 'running', { started_at: startTime });
+            
+            // Mark test instances as in-progress before starting automation
+            const testInstancesMarked = await this.markTestInstancesInProgress(sessionId, userId, null, requirements);
+            console.log(`📝 Marked ${testInstancesMarked} test instances as "in_progress"`);
+            
+            // Emit automation start progress
+            this.emitProgress(sessionId, {
+                percentage: 0,
+                message: `Starting automated testing with ${tools.join(', ')}`,
+                stage: 'initializing',
+                totalTests: pages.length * tools.length,
+                completedTests: 0,
+                currentTool: '',
+                startTime: startTime.toISOString()
+            });
 
             // Run each tool
-            for (const tool of tools) {
+            for (let toolIndex = 0; toolIndex < tools.length; toolIndex++) {
+                const tool = tools[toolIndex];
                 console.log(`🔧 Running ${tool} on ${pages.length} pages`);
+                
+                // Emit tool start progress
+                this.emitProgress(sessionId, {
+                    percentage: Math.round((toolIndex / tools.length) * 100),
+                    message: `Running ${tool} accessibility tests`,
+                    stage: 'testing',
+                    currentTool: tool,
+                    completedTests: toolIndex * pages.length,
+                    totalTests: pages.length * tools.length
+                });
                 
                 switch (tool) {
                     case 'axe-core':
@@ -93,6 +121,26 @@ class TestAutomationService {
                     totalIssues += toolResults.total_violations || 0;
                     criticalIssues += toolResults.critical_violations || 0;
                 }
+                
+                // Emit tool completion progress
+                this.emitProgress(sessionId, {
+                    percentage: Math.round(((toolIndex + 1) / tools.length) * 100),
+                    message: `Completed ${tool} testing - ${totalIssues} issues found`,
+                    stage: 'processing',
+                    currentTool: tool,
+                    completedTests: (toolIndex + 1) * pages.length,
+                    totalTests: pages.length * tools.length,
+                    violationsFound: totalIssues
+                });
+                
+                // Emit testing milestone for tool completion
+                this.emitMilestone(sessionId, {
+                    type: 'tool_complete',
+                    message: `${tool} testing completed`,
+                    tool: tool,
+                    violationsFound: totalIssues - (results[tool.replace('-', '')] ? 0 : totalIssues),
+                    timeElapsed: Date.now() - startTime.getTime()
+                });
             }
 
             // Map results to test instances
@@ -116,6 +164,29 @@ class TestAutomationService {
                 test_instances_updated: testInstancesUpdated,
                 evidence_files_created: evidenceCreated,
                 raw_results: results
+            });
+            
+            // Emit completion progress
+            this.emitProgress(sessionId, {
+                percentage: 100,
+                message: `Automation completed - ${totalIssues} issues found`,
+                stage: 'completed',
+                currentTool: '',
+                completedTests: pages.length * tools.length,
+                totalTests: pages.length * tools.length,
+                violationsFound: totalIssues
+            });
+            
+            // Emit automation completion event
+            this.emitCompletion(sessionId, {
+                run_id: runId,
+                duration: completedAt - startTime,
+                pages_tested: pages.length,
+                tools_used: tools,
+                total_issues: totalIssues,
+                critical_issues: criticalIssues,
+                test_instances_updated: testInstancesUpdated,
+                evidence_files_created: evidenceCreated
             });
 
             return {
@@ -444,6 +515,82 @@ class TestAutomationService {
             console.error('Error mapping results to test instances:', error);
             return 0;
         }
+    }
+
+    /**
+     * Mark test instances as in-progress before automation starts
+     */
+    async markTestInstancesInProgress(sessionId, userId, specificInstanceIds = null, specificRequirementIds = null) {
+        let markedCount = 0;
+
+        try {
+            // Build query based on filters
+            let instancesQuery = `
+                SELECT ti.id, ti.status
+                FROM test_instances ti
+                JOIN test_requirements tr ON ti.requirement_id = tr.id
+                WHERE ti.session_id = $1
+                AND (tr.test_method = 'automated' OR tr.test_method = 'both')
+                AND ti.status IN ('pending', 'not_started', 'untestable')
+            `;
+            
+            const queryParams = [sessionId];
+            let paramCount = 1;
+            
+            // Add specific instance filter if provided
+            if (specificInstanceIds && Array.isArray(specificInstanceIds) && specificInstanceIds.length > 0) {
+                paramCount++;
+                instancesQuery += ` AND ti.id = ANY($${paramCount}::uuid[])`;
+                queryParams.push(specificInstanceIds);
+            }
+            
+            // Add specific requirement filter if provided
+            if (specificRequirementIds && Array.isArray(specificRequirementIds) && specificRequirementIds.length > 0) {
+                paramCount++;
+                instancesQuery += ` AND ti.requirement_id = ANY($${paramCount}::uuid[])`;
+                queryParams.push(specificRequirementIds);
+            }
+
+            const instancesResult = await pool.query(instancesQuery, queryParams);
+            const testInstances = instancesResult.rows;
+
+            // Update each instance to in_progress status
+            for (const instance of testInstances) {
+                await this.updateTestInstanceStatus(instance.id, 'in_progress', userId, 'Automation started');
+                markedCount++;
+            }
+
+            console.log(`📊 Marked ${markedCount} test instances as "in_progress" for automation`);
+            return markedCount;
+
+        } catch (error) {
+            console.error('Error marking test instances as in-progress:', error);
+            return 0;
+        }
+    }
+
+    /**
+     * Update test instance status
+     */
+    async updateTestInstanceStatus(instanceId, status, userId, notes = null) {
+        const query = `
+            UPDATE test_instances 
+            SET status = $1, tested_by = $2, updated_at = $3
+            ${notes ? ', notes = $4' : ''}
+            WHERE id = ${notes ? '$5' : '$4'}
+        `;
+
+        const values = notes 
+            ? [status, userId, new Date(), notes, instanceId]
+            : [status, userId, new Date(), instanceId];
+
+        await pool.query(query, values);
+
+        // Create audit log entry
+        await this.createAuditLogEntry(instanceId, 'status_change', userId, {
+            new_status: status,
+            notes: notes || `Status changed to ${status}`
+        });
     }
 
     /**
@@ -806,11 +953,11 @@ class TestAutomationService {
     /**
      * Run tests in background
      */
-    async runTestsInBackground(runId, sessionId, tools, pages, updateTestInstances, createEvidence, userId) {
+    async runTestsInBackground(runId, sessionId, tools, pages, updateTestInstances, createEvidence, userId, requirements = null) {
         this.runningTests.set(runId, { sessionId, startTime: new Date() });
         
         try {
-            await this.executeAutomatedTests(runId, sessionId, tools, pages, updateTestInstances, createEvidence, userId);
+            await this.executeAutomatedTests(runId, sessionId, tools, pages, updateTestInstances, createEvidence, userId, requirements);
         } catch (error) {
             console.error(`❌ Background test execution failed for run ${runId}:`, error);
         } finally {
@@ -827,6 +974,44 @@ class TestAutomationService {
             return total + (baseTimes[tool] || 10) * pageCount;
         }, 0);
         return `${Math.ceil(totalSeconds / 60)} minutes`;
+    }
+    
+    // ===== WEBSOCKET METHODS =====
+    
+    /**
+     * Emit automation progress via WebSocket
+     */
+    emitProgress(sessionId, progressData) {
+        if (this.wsService) {
+            this.wsService.emitSessionProgress(sessionId, null, progressData);
+        }
+    }
+    
+    /**
+     * Emit testing milestone via WebSocket
+     */
+    emitMilestone(sessionId, milestoneData) {
+        if (this.wsService) {
+            this.wsService.emitTestingMilestone(sessionId, null, milestoneData);
+        }
+    }
+    
+    /**
+     * Emit automation completion via WebSocket
+     */
+    emitCompletion(sessionId, resultsData) {
+        if (this.wsService) {
+            this.wsService.emitSessionComplete(sessionId, null, resultsData);
+        }
+    }
+    
+    /**
+     * Emit individual test results via WebSocket
+     */
+    emitTestResults(sessionId, pageId, testData) {
+        if (this.wsService) {
+            this.wsService.emitTestResults(sessionId, null, pageId, testData);
+        }
     }
 }
 

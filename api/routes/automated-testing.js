@@ -1,10 +1,13 @@
 const express = require('express');
-const router = express.Router();
 const { authenticateToken } = require('../middleware/auth');
 const TestAutomationService = require('../services/test-automation-service');
 
-// Initialize automation service
-const automationService = new TestAutomationService();
+// Export a function that creates the router with websocket service
+module.exports = function(wsService) {
+    const router = express.Router();
+    
+    // Initialize automation service with websocket support
+    const automationService = new TestAutomationService(wsService);
 
 /**
  * Trigger automated tests for a testing session
@@ -17,6 +20,7 @@ router.post('/run/:sessionId', authenticateToken, async (req, res) => {
             tools = ['axe-core', 'pa11y'], // Default tools
             run_async = true,
             pages = null, // Specific pages to test, null = all pages
+            requirements = null, // Specific requirements to test, null = all requirements
             update_test_instances = true,
             create_evidence = true 
         } = req.body;
@@ -38,6 +42,7 @@ router.post('/run/:sessionId', authenticateToken, async (req, res) => {
             tools,
             runAsync: run_async,
             pages,
+            requirements,
             updateTestInstances: update_test_instances,
             createEvidence: create_evidence,
             userId: req.user.userId
@@ -266,4 +271,54 @@ router.get('/config', authenticateToken, async (req, res) => {
     }
 });
 
-module.exports = router; 
+/**
+ * Get automation results for a specific test instance
+ * GET /api/automated-testing/results/:instanceId
+ */
+router.get('/results/:instanceId', authenticateToken, async (req, res) => {
+    try {
+        const { instanceId } = req.params;
+        
+        console.log(`🔍 Getting automation results for test instance: ${instanceId}`);
+        
+        // Query automation results from the database
+        const { pool } = require('../server');
+        
+        const query = `
+            SELECT 
+                atr.id,
+                atr.session_id,
+                atr.status,
+                atr.tools_used,
+                atr.result,
+                atr.issues_found,
+                atr.summary,
+                atr.created_at,
+                atr.completed_at,
+                atr.created_by
+            FROM automated_test_runs atr
+            JOIN test_instances ti ON ti.session_id = atr.session_id
+            WHERE ti.id = $1
+            ORDER BY atr.created_at DESC
+        `;
+        
+        const result = await pool.query(query, [instanceId]);
+        
+        res.json({
+            success: true,
+            results: result.rows,
+            count: result.rows.length,
+            message: `Found ${result.rows.length} automation results for test instance`
+        });
+
+    } catch (error) {
+        console.error('Error getting automation results:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message || 'Failed to get automation results'
+        });
+    }
+});
+
+    return router;
+}; 

@@ -39,7 +39,6 @@ const unifiedRequirementsRoutes = require('./routes/unified-requirements');
 const webCrawlersRoutes = require('./routes/web-crawlers');
 const adminRoutes = require('./routes/admin');
 const auditTrailRoutes = require('./routes/audit-trail');
-const automatedTestingRoutes = require('./routes/automated-testing');
 
 // Import services
 const WebSocketService = require('./services/websocket-service');
@@ -111,6 +110,9 @@ app.use(express.static(path.join(__dirname, '..'), {
 
 // Initialize WebSocket service
 const wsService = new WebSocketService(server);
+
+// Initialize automated testing routes with websocket support
+const automatedTestingRoutes = require('./routes/automated-testing')(wsService);
 
 // Initialize testing services
 const testingService = new SimpleTestingService(wsService);

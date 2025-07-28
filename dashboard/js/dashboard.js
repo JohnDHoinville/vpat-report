@@ -36,6 +36,7 @@ function dashboard() {
         showSessionResultsModal: false,
         showTestDetailsModal: false,
         showTestConfigurationModal: false,
+        showTestGrid: false,
         
         // ===== PROGRESS AND STATE FLAGS =====
         loading: false,
@@ -45,6 +46,12 @@ function dashboard() {
         sessionAwaitingLogin: false,
         sessionTesting: false,
         apiConnected: false,
+        
+        // ===== WEBSOCKET STATE =====
+        socket: null,
+        socketConnected: false,
+        realtimeUpdates: true,
+        automationProgress: null,
         
         // ===== FORM OBJECTS =====
         loginForm: { username: '', password: '' },
@@ -646,6 +653,7 @@ function dashboard() {
             
             this.checkAuthentication();
             this.checkApiConnection();
+            this.initWebSocket();
         },
         
         setupNestedObjectProtection() {
@@ -667,6 +675,277 @@ function dashboard() {
 
         async initAsync() {
             await this.loadInitialData();
+        },
+        
+        // ===== WEBSOCKET METHODS =====
+        
+        // Initialize WebSocket connection
+        initWebSocket() {
+            try {
+                if (this.socket) {
+                    console.log('🔌 WebSocket already connected');
+                    return;
+                }
+                
+                const token = this.getAuthToken();
+                if (!token) {
+                    console.log('⚠️ No auth token available, skipping WebSocket connection');
+                    return;
+                }
+                
+                console.log('🔌 Connecting to WebSocket...');
+                
+                this.socket = io('http://localhost:3001', {
+                    auth: { token },
+                    transports: ['websocket', 'polling']
+                });
+                
+                this.setupWebSocketEventHandlers();
+                
+            } catch (error) {
+                console.error('❌ WebSocket initialization error:', error);
+            }
+        },
+        
+        // Setup WebSocket event handlers
+        setupWebSocketEventHandlers() {
+            if (!this.socket) return;
+            
+            // Connection events
+            this.socket.on('connect', () => {
+                console.log('✅ WebSocket connected');
+                this.socketConnected = true;
+                this.wsConnected = true; // For header compatibility
+                
+                // Join current project room if we have one
+                if (this.selectedProject?.id) {
+                    this.socket.emit('join_project', this.selectedProject.id);
+                }
+                
+                // Join current session room if we have one
+                if (this.selectedTestSession?.id) {
+                    this.socket.emit('join_session', this.selectedTestSession.id);
+                }
+            });
+            
+            this.socket.on('disconnect', (reason) => {
+                console.log('🔌 WebSocket disconnected:', reason);
+                this.socketConnected = false;
+                this.wsConnected = false; // For header compatibility
+            });
+            
+            this.socket.on('connect_error', (error) => {
+                console.error('❌ WebSocket connection error:', error);
+                this.socketConnected = false;
+                this.wsConnected = false; // For header compatibility
+            });
+            
+            // Automation progress events
+            this.socket.on('session_progress', (data) => {
+                console.log('📊 Automation progress update:', data);
+                this.handleAutomationProgress(data);
+                
+                // Refresh test grid to show status changes if it's open
+                if (this.showTestGrid && this.selectedTestSession?.id === data.sessionId) {
+                    this.refreshTestGridStatuses();
+                }
+            });
+            
+            this.socket.on('session_complete', (data) => {
+                console.log('🏁 Automation completed:', data);
+                this.handleAutomationComplete(data);
+            });
+            
+            this.socket.on('testing_milestone', (data) => {
+                console.log('🎯 Testing milestone:', data);
+                this.handleTestingMilestone(data);
+            });
+            
+            this.socket.on('test_results', (data) => {
+                console.log('📊 Test results update:', data);
+                this.handleTestResults(data);
+            });
+            
+            // Project and session events
+            this.socket.on('user_joined_project', (data) => {
+                console.log('👥 User joined project:', data);
+            });
+            
+            this.socket.on('user_joined_session', (data) => {
+                console.log('👥 User joined session:', data);
+            });
+            
+            // Discovery events
+            this.socket.on('discovery_progress', (data) => {
+                console.log('🕷️ Discovery progress:', data);
+                this.handleDiscoveryProgress(data);
+            });
+            
+            this.socket.on('discovery_complete', (data) => {
+                console.log('🏁 Discovery complete:', data);
+                this.handleDiscoveryComplete(data);
+            });
+            
+            // General notifications
+            this.socket.on('notification', (data) => {
+                console.log('🔔 Notification:', data);
+                this.showNotification(data.type || 'info', data.title || 'Update', data.message);
+            });
+        },
+        
+        // Handle automation progress updates
+        handleAutomationProgress(data) {
+            if (!data || !data.progress) return;
+            
+            const progress = data.progress;
+            
+            // Update automation progress state
+            this.automationProgress = {
+                sessionId: data.sessionId,
+                percentage: progress.percentage || 0,
+                completedTests: progress.completedTests || 0,
+                totalTests: progress.totalTests || 0,
+                currentPage: progress.currentPage || '',
+                currentTool: progress.currentTool || '',
+                message: progress.message || 'Processing...',
+                stage: progress.stage || 'testing',
+                violationsFound: progress.violationsFound || 0,
+                statistics: progress.statistics || {}
+            };
+            
+            // Show real-time notification
+            if (this.realtimeUpdates) {
+                this.showNotification('info', 'Automation Progress', 
+                    `${progress.percentage}% complete - ${progress.message}`);
+            }
+            
+            // Update session details if they're open
+            if (this.selectedTestSession?.id === data.sessionId) {
+                this.refreshSessionAutomationSummary();
+            }
+        },
+        
+        // Handle automation completion
+        handleAutomationComplete(data) {
+            if (!data) return;
+            
+            console.log('🎉 Automation completed for session:', data.sessionId);
+            
+            // Reset progress state
+            this.automationProgress = null;
+            
+            // Show completion notification
+            this.showNotification('success', 'Automation Complete', 
+                `Testing completed! ${data.results?.violationsFound || 0} issues found.`);
+            
+            // Refresh relevant data
+            if (this.selectedTestSession?.id === data.sessionId) {
+                this.refreshSessionAutomationSummary();
+                // Refresh test grid if it's open
+                if (this.showTestGrid) {
+                    setTimeout(() => {
+                        this.loadTestInstancesForGrid(data.sessionId, this.testGridPagination.currentPage, true);
+                    }, 1000);
+                }
+            }
+        },
+        
+        // Handle testing milestones
+        handleTestingMilestone(data) {
+            if (!data || !data.milestone) return;
+            
+            const milestone = data.milestone;
+            console.log(`🎯 Testing milestone: ${milestone.type} - ${milestone.message}`);
+            
+            // Show milestone notifications for important events
+            if (['tool_complete', 'critical_violation', 'progress_50', 'progress_75'].includes(milestone.type)) {
+                this.showNotification('info', 'Testing Milestone', milestone.message);
+            }
+        },
+        
+        // Handle individual test results
+        handleTestResults(data) {
+            if (!data || !data.testData) return;
+            
+            console.log('📊 New test result:', data.testData);
+            
+            // If test grid is open, refresh it to show new results
+            if (this.showTestGrid && this.selectedTestSession?.id === data.sessionId) {
+                // Debounced refresh to avoid too many updates
+                clearTimeout(this.testResultsRefreshTimer);
+                this.testResultsRefreshTimer = setTimeout(() => {
+                    this.loadTestInstancesForGrid(data.sessionId, this.testGridPagination.currentPage, true);
+                }, 2000);
+            }
+        },
+        
+        // Handle discovery progress updates
+        handleDiscoveryProgress(data) {
+            if (!data || !data.progress) return;
+            
+            const progress = data.progress;
+            console.log(`🕷️ Discovery progress: ${progress.percentage}% - ${progress.pagesFound} pages found`);
+            
+            // Update discovery state if we're tracking this discovery
+            if (this.discoveryInProgress && data.discoveryId === this.currentDiscoveryId) {
+                this.discoveryProgress = {
+                    percentage: progress.percentage,
+                    pagesFound: progress.pagesFound,
+                    currentUrl: progress.currentUrl,
+                    message: progress.message
+                };
+            }
+        },
+        
+        // Handle discovery completion
+        handleDiscoveryComplete(data) {
+            if (!data) return;
+            
+            console.log('🏁 Discovery complete:', data.results);
+            
+            this.showNotification('success', 'Discovery Complete', 
+                `Found ${data.results.total_pages_found} pages`);
+            
+            // Refresh crawler data
+            this.loadCrawlerPageCounts(true);
+        },
+        
+        // Join project room for real-time updates
+        joinProjectRoom(projectId) {
+            if (this.socket && this.socketConnected && projectId) {
+                console.log('📁 Joining project room:', projectId);
+                this.socket.emit('join_project', projectId);
+            }
+        },
+        
+        // Join session room for real-time updates
+        joinSessionRoom(sessionId) {
+            if (this.socket && this.socketConnected && sessionId) {
+                console.log('🧪 Joining session room:', sessionId);
+                this.socket.emit('join_session', sessionId);
+            }
+        },
+        
+        // Refresh test grid statuses without full reload
+        refreshTestGridStatuses() {
+            // Debounced refresh to avoid too many requests
+            clearTimeout(this.statusRefreshTimer);
+            this.statusRefreshTimer = setTimeout(() => {
+                if (this.selectedTestSession?.id) {
+                    console.log('🔄 Refreshing test grid statuses...');
+                    this.loadTestInstancesForGrid(this.selectedTestSession.id, this.testGridPagination.currentPage, true);
+                }
+            }, 1000); // Wait 1 second to batch multiple status changes
+        },
+        
+        // Disconnect WebSocket
+        disconnectWebSocket() {
+            if (this.socket) {
+                console.log('🔌 Disconnecting WebSocket...');
+                this.socket.disconnect();
+                this.socket = null;
+                this.socketConnected = false;
+            }
         },
 
         syncLegacyState() {
@@ -5738,6 +6017,14 @@ function dashboard() {
             this.closeDeleteUserModal();
         },
 
+        // Close test grid modal
+        closeTestGrid() {
+            console.log('🔍 Closing test grid modal');
+            this.showTestGrid = false;
+            // Restore body scrolling
+            document.body.style.overflow = '';
+        },
+
         // Global function alias for Alpine.js calls
         showUserManagement() {
             return this.openUserManagement();
@@ -6902,20 +7189,132 @@ function dashboard() {
         // Test instance action methods
         viewTestInstanceDetails(testInstance) {
             console.log('👀 Viewing test instance details:', testInstance.id);
-            this.showNotification('info', 'Feature Coming Soon', 'Detailed test instance view will be implemented in the next update');
+            
+            // Create detailed modal content
+            const detailsHTML = `
+                <div class="space-y-4">
+                    <h3 class="text-lg font-semibold">${testInstance.criterion_number}: ${testInstance.criterion_title}</h3>
+                    <div class="grid grid-cols-2 gap-4 text-sm">
+                        <div><strong>Status:</strong> <span class="capitalize">${testInstance.status || 'pending'}</span></div>
+                        <div><strong>Level:</strong> ${testInstance.level || 'N/A'}</div>
+                        <div><strong>Test Method:</strong> ${testInstance.test_method_used || testInstance.requirement_test_method || 'Not specified'}</div>
+                        <div><strong>Assigned To:</strong> ${testInstance.assigned_tester_name || 'Unassigned'}</div>
+                        <div><strong>Page:</strong> ${testInstance.page_title || testInstance.page_url || 'N/A'}</div>
+                        <div><strong>Last Updated:</strong> ${testInstance.updated_at ? new Date(testInstance.updated_at).toLocaleDateString() : 'Never'}</div>
+                    </div>
+                    ${testInstance.notes ? `<div><strong>Notes:</strong><br/>${testInstance.notes}</div>` : ''}
+                    ${testInstance.result ? `<div><strong>Test Result:</strong><br/><pre class="text-xs bg-gray-100 p-2 rounded max-h-40 overflow-y-auto">${typeof testInstance.result === 'string' ? testInstance.result : JSON.stringify(testInstance.result, null, 2)}</pre></div>` : ''}
+                    <div class="mt-4">
+                        <button onclick="window.dashboardInstance.viewAutomationResults('${testInstance.id}')" class="px-3 py-2 text-sm bg-purple-600 text-white rounded hover:bg-purple-700">
+                            <i class="fas fa-robot mr-1"></i>View Automation Results
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            // Show modal with details
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4';
+            modal.innerHTML = `
+                <div class="bg-white rounded-lg p-6 max-w-4xl max-h-[80vh] overflow-y-auto">
+                    ${detailsHTML}
+                    <div class="mt-6 flex justify-end">
+                        <button onclick="this.closest('.fixed').remove()" class="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400">Close</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
         },
         
         editTestInstance(testInstance) {
             console.log('✏️ Editing test instance:', testInstance.id);
-            this.showNotification('info', 'Feature Coming Soon', 'Test instance editing will be implemented in the next update');
+            
+            // Create edit form modal
+            const editHTML = `
+                <div class="space-y-4">
+                    <h3 class="text-lg font-semibold">Edit Test Instance</h3>
+                    <div class="text-sm text-gray-600">${testInstance.criterion_number}: ${testInstance.criterion_title}</div>
+                    <form id="editInstanceForm" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Status</label>
+                            <select name="status" class="w-full px-3 py-2 border border-gray-300 rounded">
+                                <option value="pending" ${testInstance.status === 'pending' ? 'selected' : ''}>Pending</option>
+                                <option value="in_progress" ${testInstance.status === 'in_progress' ? 'selected' : ''}>In Progress</option>
+                                <option value="passed" ${testInstance.status === 'passed' ? 'selected' : ''}>Passed</option>
+                                <option value="failed" ${testInstance.status === 'failed' ? 'selected' : ''}>Failed</option>
+                                <option value="not_applicable" ${testInstance.status === 'not_applicable' ? 'selected' : ''}>Not Applicable</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Notes</label>
+                            <textarea name="notes" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded">${testInstance.notes || ''}</textarea>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Testing Priority</label>
+                            <select name="testing_priority" class="w-full px-3 py-2 border border-gray-300 rounded">
+                                <option value="low" ${testInstance.testing_priority === 'low' ? 'selected' : ''}>Low</option>
+                                <option value="medium" ${testInstance.testing_priority === 'medium' ? 'selected' : ''}>Medium</option>
+                                <option value="high" ${testInstance.testing_priority === 'high' ? 'selected' : ''}>High</option>
+                                <option value="critical" ${testInstance.testing_priority === 'critical' ? 'selected' : ''}>Critical</option>
+                            </select>
+                        </div>
+                    </form>
+                </div>
+            `;
+            
+            // Show modal with edit form
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4';
+            modal.innerHTML = `
+                <div class="bg-white rounded-lg p-6 max-w-2xl max-h-[80vh] overflow-y-auto">
+                    ${editHTML}
+                    <div class="mt-6 flex justify-end space-x-2">
+                        <button onclick="this.closest('.fixed').remove()" class="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400">Cancel</button>
+                        <button onclick="window.dashboardInstance.saveTestInstanceEdit('${testInstance.id}', this.closest('.fixed'))" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Save Changes</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        },
+        
+        // Save test instance edits
+        async saveTestInstanceEdit(instanceId, modal) {
+            try {
+                const form = modal.querySelector('#editInstanceForm');
+                const formData = new FormData(form);
+                const updates = Object.fromEntries(formData.entries());
+                
+                const response = await this.apiCall(`/test-instances/${instanceId}`, {
+                    method: 'PUT',
+                    body: JSON.stringify(updates)
+                });
+                
+                if (response.success) {
+                    this.showNotification('success', 'Updated', 'Test instance updated successfully');
+                    modal.remove();
+                    // Refresh the test grid
+                    this.loadTestInstancesForGrid(this.selectedTestSession.id, this.testGridPagination.currentPage, true);
+                } else {
+                    throw new Error(response.error || 'Failed to update test instance');
+                }
+            } catch (error) {
+                console.error('Error updating test instance:', error);
+                this.showNotification('error', 'Update Failed', error.message);
+            }
         },
         
         async runAutomatedTestForInstance(testInstance) {
             try {
                 console.log('🤖 Running automated test for instance:', testInstance.id);
                 
-                // Check if we have a selected session
-                if (!this.selectedTestSession) {
+                // Check if we have a selected session (try to get from test instance if not available)
+                let sessionId = this.selectedTestSession?.id;
+                if (!sessionId && testInstance.session_id) {
+                    sessionId = testInstance.session_id;
+                    console.log('🔄 Using session ID from test instance:', sessionId);
+                }
+                
+                if (!sessionId) {
                     throw new Error('No test session selected. Please open a test session first.');
                 }
                 
@@ -6923,7 +7322,7 @@ function dashboard() {
                     `Running automated test for requirement ${testInstance.criterion_number}...`);
                 
                 // Call the session-level automation API with specific pages and requirements
-                const response = await this.apiCall(`/automated-testing/run/${this.selectedTestSession.id}`, {
+                const response = await this.apiCall(`/automated-testing/run/${sessionId}`, {
                     method: 'POST',
                     body: JSON.stringify({
                         tools: ['axe-core', 'pa11y'],
@@ -6940,7 +7339,7 @@ function dashboard() {
                     
                     // Refresh the test grid to show updated results
                     setTimeout(() => {
-                        this.loadTestInstancesForGrid(this.selectedTestSession.id, this.testGridPagination.currentPage, true);
+                        this.loadTestInstancesForGrid(sessionId, this.testGridPagination.currentPage, true);
                     }, 2000);
                 } else {
                     throw new Error(response.error || 'Failed to run automated test');
@@ -7029,6 +7428,27 @@ function dashboard() {
 
         // ===== ADVANCED TEST GRID METHODS =====
         
+        // Deduplicate test instances to prevent Alpine.js key conflicts
+        deduplicateInstances(instances) {
+            const seen = new Set();
+            return instances.filter(instance => {
+                // Skip instances without valid IDs
+                if (!instance || !instance.id) {
+                    console.warn('⚠️ Skipping test instance without ID:', instance);
+                    return false;
+                }
+                
+                // Skip duplicates
+                if (seen.has(instance.id)) {
+                    console.warn('⚠️ Skipping duplicate test instance ID:', instance.id);
+                    return false;
+                }
+                
+                seen.add(instance.id);
+                return true;
+            });
+        },
+        
         // Load test instances for advanced grid (Performance Optimized)
         async loadTestInstancesForGrid(sessionId, page = 1, preserveSelection = false) {
             try {
@@ -7054,17 +7474,8 @@ function dashboard() {
                 if (response.success) {
                     const newInstances = response.test_instances || [];
                     
-                    // Performance mode: Only keep current page data
-                    if (this.testGridPerformanceMode) {
-                        this.testGridInstances = newInstances;
-                    } else {
-                        // Standard mode: Append to existing data for infinite scroll
-                        if (page === 1) {
-                            this.testGridInstances = newInstances;
-                        } else {
-                            this.testGridInstances.push(...newInstances);
-                        }
-                    }
+                    // Always replace data for proper pagination (no infinite scroll)
+                    this.testGridInstances = newInstances;
                     
                     // Update pagination info
                     this.testGridPagination = {
@@ -7084,12 +7495,18 @@ function dashboard() {
                     // Add tester names efficiently
                     this.enrichTestInstancesWithTesterNames(newInstances);
                     
+                    // Ensure unique IDs to prevent Alpine.js duplicate key warnings
+                    this.testGridInstances = this.deduplicateInstances(this.testGridInstances);
+                    
                     // Apply filters (only client-side filtering for small datasets)
                     if (!this.testGridPerformanceMode) {
                         this.applyTestGridFilters();
                     } else {
                         this.filteredTestGridInstances = [...this.testGridInstances];
                     }
+                    
+                    // Debug pagination: Log actual counts
+                    console.log(`🔍 Pagination Debug: API returned ${newInstances.length} instances, total in grid: ${this.testGridInstances.length}, filtered: ${this.filteredTestGridInstances.length}, pageSize: ${this.testGridPagination.pageSize}`);
 
                     // Preserve selection if requested
                     if (!preserveSelection) {
@@ -7761,7 +8178,164 @@ function dashboard() {
         // Add test evidence
         addTestEvidence(instance) {
             console.log('📎 Adding evidence for test instance:', instance.id);
-            this.showNotification('info', 'Feature Coming Soon', 'Evidence management will be implemented in the next update');
+            
+            // Create evidence upload modal
+            const evidenceHTML = `
+                <div class="space-y-4">
+                    <h3 class="text-lg font-semibold">Add Evidence</h3>
+                    <div class="text-sm text-gray-600">${instance.criterion_number}: ${instance.criterion_title}</div>
+                    <form id="evidenceForm" class="space-y-4" enctype="multipart/form-data">
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Evidence Type</label>
+                            <select name="evidence_type" class="w-full px-3 py-2 border border-gray-300 rounded">
+                                <option value="screenshot">Screenshot</option>
+                                <option value="document">Document</option>
+                                <option value="test_report">Test Report</option>
+                                <option value="recording">Recording</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Description</label>
+                            <textarea name="description" rows="3" placeholder="Describe what this evidence shows..." class="w-full px-3 py-2 border border-gray-300 rounded"></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">File Upload</label>
+                            <input type="file" name="evidence_file" accept=".png,.jpg,.jpeg,.pdf,.mp4,.mov,.doc,.docx" class="w-full px-3 py-2 border border-gray-300 rounded">
+                            <div class="text-xs text-gray-500 mt-1">Supported: Images, PDFs, Videos, Documents</div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">External URL (optional)</label>
+                            <input type="url" name="external_url" placeholder="https://..." class="w-full px-3 py-2 border border-gray-300 rounded">
+                        </div>
+                    </form>
+                </div>
+            `;
+            
+            // Show modal with evidence form
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4';
+            modal.innerHTML = `
+                <div class="bg-white rounded-lg p-6 max-w-2xl max-h-[80vh] overflow-y-auto">
+                    ${evidenceHTML}
+                    <div class="mt-6 flex justify-end space-x-2">
+                        <button onclick="this.closest('.fixed').remove()" class="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400">Cancel</button>
+                        <button onclick="window.dashboardInstance.saveTestEvidence('${instance.id}', this.closest('.fixed'))" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">Upload Evidence</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        },
+        
+        // View automation results for a test instance
+        async viewAutomationResults(instanceId) {
+            try {
+                console.log('🔍 Loading automation results for instance:', instanceId);
+                
+                // Get automation results from the backend
+                const response = await this.apiCall(`/automated-testing/results/${instanceId}`);
+                
+                if (response.success && response.results?.length > 0) {
+                    const results = response.results;
+                    
+                    // Create results display HTML
+                    const resultsHTML = `
+                        <div class="space-y-4">
+                            <h3 class="text-lg font-semibold flex items-center">
+                                <i class="fas fa-robot mr-2 text-purple-600"></i>
+                                Automation Results (${results.length} runs)
+                            </h3>
+                            
+                            ${results.map((result, index) => `
+                                <div class="border rounded-lg p-4 ${result.status === 'completed' ? 'bg-green-50 border-green-200' : result.status === 'failed' ? 'bg-red-50 border-red-200' : 'bg-yellow-50 border-yellow-200'}">
+                                    <div class="flex justify-between items-start mb-2">
+                                        <h4 class="font-medium">Run ${index + 1} - ${new Date(result.created_at).toLocaleString()}</h4>
+                                        <span class="text-sm px-2 py-1 rounded ${result.status === 'completed' ? 'bg-green-100 text-green-800' : result.status === 'failed' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'}">
+                                            ${result.status}
+                                        </span>
+                                    </div>
+                                    
+                                    <div class="text-sm space-y-2">
+                                        <div><strong>Tools Used:</strong> ${result.tools_used ? JSON.parse(result.tools_used).join(', ') : 'N/A'}</div>
+                                        ${result.issues_found ? `<div><strong>Issues Found:</strong> ${result.issues_found}</div>` : ''}
+                                        ${result.summary ? `<div><strong>Summary:</strong> ${result.summary}</div>` : ''}
+                                        
+                                        ${result.result ? `
+                                            <details class="mt-2">
+                                                <summary class="cursor-pointer font-medium">View Detailed Results</summary>
+                                                <pre class="text-xs bg-gray-100 p-2 rounded mt-2 max-h-60 overflow-y-auto">${typeof result.result === 'string' ? result.result : JSON.stringify(result.result, null, 2)}</pre>
+                                            </details>
+                                        ` : ''}
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    `;
+                    
+                    // Show results modal
+                    const modal = document.createElement('div');
+                    modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4';
+                    modal.innerHTML = `
+                        <div class="bg-white rounded-lg p-6 max-w-4xl max-h-[80vh] overflow-y-auto">
+                            ${resultsHTML}
+                            <div class="mt-6 flex justify-end">
+                                <button onclick="this.closest('.fixed').remove()" class="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400">Close</button>
+                            </div>
+                        </div>
+                    `;
+                    document.body.appendChild(modal);
+                    
+                } else {
+                    this.showNotification('info', 'No Results', 'No automation results found for this test instance. Try running automation first.');
+                }
+                
+            } catch (error) {
+                console.error('Error loading automation results:', error);
+                this.showNotification('error', 'Loading Failed', 'Failed to load automation results');
+            }
+        },
+        
+        // Save test evidence
+        async saveTestEvidence(instanceId, modal) {
+            try {
+                const form = modal.querySelector('#evidenceForm');
+                const formData = new FormData(form);
+                formData.append('test_instance_id', instanceId);
+                
+                // For now, simulate evidence upload (can be enhanced with actual file upload)
+                const evidenceData = {
+                    test_instance_id: instanceId,
+                    evidence_type: formData.get('evidence_type'),
+                    description: formData.get('description'),
+                    external_url: formData.get('external_url'),
+                    file_name: formData.get('evidence_file')?.name || null,
+                    created_by: this.currentUser?.userId,
+                    created_at: new Date().toISOString()
+                };
+                
+                // TODO: Implement actual file upload to server
+                console.log('Evidence data to save:', evidenceData);
+                
+                this.showNotification('success', 'Evidence Added', 'Evidence has been recorded for this test instance');
+                modal.remove();
+                
+                // Add evidence note to the test instance
+                const noteUpdate = {
+                    notes: `Evidence added: ${evidenceData.evidence_type} - ${evidenceData.description}${evidenceData.external_url ? ' (URL: ' + evidenceData.external_url + ')' : ''}`
+                };
+                
+                await this.apiCall(`/test-instances/${instanceId}`, {
+                    method: 'PUT',
+                    body: JSON.stringify(noteUpdate)
+                });
+                
+                // Refresh the test grid
+                this.loadTestInstancesForGrid(this.selectedTestSession.id, this.testGridPagination.currentPage, true);
+                
+            } catch (error) {
+                console.error('Error adding evidence:', error);
+                this.showNotification('error', 'Upload Failed', error.message);
+            }
         },
 
         // ===== ENHANCED SESSION MODAL METHODS =====
@@ -8905,6 +9479,9 @@ function dashboard() {
     // Session Wizard Global Functions
     window.openSessionWizard = () => componentInstance.openSessionWizard();
     window.closeSessionWizard = () => componentInstance.closeSessionWizard();
+    
+    // Global dashboard instance for modal access
+    window.dashboardInstance = componentInstance;
     
     return componentInstance;
 }
