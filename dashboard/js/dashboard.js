@@ -6863,6 +6863,402 @@ window.dashboard = function() {
             };
             return descriptions[method] || 'Test method not specified';
         },
+
+        getProposedTools(requirement) {
+            if (!requirement) {
+                return [];
+            }
+            
+            let tools = [];
+            
+            // First, try to get tools from the requirement's automated_tools (shows all available tools)
+            if (requirement.automated_tools) {
+                try {
+                    if (typeof requirement.automated_tools === 'string') {
+                        tools = JSON.parse(requirement.automated_tools);
+                    } else if (Array.isArray(requirement.automated_tools)) {
+                        tools = requirement.automated_tools;
+                    }
+                } catch (e) {
+                    console.warn('Error parsing automated_tools for requirement:', requirement.criterion_number, e);
+                }
+            }
+            
+            // If no tools from requirement, check if there's a specific tool used for this test instance
+            if (tools.length === 0 && requirement.tool_used) {
+                tools = [requirement.tool_used];
+            }
+            
+            // If no tools from requirement or specific tool, try to extract from test result
+            if (tools.length === 0 && requirement.result) {
+                try {
+                    const result = typeof requirement.result === 'string' ? JSON.parse(requirement.result) : requirement.result;
+                    if (result.automated_analysis && result.automated_analysis.tools_used) {
+                        tools = result.automated_analysis.tools_used;
+                    } else if (result.automated_analysis && result.automated_analysis.tool_results) {
+                        tools = Object.keys(result.automated_analysis.tool_results);
+                    }
+                } catch (e) {
+                    console.warn('Error parsing result for tools:', e);
+                }
+            }
+            
+            // Map tool names to display names
+            const toolDisplayNames = {
+                'axe-core': 'Axe Core',
+                'axe': 'Axe Core',
+                'pa11y': 'Pa11y',
+                'lighthouse': 'Lighthouse',
+                'WAVE': 'WAVE',
+                'wave': 'WAVE',
+                'color-contrast-analyzer': 'Color Contrast',
+                'CCA': 'Color Contrast',
+                'luma': 'Luma',
+                'ANDI': 'ANDI',
+                'htmlcs': 'HTML CodeSniffer'
+            };
+            
+            return tools.map(tool => toolDisplayNames[tool] || tool);
+        },
+
+        getAutomationConfidenceClass(confidence) {
+            const classes = {
+                'high': 'bg-green-100 text-green-800',
+                'medium': 'bg-yellow-100 text-yellow-800',
+                'low': 'bg-orange-100 text-orange-800',
+                'none': 'bg-gray-100 text-gray-600'
+            };
+            return classes[confidence] || 'bg-gray-100 text-gray-600';
+        },
+
+        getAutomationConfidenceDisplay(confidence) {
+            const displays = {
+                'high': 'High Confidence',
+                'medium': 'Medium Confidence',
+                'low': 'Low Confidence',
+                'none': 'No Automation'
+            };
+            return displays[confidence] || 'Unknown';
+        },
+
+        getToolDescription(tool) {
+            const descriptions = {
+                'Axe Core': 'Comprehensive accessibility testing with 70+ rules. Zero false positives by design.',
+                'Pa11y': 'Command-line accessibility testing tool with multiple output formats.',
+                'Lighthouse': 'Google\'s automated auditing tool for performance and accessibility.',
+                'WAVE': 'Web Accessibility Evaluation Tool with visual feedback and detailed reporting.',
+                'Color Contrast': 'Specialized tool for precise color contrast verification.',
+                'Luma': 'Specialized tool for detecting flashing content and seizure triggers.',
+                'ANDI': 'Accessible Name & Description Inspector for screen reader analysis.',
+                'HTML CodeSniffer': 'HTML validation tool with accessibility rule checking.'
+            };
+            return descriptions[tool] || `${tool} - Automated accessibility testing tool`;
+        },
+
+        async loadSpecializedAnalysis(instanceId) {
+            try {
+                const response = await this.apiCall(`/api/automated-testing/specialized-analysis/${instanceId}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    return data;
+                } else {
+                    console.error('Failed to load specialized analysis:', response.statusText);
+                    return null;
+                }
+            } catch (error) {
+                console.error('Error loading specialized analysis:', error);
+                return null;
+            }
+        },
+
+        async loadRemediationGuidance(sessionId, page = 1) {
+            try {
+                const response = await this.apiCall(`/api/automated-testing/remediation-guidance/${sessionId}?page=${page}&limit=50`);
+                if (response.ok) {
+                    const data = await response.json();
+                    return data;
+                } else {
+                    console.error('Failed to load remediation guidance:', response.statusText);
+                    return null;
+                }
+            } catch (error) {
+                console.error('Error loading remediation guidance:', error);
+                return null;
+            }
+        },
+
+        async viewSpecializedAnalysis(instanceId) {
+            const analysis = await this.loadSpecializedAnalysis(instanceId);
+            if (analysis) {
+                this.currentSpecializedAnalysis = analysis;
+                this.showSpecializedAnalysisModal = true;
+            } else {
+                this.showNotification('error', 'Error', 'Failed to load specialized analysis data');
+            }
+        },
+
+        async viewRemediationGuidance(sessionId) {
+            const guidance = await this.loadRemediationGuidance(sessionId);
+            if (guidance) {
+                this.currentRemediationGuidance = guidance;
+                this.showRemediationGuidanceModal = true;
+            } else {
+                this.showNotification('error', 'Error', 'Failed to load remediation guidance');
+            }
+        },
+
+        getRemediationPriorityClass(priority) {
+            const classes = {
+                'critical': 'bg-red-100 text-red-800 border-red-300',
+                'high': 'bg-orange-100 text-orange-800 border-orange-300',
+                'medium': 'bg-yellow-100 text-yellow-800 border-yellow-300',
+                'low': 'bg-blue-100 text-blue-800 border-blue-300'
+            };
+            return classes[priority] || 'bg-gray-100 text-gray-800 border-gray-300';
+        },
+
+        getRemediationPriorityIcon(priority) {
+            const icons = {
+                'critical': '🚨',
+                'high': '⚠️',
+                'medium': '⚡',
+                'low': 'ℹ️'
+            };
+            return icons[priority] || '📋';
+        },
+
+        formatAuditLogEntry(entry) {
+            if (!entry.metadata) {
+                return `<div class="text-sm text-gray-600">${entry.reason || 'No details available'}</div>`;
+            }
+
+            let metadata;
+            try {
+                metadata = typeof entry.metadata === 'string' ? JSON.parse(entry.metadata) : entry.metadata;
+            } catch (e) {
+                return `<div class="text-sm text-gray-600">${entry.reason || 'Invalid metadata'}</div>`;
+            }
+
+            let html = '<div class="space-y-2">';
+            
+            // Basic action info
+            html += `<div class="text-sm font-medium text-gray-700">${entry.action_type.replace(/_/g, ' ').toUpperCase()}</div>`;
+            if (entry.reason) {
+                html += `<div class="text-sm text-gray-600">${entry.reason}</div>`;
+            }
+
+            // Automated analysis summary
+            if (metadata.automated_analysis) {
+                const analysis = metadata.automated_analysis;
+                html += `<div class="bg-blue-50 p-2 rounded text-xs">
+                    <div class="font-medium text-blue-800 mb-1">Automated Analysis Summary</div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div><span class="font-medium">Tools:</span> ${analysis.tools_used.join(', ')}</div>
+                        <div><span class="font-medium">Violations:</span> ${analysis.total_violations} (${analysis.critical_violations} critical)</div>
+                        ${analysis.test_timestamp ? `<div><span class="font-medium">Tested:</span> ${new Date(analysis.test_timestamp).toLocaleString()}</div>` : ''}
+                        ${analysis.test_duration_ms ? `<div><span class="font-medium">Duration:</span> ${Math.round(analysis.test_duration_ms / 1000)}s</div>` : ''}
+                    </div>
+                </div>`;
+            }
+
+            // Specialized analysis details
+            if (metadata.specialized_analysis) {
+                const specialized = metadata.specialized_analysis;
+                
+                if (specialized.contrast) {
+                    const contrast = specialized.contrast;
+                    html += `<div class="bg-green-50 p-2 rounded text-xs">
+                        <div class="font-medium text-green-800 mb-1">🎨 Color Contrast Analysis</div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div><span class="font-medium">Elements:</span> ${contrast.total_elements_tested}</div>
+                            <div><span class="font-medium">AA Violations:</span> <span class="${contrast.aa_violations > 0 ? 'text-red-600' : 'text-green-600'}">${contrast.aa_violations}</span></div>
+                            <div><span class="font-medium">AAA Violations:</span> <span class="${contrast.aaa_violations > 0 ? 'text-red-600' : 'text-green-600'}">${contrast.aaa_violations}</span></div>
+                            <div><span class="font-medium">Worst Ratio:</span> ${contrast.worst_contrast_ratio.toFixed(2)}:1</div>
+                        </div>
+                    </div>`;
+                }
+
+                if (specialized.flash) {
+                    const flash = specialized.flash;
+                    const riskColor = flash.seizure_risk_level === 'high' ? 'text-red-600' : 
+                                    flash.seizure_risk_level === 'medium' ? 'text-orange-600' : 'text-green-600';
+                    
+                    html += `<div class="bg-purple-50 p-2 rounded text-xs">
+                        <div class="font-medium text-purple-800 mb-1">⚡ Flash Analysis</div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div><span class="font-medium">Flashes:</span> ${flash.total_flashes_detected}</div>
+                            <div><span class="font-medium">Critical:</span> <span class="${flash.critical_flashes > 0 ? 'text-red-600' : 'text-green-600'}">${flash.critical_flashes}</span></div>
+                            <div><span class="font-medium">Rate:</span> ${flash.flash_rate.toFixed(1)}/sec</div>
+                            <div><span class="font-medium">Risk:</span> <span class="${riskColor}">${flash.seizure_risk_level.toUpperCase()}</span></div>
+                        </div>
+                    </div>`;
+                }
+            }
+
+            // Remediation guidance summary
+            if (metadata.remediation_guidance) {
+                const guidance = metadata.remediation_guidance;
+                html += `<div class="bg-yellow-50 p-2 rounded text-xs">
+                    <div class="font-medium text-yellow-800 mb-1">🛠️ Remediation Items</div>
+                    <div class="grid grid-cols-3 gap-2">
+                        <div><span class="font-medium">Total:</span> ${guidance.count}</div>
+                        <div><span class="font-medium">Critical:</span> <span class="${guidance.critical_count > 0 ? 'text-red-600' : 'text-green-600'}">${guidance.critical_count}</span></div>
+                        <div><span class="font-medium">High:</span> <span class="${guidance.high_count > 0 ? 'text-orange-600' : 'text-green-600'}">${guidance.high_count}</span></div>
+                    </div>
+                </div>`;
+            }
+
+            html += '</div>';
+            return html;
+        },
+
+        formatTestResult(result) {
+            if (!result) return '<span class="text-gray-500">No result data</span>';
+            
+            let parsedResult;
+            try {
+                parsedResult = typeof result === 'string' ? JSON.parse(result) : result;
+            } catch (e) {
+                return `<pre class="text-xs bg-gray-100 p-2 rounded max-h-40 overflow-y-auto">${result}</pre>`;
+            }
+
+            if (!parsedResult.automated_analysis) {
+                return `<pre class="text-xs bg-gray-100 p-2 rounded max-h-40 overflow-y-auto">${JSON.stringify(parsedResult, null, 2)}</pre>`;
+            }
+
+            const analysis = parsedResult.automated_analysis;
+            let html = '<div class="bg-gray-50 p-3 rounded-lg text-sm">';
+            
+            // Summary
+            html += `<div class="mb-3">
+                <div class="flex items-center gap-4 mb-2">
+                    <span class="font-semibold text-gray-700">Test Summary:</span>
+                    <span class="px-2 py-1 text-xs rounded ${analysis.total_violations > 0 ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}">
+                        ${analysis.total_violations} violation${analysis.total_violations !== 1 ? 's' : ''} found
+                    </span>
+                    ${analysis.critical_violations > 0 ? `<span class="px-2 py-1 text-xs rounded bg-orange-100 text-orange-700">${analysis.critical_violations} critical</span>` : ''}
+                </div>
+                <div class="text-xs text-gray-600">Tools used: ${analysis.tools_used ? analysis.tools_used.join(', ') : 'N/A'}</div>
+                ${analysis.test_timestamp ? `<div class="text-xs text-gray-500">Tested: ${new Date(analysis.test_timestamp).toLocaleString()}</div>` : ''}
+            </div>`;
+
+            // Specialized Analysis Section
+            if (analysis.specialized_analysis) {
+                html += '<div class="mb-4 border-t border-gray-200 pt-3">';
+                html += '<h4 class="font-semibold text-gray-700 mb-2">Specialized Analysis</h4>';
+                
+                // Color Contrast Analysis
+                if (analysis.specialized_analysis.contrast) {
+                    const contrast = analysis.specialized_analysis.contrast;
+                    html += `<div class="mb-3 p-3 bg-blue-50 rounded border-l-4 border-blue-400">
+                        <div class="font-medium text-blue-800 mb-2">🎨 Color Contrast Analysis</div>
+                        <div class="grid grid-cols-2 gap-2 text-xs">
+                            <div><span class="font-medium">Elements Tested:</span> ${contrast.total_elements_tested}</div>
+                            <div><span class="font-medium">AA Violations:</span> <span class="${contrast.aa_violations > 0 ? 'text-red-600' : 'text-green-600'}">${contrast.aa_violations}</span></div>
+                            <div><span class="font-medium">AAA Violations:</span> <span class="${contrast.aaa_violations > 0 ? 'text-red-600' : 'text-green-600'}">${contrast.aaa_violations}</span></div>
+                            <div><span class="font-medium">Worst Ratio:</span> ${contrast.worst_contrast_ratio.toFixed(2)}:1</div>
+                            <div><span class="font-medium">Average Ratio:</span> ${contrast.average_contrast_ratio.toFixed(2)}:1</div>
+                        </div>
+                    </div>`;
+                }
+
+                // Flash Analysis
+                if (analysis.specialized_analysis.flash) {
+                    const flash = analysis.specialized_analysis.flash;
+                    const riskColor = flash.seizure_risk_level === 'high' ? 'text-red-600' : 
+                                    flash.seizure_risk_level === 'medium' ? 'text-orange-600' : 'text-green-600';
+                    
+                    html += `<div class="mb-3 p-3 bg-purple-50 rounded border-l-4 border-purple-400">
+                        <div class="font-medium text-purple-800 mb-2">⚡ Flash & Animation Analysis</div>
+                        <div class="grid grid-cols-2 gap-2 text-xs">
+                            <div><span class="font-medium">Total Flashes:</span> ${flash.total_flashes_detected}</div>
+                            <div><span class="font-medium">Critical Flashes:</span> <span class="${flash.critical_flashes > 0 ? 'text-red-600' : 'text-green-600'}">${flash.critical_flashes}</span></div>
+                            <div><span class="font-medium">Flash Rate:</span> ${flash.flash_rate.toFixed(1)}/sec</div>
+                            <div><span class="font-medium">Seizure Risk:</span> <span class="${riskColor}">${flash.seizure_risk_level.toUpperCase()}</span></div>
+                            <div><span class="font-medium">Animation Violations:</span> <span class="${flash.animation_violations > 0 ? 'text-red-600' : 'text-green-600'}">${flash.animation_violations}</span></div>
+                        </div>
+                    </div>`;
+                }
+                
+                html += '</div>';
+            }
+
+            // Remediation Guidance Section
+            if (analysis.remediation_guidance && analysis.remediation_guidance.length > 0) {
+                html += '<div class="mb-4 border-t border-gray-200 pt-3">';
+                html += '<h4 class="font-semibold text-gray-700 mb-2">🛠️ Remediation Guidance</h4>';
+                
+                analysis.remediation_guidance.forEach((guidance, index) => {
+                    const priorityColor = guidance.priority === 'critical' ? 'bg-red-100 border-red-300 text-red-800' :
+                                        guidance.priority === 'high' ? 'bg-orange-100 border-orange-300 text-orange-800' :
+                                        'bg-yellow-100 border-yellow-300 text-yellow-800';
+                    
+                    html += `<div class="mb-2 p-2 rounded border-l-4 ${priorityColor}">
+                        <div class="flex items-start gap-2">
+                            <span class="text-xs px-1 py-0.5 rounded ${priorityColor.replace('bg-', 'bg-').replace('text-', 'text-')}">${guidance.priority.toUpperCase()}</span>
+                            <div class="flex-1 text-xs">
+                                <div class="font-medium mb-1">${guidance.requirement}: ${guidance.guidance}</div>
+                                <div class="text-gray-600">Tool: ${guidance.tool}</div>
+                                ${guidance.affected_elements && guidance.affected_elements.length > 0 ? 
+                                    `<div class="text-gray-500 mt-1">Affected: ${guidance.affected_elements.length} element${guidance.affected_elements.length !== 1 ? 's' : ''}</div>` : ''}
+                            </div>
+                        </div>
+                    </div>`;
+                });
+                
+                html += '</div>';
+            }
+
+            // Tool Results
+            if (analysis.tool_results) {
+                for (const [toolName, toolData] of Object.entries(analysis.tool_results)) {
+                    html += `<div class="mb-3 border-l-2 border-blue-200 pl-3">
+                        <div class="font-medium text-blue-700 mb-1">${toolName.toUpperCase()} Results</div>`;
+                    
+                    if (toolData.violations !== undefined) {
+                        html += `<div class="text-xs text-gray-600 mb-2">${toolData.violations} violations (${toolData.critical || 0} critical)</div>`;
+                    }
+
+                    // Show page-specific results
+                    if (toolData.pages && Array.isArray(toolData.pages)) {
+                        toolData.pages.forEach(page => {
+                            if (page.details && Array.isArray(page.details) && page.details.length > 0) {
+                                html += `<div class="mb-2">
+                                    <div class="text-xs font-medium text-gray-700 mb-1">Page: ${page.url}</div>`;
+                                
+                                page.details.forEach((violation, index) => {
+                                    const severity = violation.type === 'error' || violation.critical ? 'critical' : 'warning';
+                                    const severityColor = severity === 'critical' ? 'text-red-600' : 'text-yellow-600';
+                                    
+                                    html += `<div class="mb-2 p-2 bg-white rounded border-l-2 ${severity === 'critical' ? 'border-red-300' : 'border-yellow-300'}">
+                                        <div class="flex items-start gap-2">
+                                            <span class="text-xs px-1 py-0.5 rounded ${severity === 'critical' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}">${severity.toUpperCase()}</span>
+                                            <div class="flex-1 text-xs">
+                                                <div class="font-medium ${severityColor} mb-1">${violation.message || 'Accessibility violation found'}</div>
+                                                ${violation.code ? `<div class="text-gray-600 mb-1">Rule: ${violation.code}</div>` : ''}
+                                                ${violation.selector ? `<div class="text-gray-500">Element: <code class="bg-gray-100 px-1 rounded">${violation.selector}</code></div>` : ''}
+                                            </div>
+                                        </div>
+                                    </div>`;
+                                });
+                                
+                                html += '</div>';
+                            }
+                        });
+                    } else if (toolData.details) {
+                        // Handle direct details format
+                        html += `<div class="text-xs bg-white p-2 rounded border max-h-32 overflow-y-auto">
+                            <pre class="whitespace-pre-wrap text-gray-600">${JSON.stringify(toolData.details, null, 2)}</pre>
+                        </div>`;
+                    }
+                    
+                    html += '</div>';
+                }
+            }
+
+            html += '</div>';
+            return html;
+        },
         
         // Get conformance level badge class for session header
         getConformanceLevelBadgeClass(level) {
@@ -9737,85 +10133,7 @@ window.dashboard = function() {
         this.showNotification('info', 'Item Details', `Full details for ${item.action_type} action`);
     };
 
-    componentInstance.formatTestResult = function(result) {
-        if (!result) return '<span class="text-gray-500">No result data</span>';
-        
-        let parsedResult;
-        try {
-            parsedResult = typeof result === 'string' ? JSON.parse(result) : result;
-        } catch (e) {
-            return `<pre class="text-xs bg-gray-100 p-2 rounded max-h-40 overflow-y-auto">${result}</pre>`;
-        }
 
-        if (!parsedResult.automated_analysis) {
-            return `<pre class="text-xs bg-gray-100 p-2 rounded max-h-40 overflow-y-auto">${JSON.stringify(parsedResult, null, 2)}</pre>`;
-        }
-
-        const analysis = parsedResult.automated_analysis;
-        let html = '<div class="bg-gray-50 p-3 rounded-lg text-sm">';
-        
-        // Summary
-        html += `<div class="mb-3">
-            <div class="flex items-center gap-4 mb-2">
-                <span class="font-semibold text-gray-700">Test Summary:</span>
-                <span class="px-2 py-1 text-xs rounded ${analysis.total_violations > 0 ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}">
-                    ${analysis.total_violations} violation${analysis.total_violations !== 1 ? 's' : ''} found
-                </span>
-                ${analysis.critical_violations > 0 ? `<span class="px-2 py-1 text-xs rounded bg-orange-100 text-orange-700">${analysis.critical_violations} critical</span>` : ''}
-            </div>
-            <div class="text-xs text-gray-600">Tools used: ${analysis.tools_used ? analysis.tools_used.join(', ') : 'N/A'}</div>
-        </div>`;
-
-        // Tool Results
-        if (analysis.tool_results) {
-            for (const [toolName, toolData] of Object.entries(analysis.tool_results)) {
-                html += `<div class="mb-3 border-l-2 border-blue-200 pl-3">
-                    <div class="font-medium text-blue-700 mb-1">${toolName.toUpperCase()} Results</div>`;
-                
-                if (toolData.violations !== undefined) {
-                    html += `<div class="text-xs text-gray-600 mb-2">${toolData.violations} violations (${toolData.critical || 0} critical)</div>`;
-                }
-
-                // Show page-specific results
-                if (toolData.pages && Array.isArray(toolData.pages)) {
-                    toolData.pages.forEach(page => {
-                        if (page.details && Array.isArray(page.details) && page.details.length > 0) {
-                            html += `<div class="mb-2">
-                                <div class="text-xs font-medium text-gray-700 mb-1">Page: ${page.url}</div>`;
-                            
-                            page.details.forEach((violation, index) => {
-                                const severity = violation.type === 'error' || violation.critical ? 'critical' : 'warning';
-                                const severityColor = severity === 'critical' ? 'text-red-600' : 'text-yellow-600';
-                                
-                                html += `<div class="mb-2 p-2 bg-white rounded border-l-2 ${severity === 'critical' ? 'border-red-300' : 'border-yellow-300'}">
-                                    <div class="flex items-start gap-2">
-                                        <span class="text-xs px-1 py-0.5 rounded ${severity === 'critical' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}">${severity.toUpperCase()}</span>
-                                        <div class="flex-1 text-xs">
-                                            <div class="font-medium ${severityColor} mb-1">${violation.message || 'Accessibility violation found'}</div>
-                                            ${violation.code ? `<div class="text-gray-600 mb-1">Rule: ${violation.code}</div>` : ''}
-                                            ${violation.selector ? `<div class="text-gray-500">Element: <code class="bg-gray-100 px-1 rounded">${violation.selector}</code></div>` : ''}
-                                        </div>
-                                    </div>
-                                </div>`;
-                            });
-                            
-                            html += '</div>';
-                        }
-                    });
-                } else if (toolData.details) {
-                    // Handle direct details format
-                    html += `<div class="text-xs bg-white p-2 rounded border max-h-32 overflow-y-auto">
-                        <pre class="whitespace-pre-wrap text-gray-600">${JSON.stringify(toolData.details, null, 2)}</pre>
-                    </div>`;
-                }
-                
-                html += '</div>';
-            }
-        }
-
-        html += '</div>';
-        return html;
-    };
 
     // Add saveTestEvidence function to the component instance
     componentInstance.saveTestEvidence = async function(instanceId, modal) {

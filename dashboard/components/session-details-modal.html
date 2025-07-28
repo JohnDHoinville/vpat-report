@@ -770,8 +770,30 @@
                                                     
                                                     <!-- Test Method -->
                                                     <td class="px-6 py-4 whitespace-nowrap">
-                                                        <span :class="getTestMethodBadgeClass(requirement.test_method) + ' px-2 py-1 text-xs font-medium rounded-full'" 
-                                                              x-text="(requirement.test_method || 'manual').charAt(0).toUpperCase() + (requirement.test_method || 'manual').slice(1)"></span>
+                                                        <div class="space-y-1">
+                                                            <span :class="getTestMethodBadgeClass(requirement.test_method) + ' px-2 py-1 text-xs font-medium rounded-full'" 
+                                                                  x-text="(requirement.test_method || 'manual').charAt(0).toUpperCase() + (requirement.test_method || 'manual').slice(1)"></span>
+                                                            
+                                                            <!-- Proposed Tools for Automated/Hybrid -->
+                                                            <div x-show="requirement.test_method === 'automated' || requirement.test_method === 'both'" class="mt-1">
+                                                                <div class="flex items-center justify-between mb-1">
+                                                                    <div class="text-xs text-gray-600 font-medium">Proposed Tools:</div>
+                                                                    <div class="flex items-center">
+                                                                        <span :class="getAutomationConfidenceClass(requirement.automation_confidence) + ' px-1 py-0.5 text-xs font-medium rounded'" 
+                                                                              x-text="getAutomationConfidenceDisplay(requirement.automation_confidence)"></span>
+                                                                    </div>
+                                                                </div>
+                                                                <div class="flex flex-wrap gap-1">
+                                                                    <template x-for="tool in getProposedTools(requirement)" :key="tool">
+                                                                        <span class="inline-flex items-center px-2 py-1 text-xs font-medium bg-blue-50 text-blue-700 rounded border border-blue-200 hover:bg-blue-100 transition-colors cursor-help"
+                                                                              :title="getToolDescription(tool)">
+                                                                            <i class="fas fa-tools mr-1"></i>
+                                                                            <span x-text="tool"></span>
+                                                                        </span>
+                                                                    </template>
+                                                                </div>
+                                                            </div>
+                                                        </div>
                                                     </td>
                                                     
                                                     <!-- Automated Results -->

@@ -3,6 +3,8 @@ const axeCore = require('axe-core');
 const pa11y = require('pa11y');
 const puppeteer = require('puppeteer');
 const { v4: uuidv4 } = require('uuid');
+const path = require('path');
+const fs = require('fs');
 
 class TestAutomationService {
     constructor(wsService = null) {
@@ -752,6 +754,8 @@ class TestAutomationService {
         let totalViolations = 0;
         let criticalViolations = 0;
         let toolResults = {};
+        let specializedAnalysis = {};
+        let remediationGuidance = [];
 
         // Check each tool's results
         for (const tool of automated_tools) {
@@ -767,6 +771,71 @@ class TestAutomationService {
                 
                 totalViolations += toolResult.total_violations || 0;
                 criticalViolations += toolResult.critical_violations || 0;
+
+                // Handle specialized tool results
+                if (tool === 'color-contrast-analyzer' && toolResult.contrast_analysis) {
+                    specializedAnalysis.contrast = {
+                        total_elements_tested: toolResult.total_elements_tested || 0,
+                        aa_violations: toolResult.aa_violations || 0,
+                        aaa_violations: toolResult.aaa_violations || 0,
+                        detailed_analysis: toolResult.contrast_analysis || {},
+                        worst_contrast_ratio: toolResult.worst_contrast_ratio || 0,
+                        average_contrast_ratio: toolResult.average_contrast_ratio || 0
+                    };
+
+                    // Generate contrast-specific remediation guidance
+                    if (toolResult.aa_violations > 0) {
+                        remediationGuidance.push({
+                            tool: 'color-contrast-analyzer',
+                            requirement: '1.4.3',
+                            priority: 'high',
+                            guidance: `Increase text contrast to meet WCAG AA standards (4.5:1 for normal text, 3:1 for large text). Found ${toolResult.aa_violations} AA violations.`,
+                            affected_elements: toolResult.aa_violation_elements || []
+                        });
+                    }
+
+                    if (toolResult.aaa_violations > 0) {
+                        remediationGuidance.push({
+                            tool: 'color-contrast-analyzer',
+                            requirement: '1.4.6',
+                            priority: 'medium',
+                            guidance: `Increase text contrast to meet WCAG AAA standards (7:1 for normal text, 4.5:1 for large text). Found ${toolResult.aaa_violations} AAA violations.`,
+                            affected_elements: toolResult.aaa_violation_elements || []
+                        });
+                    }
+                }
+
+                if (tool === 'luma' && toolResult.flash_analysis) {
+                    specializedAnalysis.flash = {
+                        total_flashes_detected: toolResult.total_flashes_detected || 0,
+                        critical_flashes: toolResult.critical_flashes || 0,
+                        flash_rate: toolResult.flash_rate || 0,
+                        seizure_risk_level: toolResult.seizure_risk_level || 'low',
+                        detailed_analysis: toolResult.flash_analysis || {},
+                        animation_violations: toolResult.animation_violations || 0
+                    };
+
+                    // Generate flash-specific remediation guidance
+                    if (toolResult.critical_flashes > 0) {
+                        remediationGuidance.push({
+                            tool: 'luma',
+                            requirement: '2.3.1',
+                            priority: 'critical',
+                            guidance: `CRITICAL: Reduce flash frequency to maximum 3 flashes per second. Found ${toolResult.critical_flashes} critical flashes that could trigger seizures.`,
+                            affected_elements: toolResult.critical_flash_elements || []
+                        });
+                    }
+
+                    if (toolResult.animation_violations > 0) {
+                        remediationGuidance.push({
+                            tool: 'luma',
+                            requirement: '2.2.2',
+                            priority: 'high',
+                            guidance: `Provide pause/stop controls for auto-playing animations. Found ${toolResult.animation_violations} animation violations.`,
+                            affected_elements: toolResult.animation_violation_elements || []
+                        });
+                    }
+                }
             }
         }
 
@@ -791,10 +860,14 @@ class TestAutomationService {
                     total_violations: totalViolations,
                     critical_violations: criticalViolations,
                     tools_used: automated_tools,
-                    tool_results: toolResults
+                    tool_results: toolResults,
+                    specialized_analysis: specializedAnalysis,
+                    remediation_guidance: remediationGuidance,
+                    test_timestamp: new Date().toISOString(),
+                    test_duration_ms: results.test_duration_ms || 0
                 }
             }),
-            notes: `Automated testing completed. ${totalViolations} total violations found (${criticalViolations} critical).`
+            notes: `Automated testing completed. ${totalViolations} total violations found (${criticalViolations} critical). ${remediationGuidance.length} remediation items identified.`
         };
     }
 
@@ -836,6 +909,46 @@ class TestAutomationService {
             return; // Skip audit logging if no session found
         }
 
+        // Enhanced metadata for specialized tools
+        let enhancedMetadata = {
+            action_type: actionType,
+            timestamp: new Date().toISOString(),
+            user_id: userId
+        };
+
+        // Add specialized analysis data to audit log
+        if (data.result) {
+            try {
+                const resultData = typeof data.result === 'string' ? JSON.parse(data.result) : data.result;
+                if (resultData.automated_analysis) {
+                    enhancedMetadata.automated_analysis = {
+                        tools_used: resultData.automated_analysis.tools_used || [],
+                        total_violations: resultData.automated_analysis.total_violations || 0,
+                        critical_violations: resultData.automated_analysis.critical_violations || 0,
+                        test_timestamp: resultData.automated_analysis.test_timestamp,
+                        test_duration_ms: resultData.automated_analysis.test_duration_ms
+                    };
+
+                    // Add specialized analysis data
+                    if (resultData.automated_analysis.specialized_analysis) {
+                        enhancedMetadata.specialized_analysis = resultData.automated_analysis.specialized_analysis;
+                    }
+
+                    // Add remediation guidance
+                    if (resultData.automated_analysis.remediation_guidance) {
+                        enhancedMetadata.remediation_guidance = {
+                            count: resultData.automated_analysis.remediation_guidance.length,
+                            critical_count: resultData.automated_analysis.remediation_guidance.filter(g => g.priority === 'critical').length,
+                            high_count: resultData.automated_analysis.remediation_guidance.filter(g => g.priority === 'high').length,
+                            items: resultData.automated_analysis.remediation_guidance
+                        };
+                    }
+                }
+            } catch (e) {
+                console.warn('Error parsing result data for audit log:', e);
+            }
+        }
+
         const query = `
             INSERT INTO test_audit_log (
                 test_instance_id, session_id, action_type, changed_by, changed_at, 
@@ -849,8 +962,8 @@ class TestAutomationService {
             actionType,
             userId,
             new Date(),
-            'Automated testing result',
-            JSON.stringify(data)
+            data.notes || `Automated test result: ${data.status}`,
+            JSON.stringify(enhancedMetadata)
         ]);
     }
 
@@ -953,38 +1066,155 @@ class TestAutomationService {
     }
 
     /**
-     * Create individual evidence file
+     * Create evidence file for a specific tool and page result
      */
     async createEvidenceFile(sessionId, runId, tool, pageResult, userId) {
-        const query = `
-            INSERT INTO test_evidence (
-                test_instance_id, evidence_type, description, 
-                file_path, metadata, created_at, created_by
-            ) VALUES (
-                (SELECT id FROM test_instances WHERE session_id = $1 LIMIT 1),
-                'automated_result', $2, $3, $4, $5, $6
-            )
-        `;
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const fileName = `evidence_${tool}_${runId}_${timestamp}.json`;
+        const filePath = path.join(__dirname, '../../reports/individual-tests', fileName);
 
-        const description = `${tool} results for ${pageResult.url}`;
-        const filePath = `automation/${runId}/${tool}/${Date.now()}.json`;
-        const metadata = {
-            tool: tool,
-            url: pageResult.url,
+        // Enhanced evidence data structure
+        const evidenceData = {
+            session_id: sessionId,
             run_id: runId,
-            violations: pageResult.violations || 0,
-            critical: pageResult.critical || 0,
-            results: pageResult.details || {}
+            tool: tool,
+            page_url: pageResult.url,
+            test_timestamp: new Date().toISOString(),
+            test_duration_ms: pageResult.duration_ms || 0,
+            summary: {
+                total_violations: pageResult.total_violations || 0,
+                critical_violations: pageResult.critical_violations || 0,
+                status: pageResult.status || 'unknown'
+            },
+            detailed_results: pageResult.details || [],
+            specialized_analysis: {}
         };
 
-        await pool.query(query, [
-            sessionId,
-            description,
+        // Add specialized analysis data based on tool
+        if (tool === 'color-contrast-analyzer' && pageResult.contrast_analysis) {
+            evidenceData.specialized_analysis.contrast = {
+                total_elements_tested: pageResult.total_elements_tested || 0,
+                aa_violations: pageResult.aa_violations || 0,
+                aaa_violations: pageResult.aaa_violations || 0,
+                worst_contrast_ratio: pageResult.worst_contrast_ratio || 0,
+                average_contrast_ratio: pageResult.average_contrast_ratio || 0,
+                detailed_contrast_data: pageResult.contrast_analysis || {},
+                wcag_compliance: {
+                    aa_compliant: pageResult.aa_violations === 0,
+                    aaa_compliant: pageResult.aaa_violations === 0,
+                    requirements_met: pageResult.aa_violations === 0 ? ['1.4.3'] : [],
+                    requirements_failed: pageResult.aa_violations > 0 ? ['1.4.3'] : []
+                }
+            };
+        }
+
+        if (tool === 'luma' && pageResult.flash_analysis) {
+            evidenceData.specialized_analysis.flash = {
+                total_flashes_detected: pageResult.total_flashes_detected || 0,
+                critical_flashes: pageResult.critical_flashes || 0,
+                flash_rate: pageResult.flash_rate || 0,
+                seizure_risk_level: pageResult.seizure_risk_level || 'low',
+                animation_violations: pageResult.animation_violations || 0,
+                detailed_flash_data: pageResult.flash_analysis || {},
+                wcag_compliance: {
+                    flash_compliant: pageResult.critical_flashes === 0,
+                    animation_compliant: pageResult.animation_violations === 0,
+                    requirements_met: [],
+                    requirements_failed: []
+                }
+            };
+
+            // Determine WCAG compliance
+            if (pageResult.critical_flashes === 0) {
+                evidenceData.specialized_analysis.flash.wcag_compliance.requirements_met.push('2.3.1');
+            } else {
+                evidenceData.specialized_analysis.flash.wcag_compliance.requirements_failed.push('2.3.1');
+            }
+
+            if (pageResult.animation_violations === 0) {
+                evidenceData.specialized_analysis.flash.wcag_compliance.requirements_met.push('2.2.2');
+            } else {
+                evidenceData.specialized_analysis.flash.wcag_compliance.requirements_failed.push('2.2.2');
+            }
+        }
+
+        // Add remediation guidance
+        evidenceData.remediation_guidance = this.generateRemediationGuidance(tool, pageResult);
+
+        // Ensure directory exists
+        await fs.promises.mkdir(path.dirname(filePath), { recursive: true });
+
+        // Write evidence file
+        await fs.promises.writeFile(filePath, JSON.stringify(evidenceData, null, 2));
+
+        // Create audit log entry for evidence file
+        await this.createAuditLogEntry(
+            pageResult.instance_id || null,
+            'evidence_file_created',
+            userId,
+            {
+                file_name: fileName,
+                file_path: filePath,
+                tool: tool,
+                page_url: pageResult.url,
+                notes: `Evidence file created for ${tool} analysis of ${pageResult.url}`
+            }
+        );
+
+        return {
+            fileName,
             filePath,
-            JSON.stringify(metadata),
-            new Date(),
-            userId
-        ]);
+            size: evidenceData.length
+        };
+    }
+
+    /**
+     * Generate remediation guidance for specialized tools
+     */
+    generateRemediationGuidance(tool, pageResult) {
+        const guidance = [];
+
+        if (tool === 'color-contrast-analyzer') {
+            if (pageResult.aa_violations > 0) {
+                guidance.push({
+                    priority: 'high',
+                    requirement: '1.4.3',
+                    guidance: `Increase text contrast to meet WCAG AA standards (4.5:1 for normal text, 3:1 for large text). Found ${pageResult.aa_violations} AA violations.`,
+                    affected_elements: pageResult.aa_violation_elements || []
+                });
+            }
+
+            if (pageResult.aaa_violations > 0) {
+                guidance.push({
+                    priority: 'medium',
+                    requirement: '1.4.6',
+                    guidance: `Increase text contrast to meet WCAG AAA standards (7:1 for normal text, 4.5:1 for large text). Found ${pageResult.aaa_violations} AAA violations.`,
+                    affected_elements: pageResult.aaa_violation_elements || []
+                });
+            }
+        }
+
+        if (tool === 'luma') {
+            if (pageResult.critical_flashes > 0) {
+                guidance.push({
+                    priority: 'critical',
+                    requirement: '2.3.1',
+                    guidance: `CRITICAL: Reduce flash frequency to maximum 3 flashes per second. Found ${pageResult.critical_flashes} critical flashes that could trigger seizures.`,
+                    affected_elements: pageResult.critical_flash_elements || []
+                });
+            }
+
+            if (pageResult.animation_violations > 0) {
+                guidance.push({
+                    priority: 'high',
+                    requirement: '2.2.2',
+                    guidance: `Provide pause/stop controls for auto-playing animations. Found ${pageResult.animation_violations} animation violations.`,
+                    affected_elements: pageResult.animation_violation_elements || []
+                });
+            }
+        }
+
+        return guidance;
     }
 
     /**

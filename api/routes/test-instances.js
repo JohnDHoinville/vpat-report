@@ -163,7 +163,7 @@ router.get('/', authenticateToken, async (req, res) => {
         let query = `
             SELECT ti.*,
                    tr.criterion_number, tr.title as requirement_title, tr.level as requirement_level,
-                   tr.test_method as requirement_test_method,
+                   tr.test_method as requirement_test_method, tr.automated_tools, tr.automation_confidence,
                    cdp.url as page_url, cdp.title as page_title,
                    tester.username as assigned_tester_username,
                    reviewer.username as reviewer_username

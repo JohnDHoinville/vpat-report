@@ -485,5 +485,146 @@ router.get('/results/:instanceId', authenticateToken, async (req, res) => {
     }
 });
 
+// Get detailed specialized analysis results for a test instance
+router.get('/specialized-analysis/:instanceId', authenticateToken, async (req, res) => {
+    try {
+        const { instanceId } = req.params;
+        
+        // Get test instance with result data
+        const query = `
+            SELECT ti.*, tr.criterion_number, tr.title as requirement_title,
+                   tr.test_method, tr.automated_tools, tr.automation_confidence
+            FROM test_instances ti
+            LEFT JOIN test_requirements tr ON ti.requirement_id = tr.id
+            WHERE ti.id = $1
+        `;
+        
+        const result = await pool.query(query, [instanceId]);
+        
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Test instance not found' });
+        }
+        
+        const testInstance = result.rows[0];
+        
+        if (!testInstance.result) {
+            return res.status(404).json({ error: 'No result data available for this test instance' });
+        }
+        
+        let resultData;
+        try {
+            resultData = typeof testInstance.result === 'string' ? JSON.parse(testInstance.result) : testInstance.result;
+        } catch (e) {
+            return res.status(500).json({ error: 'Invalid result data format' });
+        }
+        
+        // Extract specialized analysis data
+        const specializedAnalysis = {
+            test_instance_id: instanceId,
+            requirement: {
+                criterion_number: testInstance.criterion_number,
+                title: testInstance.requirement_title,
+                test_method: testInstance.test_method,
+                automated_tools: testInstance.automated_tools,
+                automation_confidence: testInstance.automation_confidence
+            },
+            summary: {
+                status: testInstance.status,
+                confidence_level: testInstance.confidence_level,
+                total_violations: resultData.automated_analysis?.total_violations || 0,
+                critical_violations: resultData.automated_analysis?.critical_violations || 0,
+                tools_used: resultData.automated_analysis?.tools_used || [],
+                test_timestamp: resultData.automated_analysis?.test_timestamp,
+                test_duration_ms: resultData.automated_analysis?.test_duration_ms
+            },
+            specialized_analysis: resultData.automated_analysis?.specialized_analysis || {},
+            remediation_guidance: resultData.automated_analysis?.remediation_guidance || [],
+            tool_results: resultData.automated_analysis?.tool_results || {}
+        };
+        
+        res.json(specializedAnalysis);
+        
+    } catch (error) {
+        console.error('Error retrieving specialized analysis:', error);
+        res.status(500).json({ error: 'Failed to retrieve specialized analysis data' });
+    }
+});
+
+// Get remediation guidance for a session
+router.get('/remediation-guidance/:sessionId', authenticateToken, async (req, res) => {
+    try {
+        const { sessionId } = req.params;
+        const { page = 1, limit = 50 } = req.query;
+        const offset = (page - 1) * limit;
+        
+        // Get all test instances with remediation guidance for the session
+        const query = `
+            SELECT ti.id, ti.status, ti.result, ti.tested_at,
+                   tr.criterion_number, tr.title as requirement_title,
+                   cdp.url as page_url, cdp.title as page_title
+            FROM test_instances ti
+            LEFT JOIN test_requirements tr ON ti.requirement_id = tr.id
+            LEFT JOIN crawler_discovered_pages cdp ON ti.page_id = cdp.id
+            WHERE ti.session_id = $1 AND ti.result IS NOT NULL
+            ORDER BY ti.tested_at DESC
+            LIMIT $2 OFFSET $3
+        `;
+        
+        const result = await pool.query(query, [sessionId, limit, offset]);
+        
+        const remediationItems = [];
+        
+        for (const instance of result.rows) {
+            if (!instance.result) continue;
+            
+            let resultData;
+            try {
+                resultData = typeof instance.result === 'string' ? JSON.parse(instance.result) : instance.result;
+            } catch (e) {
+                continue;
+            }
+            
+            if (resultData.automated_analysis?.remediation_guidance) {
+                resultData.automated_analysis.remediation_guidance.forEach(guidance => {
+                    remediationItems.push({
+                        test_instance_id: instance.id,
+                        requirement: instance.criterion_number,
+                        requirement_title: instance.requirement_title,
+                        page_url: instance.page_url,
+                        page_title: instance.page_title,
+                        status: instance.status,
+                        tested_at: instance.tested_at,
+                        ...guidance
+                    });
+                });
+            }
+        }
+        
+        // Count total items for pagination
+        const countQuery = `
+            SELECT COUNT(*) as total
+            FROM test_instances ti
+            WHERE ti.session_id = $1 AND ti.result IS NOT NULL
+        `;
+        
+        const countResult = await pool.query(countQuery, [sessionId]);
+        const total = parseInt(countResult.rows[0].total);
+        
+        res.json({
+            remediation_items: remediationItems,
+            pagination: {
+                page: parseInt(page),
+                limit: parseInt(limit),
+                total,
+                pages: Math.ceil(total / limit)
+            }
+        });
+        
+    } catch (error) {
+        console.error('Error retrieving remediation guidance:', error);
+        res.status(500).json({ error: 'Failed to retrieve remediation guidance' });
+    }
+});
+
     return router;
 }; 
