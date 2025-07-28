@@ -137,7 +137,7 @@
                                     class="py-4 px-1 border-b-2 font-medium text-sm transition-colors">
                                 <i class="fas fa-tasks mr-2"></i>Test Breakdown
                             </button>
-                            <button @click="sessionDetailsActiveTab = 'requirements'" 
+                            <button @click="sessionDetailsActiveTab = 'requirements'; loadSessionRequirements(selectedSessionDetails?.id)" 
                                     :class="sessionDetailsActiveTab === 'requirements' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
                                     class="py-4 px-1 border-b-2 font-medium text-sm transition-colors">
                                 <i class="fas fa-list-alt mr-2"></i>Requirements

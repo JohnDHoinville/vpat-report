@@ -181,7 +181,7 @@ class HTMLReportGenerator {
     generateToolCoverage(toolsCoverage) {
         const toolDescriptions = {
             'axe-core': 'Industry-standard accessibility testing engine with comprehensive rule coverage',
-            'pa11y': 'Command-line accessibility testing tool based on HTML CodeSniffer',
+            'pa11y': 'Command-line accessibility testing tool with axe-core runner for enhanced WCAG 2.2 support',
             'lighthouse': 'Google\'s automated testing tool for web page quality including accessibility',
             'ibm-equal-access': 'Enterprise-grade accessibility checker with advanced rule sets'
         };
@@ -464,7 +464,7 @@ class HTMLReportGenerator {
                 <h3>Tool Versions & Configuration</h3>
                 <ul>
                     <li><strong>axe-core:</strong> Latest version with WCAG 2.2 AA/AAA rules enabled</li>
-                    <li><strong>Pa11y:</strong> WCAG2AA standard with comprehensive rule set</li>
+                    <li><strong>Pa11y:</strong> WCAG2AA standard with axe-core runner for enhanced WCAG 2.2 coverage</li>
                     <li><strong>Lighthouse:</strong> Accessibility audit with performance correlation</li>
                     <li><strong>IBM Equal Access:</strong> Enterprise-grade rule sets for Section 508 compliance</li>
                 </ul>

@@ -532,8 +532,9 @@ class ComprehensiveTestRunner {
     
     async runPa11yTest(url) {
         try {
-            // Use pa11y via npx for accessibility testing
-            const command = `npx pa11y "${url}" --reporter json --standard WCAG2AA --timeout 30000`;
+            // Use pa11y with axe runner for better WCAG 2.2 support
+            // This provides enhanced coverage compared to the default HTML CodeSniffer runner
+            const command = `npx pa11y "${url}" --reporter json --runner axe --standard WCAG2AA --timeout 30000`;
             let output;
             try {
                 output = execSync(command, { 

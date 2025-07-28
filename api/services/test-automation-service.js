@@ -432,6 +432,7 @@ class TestAutomationService {
             try {
                 const pa11yResults = await pa11y(page.url, {
                     standard: 'WCAG2AA',
+                    runner: 'axe',  // Use axe runner for better WCAG 2.2 support
                     timeout: 30000,
                     chromeLaunchConfig: {
                         headless: true

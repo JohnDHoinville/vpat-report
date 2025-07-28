@@ -275,14 +275,7 @@ function dashboard() {
         sessionDetailsPages: [],
         
         // ===== AUTOMATION PROGRESS STATE =====
-        automationProgress: {
-            completedTests: 0,
-            totalTests: 0,
-            violationsFound: 0,
-            percentage: 0,
-            message: '',
-            isRunning: false
-        },
+        automationProgress: null,
         
         // ===== USER MANAGEMENT STATE =====
         showUserManagement: false,
@@ -9821,7 +9814,10 @@ function dashboard() {
     
     // Load session requirements
     componentInstance.loadSessionRequirements = async function(sessionId) {
-        if (!sessionId) return;
+        if (!sessionId) {
+            console.error('❌ No session ID provided to loadSessionRequirements');
+            return;
+        }
         
         try {
             console.log(`🔍 Loading requirements for session ${sessionId}`);
@@ -9853,46 +9849,38 @@ function dashboard() {
             if (!this.requirementPageSize) this.requirementPageSize = 20;
             if (!this.requirementTotalPages) this.requirementTotalPages = 1;
             
-            // Load requirements from session test instances to ensure consistency
+            // Load requirements directly from the requirements API
             let requirementsData = [];
+            
             try {
-                const sessionResponse = await this.apiCall(`/sessions/${sessionId}?include_tests=true`);
-                if (sessionResponse.success && sessionResponse.data.test_instances) {
-                    // Extract unique requirements from test instances
-                    const requirementMap = new Map();
-                    sessionResponse.data.test_instances.forEach(instance => {
-                        const criterionNumber = instance.criterion_number;
-                        if (!requirementMap.has(criterionNumber)) {
-                            requirementMap.set(criterionNumber, {
-                                criterion_number: criterionNumber,
-                                title: instance.requirement_title,
-                                description: instance.requirement_description || '',
-                                level: instance.requirement_level,
-                                test_method: instance.requirement_test_method,
-                                requirement_type: instance.requirement_type
-                            });
-                        }
-                    });
-                    requirementsData = Array.from(requirementMap.values());
-                    console.log(`📋 Loaded ${requirementsData.length} requirements from session test instances`);
+                console.log(`📋 Loading requirements from API for session ${sessionId}`);
+                
+                // Get all requirements from the requirements API
+                const requirementsResponse = await this.apiCall(`/requirements?limit=100`);
+                
+                if (requirementsResponse.success && requirementsResponse.data?.requirements) {
+                    requirementsData = requirementsResponse.data.requirements;
+                    console.log(`✅ Successfully loaded ${requirementsData.length} requirements from API`);
+                } else {
+                    console.error('❌ Requirements API returned no data:', requirementsResponse);
+                    throw new Error('No requirements data available from API');
                 }
+                
             } catch (error) {
-                console.warn('Failed to load requirements from session, using fallback data:', error);
-                // Provide fallback data if API fails
-                requirementsData = [
-                    { criterion_number: '1.1.1', title: 'Non-text Content', description: 'All non-text content has a text alternative.', level: 'A', test_method: 'automated' },
-                    { criterion_number: '2.1.1', title: 'Keyboard', description: 'All functionality is available from a keyboard.', level: 'A', test_method: 'manual' },
-                    { criterion_number: '3.1.1', title: 'Language of Page', description: 'The default human language of each page can be programmatically determined.', level: 'A', test_method: 'automated' }
-                ];
+                console.error('❌ Failed to load requirements from API:', error);
+                requirementsData = [];
+                this.showNotification('error', 'Requirements Loading Failed', `Failed to load requirements: ${error.message}`);
+                return; // Exit early if we can't load requirements
             }
             
-            // Transform data to match expected format
+            // Transform data to match expected format (based on test_requirements table structure)
             const transformedRequirements = requirementsData.map(req => ({
-                criterion_number: req.requirement_id || req.criterion_number,
+                criterion_number: req.criterion_number || req.requirement_id,
                 title: req.title,
-                description: req.description,
+                description: req.description || '',
                 level: req.level,
                 test_method: req.test_method || 'manual',
+                requirement_type: req.requirement_type,
                 automated_tests: [],
                 manual_tests: [],
                 automated_status: 'not_tested',
@@ -9905,12 +9893,17 @@ function dashboard() {
             // Enhance requirements with test data
             this.sessionRequirements = await this.enhanceRequirementsWithTestData(transformedRequirements, sessionId);
             
+            console.log(`✅ Session requirements loaded: ${this.sessionRequirements.length} requirements`);
+            
             // Apply initial filtering and pagination
             this.filterRequirements();
             this.calculateRequirementStats();
             
+            console.log(`📊 Requirements stats calculated:`, this.requirementStats);
+            console.log(`📄 Paginated requirements: ${this.paginatedRequirements.length} on page ${this.requirementCurrentPage}`);
+            
         } catch (error) {
-            console.error('Error loading session requirements:', error);
+            console.error('❌ Error loading session requirements:', error);
             this.showNotification('error', 'Loading Failed', 'Failed to load requirements: ' + error.message);
         } finally {
             this.loading = false;
@@ -10299,6 +10292,9 @@ function dashboard() {
     
     // Global dashboard instance for modal access
     window.dashboardInstance = componentInstance;
+    
+    // Global function for requirements loading (for easy access)
+    window.loadSessionRequirements = (sessionId) => componentInstance.loadSessionRequirements(sessionId);
     
     return componentInstance;
 }
