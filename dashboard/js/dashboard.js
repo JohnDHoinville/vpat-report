@@ -267,7 +267,228 @@ window.dashboard = function() {
         selectedRequirement: null,
         
         // ===== REQUIREMENTS FUNCTIONS (for Alpine.js template access) =====
-        loadSessionRequirements: null, // Will be set after component initialization
+        loadSessionRequirements: async function(sessionId) {
+            console.log(`🚀 loadSessionRequirements called with sessionId: ${sessionId}`);
+            console.log(`📊 Current state - sessionRequirements length:`, this.sessionRequirements?.length || 0);
+            
+            if (!sessionId) {
+                console.error('❌ No session ID provided to loadSessionRequirements');
+                this.showNotification('error', 'Requirements Error', 'Session ID is required');
+                return;
+            }
+            
+            try {
+                console.log(`🔍 Loading requirements for session ${sessionId}`);
+                this.loading = true;
+                
+                // Initialize requirements arrays if they don't exist
+                if (!this.sessionRequirements) this.sessionRequirements = [];
+                if (!this.filteredRequirements) this.filteredRequirements = [];
+                if (!this.paginatedRequirements) this.paginatedRequirements = [];
+                if (!this.requirementFilters) {
+                    this.requirementFilters = {
+                        testStatus: '',
+                        wcagLevel: '',
+                        testMethod: '',
+                        searchTerm: ''
+                    };
+                }
+                if (!this.requirementStats) {
+                    this.requirementStats = {
+                        total: 0,
+                        automated_passed: 0,
+                        automated_failed: 0,
+                        manual_completed: 0,
+                        manual_pending: 0,
+                        not_tested: 0
+                    };
+                }
+                if (!this.requirementCurrentPage) this.requirementCurrentPage = 1;
+                if (!this.requirementPageSize) this.requirementPageSize = 20;
+                if (!this.requirementTotalPages) this.requirementTotalPages = 1;
+                
+                // Load requirements directly from the requirements API
+                let requirementsData = [];
+                
+                try {
+                    console.log(`📋 Loading requirements from API for session ${sessionId}`);
+                    
+                    let requirementsResponse;
+                    
+                    try {
+                        // Try authenticated endpoint first
+                        requirementsResponse = await this.apiCall(`/requirements?limit=100`);
+                    } catch (authError) {
+                        console.warn('🔓 Authenticated API failed, trying test endpoint:', authError.message);
+                        
+                        // Fallback to test endpoint for development/testing
+                        try {
+                            const testResponse = await fetch(`${this.config.apiBaseUrl}/api/requirements/test`);
+                            if (testResponse.ok) {
+                                const testData = await testResponse.json();
+                                // Transform test response to match expected format
+                                requirementsResponse = {
+                                    success: true,
+                                    data: {
+                                        requirements: testData.data.sample_requirements || []
+                                    }
+                                };
+                                console.log('📋 Using test endpoint data');
+                            } else {
+                                throw new Error('Test endpoint also failed');
+                            }
+                        } catch (testError) {
+                            console.error('❌ Test endpoint failed:', testError);
+                            throw authError; // Re-throw original auth error
+                        }
+                    }
+                    
+                    if (requirementsResponse.success && requirementsResponse.data?.requirements) {
+                        requirementsData = requirementsResponse.data.requirements;
+                        console.log(`✅ Successfully loaded ${requirementsData.length} requirements from API`);
+                    } else {
+                        console.error('❌ Requirements API returned no data:', requirementsResponse);
+                        throw new Error('No requirements data available from API');
+                    }
+                    
+                } catch (error) {
+                    console.error('❌ Failed to load requirements from API:', error);
+                    requirementsData = [];
+                    this.showNotification('error', 'Requirements Loading Failed', `Failed to load requirements: ${error.message}. Please check authentication.`);
+                    return; // Exit early if we can't load requirements
+                }
+                
+                // Transform data to match expected format (based on test_requirements table structure)
+                const transformedRequirements = requirementsData.map(req => {
+                    console.log('🔍 Processing requirement:', req);
+                    return {
+                        id: req.requirement_id || req.id,
+                        criterion_number: req.criterion_number || req.requirement_id,
+                        title: req.title,
+                        description: req.description,
+                        wcag_level: req.wcag_level || req.level,
+                        test_method: req.test_method || 'both',
+                        status: req.status || 'not_tested',
+                        automated_status: req.automated_status || 'not_tested',
+                        manual_status: req.manual_status || 'not_tested',
+                        notes: req.notes || '',
+                        created_at: req.created_at,
+                        updated_at: req.updated_at
+                    };
+                });
+                
+                console.log(`✅ Transformed ${transformedRequirements.length} requirements`);
+                
+                // Store the requirements data
+                this.sessionRequirements = transformedRequirements;
+                this.filteredRequirements = [...transformedRequirements];
+                
+                // Calculate statistics
+                this.calculateRequirementStats();
+                
+                // Apply pagination
+                this.updateRequirementsPagination();
+                
+                console.log(`✅ Requirements loaded successfully: ${this.sessionRequirements.length} total, ${this.filteredRequirements.length} filtered`);
+                
+                this.showNotification('success', 'Requirements Loaded', `Successfully loaded ${this.sessionRequirements.length} requirements`);
+                
+            } catch (error) {
+                console.error('❌ Error in loadSessionRequirements:', error);
+                this.showNotification('error', 'Requirements Error', `Failed to load requirements: ${error.message}`);
+            } finally {
+                this.loading = false;
+            }
+        },
+        
+        // ===== REQUIREMENTS HELPER FUNCTIONS =====
+        calculateRequirementStats: function() {
+            if (!this.sessionRequirements) return;
+            
+            // Count requirements by test method (this is what determines if they can be automated)
+            const automatedRequirements = this.sessionRequirements.filter(r => r.test_method === 'automated').length;
+            const hybridRequirements = this.sessionRequirements.filter(r => r.test_method === 'both').length;
+            const manualRequirements = this.sessionRequirements.filter(r => r.test_method === 'manual').length;
+            
+            // Count requirements by actual test status
+            const automatedPassed = this.sessionRequirements.filter(r => r.automated_status === 'passed').length;
+            const automatedFailed = this.sessionRequirements.filter(r => r.automated_status === 'failed').length;
+            const manualCompleted = this.sessionRequirements.filter(r => r.manual_status === 'completed').length;
+            const manualPending = this.sessionRequirements.filter(r => r.manual_status === 'pending').length;
+            const notTested = this.sessionRequirements.filter(r => r.status === 'not_tested').length;
+            
+            this.requirementStats = {
+                total: this.sessionRequirements.length,
+                automated_requirements: automatedRequirements,
+                hybrid_requirements: hybridRequirements,
+                manual_requirements: manualRequirements,
+                automated_passed: automatedPassed,
+                automated_failed: automatedFailed,
+                manual_completed: manualCompleted,
+                manual_pending: manualPending,
+                not_tested: notTested
+            };
+            
+            console.log(`📊 Requirements stats calculated:`, {
+                total: this.requirementStats.total,
+                automated: this.requirementStats.automated_requirements,
+                hybrid: this.requirementStats.hybrid_requirements,
+                manual: this.requirementStats.manual_requirements,
+                automated_total: this.requirementStats.automated_requirements + this.requirementStats.hybrid_requirements
+            });
+        },
+        
+        updateRequirementsPagination: function() {
+            if (!this.filteredRequirements) return;
+            
+            const startIndex = (this.requirementCurrentPage - 1) * this.requirementPageSize;
+            const endIndex = startIndex + this.requirementPageSize;
+            
+            this.paginatedRequirements = this.filteredRequirements.slice(startIndex, endIndex);
+            this.requirementTotalPages = Math.ceil(this.filteredRequirements.length / this.requirementPageSize);
+        },
+        
+        filterRequirements: function() {
+            if (!this.sessionRequirements) return;
+            
+            let filtered = [...this.sessionRequirements];
+            
+            // Apply filters
+            if (this.requirementFilters.testStatus) {
+                filtered = filtered.filter(r => r.status === this.requirementFilters.testStatus);
+            }
+            
+            if (this.requirementFilters.wcagLevel) {
+                filtered = filtered.filter(r => r.wcag_level === this.requirementFilters.wcagLevel);
+            }
+            
+            if (this.requirementFilters.testMethod) {
+                filtered = filtered.filter(r => r.test_method === this.requirementFilters.testMethod);
+            }
+            
+            if (this.requirementFilters.searchTerm) {
+                const search = this.requirementFilters.searchTerm.toLowerCase();
+                filtered = filtered.filter(r => 
+                    r.title.toLowerCase().includes(search) ||
+                    r.description.toLowerCase().includes(search) ||
+                    r.criterion_number.toLowerCase().includes(search)
+                );
+            }
+            
+            this.filteredRequirements = filtered;
+            this.requirementCurrentPage = 1; // Reset to first page
+            this.updateRequirementsPagination();
+        },
+        
+        viewRequirementDetails: function(requirement) {
+            this.currentRequirement = requirement;
+            this.showRequirementDetailsModal = true;
+        },
+        
+        closeRequirementDetailsModal: function() {
+            this.showRequirementDetailsModal = false;
+            this.currentRequirement = null;
+        },
         
         // ===== AUDIT TIMELINE FUNCTIONS (for Alpine.js template access) =====
         getGroupedTimeline: function() {
@@ -6628,7 +6849,7 @@ window.dashboard = function() {
             const displays = {
                 'manual': 'Manual',
                 'automated': 'Automated',
-                'both': 'Hybrid'
+                'both': 'Hybrid Review'
             };
             return displays[method] || method?.charAt(0).toUpperCase() + method?.slice(1) || 'Unknown';
         },
@@ -7219,7 +7440,7 @@ window.dashboard = function() {
             const displays = {
                 'manual': 'Manual',
                 'automated': 'Automated',
-                'both': 'Hybrid'
+                'both': 'Hybrid Review'
             };
             return displays[method] || method?.charAt(0).toUpperCase() + method?.slice(1) || 'Unknown';
         },
@@ -7229,6 +7450,7 @@ window.dashboard = function() {
                 'pending': 'bg-gray-100 text-gray-800',
                 'in_progress': 'bg-blue-100 text-blue-800',
                 'passed': 'bg-green-100 text-green-800',
+                'passed_review_required': 'bg-orange-100 text-orange-800',
                 'failed': 'bg-red-100 text-red-800',
                 'untestable': 'bg-yellow-100 text-yellow-800',
                 'not_applicable': 'bg-gray-100 text-gray-600'
@@ -7241,6 +7463,7 @@ window.dashboard = function() {
                 'pending': 'Not Started',
                 'in_progress': 'In Progress',
                 'passed': 'Passed',
+                'passed_review_required': 'Passed - Review Required',
                 'failed': 'Failed',
                 'untestable': 'Untestable',
                 'not_applicable': 'N/A'
@@ -10200,45 +10423,97 @@ window.dashboard = function() {
         }
     };
 
-    // Run automated test for a specific requirement
-    componentInstance.runAutomatedTestForRequirement = async function(requirement) {
-        try {
-            console.log(`🎯 Running automated test for requirement: ${requirement.criterion_number}`);
-            
-            if (!this.selectedSessionDetails) {
-                throw new Error('No session selected');
-            }
+            // Run automated test for a specific requirement
+        componentInstance.runAutomatedTestForRequirement = async function(requirement) {
+            try {
+                console.log(`🎯 Running automated test for requirement: ${requirement.criterion_number}`);
+                
+                if (!this.selectedSessionDetails) {
+                    throw new Error('No session selected');
+                }
 
-            this.loading = true;
-            
-            // Run automated test for this specific requirement
-            const response = await this.apiCall(`/automated-testing/run/${this.selectedSessionDetails.id}`, {
-                method: 'POST',
-                body: JSON.stringify({
-                    testTypes: ['axe', 'pa11y'],
-                    specificRequirements: [requirement.criterion_number],
-                    clientMetadata: {
-                        ip: 'dashboard',
-                        userAgent: navigator.userAgent,
-                        timestamp: new Date().toISOString()
+                this.loading = true;
+                
+                // Run automated test for this specific requirement
+                const response = await this.apiCall(`/automated-testing/run/${this.selectedSessionDetails.id}`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        testTypes: ['axe', 'pa11y'],
+                        specificRequirements: [requirement.criterion_number],
+                        clientMetadata: {
+                            ip: 'dashboard',
+                            userAgent: navigator.userAgent,
+                            timestamp: new Date().toISOString()
+                        }
+                    })
+                });
+                
+                this.showNotification('success', 'Test Started', `Automated test started for ${requirement.criterion_number}`);
+                
+                // Refresh this specific requirement's data
+                setTimeout(() => {
+                    this.loadSessionRequirements(this.selectedSessionDetails.id);
+                }, 3000);
+                
+            } catch (error) {
+                console.error('❌ Error running automated test:', error);
+                this.showNotification('error', 'Test Failed', `Failed to run automated test: ${error.message}`);
+            } finally {
+                this.loading = false;
+            }
+        };
+
+        // Review automated test result
+        componentInstance.reviewAutomatedTest = async function(instanceId, action, notes = '') {
+            try {
+                console.log(`🔍 Reviewing automated test ${instanceId} with action: ${action}`);
+                
+                const response = await this.apiCall(`/automated-testing/review/${instanceId}`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        action: action, // 'approve' or 'reject'
+                        notes: notes
+                    })
+                });
+                
+                if (response.success) {
+                    this.showNotification('success', 'Review Complete', 
+                        `Automated test ${action}d successfully`);
+                    
+                    // Refresh the requirements data
+                    if (this.selectedSessionDetails) {
+                        this.loadSessionRequirements(this.selectedSessionDetails.id);
                     }
-                })
-            });
-            
-            this.showNotification('success', 'Test Started', `Automated test started for ${requirement.criterion_number}`);
-            
-            // Refresh this specific requirement's data
-            setTimeout(() => {
-                this.loadSessionRequirements(this.selectedSessionDetails.id);
-            }, 3000);
-            
-        } catch (error) {
-            console.error('❌ Error running automated test:', error);
-            this.showNotification('error', 'Test Failed', `Failed to run automated test: ${error.message}`);
-        } finally {
-            this.loading = false;
-        }
-    };
+                } else {
+                    throw new Error(response.error || 'Review failed');
+                }
+                
+            } catch (error) {
+                console.error('❌ Error reviewing automated test:', error);
+                this.showNotification('error', 'Review Failed', `Failed to review test: ${error.message}`);
+            }
+        };
+
+        // Get test instances requiring review
+        componentInstance.loadReviewRequiredInstances = async function(sessionId, page = 1) {
+            try {
+                console.log(`🔍 Loading review required instances for session ${sessionId}`);
+                
+                const response = await this.apiCall(`/automated-testing/review-required/${sessionId}?page=${page}&limit=20`);
+                
+                if (response.success) {
+                    this.reviewRequiredInstances = response.data.instances;
+                    this.reviewRequiredPagination = response.data.pagination;
+                    console.log(`📋 Loaded ${this.reviewRequiredInstances.length} instances requiring review`);
+                } else {
+                    throw new Error(response.error || 'Failed to load review required instances');
+                }
+                
+            } catch (error) {
+                console.error('❌ Error loading review required instances:', error);
+                this.showNotification('error', 'Loading Failed', `Failed to load review instances: ${error.message}`);
+            }
+        };
 
     // Helper functions for requirement status
     componentInstance.getAutomatedTestStatus = function(automatedTests) {
@@ -10364,19 +10639,7 @@ window.dashboard = function() {
     // Global dashboard instance for modal access
     window.dashboardInstance = componentInstance;
     
-    // Make functions available in Alpine.js component scope
-    componentInstance.loadSessionRequirements = componentInstance.loadSessionRequirements.bind(componentInstance);
-    
-    // Global function for requirements loading (for easy access)
-    window.loadSessionRequirements = (sessionId) => {
-        console.log('🔍 Global loadSessionRequirements called with sessionId:', sessionId);
-        if (componentInstance && componentInstance.loadSessionRequirements) {
-            return componentInstance.loadSessionRequirements(sessionId);
-        } else {
-            console.error('❌ componentInstance.loadSessionRequirements not available');
-            return Promise.reject(new Error('Requirements loading not available'));
-        }
-    };
+
     
     return componentInstance;
 }

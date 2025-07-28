@@ -102,6 +102,166 @@ router.get('/status/:sessionId', authenticateToken, async (req, res) => {
 });
 
 /**
+ * Review automated test result
+ * POST /api/automated-testing/review/:instanceId
+ */
+router.post('/review/:instanceId', authenticateToken, async (req, res) => {
+    try {
+        const { instanceId } = req.params;
+        const { action, notes } = req.body; // action: 'approve' or 'reject'
+        
+        if (!['approve', 'reject'].includes(action)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid action. Must be "approve" or "reject"'
+            });
+        }
+
+        const { db } = require('../../database/config');
+        
+        // Update test instance status based on review
+        const newStatus = action === 'approve' ? 'passed' : 'failed';
+        
+        const updateQuery = `
+            UPDATE test_instances 
+            SET 
+                status = $1,
+                reviewed_by = $2,
+                reviewed_at = CURRENT_TIMESTAMP,
+                review_notes = $3,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = $4
+            RETURNING *
+        `;
+        
+        const result = await db.query(updateQuery, [
+            newStatus,
+            req.user.userId,
+            notes || null,
+            instanceId
+        ]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Test instance not found'
+            });
+        }
+
+        // Log the review action
+        const auditQuery = `
+            INSERT INTO test_audit_log (
+                session_id, test_instance_id, action, user_id, 
+                details, timestamp
+            ) VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
+        `;
+        
+        await db.query(auditQuery, [
+            result.rows[0].session_id,
+            instanceId,
+            `automated_test_review_${action}`,
+            req.user.userId,
+            JSON.stringify({
+                previous_status: 'passed_review_required',
+                new_status: newStatus,
+                review_notes: notes,
+                action: action
+            })
+        ]);
+
+        res.json({
+            success: true,
+            message: `Automated test ${action}d successfully`,
+            data: {
+                instance_id: instanceId,
+                new_status: newStatus,
+                reviewed_by: req.user.userId,
+                reviewed_at: new Date().toISOString(),
+                review_notes: notes
+            }
+        });
+
+    } catch (error) {
+        console.error('Error reviewing automated test:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message || 'Failed to review automated test'
+        });
+    }
+});
+
+/**
+ * Get test instances requiring review
+ * GET /api/automated-testing/review-required/:sessionId
+ */
+router.get('/review-required/:sessionId', authenticateToken, async (req, res) => {
+    try {
+        const { sessionId } = req.params;
+        const { page = 1, limit = 20 } = req.query;
+        
+        const { db } = require('../../database/config');
+        
+        const offset = (page - 1) * limit;
+        
+        const query = `
+            SELECT 
+                ti.id,
+                ti.status,
+                ti.created_at,
+                ti.updated_at,
+                ti.reviewed_by,
+                ti.reviewed_at,
+                ti.review_notes,
+                tr.criterion_number,
+                tr.title as requirement_title,
+                dp.url as page_url,
+                dp.title as page_title,
+                u.username as reviewer_name
+            FROM test_instances ti
+            JOIN test_requirements tr ON ti.requirement_id = tr.id
+            LEFT JOIN discovered_pages dp ON ti.page_id = dp.id
+            LEFT JOIN users u ON ti.reviewed_by = u.id
+            WHERE ti.session_id = $1 
+            AND ti.status = 'passed_review_required'
+            ORDER BY ti.created_at DESC
+            LIMIT $2 OFFSET $3
+        `;
+        
+        const result = await db.query(query, [sessionId, limit, offset]);
+        
+        // Get total count
+        const countQuery = `
+            SELECT COUNT(*) as total
+            FROM test_instances 
+            WHERE session_id = $1 
+            AND status = 'passed_review_required'
+        `;
+        
+        const countResult = await db.query(countQuery, [sessionId]);
+        
+        res.json({
+            success: true,
+            data: {
+                instances: result.rows,
+                pagination: {
+                    page: parseInt(page),
+                    limit: parseInt(limit),
+                    total: parseInt(countResult.rows[0].total),
+                    total_pages: Math.ceil(countResult.rows[0].total / limit)
+                }
+            }
+        });
+
+    } catch (error) {
+        console.error('Error getting review required instances:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message || 'Failed to get review required instances'
+        });
+    }
+});
+
+/**
  * Get automation history for a session
  * GET /api/automated-testing/history/:sessionId
  */

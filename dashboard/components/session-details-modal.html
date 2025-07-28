@@ -137,11 +137,11 @@
                                     class="py-4 px-1 border-b-2 font-medium text-sm transition-colors">
                                 <i class="fas fa-tasks mr-2"></i>Test Breakdown
                             </button>
-                            <button @click="sessionDetailsActiveTab = 'requirements'; console.log('🔍 Requirements tab clicked, sessionId:', selectedSessionDetails?.id); console.log('🔍 window.loadSessionRequirements type:', typeof window.loadSessionRequirements); $nextTick(() => { console.log('🔍 Calling loadSessionRequirements...'); if (typeof window.loadSessionRequirements === 'function') { console.log('✅ Function found, calling...'); window.loadSessionRequirements(selectedSessionDetails?.id); } else { console.error('❌ loadSessionRequirements not found on window, type:', typeof window.loadSessionRequirements); } })" 
-                                    :class="sessionDetailsActiveTab === 'requirements' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
-                                    class="py-4 px-1 border-b-2 font-medium text-sm transition-colors">
-                                <i class="fas fa-list-alt mr-2"></i>Requirements
-                            </button>
+                                            <button @click="sessionDetailsActiveTab = 'requirements'; $nextTick(() => { loadSessionRequirements(selectedSessionDetails?.id); })" 
+                        :class="sessionDetailsActiveTab === 'requirements' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
+                        class="py-4 px-1 border-b-2 font-medium text-sm transition-colors">
+                    <i class="fas fa-list-alt mr-2"></i>Requirements
+                </button>
                             <button @click="sessionDetailsActiveTab = 'automation'" 
                                     :class="sessionDetailsActiveTab === 'automation' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
                                     class="py-4 px-1 border-b-2 font-medium text-sm transition-colors">
@@ -612,13 +612,13 @@
                                     </p>
                                 </div>
                                 <div class="flex space-x-2">
-                                    <button @click="window.loadSessionRequirements && window.loadSessionRequirements(selectedSessionDetails?.id)" 
-                                            :disabled="loading"
-                                            class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400">
-                                        <i class="fas fa-sync-alt mr-2"></i>
-                                        <span x-show="!loading">Refresh</span>
-                                        <span x-show="loading">Loading...</span>
-                                    </button>
+                                                    <button @click="loadSessionRequirements(selectedSessionDetails?.id)" 
+                        :disabled="loading"
+                        class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400">
+                    <i class="fas fa-sync-alt mr-2"></i>
+                    <span x-show="!loading">Refresh</span>
+                    <span x-show="loading">Loading...</span>
+                </button>
                                     <button @click="startAutomatedTestingForRequirements(selectedSessionDetails?.id)" 
                                             :disabled="loading"
                                             class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:bg-gray-400">
@@ -684,14 +684,18 @@
                                 </div>
                                 
                                 <!-- Requirements Statistics -->
-                                <div class="grid grid-cols-2 md:grid-cols-6 gap-4 text-center">
+                                <div class="grid grid-cols-2 md:grid-cols-7 gap-4 text-center">
                                     <div class="bg-blue-100 p-3 rounded-lg">
                                         <div class="text-xl font-bold text-blue-600" x-text="requirementStats.total || 0"></div>
                                         <div class="text-xs text-blue-700">Total</div>
                                     </div>
                                     <div class="bg-green-100 p-3 rounded-lg">
-                                        <div class="text-xl font-bold text-green-600" x-text="requirementStats.automated_passed || 0"></div>
-                                        <div class="text-xs text-green-700">Auto Passed</div>
+                                        <div class="text-xl font-bold text-green-600" x-text="(requirementStats.automated_requirements || 0) + (requirementStats.hybrid_requirements || 0)"></div>
+                                        <div class="text-xs text-green-700">Can Auto</div>
+                                    </div>
+                                    <div class="bg-emerald-100 p-3 rounded-lg">
+                                        <div class="text-xl font-bold text-emerald-600" x-text="requirementStats.automated_passed || 0"></div>
+                                        <div class="text-xs text-emerald-700">Auto Passed</div>
                                     </div>
                                     <div class="bg-red-100 p-3 rounded-lg">
                                         <div class="text-xl font-bold text-red-600" x-text="requirementStats.automated_failed || 0"></div>
@@ -760,8 +764,8 @@
                                                     
                                                     <!-- WCAG Level -->
                                                     <td class="px-6 py-4 whitespace-nowrap">
-                                                        <span :class="getConformanceLevelBadgeClass(requirement.level) + ' px-2 py-1 text-xs font-medium rounded-full'" 
-                                                              x-text="requirement.level?.toUpperCase()"></span>
+                                                        <span :class="getRequirementLevelBadgeClass(requirement.level) + ' px-2 py-1 text-xs font-medium rounded-full'" 
+                                                              x-text="getRequirementLevelDisplay(requirement.level)"></span>
                                                     </td>
                                                     
                                                     <!-- Test Method -->

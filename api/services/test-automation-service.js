@@ -771,14 +771,14 @@ class TestAutomationService {
         }
 
         // Determine status based on violations
-        let newStatus = 'passed';
+        let newStatus = 'passed_review_required'; // All automated tests require review
         let confidence = 'high';
         
         if (criticalViolations > 0) {
-            newStatus = 'failed';
+            newStatus = 'failed'; // Failures go directly to failed status
             confidence = 'high';
         } else if (totalViolations > 0) {
-            newStatus = 'failed';
+            newStatus = 'failed'; // Failures go directly to failed status
             confidence = 'medium';
         }
 
