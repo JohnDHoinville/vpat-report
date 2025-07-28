@@ -87,10 +87,10 @@
                             <div class="text-xs text-purple-100">
                                 <span x-text="automationProgress?.currentTool || ''"></span>
                                 <span x-show="automationProgress?.completedTests && automationProgress?.totalTests">
-                                    - <span x-text="automationProgress.completedTests"></span>/<span x-text="automationProgress.totalTests"></span> tests
+                                    - <span x-text="automationProgress?.completedTests || 0"></span>/<span x-text="automationProgress?.totalTests || 0"></span> tests
                                 </span>
                                 <span x-show="automationProgress?.violationsFound">
-                                    - <span x-text="automationProgress.violationsFound"></span> issues found
+                                    - <span x-text="automationProgress?.violationsFound || 0"></span> issues found
                                 </span>
                             </div>
                         </div>

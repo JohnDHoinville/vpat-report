@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Requirements Loading Test</title>
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .requirement { border: 1px solid #ccc; margin: 10px 0; padding: 15px; border-radius: 5px; }
+        .loading { color: #666; font-style: italic; }
+        .error { color: red; background: #ffebee; padding: 10px; border-radius: 5px; }
+        .success { color: green; background: #e8f5e8; padding: 10px; border-radius: 5px; }
+        button { background: #007cba; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; margin: 5px; }
+        button:hover { background: #005a8b; }
+        pre { background: #f5f5f5; padding: 10px; border-radius: 5px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <div x-data="requirementsTest()">
+        <h1>Requirements Loading Test</h1>
+        
+        <div>
+            <button @click="testRequirementsAPI()">Test Requirements API</button>
+            <button @click="testAuthenticatedAPI()">Test Authenticated API</button>
+            <button @click="testTestEndpoint()">Test Test Endpoint</button>
+        </div>
+        
+        <div style="margin: 20px 0;">
+            <strong>Status:</strong> <span x-text="status"></span>
+        </div>
+        
+        <div x-show="loading" class="loading">
+            🔄 Loading requirements...
+        </div>
+        
+        <div x-show="error" class="error">
+            <strong>Error:</strong> <span x-text="error"></span>
+        </div>
+        
+        <div x-show="requirements.length > 0" class="success">
+            <strong>Success!</strong> Loaded <span x-text="requirements.length"></span> requirements
+        </div>
+        
+        <div x-show="apiResponse">
+            <h3>Raw API Response:</h3>
+            <pre x-text="JSON.stringify(apiResponse, null, 2)"></pre>
+        </div>
+        
+        <div x-show="requirements.length > 0">
+            <h3>Processed Requirements:</h3>
+            <template x-for="req in requirements.slice(0, 5)" :key="req.id || req.criterion_number">
+                <div class="requirement">
+                    <div><strong>ID:</strong> <span x-text="req.id || 'N/A'"></span></div>
+                    <div><strong>Criterion:</strong> <span x-text="req.criterion_number"></span></div>
+                    <div><strong>Title:</strong> <span x-text="req.title"></span></div>
+                    <div><strong>Level:</strong> <span x-text="req.level"></span></div>
+                    <div><strong>Test Method:</strong> <span x-text="req.test_method"></span></div>
+                    <div><strong>Type:</strong> <span x-text="req.requirement_type"></span></div>
+                </div>
+            </template>
+            <div x-show="requirements.length > 5">
+                <em>... and <span x-text="requirements.length - 5"></span> more requirements</em>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function requirementsTest() {
+            return {
+                requirements: [],
+                loading: false,
+                error: '',
+                status: 'Ready',
+                apiResponse: null,
+                
+                async testRequirementsAPI() {
+                    this.loading = true;
+                    this.error = '';
+                    this.status = 'Testing requirements loading (like dashboard)...';
+                    this.apiResponse = null;
+                    
+                    try {
+                        // Simulate the same logic as dashboard
+                        let requirementsResponse;
+                        
+                        try {
+                            // Try authenticated endpoint first
+                            const authToken = localStorage.getItem('authToken') || localStorage.getItem('accessToken');
+                            const headers = { 'Content-Type': 'application/json' };
+                            if (authToken) {
+                                headers['Authorization'] = `Bearer ${authToken}`;
+                            }
+                            
+                            const response = await fetch('http://localhost:3001/api/requirements?limit=100', { headers });
+                            if (!response.ok) {
+                                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                            }
+                            requirementsResponse = await response.json();
+                            this.status = 'Used authenticated API';
+                        } catch (authError) {
+                            console.warn('🔓 Authenticated API failed, trying test endpoint:', authError.message);
+                            
+                            // Fallback to test endpoint
+                            const testResponse = await fetch('http://localhost:3001/api/requirements/test');
+                            if (testResponse.ok) {
+                                const testData = await testResponse.json();
+                                requirementsResponse = {
+                                    success: true,
+                                    data: {
+                                        requirements: testData.data.sample_requirements || []
+                                    }
+                                };
+                                this.status = 'Used test endpoint fallback';
+                            } else {
+                                throw new Error('Both authenticated and test endpoints failed');
+                            }
+                        }
+                        
+                        this.apiResponse = requirementsResponse;
+                        
+                        if (requirementsResponse.success && requirementsResponse.data?.requirements) {
+                            const requirementsData = requirementsResponse.data.requirements;
+                            
+                            // Transform like dashboard does
+                            this.requirements = requirementsData.map(req => ({
+                                id: req.requirement_id || req.id,
+                                criterion_number: req.criterion_number || req.requirement_id,
+                                title: req.title,
+                                description: req.description || '',
+                                level: req.level,
+                                test_method: req.test_method || 'manual',
+                                requirement_type: req.requirement_type || 'wcag',
+                                automated_tests: [],
+                                manual_tests: [],
+                                automated_status: 'not_tested',
+                                manual_status: 'not_tested',
+                                overall_status: 'not_tested'
+                            }));
+                            
+                            this.status = `Success: ${this.requirements.length} requirements loaded`;
+                        } else {
+                            throw new Error('API returned no requirements data');
+                        }
+                        
+                    } catch (error) {
+                        this.error = error.message;
+                        this.status = 'Failed';
+                        console.error('Requirements test failed:', error);
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+                
+                async testAuthenticatedAPI() {
+                    this.loading = true;
+                    this.error = '';
+                    this.status = 'Testing authenticated API directly...';
+                    this.apiResponse = null;
+                    
+                    try {
+                        const authToken = localStorage.getItem('authToken') || localStorage.getItem('accessToken');
+                        const headers = { 'Content-Type': 'application/json' };
+                        if (authToken) {
+                            headers['Authorization'] = `Bearer ${authToken}`;
+                        }
+                        
+                        const response = await fetch('http://localhost:3001/api/requirements?limit=10', { headers });
+                        const data = await response.json();
+                        
+                        this.apiResponse = data;
+                        
+                        if (response.ok) {
+                            this.status = 'Authenticated API works!';
+                        } else {
+                            this.error = `HTTP ${response.status}: ${data.error || response.statusText}`;
+                            this.status = 'Authenticated API failed';
+                        }
+                        
+                    } catch (error) {
+                        this.error = error.message;
+                        this.status = 'Authenticated API failed';
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+                
+                async testTestEndpoint() {
+                    this.loading = true;
+                    this.error = '';
+                    this.status = 'Testing test endpoint...';
+                    this.apiResponse = null;
+                    
+                    try {
+                        const response = await fetch('http://localhost:3001/api/requirements/test');
+                        const data = await response.json();
+                        
+                        this.apiResponse = data;
+                        
+                        if (response.ok) {
+                            if (data.success && data.data?.sample_requirements) {
+                                this.requirements = data.data.sample_requirements.map(req => ({
+                                    id: req.requirement_id || req.id,
+                                    criterion_number: req.criterion_number || req.requirement_id,
+                                    title: req.title,
+                                    description: req.description || '',
+                                    level: req.level,
+                                    test_method: req.test_method || 'manual',
+                                    requirement_type: req.requirement_type || 'wcag'
+                                }));
+                                this.status = `Test endpoint works! ${this.requirements.length} requirements`;
+                            } else {
+                                this.status = 'Test endpoint works but no data';
+                            }
+                        } else {
+                            this.error = `HTTP ${response.status}: ${response.statusText}`;
+                            this.status = 'Test endpoint failed';
+                        }
+                        
+                    } catch (error) {
+                        this.error = error.message;
+                        this.status = 'Test endpoint failed';
+                    } finally {
+                        this.loading = false;
+                    }
+                }
+            }
+        }
+    </script>
+</body>
+</html> 

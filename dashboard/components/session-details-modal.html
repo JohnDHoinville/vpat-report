@@ -137,7 +137,7 @@
                                     class="py-4 px-1 border-b-2 font-medium text-sm transition-colors">
                                 <i class="fas fa-tasks mr-2"></i>Test Breakdown
                             </button>
-                            <button @click="sessionDetailsActiveTab = 'requirements'; loadSessionRequirements(selectedSessionDetails?.id)" 
+                            <button @click="sessionDetailsActiveTab = 'requirements'; console.log('🔍 Requirements tab clicked, sessionId:', selectedSessionDetails?.id); console.log('🔍 window.loadSessionRequirements type:', typeof window.loadSessionRequirements); $nextTick(() => { console.log('🔍 Calling loadSessionRequirements...'); if (typeof window.loadSessionRequirements === 'function') { console.log('✅ Function found, calling...'); window.loadSessionRequirements(selectedSessionDetails?.id); } else { console.error('❌ loadSessionRequirements not found on window, type:', typeof window.loadSessionRequirements); } })" 
                                     :class="sessionDetailsActiveTab === 'requirements' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
                                     class="py-4 px-1 border-b-2 font-medium text-sm transition-colors">
                                 <i class="fas fa-list-alt mr-2"></i>Requirements
@@ -612,7 +612,7 @@
                                     </p>
                                 </div>
                                 <div class="flex space-x-2">
-                                    <button @click="loadSessionRequirements(selectedSessionDetails?.id)" 
+                                    <button @click="window.loadSessionRequirements && window.loadSessionRequirements(selectedSessionDetails?.id)" 
                                             :disabled="loading"
                                             class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400">
                                         <i class="fas fa-sync-alt mr-2"></i>

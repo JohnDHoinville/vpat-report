@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Requirements Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .requirement { border: 1px solid #ccc; margin: 10px 0; padding: 15px; border-radius: 5px; }
+        .loading { color: #666; font-style: italic; }
+        .error { color: red; background: #ffebee; padding: 10px; border-radius: 5px; }
+        .success { color: green; background: #e8f5e8; padding: 10px; border-radius: 5px; }
+        button { background: #007cba; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; margin: 5px; }
+        button:hover { background: #005a8b; }
+        pre { background: #f5f5f5; padding: 10px; border-radius: 5px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>Simple Requirements Test</h1>
+    
+    <div>
+        <button onclick="testRequirements()">Test Requirements Loading</button>
+        <button onclick="testDashboardFunction()">Test Dashboard Function</button>
+    </div>
+    
+    <div id="status" style="margin: 20px 0;">
+        <strong>Status:</strong> <span id="statusText">Ready</span>
+    </div>
+    
+    <div id="loading" class="loading" style="display: none;">
+        🔄 Loading requirements...
+    </div>
+    
+    <div id="error" class="error" style="display: none;">
+        <strong>Error:</strong> <span id="errorText"></span>
+    </div>
+    
+    <div id="success" class="success" style="display: none;">
+        <strong>Success!</strong> <span id="successText"></span>
+    </div>
+    
+    <div id="requirements" style="display: none;">
+        <h3>Requirements:</h3>
+        <div id="requirementsList"></div>
+    </div>
+    
+    <div id="rawResponse" style="display: none;">
+        <h3>Raw API Response:</h3>
+        <pre id="responseText"></pre>
+    </div>
+
+    <script>
+        async function testRequirements() {
+            showStatus('Testing requirements loading...');
+            showLoading(true);
+            hideError();
+            hideSuccess();
+            hideRequirements();
+            hideRawResponse();
+            
+            try {
+                console.log('🔍 Testing requirements API...');
+                
+                // Test the test endpoint directly
+                const response = await fetch('http://localhost:3001/api/requirements/test');
+                const data = await response.json();
+                
+                console.log('📊 API Response:', data);
+                
+                if (response.ok && data.success && data.data?.sample_requirements) {
+                    const requirements = data.data.sample_requirements;
+                    
+                    // Transform like dashboard does
+                    const transformedRequirements = requirements.map(req => ({
+                        id: req.requirement_id || req.id,
+                        criterion_number: req.criterion_number || req.requirement_id,
+                        title: req.title,
+                        description: req.description || '',
+                        level: req.level,
+                        test_method: req.test_method || 'manual',
+                        requirement_type: req.requirement_type || 'wcag',
+                        automated_tests: [],
+                        manual_tests: [],
+                        automated_status: 'not_tested',
+                        manual_status: 'not_tested',
+                        overall_status: 'not_tested'
+                    }));
+                    
+                    showSuccess(`Loaded ${transformedRequirements.length} requirements`);
+                    showRequirements(transformedRequirements);
+                    showRawResponse(data);
+                    
+                    console.log('✅ Requirements loaded successfully:', transformedRequirements);
+                } else {
+                    throw new Error('API returned no requirements data');
+                }
+                
+            } catch (error) {
+                console.error('❌ Requirements test failed:', error);
+                showError(error.message);
+            } finally {
+                showLoading(false);
+            }
+        }
+        
+        async function testDashboardFunction() {
+            showStatus('Testing dashboard function...');
+            showLoading(true);
+            hideError();
+            hideSuccess();
+            hideRequirements();
+            hideRawResponse();
+            
+            try {
+                console.log('🔍 Testing dashboard loadSessionRequirements function...');
+                
+                // Check if dashboard is loaded
+                if (typeof window.loadSessionRequirements === 'function') {
+                    console.log('✅ loadSessionRequirements function found');
+                    
+                    // Test with a dummy session ID
+                    const sessionId = 'test-session-123';
+                    console.log('🔍 Calling loadSessionRequirements with sessionId:', sessionId);
+                    
+                    // This should trigger the function and show console logs
+                    window.loadSessionRequirements(sessionId);
+                    
+                    showSuccess('Dashboard function called successfully - check console for logs');
+                } else {
+                    throw new Error('loadSessionRequirements function not found on window object');
+                }
+                
+            } catch (error) {
+                console.error('❌ Dashboard function test failed:', error);
+                showError(error.message);
+            } finally {
+                showLoading(false);
+            }
+        }
+        
+        function showStatus(text) {
+            document.getElementById('statusText').textContent = text;
+        }
+        
+        function showLoading(show) {
+            document.getElementById('loading').style.display = show ? 'block' : 'none';
+        }
+        
+        function showError(message) {
+            document.getElementById('errorText').textContent = message;
+            document.getElementById('error').style.display = 'block';
+        }
+        
+        function hideError() {
+            document.getElementById('error').style.display = 'none';
+        }
+        
+        function showSuccess(message) {
+            document.getElementById('successText').textContent = message;
+            document.getElementById('success').style.display = 'block';
+        }
+        
+        function hideSuccess() {
+            document.getElementById('success').style.display = 'none';
+        }
+        
+        function showRequirements(requirements) {
+            const container = document.getElementById('requirementsList');
+            container.innerHTML = '';
+            
+            requirements.forEach(req => {
+                const div = document.createElement('div');
+                div.className = 'requirement';
+                div.innerHTML = `
+                    <div><strong>ID:</strong> ${req.id || 'N/A'}</div>
+                    <div><strong>Criterion:</strong> ${req.criterion_number}</div>
+                    <div><strong>Title:</strong> ${req.title}</div>
+                    <div><strong>Level:</strong> ${req.level}</div>
+                    <div><strong>Test Method:</strong> ${req.test_method}</div>
+                    <div><strong>Type:</strong> ${req.requirement_type}</div>
+                `;
+                container.appendChild(div);
+            });
+            
+            document.getElementById('requirements').style.display = 'block';
+        }
+        
+        function hideRequirements() {
+            document.getElementById('requirements').style.display = 'none';
+        }
+        
+        function showRawResponse(data) {
+            document.getElementById('responseText').textContent = JSON.stringify(data, null, 2);
+            document.getElementById('rawResponse').style.display = 'block';
+        }
+        
+        function hideRawResponse() {
+            document.getElementById('rawResponse').style.display = 'none';
+        }
+    </script>
+</body>
+</html> 

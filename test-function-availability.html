@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Function Availability Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-result { margin: 10px 0; padding: 10px; border-radius: 5px; }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        button { background: #007cba; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; margin: 5px; }
+        button:hover { background: #005a8b; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 5px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>Function Availability Test</h1>
+    
+    <div>
+        <button onclick="testFunctionAvailability()">Test Function Availability</button>
+        <button onclick="loadDashboard()">Load Dashboard Script</button>
+        <button onclick="testRequirementsAPI()">Test Requirements API</button>
+    </div>
+    
+    <div id="results"></div>
+
+    <script>
+        function addResult(type, title, message) {
+            const resultsDiv = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = `test-result ${type}`;
+            div.innerHTML = `<strong>${title}:</strong> ${message}`;
+            resultsDiv.appendChild(div);
+        }
+        
+        function testFunctionAvailability() {
+            addResult('info', 'Testing Function Availability', 'Checking for loadSessionRequirements function...');
+            
+            // Check if dashboard script is loaded
+            if (typeof window.dashboard === 'function') {
+                addResult('success', 'Dashboard Function', 'window.dashboard function found');
+            } else {
+                addResult('error', 'Dashboard Function', 'window.dashboard function NOT found');
+            }
+            
+            // Check if dashboard instance is available
+            if (window.dashboardInstance) {
+                addResult('success', 'Dashboard Instance', 'window.dashboardInstance found');
+                
+                if (typeof window.dashboardInstance.loadSessionRequirements === 'function') {
+                    addResult('success', 'Instance Method', 'dashboardInstance.loadSessionRequirements function found');
+                } else {
+                    addResult('error', 'Instance Method', 'dashboardInstance.loadSessionRequirements function NOT found');
+                }
+            } else {
+                addResult('error', 'Dashboard Instance', 'window.dashboardInstance NOT found');
+            }
+            
+            // Check if global function is available
+            if (typeof window.loadSessionRequirements === 'function') {
+                addResult('success', 'Global Function', 'window.loadSessionRequirements function found');
+            } else {
+                addResult('error', 'Global Function', 'window.loadSessionRequirements function NOT found');
+            }
+            
+            // Check Alpine.js component
+            if (window.Alpine && window.Alpine.store) {
+                addResult('success', 'Alpine.js', 'Alpine.js is loaded');
+            } else {
+                addResult('error', 'Alpine.js', 'Alpine.js NOT found');
+            }
+        }
+        
+        function loadDashboard() {
+            addResult('info', 'Loading Dashboard', 'Attempting to load dashboard script...');
+            
+            const script = document.createElement('script');
+            script.src = '/dashboard/js/dashboard.js';
+            script.onload = function() {
+                addResult('success', 'Script Loaded', 'Dashboard script loaded successfully');
+                testFunctionAvailability();
+            };
+            script.onerror = function() {
+                addResult('error', 'Script Error', 'Failed to load dashboard script');
+            };
+            document.head.appendChild(script);
+        }
+        
+        async function testRequirementsAPI() {
+            addResult('info', 'Testing API', 'Testing requirements API endpoint...');
+            
+            try {
+                const response = await fetch('http://localhost:3001/api/requirements/test');
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    addResult('success', 'API Test', `API working: ${data.data.total_found} requirements found`);
+                    console.log('API Response:', data);
+                } else {
+                    addResult('error', 'API Test', 'API returned error response');
+                }
+            } catch (error) {
+                addResult('error', 'API Test', `API error: ${error.message}`);
+            }
+        }
+        
+        // Auto-test on page load
+        window.addEventListener('load', function() {
+            addResult('info', 'Page Loaded', 'Testing initial state...');
+            setTimeout(testFunctionAvailability, 1000);
+        });
+    </script>
+</body>
+</html> 
