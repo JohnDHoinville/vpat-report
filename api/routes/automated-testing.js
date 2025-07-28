@@ -45,7 +45,12 @@ router.post('/run/:sessionId', authenticateToken, async (req, res) => {
             requirements,
             updateTestInstances: update_test_instances,
             createEvidence: create_evidence,
-            userId: req.user.userId
+            userId: req.user.userId,
+            clientMetadata: {
+                client_ip: req.ip || req.connection.remoteAddress || 'unknown',
+                user_agent: req.get('User-Agent') || 'unknown',
+                request_timestamp: new Date().toISOString()
+            }
         });
 
         res.json({

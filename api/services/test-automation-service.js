@@ -22,7 +22,8 @@ class TestAutomationService {
             requirements = null,
             updateTestInstances = true,
             createEvidence = true,
-            userId
+            userId,
+            clientMetadata = {}
         } = options;
 
         const runId = uuidv4();
@@ -40,7 +41,7 @@ class TestAutomationService {
 
             if (runAsync) {
                 // Run tests in background
-                this.runTestsInBackground(runId, sessionId, tools, pagesToTest, updateTestInstances, createEvidence, userId, requirements);
+                this.runTestsInBackground(runId, sessionId, tools, pagesToTest, updateTestInstances, createEvidence, userId, requirements, clientMetadata);
                 
                 return {
                     run_id: runId,
@@ -50,7 +51,7 @@ class TestAutomationService {
                 };
             } else {
                 // Run tests synchronously
-                const results = await this.executeAutomatedTests(runId, sessionId, tools, pagesToTest, updateTestInstances, createEvidence, userId, requirements);
+                const results = await this.executeAutomatedTests(runId, sessionId, tools, pagesToTest, updateTestInstances, createEvidence, userId, requirements, clientMetadata);
                 return results;
             }
 
@@ -61,9 +62,25 @@ class TestAutomationService {
     }
 
     /**
+     * Run tests in background (async without blocking)
+     */
+    runTestsInBackground(runId, sessionId, tools, pages, updateTestInstances, createEvidence, userId, requirements, clientMetadata) {
+        // Execute tests asynchronously without blocking
+        setImmediate(async () => {
+            try {
+                await this.executeAutomatedTests(runId, sessionId, tools, pages, updateTestInstances, createEvidence, userId, requirements, clientMetadata);
+            } catch (error) {
+                console.error(`❌ Background test execution failed for run ${runId}:`, error);
+                // Update run status to failed
+                await this.updateRunStatus(runId, 'failed', { error: error.message });
+            }
+        });
+    }
+
+    /**
      * Execute automated tests
      */
-    async executeAutomatedTests(runId, sessionId, tools, pages, updateTestInstances, createEvidence, userId, requirements = null) {
+    async executeAutomatedTests(runId, sessionId, tools, pages, updateTestInstances, createEvidence, userId, requirements = null, clientMetadata = {}) {
         const startTime = new Date();
         let totalIssues = 0;
         let criticalIssues = 0;
@@ -76,6 +93,39 @@ class TestAutomationService {
             // Mark test instances as in-progress before starting automation
             const testInstancesMarked = await this.markTestInstancesInProgress(sessionId, userId, null, requirements);
             console.log(`📝 Marked ${testInstancesMarked} test instances as "in_progress"`);
+            
+            // Create session-level audit entry for status change
+            await this.createSessionAuditLogEntry(
+                sessionId, 
+                'status_change', 
+                userId, 
+                `${testInstancesMarked} test instances marked as "in_progress" for automation`,
+                {
+                    run_id: runId,
+                    field_changed: 'status',
+                    old_value: 'not_tested',
+                    new_value: 'in_progress',
+                    instances_affected: testInstancesMarked,
+                    change_reason: 'automation_preparation',
+                    ...clientMetadata
+                }
+            );
+            
+            // Create session-level audit entry for automation start
+            await this.createSessionAuditLogEntry(
+                sessionId, 
+                'automation_started', 
+                userId, 
+                `Automated testing started with tools: ${tools.join(', ')}`,
+                {
+                    run_id: runId,
+                    tools_used: tools,
+                    pages_to_test: pages.length,
+                    test_instances_marked: testInstancesMarked,
+                    estimated_duration: this.estimateTestDuration(tools, pages.length),
+                    ...clientMetadata
+                }
+            );
             
             // Emit automation start progress
             this.emitProgress(sessionId, {
@@ -133,6 +183,23 @@ class TestAutomationService {
                     violationsFound: totalIssues
                 });
                 
+                // Create session-level audit entry for tool completion
+                await this.createSessionAuditLogEntry(
+                    sessionId, 
+                    'automation_tool_completed', 
+                    userId, 
+                    `${tool} testing completed - ${totalIssues} total issues found`,
+                    {
+                        run_id: runId,
+                        tool: tool,
+                        violations_found: totalIssues,
+                        critical_violations: criticalIssues,
+                        pages_tested: pages.length,
+                        time_elapsed_ms: Date.now() - startTime.getTime(),
+                        ...clientMetadata
+                    }
+                );
+                
                 // Emit testing milestone for tool completion
                 this.emitMilestone(sessionId, {
                     type: 'tool_complete',
@@ -147,12 +214,53 @@ class TestAutomationService {
             let testInstancesUpdated = 0;
             if (updateTestInstances) {
                 testInstancesUpdated = await this.mapResultsToTestInstances(sessionId, results, userId);
+                console.log(`📝 Updated ${testInstancesUpdated} test instances with automated results`);
+                
+                // Create session-level audit entry for status changes after automation
+                await this.createSessionAuditLogEntry(
+                    sessionId, 
+                    'status_change', 
+                    userId, 
+                    `${testInstancesUpdated} test instances updated with automated test results`,
+                    {
+                        run_id: runId,
+                        field_changed: 'status_and_results',
+                        old_value: 'in_progress',
+                        new_value: 'automated_results_available',
+                        instances_affected: testInstancesUpdated,
+                        change_reason: 'automation_completion',
+                        results_summary: {
+                            total_issues: totalIssues,
+                            critical_issues: criticalIssues,
+                            tools_used: tools
+                        },
+                        ...clientMetadata
+                    }
+                );
             }
 
             // Create evidence files
             let evidenceCreated = 0;
             if (createEvidence) {
                 evidenceCreated = await this.createEvidenceFiles(sessionId, runId, results, userId);
+                
+                if (evidenceCreated > 0) {
+                    // Create session-level audit entry for evidence creation
+                    await this.createSessionAuditLogEntry(
+                        sessionId, 
+                        'evidence_created', 
+                        userId, 
+                        `${evidenceCreated} evidence files created from automated test results`,
+                        {
+                            run_id: runId,
+                            evidence_files_count: evidenceCreated,
+                            evidence_type: 'automated_result',
+                            tools_used: tools,
+                            change_reason: 'automation_evidence_generation',
+                            ...clientMetadata
+                        }
+                    );
+                }
             }
 
             // Update run completion
@@ -176,6 +284,26 @@ class TestAutomationService {
                 totalTests: pages.length * tools.length,
                 violationsFound: totalIssues
             });
+            
+            // Create session-level audit entry for automation completion
+            await this.createSessionAuditLogEntry(
+                sessionId, 
+                'automation_completed', 
+                userId, 
+                `Automated testing completed - ${totalIssues} total issues found across ${pages.length} pages`,
+                {
+                    run_id: runId,
+                    duration_ms: completedAt - startTime,
+                    pages_tested: pages.length,
+                    tools_used: tools,
+                    total_issues: totalIssues,
+                    critical_issues: criticalIssues,
+                    test_instances_updated: testInstancesUpdated,
+                    evidence_files_created: evidenceCreated,
+                    final_status: 'completed',
+                    ...clientMetadata
+                }
+            );
             
             // Emit automation completion event
             this.emitCompletion(sessionId, {
@@ -205,6 +333,23 @@ class TestAutomationService {
         } catch (error) {
             console.error(`❌ Error executing automation run ${runId}:`, error);
             await this.updateRunStatus(runId, 'failed', { error: error.message });
+            
+            // Create session-level audit entry for automation failure
+            await this.createSessionAuditLogEntry(
+                sessionId, 
+                'automation_failed', 
+                userId, 
+                `Automated testing failed: ${error.message}`,
+                {
+                    run_id: runId,
+                    error_message: error.message,
+                    tools_attempted: tools,
+                    pages_attempted: pages.length,
+                    final_status: 'failed',
+                    ...clientMetadata
+                }
+            );
+            
             throw error;
         }
     }
@@ -678,24 +823,105 @@ class TestAutomationService {
     }
 
     /**
-     * Create audit log entry
+     * Create audit log entry for test instance
      */
     async createAuditLogEntry(instanceId, actionType, userId, data) {
+        // Get session_id for the test instance
+        const sessionQuery = await pool.query('SELECT session_id FROM test_instances WHERE id = $1', [instanceId]);
+        const sessionId = sessionQuery.rows[0]?.session_id || null;
+
+        if (!sessionId) {
+            console.warn(`Could not find session_id for test instance ${instanceId}`);
+            return; // Skip audit logging if no session found
+        }
+
         const query = `
             INSERT INTO test_audit_log (
-                test_instance_id, action_type, changed_by, changed_at, 
+                test_instance_id, session_id, action_type, changed_by, changed_at, 
                 reason, metadata
-            ) VALUES ($1, $2, $3, $4, $5, $6)
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7)
         `;
 
         await pool.query(query, [
             instanceId,
+            sessionId,
             actionType,
             userId,
             new Date(),
             'Automated testing result',
             JSON.stringify(data)
         ]);
+    }
+
+    /**
+     * Create session-level audit log entry
+     */
+    async createSessionAuditLogEntry(sessionId, actionType, userId, reason, metadata = {}) {
+        // Get user information for better tracking
+        let userInfo = null;
+        if (userId) {
+            try {
+                const userQuery = await pool.query('SELECT username, email FROM users WHERE id = $1', [userId]);
+                userInfo = userQuery.rows[0] || null;
+            } catch (error) {
+                console.warn('Could not fetch user info for audit log:', error.message);
+            }
+        }
+
+        const enhancedMetadata = {
+            ...metadata,
+            user_info: userInfo,
+            timestamp: new Date().toISOString(),
+            client_ip: metadata.client_ip || 'system',
+            user_agent: metadata.user_agent || 'automation-service'
+        };
+
+        const query = `
+            INSERT INTO test_audit_log (
+                test_instance_id, session_id, action_type, changed_by, changed_at, 
+                reason, metadata
+            ) VALUES (NULL, $1, $2, $3, $4, $5, $6)
+        `;
+
+        await pool.query(query, [
+            sessionId,
+            actionType,
+            userId,
+            new Date(),
+            reason,
+            JSON.stringify(enhancedMetadata)
+        ]);
+
+        console.log(`📋 Session audit logged: ${actionType} by ${userInfo?.username || 'system'} for session ${sessionId}`);
+    }
+
+    /**
+     * Estimate test duration based on tools and page count
+     */
+    estimateTestDuration(tools, pageCount) {
+        // Base time per page per tool (in seconds)
+        const baseTimePerPagePerTool = {
+            'wave': 8,
+            'axe': 12,
+            'lighthouse': 15,
+            'pa11y': 10
+        };
+
+        let totalEstimatedSeconds = 0;
+        for (const tool of tools) {
+            const toolTime = baseTimePerPagePerTool[tool] || 10;
+            totalEstimatedSeconds += toolTime * pageCount;
+        }
+
+        // Add 20% buffer for processing overhead
+        totalEstimatedSeconds = Math.ceil(totalEstimatedSeconds * 1.2);
+
+        return {
+            total_seconds: totalEstimatedSeconds,
+            total_minutes: Math.ceil(totalEstimatedSeconds / 60),
+            per_tool_seconds: Math.ceil(totalEstimatedSeconds / tools.length),
+            estimated_completion: new Date(Date.now() + (totalEstimatedSeconds * 1000)).toISOString()
+        };
     }
 
     /**

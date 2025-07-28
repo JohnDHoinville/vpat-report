@@ -1491,7 +1491,7 @@ function dashboard() {
             }
             return token;
         },
-
+        
         getAuthHeaders() {
             const headers = { 'Content-Type': 'application/json' };
             if (this.auth.token) {
@@ -7090,10 +7090,10 @@ function dashboard() {
                 const response = await this.apiCall(`/automated-testing/run/${sessionId}`, {
                     method: 'POST',
                     body: JSON.stringify({
-                        tools: ['axe-core', 'pa11y'],
-                        run_async: true,
-                        update_test_instances: true,
-                        create_evidence: true
+                    tools: ['axe-core', 'pa11y'],
+                    run_async: true,
+                    update_test_instances: true,
+                    create_evidence: true
                     })
                 });
                 
@@ -7500,7 +7500,7 @@ function dashboard() {
                     
                     // Apply filters (only client-side filtering for small datasets)
                     if (!this.testGridPerformanceMode) {
-                        this.applyTestGridFilters();
+                    this.applyTestGridFilters();
                     } else {
                         this.filteredTestGridInstances = [...this.testGridInstances];
                     }
@@ -7521,8 +7521,8 @@ function dashboard() {
                 console.error('Error loading test instances for grid:', error);
                 this.showNotification('error', 'Loading Failed', error.message);
                 if (page === 1) {
-                    this.testGridInstances = [];
-                    this.filteredTestGridInstances = [];
+                this.testGridInstances = [];
+                this.filteredTestGridInstances = [];
                 }
             } finally {
                 this.testGridLoading = false;
@@ -8023,7 +8023,7 @@ function dashboard() {
                 const response = await this.apiCall(`/test-instances/${instanceId}`, {
                     method: 'PUT',
                     body: JSON.stringify({
-                        assigned_tester: testerId || null
+                    assigned_tester: testerId || null
                     })
                 });
                 
@@ -8671,8 +8671,8 @@ function dashboard() {
                         // Calculate requirement counts by conformance level - with null safety
                         this.requirementCounts = this.availableRequirements.reduce((counts, req) => {
                             if (req.level && req.requirement_type) {
-                                const key = `${req.requirement_type}_${req.level.toLowerCase()}`;
-                                counts[key] = (counts[key] || 0) + 1;
+                            const key = `${req.requirement_type}_${req.level.toLowerCase()}`;
+                            counts[key] = (counts[key] || 0) + 1;
                             } else {
                                 console.warn('⚠️ Requirement missing level or type:', req);
                             }
@@ -8856,7 +8856,7 @@ function dashboard() {
         getDeduplicatedPagesCount() {
             // If we have actual deduplicated pages (from Step 4), use that count
             if (this.deduplicatedPages && this.deduplicatedPages.length > 0) {
-                return this.deduplicatedPages.length;
+            return this.deduplicatedPages.length;
             }
             
             // Otherwise, estimate based on selected crawlers
@@ -8942,7 +8942,7 @@ function dashboard() {
             return crawler?.name || 'Unknown';
         },
 
-                // Requirements filtering methods
+        // Requirements filtering methods
         getSelectedRequirements() {
             // If no conformance levels selected, return empty (reduce logging spam)
             if (!this.sessionWizard?.conformance_levels?.length) {
@@ -8980,13 +8980,13 @@ function dashboard() {
                 return [];
             }
             
-            const mapping = {
-                'wcag_22_a': 'wcag_a',
-                'wcag_22_aa': 'wcag_aa', 
-                'wcag_22_aaa': 'wcag_aaa',
-                'section_508_base': 'section_508_base',
-                'section_508_enhanced': 'section_508_enhanced'
-            };
+                    const mapping = {
+                        'wcag_22_a': 'wcag_a',
+                        'wcag_22_aa': 'wcag_aa',
+                        'wcag_22_aaa': 'wcag_aaa',
+                        'section_508_base': 'section_508_base',
+                        'section_508_enhanced': 'section_508_enhanced'
+                    };
             
                             // Debug the filtering process
                 console.log('🔍 FILTERING DEBUG:');
