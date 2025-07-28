@@ -407,6 +407,9 @@ router.get('/session/:sessionId', authenticateToken, async (req, res) => {
             whereCondition = `WHERE standard_type = 'wcag' AND level IN ('A', 'AA', 'AAA')`;
         } else if (conformanceLevel === 'section_508') {
             whereCondition = `WHERE standard_type = 'section508'`;
+        } else if (conformanceLevel === 'combined') {
+            // Combined includes all WCAG and Section 508 requirements
+            whereCondition = `WHERE standard_type IN ('wcag', 'section508')`;
         } else {
             // Default to WCAG AA
             whereCondition = `WHERE standard_type = 'wcag' AND level IN ('A', 'AA')`;

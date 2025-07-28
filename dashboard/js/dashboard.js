@@ -54,7 +54,12 @@ window.dashboard = function() {
         socket: null,
         socketConnected: false,
         realtimeUpdates: true,
-        automationProgress: null,
+        automationProgress: {
+            completedTests: 0,
+            totalTests: 0,
+            violationsFound: 0,
+            progress: 0
+        },
         
         // ===== FORM OBJECTS =====
         loginForm: { username: '', password: '' },
@@ -307,48 +312,61 @@ window.dashboard = function() {
                 if (!this.requirementPageSize) this.requirementPageSize = 20;
                 if (!this.requirementTotalPages) this.requirementTotalPages = 1;
                 
-                // Load requirements directly from the requirements API
+                // Load requirements specific to this session
                 let requirementsData = [];
                 
                 try {
-                    console.log(`📋 Loading requirements from API for session ${sessionId}`);
+                    console.log(`📋 Loading requirements for session ${sessionId}`);
                     
+                    // Get session details first to understand conformance level
+                    const sessionResponse = await this.apiCall(`/testing-sessions/${sessionId}`);
+                    if (!sessionResponse.success) {
+                        throw new Error('Failed to load session details');
+                    }
+                    
+                    const session = sessionResponse.session;
+                    const conformanceLevel = session.conformance_level || 'wcag_aa';
+                    console.log(`📋 Session conformance level: ${conformanceLevel}`);
+                    
+                    // Load requirements based on session's conformance level
                     let requirementsResponse;
                     
                     try {
-                        // Try authenticated endpoint first
-                        requirementsResponse = await this.apiCall(`/requirements?limit=100`);
-                    } catch (authError) {
-                        console.warn('🔓 Authenticated API failed, trying test endpoint:', authError.message);
+                        // Try the unified requirements endpoint for this session
+                        requirementsResponse = await this.apiCall(`/unified-requirements/session/${sessionId}`);
                         
-                        // Fallback to test endpoint for development/testing
-                        try {
-                            const testResponse = await fetch(`${this.config.apiBaseUrl}/api/requirements/test`);
-                            if (testResponse.ok) {
-                                const testData = await testResponse.json();
-                                // Transform test response to match expected format
-                                requirementsResponse = {
-                                    success: true,
-                                    data: {
-                                        requirements: testData.data.sample_requirements || []
-                                    }
-                                };
-                                console.log('📋 Using test endpoint data');
+                        if (requirementsResponse.success && requirementsResponse.data?.requirements) {
+                            requirementsData = requirementsResponse.data.requirements;
+                            console.log(`✅ Successfully loaded ${requirementsData.length} requirements for session`);
+                        } else {
+                            // Fallback to conformance level endpoint
+                            console.log(`📋 Trying conformance level endpoint for ${conformanceLevel}`);
+                            requirementsResponse = await this.apiCall(`/unified-requirements/conformance/${conformanceLevel}`);
+                            
+                            if (requirementsResponse.success && requirementsResponse.data?.requirements) {
+                                requirementsData = requirementsResponse.data.requirements;
+                                console.log(`✅ Successfully loaded ${requirementsData.length} requirements by conformance level`);
                             } else {
-                                throw new Error('Test endpoint also failed');
+                                throw new Error('No requirements data available from API');
                             }
-                        } catch (testError) {
-                            console.error('❌ Test endpoint failed:', testError);
-                            throw authError; // Re-throw original auth error
                         }
-                    }
-                    
-                    if (requirementsResponse.success && requirementsResponse.data?.requirements) {
-                        requirementsData = requirementsResponse.data.requirements;
-                        console.log(`✅ Successfully loaded ${requirementsData.length} requirements from API`);
-                    } else {
-                        console.error('❌ Requirements API returned no data:', requirementsResponse);
-                        throw new Error('No requirements data available from API');
+                        
+                    } catch (apiError) {
+                        console.warn('🔓 API failed, trying fallback endpoints:', apiError.message);
+                        
+                        // Fallback to basic requirements endpoint
+                        try {
+                            requirementsResponse = await this.apiCall(`/requirements?limit=100`);
+                            if (requirementsResponse.success && requirementsResponse.data?.requirements) {
+                                requirementsData = requirementsResponse.data.requirements;
+                                console.log(`✅ Successfully loaded ${requirementsData.length} requirements from fallback API`);
+                            } else {
+                                throw new Error('Fallback API also failed');
+                            }
+                        } catch (fallbackError) {
+                            console.error('❌ All API endpoints failed:', fallbackError);
+                            throw apiError; // Re-throw original error
+                        }
                     }
                     
                 } catch (error) {
@@ -358,16 +376,19 @@ window.dashboard = function() {
                     return; // Exit early if we can't load requirements
                 }
                 
-                // Transform data to match expected format (based on test_requirements table structure)
+                // Transform data to match expected format (based on unified_requirements table structure)
                 const transformedRequirements = requirementsData.map(req => {
                     console.log('🔍 Processing requirement:', req);
                     return {
-                        id: req.requirement_id || req.id,
-                        criterion_number: req.criterion_number || req.requirement_id,
+                        id: req.id || req.requirement_id,
+                        criterion_number: req.requirement_id || req.criterion_number,
                         title: req.title,
                         description: req.description,
-                        wcag_level: req.wcag_level || req.level,
+                        requirement_type: req.standard_type || req.requirement_type,
+                        level: req.level,
                         test_method: req.test_method || 'both',
+                        automated_tools: req.automated_tools || [],
+                        automation_confidence: req.automation_confidence || 'none',
                         status: req.status || 'not_tested',
                         automated_status: req.automated_status || 'not_tested',
                         manual_status: req.manual_status || 'not_tested',
@@ -924,6 +945,16 @@ window.dashboard = function() {
                 return;
             }
             this._initialized = true;
+            
+            // Initialize automationProgress to prevent null errors
+            if (!this.automationProgress) {
+                this.automationProgress = {
+                    completedTests: 0,
+                    totalTests: 0,
+                    violationsFound: 0,
+                    progress: 0
+                };
+            }
             
             console.log('✅ Dashboard initialized');
             
@@ -7501,27 +7532,65 @@ window.dashboard = function() {
         // Load session statistics breakdown
         async loadSessionStats(sessionId) {
             try {
-                const response = await this.apiCall(`/test-instances?session_id=${sessionId}`);
+                // First, get the session details to understand the conformance level
+                const sessionResponse = await this.apiCall(`/testing-sessions/${sessionId}`);
                 
-                if (response.success) {
-                    const testInstances = response.test_instances || [];
+                if (!sessionResponse.success) {
+                    console.error('Failed to load session details for stats calculation');
+                    return;
+                }
+                
+                const session = sessionResponse.session;
+                const conformanceLevel = session.conformance_level || 'wcag_aa';
+                
+                // Get requirements based on the session's conformance level
+                const requirementsResponse = await this.apiCall(`/unified-requirements/session/${sessionId}`);
+                
+                if (requirementsResponse.success) {
+                    const requirements = requirementsResponse.data.requirements || [];
                     
-                    // Calculate level breakdown
+                    // Calculate level breakdown from requirements (not test instances)
                     const stats = {
-                        levelA: testInstances.filter(t => (t.requirement_level || t.level) === 'a').length,
-                        levelAA: testInstances.filter(t => (t.requirement_level || t.level) === 'aa').length,
-                        levelAAA: testInstances.filter(t => (t.requirement_level || t.level) === 'aaa').length,
-                        section508Base: testInstances.filter(t => (t.requirement_level || t.level) === 'base').length,
-                        section508Enhanced: testInstances.filter(t => (t.requirement_level || t.level) === 'enhanced').length,
+                        levelA: requirements.filter(r => (r.standard_type || r.requirement_type) === 'wcag' && r.level === 'A').length,
+                        levelAA: requirements.filter(r => (r.standard_type || r.requirement_type) === 'wcag' && r.level === 'AA').length,
+                        levelAAA: requirements.filter(r => (r.standard_type || r.requirement_type) === 'wcag' && r.level === 'AAA').length,
+                        section508Base: requirements.filter(r => (r.standard_type || r.requirement_type) === 'section508' && r.level === 'base').length,
+                        section508Enhanced: requirements.filter(r => (r.standard_type || r.requirement_type) === 'section508' && r.level === 'enhanced').length,
                         
-                        // Test method breakdown
-                        manualTests: testInstances.filter(t => (t.test_method_used || t.requirement_test_method) === 'manual').length,
-                        automatedTests: testInstances.filter(t => (t.test_method_used || t.requirement_test_method) === 'automated').length,
-                        hybridTests: testInstances.filter(t => (t.test_method_used || t.requirement_test_method) === 'both').length
+                        // Test method breakdown from requirements
+                        manualTests: requirements.filter(r => r.test_method === 'manual').length,
+                        automatedTests: requirements.filter(r => r.test_method === 'automated').length,
+                        hybridTests: requirements.filter(r => r.test_method === 'both').length
                     };
                     
                     this.sessionDetailsStats = stats;
-                    console.log('📊 Session stats loaded:', stats);
+                    console.log('📊 Session stats loaded from requirements:', stats);
+                    console.log('📊 Conformance level:', conformanceLevel);
+                    console.log('📊 Total requirements:', requirements.length);
+                } else {
+                    // Fallback to test instances if requirements API fails
+                    const response = await this.apiCall(`/test-instances?session_id=${sessionId}`);
+                    
+                    if (response.success) {
+                        const testInstances = response.test_instances || [];
+                        
+                        // Calculate level breakdown
+                        const stats = {
+                            levelA: testInstances.filter(t => (t.requirement_level || t.level) === 'a').length,
+                            levelAA: testInstances.filter(t => (t.requirement_level || t.level) === 'aa').length,
+                            levelAAA: testInstances.filter(t => (t.requirement_level || t.level) === 'aaa').length,
+                            section508Base: testInstances.filter(t => (t.requirement_level || t.level) === 'base').length,
+                            section508Enhanced: testInstances.filter(t => (t.requirement_level || t.level) === 'enhanced').length,
+                            
+                            // Test method breakdown
+                            manualTests: testInstances.filter(t => (t.test_method_used || t.requirement_test_method) === 'manual').length,
+                            automatedTests: testInstances.filter(t => (t.test_method_used || t.requirement_test_method) === 'automated').length,
+                            hybridTests: testInstances.filter(t => (t.test_method_used || t.requirement_test_method) === 'both').length
+                        };
+                        
+                        this.sessionDetailsStats = stats;
+                        console.log('📊 Session stats loaded from test instances (fallback):', stats);
+                    }
                 }
             } catch (error) {
                 console.error('Error loading session stats:', error);
@@ -9047,15 +9116,27 @@ window.dashboard = function() {
                 (crawler.status === 'completed' || crawler.pages_for_testing > 0)
             );
             
-            console.log('🔍 DEBUG: getTotalDiscoveredPages - found crawlers:', projectCrawlers.map(c => ({
-                name: c.name,
-                status: c.status,
-                pages_for_testing: c.pages_for_testing,
-                total_pages_found: c.total_pages_found
-            })));
+            // Rate limiting for debug logging
+            if (!this._loggedCrawlerDebug) {
+                console.log('🔍 DEBUG: getTotalDiscoveredPages - found crawlers:', projectCrawlers.map(c => ({
+                    name: c.name,
+                    status: c.status,
+                    pages_for_testing: c.pages_for_testing,
+                    total_pages_found: c.total_pages_found
+                })));
+                this._loggedCrawlerDebug = true;
+                setTimeout(() => { this._loggedCrawlerDebug = false; }, 5000);
+            }
             
             const total = projectCrawlers.reduce((total, crawler) => total + (crawler.pages_for_testing || 0), 0);
-            console.log('🔍 DEBUG: getTotalDiscoveredPages - returning total:', total);
+            
+            // Rate limiting for debug logging
+            if (!this._loggedTotalDebug) {
+                console.log('🔍 DEBUG: getTotalDiscoveredPages - returning total:', total);
+                this._loggedTotalDebug = true;
+                setTimeout(() => { this._loggedTotalDebug = false; }, 5000);
+            }
+            
             return total;
         },
         
@@ -9094,6 +9175,24 @@ window.dashboard = function() {
             if (instances < 500) return 'Medium';
             if (instances < 1500) return 'High';
             return 'Very High';
+        },
+        
+        // Get grouped timeline for audit trail
+        getGroupedTimeline() {
+            if (!this.sessionActivities || !Array.isArray(this.sessionActivities)) {
+                return {};
+            }
+            
+            const grouped = {};
+            this.sessionActivities.forEach(activity => {
+                const date = new Date(activity.created_at).toLocaleDateString();
+                if (!grouped[date]) {
+                    grouped[date] = [];
+                }
+                grouped[date].push(activity);
+            });
+            
+            return grouped;
         },
         
         // Apply session template
@@ -11021,7 +11120,28 @@ window.dashboard = function() {
     // Global dashboard instance for modal access
     window.dashboardInstance = componentInstance;
     
-
+    // Global functions for Alpine.js access
+    window.loadSessionRequirements = (sessionId) => componentInstance.loadSessionRequirements(sessionId);
+    window.getRequirementOverallStatusClass = (requirement) => componentInstance.getRequirementOverallStatusClass(requirement);
+    window.getRequirementOverallStatus = (requirement) => componentInstance.getRequirementOverallStatus(requirement);
+    window.getProposedTools = (requirement) => componentInstance.getProposedTools(requirement);
+    window.getAutomationConfidenceClass = (confidence) => componentInstance.getAutomationConfidenceClass(confidence);
+    window.getAutomationConfidenceDisplay = (confidence) => componentInstance.getAutomationConfidenceDisplay(confidence);
+    window.getToolDescription = (tool) => componentInstance.getToolDescription(tool);
+    window.getTestMethodBadgeClass = (method) => componentInstance.getTestMethodBadgeClass(method);
+    window.getTestStatusBadgeClass = (status) => componentInstance.getTestStatusBadgeClass(status);
+    window.getTestStatusDisplay = (status) => componentInstance.getTestStatusDisplay(status);
+    window.getRequirementLevelBadgeClass = (level) => componentInstance.getRequirementLevelBadgeClass(level);
+    window.getRequirementLevelDisplay = (level) => componentInstance.getRequirementLevelDisplay(level);
+    window.getConformanceLevelBadgeClass = (level) => componentInstance.getConformanceLevelBadgeClass(level);
+    window.formatTestResult = (result) => componentInstance.formatTestResult(result);
+    window.viewRequirementDetails = (requirement) => componentInstance.viewRequirementDetails(requirement);
+    window.closeRequirementDetailsModal = () => componentInstance.closeRequirementDetailsModal();
+    window.runAutomatedTestForRequirement = (requirement) => componentInstance.runAutomatedTestForRequirement(requirement);
+    window.filterRequirements = () => componentInstance.filterRequirements();
+    window.updateRequirementsPagination = () => componentInstance.updateRequirementsPagination();
+    window.triggerAutomatedTest = (sessionId) => componentInstance.triggerAutomatedTest(sessionId);
+    window.getGroupedTimeline = () => componentInstance.getGroupedTimeline ? componentInstance.getGroupedTimeline() : {};
     
     return componentInstance;
 }
