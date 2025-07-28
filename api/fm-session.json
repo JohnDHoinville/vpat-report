@@ -2,7 +2,7 @@
   "cookies": [
     {
       "name": "_siteadmin_session",
-      "value": "ba7841b2a0f0a39f05f2695d3e7cf6b6",
+      "value": "2b534b894babf776fb3ebe5ad9ec84c3",
       "domain": "fm-dev.ti.internet2.edu",
       "path": "/",
       "expires": -1,
@@ -42,27 +42,27 @@
     },
     {
       "name": "AWSALB",
-      "value": "CpRAmZJWVeDbnT85Ss+XPWPanhnMoMyeeCbVl+sH2fCjT9DIvuSWNFG3BCfHOZ+wEFK+s7TE+GkJ9iaTuSJZA/stIVk3F5J+Ma4y93S3yzlgtS7H5WyIs9rAd25u",
+      "value": "LaV39zMMck7NMmH1foDEWRe4w6x0CEW2jXTcv1Wtk7cEKkEgiP/Gv1ug7UEtG19QqZaQJaYA+MYH06wi3w4TvR4eL2B+1RoEs+HHV0j/jb6OfDlWd1qNPCgQ0ULL",
       "domain": "login.dev.at.internet2.edu",
       "path": "/",
-      "expires": 1754064736.138936,
+      "expires": 1754306666.304049,
       "httpOnly": false,
       "secure": false,
       "sameSite": "Lax"
     },
     {
       "name": "AWSALBCORS",
-      "value": "CpRAmZJWVeDbnT85Ss+XPWPanhnMoMyeeCbVl+sH2fCjT9DIvuSWNFG3BCfHOZ+wEFK+s7TE+GkJ9iaTuSJZA/stIVk3F5J+Ma4y93S3yzlgtS7H5WyIs9rAd25u",
+      "value": "LaV39zMMck7NMmH1foDEWRe4w6x0CEW2jXTcv1Wtk7cEKkEgiP/Gv1ug7UEtG19QqZaQJaYA+MYH06wi3w4TvR4eL2B+1RoEs+HHV0j/jb6OfDlWd1qNPCgQ0ULL",
       "domain": "login.dev.at.internet2.edu",
       "path": "/",
-      "expires": 1754064736.13913,
+      "expires": 1754306666.304126,
       "httpOnly": false,
       "secure": true,
       "sameSite": "None"
     },
     {
       "name": "SATOSA_STATE",
-      "value": "\"_Td6WFoAAATm1rRGAgAhARYAAAB0L-Wj4AG_AY5dACKZhEeYsil-g5NGL_zTabSxKP3nCqIDeq54M16PZEuGiEP5p39-NMPGgqTHLlafacEZRs-KMS6K5RheuVKkP9RECOKtWSZxapk8mOMES2JmdUQy0LK__DpTVvH9qSjoSwmXoZQN46wb0C8uSo6U_Kcckb_ECDrNlbsp8UoRYoRL0NlTsTdqakqbpwIxeLOMS0rXgeJxgVh3YCjUoH0waftGIQaZUm7bWJxj_Ad85fRmLvu2tB9EOnZpGSA68vgtGT0DDSKRuchmzY6DMk9bDVpuZ5vFBKah0zGfZuh9XRk_LhsJp7NcZibDtVOgcWs4SeNeJ4TyG4nU9Fs21A5iFuoXZn-KG60fQ6c2riTuHTFv9DgtTFPVUvfIo0I8OILL3X7PRjPOQL5zpgiEtnnUrj3evwYx0qQbG8aDYH6d8iYKR9Fbl3D1Nb69QIIDTK0-Bo_-eSF7zdpzWwMm3Ap54rbWC2ic8ntLFjqgLLVtfMdTZWe2mVDve2XkN5E59t2-kdOq4yE_9yxp5AGwBb7VAAAAVaCkC5bZDQMAAaoDwAMAANrMeUixxGf7AgAAAAAEWVo=\"",
+      "value": "\"_Td6WFoAAATm1rRGAgAhARYAAAB0L-Wj4AG_AYtdADIahWuLbYEWUmw2XcuQ5TxXydiXE8CMcouzJH6j3HRzVXFYX30aeDKtQqJO0OwrCUXb0NjtuCmL8vT3NFEUM9f-R4-vVRQA2AyXb-eAe1futMDBcjgQ6Af43Rs25JiBUIMuTJHFxsLJwB-KYsMv9K_G7moIcpMGwlcLy3yCl7teMVTfddrdNHrmtiUD7IAG_6BR1YUoXmRN-ZRhbvHGqy2W3n48VkhXzYxGgfHSGAlSvMqIoA7W1uZ0EtA6ierolr6AudkZpH0cN0uZvQ60FU2csV-LZ05V40M5SpdPh52jWIW8DUlUFkY40Di-NuCfig6e-Xy67iWWvMoRxoIhYzjMtKOqyk_9hzHRRAKl-TTk0FwhfjltACgEQ30JNnf9ZOWhWm4BSS-9fHXthXKawiri-QfoXCI6ae1fY3g5jGclhiAnHkqMMhGLELQg_-KDXRoYfuzp8nNVP-zdmuBOysVB2ZA6mLokC1RJCZ8BVb1E-lmiEWX0BwOX88cIaghmIJ028m4R5iJf1RzvAAAyxXw_Go9BcwABpwPAAwAABN_n9LHEZ_sCAAAAAARZWg==\"",
       "domain": "login.dev.at.internet2.edu",
       "path": "/",
       "expires": -1,
@@ -72,7 +72,7 @@
     },
     {
       "name": "_shibsession_64656661756c7468747470733a2f2f666d2d6465762e6e6f6e70726f642e74692e696e7465726e6574322e6564752f73686962626f6c657468",
-      "value": "_c4c9fb3b7f2cd7158881c49be9f0e5b5",
+      "value": "_77f86f19ef21f81981f6feb2f2e89f76",
       "domain": "fm-dev.ti.internet2.edu",
       "path": "/",
       "expires": -1,
@@ -82,7 +82,7 @@
     },
     {
       "name": "_shibsealed_64656661756c7468747470733a2f2f666d2d6465762e6e6f6e70726f642e74692e696e7465726e6574322e6564752f73686962626f6c657468",
-      "value": "604%3APBysI%2FWGQbnxqsbs1%2BU9foFESC8nU3Wv21m%2FP5vXy7eo3xk4DelzNwFORiu54XrZD8NSLdjv6SFE%0AhkArFmcYm1ijQwmjukKO8FgHSv4p0c7pGcJG6Ndji%2BV1l%2BAGZbMPEAKvPFWlZ0ylWPRP%2FH3PrNns%0At3i4ympF%2BvwmyHelDzDU78yZkEi2lhk4cK1j5klT6TlvcY9oaPe7GdEcLOGBdYPLsk2LiKkBq81l%0Ar6xzGdz%2Bsytl9E4Rb9n4Vwh03ArarjijyBSjV5KKDGSh4AJCbHtcnf22fSRkOKICU0T9ew8AuOOO%0AoALAEc6JHITmMwq4eCO0s4R98UQPStXlL1TM8eH73WX%2FSPueBHF%2Bx164%2BstGlOBBEHWp83yYRkRi%0AzQ%2FNAndPeNp3qtsUR9mhdZQQ8oe0U4uclrTvKKQ7zwYA4cpJE8ACKVH954okHPjaboHwGeDRD2ZW%0Ah9LgZI8yKXTp4kazfnIz43LFuQfftdsqVFYu6zCrfhumdhirwmKJgmODxGpgDDOaWjjhcuJgvE%2F9%0A5X%2BqnenRuzO6%2FQkXzu0np8MX5HVfi%2Fib3eN%2FoBJbOvEhyOK0uZx5VDFFlG1iOVbPBRtq3QMQVu6b%0AAR5ETgX4vfTvX6dTcuaG%2B9OAiUMcfW1zqaZvEu6TQJuQHzUi09FpV4O%2FhwnnKKXr%2B6EFves1tTzs%0ANUobmfG9IWPXl7we6BanSvt2u7eX9W%2FeTNBkRfrUL0kCW9l5pNAd5%2F3UtU0oaQOAROWXdhW3DbpI%0ACoKf3sqIIEq%2BELWh0gpzomgyNgpXyZEXpcxJv7PyVgVUr64Ygjgxqke8QecKE9hMaCDSmRBItr%2BG%0AoRdNTeR9QGy9WEvGIw%3D%3D",
+      "value": "609%3AJHHrk%2Bg2N%2BPEsVq8STH3JKjYaNSTxawoN9kERvDCr%2B3il8UNb5P2aXdA3Lk%2FttSPFaxpu3EwDB59%0A2QaV7Jh4KOg04tn90B1oPepSRLe0Ah9yPUZZxCn%2BSQ87y2dqAPLcK8yqjxFG1%2Bfjuj918rd4tBli%0AaZj3YE4spe4oSblubGVSQiQl0HSzJtbec9MH0ybTfd6TbDu6eQK9IzEqKu7B3HY0MUC%2FN3vv0Cjz%0Apjp0nyLbKAIKh24ee0pzcEadDMtfBytMALKOWYy%2FZBjLx691xDbJehEbGKpZ7Y4feKFOPO%2ForruJ%0ABIRR97Ny3ksXWsLbkUwc4GzEqz1rkTdideJdtm9qs5Ms5niYLeTicfzIwPCeCr1TyRLeXnpT908D%0AWcTOSIm6%2FRyXdwBMaoh1A1fWaiN%2FkTgACD2Bodav3LDc99L%2FNIlHN5qIHReJXxwIIjtlYxNWHugA%0A91kjH3K8aiuGAhAVgxvwHjjn39zQz0IlX96JzRIdmgm%2BFCX0W3NLAU13mEcY1%2BSVL7jU3uTvUmFU%0AhRdtU81GFFcQByS%2B7SEdDKsUd3e3NgSmjdr0auDHQMsFqHWHa6hH3SYhICX6FqlfX2twTGYFiVAQ%0AASsquLN1Ii%2F0g8F7wTHtMJvPiQJjxgv1vQnLoap66BLJprS3KcR3VzMh7Nrcu0UdulTJaf%2F2p2GT%0ArdDH0XB4adrLekwYwcB1EwYQwu24FPxEBuWh%2B6LbjdY64bXg3%2BnWmuUV9LlggSR%2F%2FJKtUFx73yqs%0AP2uFg%2FPPF2Ea4E5NZC5wrr76YUVc1jjdC3qvaKnk0SsEWaEpILvAK3OTs7f19urwKhaek7oMTeH%2B%0A36vteH8bTqc%3D",
       "domain": "fm-dev.ti.internet2.edu",
       "path": "/",
       "expires": -1,
@@ -91,7 +91,7 @@
       "sameSite": "Lax"
     }
   ],
-  "extractedAt": "2025-07-25T16:12:20.626Z",
+  "extractedAt": "2025-07-28T11:24:34.170Z",
   "url": "https://fm-dev.ti.internet2.edu/home",
   "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36",
   "extractedBy": "extract-browser-session-web.js"
