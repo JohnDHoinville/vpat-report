@@ -417,10 +417,10 @@ router.get('/session/:sessionId', async (req, res) => {
         } else if (conformanceLevel === 'wcag_aaa') {
             whereCondition = `WHERE standard_type = 'wcag' AND level IN ('A', 'AA', 'AAA')`;
         } else if (conformanceLevel === 'section_508') {
-            whereCondition = `WHERE standard_type = 'section508'`;
+            whereCondition = `WHERE standard_type = 'section_508'`;
         } else if (conformanceLevel === 'combined') {
             // Combined includes all WCAG and Section 508 requirements
-            whereCondition = `WHERE standard_type IN ('wcag', 'section508')`;
+            whereCondition = `WHERE standard_type IN ('wcag', 'section_508')`;
         } else {
             // Default to WCAG AA
             whereCondition = `WHERE standard_type = 'wcag' AND level IN ('A', 'AA')`;

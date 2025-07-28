@@ -743,7 +743,7 @@
                                             </tr>
                                         </thead>
                                         <tbody class="bg-white divide-y divide-gray-200">
-                                            <template x-for="requirement in paginatedRequirements" :key="requirement.requirement_id || requirement.criterion_number">
+                                            <template x-for="requirement in paginatedRequirements" :key="requirement.id">
                                                 <tr class="hover:bg-gray-50">
                                                     <!-- Requirement Info -->
                                                     <td class="px-6 py-4">

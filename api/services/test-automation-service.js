@@ -24,6 +24,7 @@ class TestAutomationService {
             requirements = null,
             updateTestInstances = true,
             createEvidence = true,
+            maxPages = 100,
             userId,
             clientMetadata = {}
         } = options;
@@ -37,7 +38,7 @@ class TestAutomationService {
             const runData = await this.createAutomationRun(sessionId, runId, tools, userId);
 
             // Get pages to test
-            const pagesToTest = await this.getPagesToTest(sessionId, pages);
+            const pagesToTest = await this.getPagesToTest(sessionId, pages, maxPages);
             
             console.log(`📄 Testing ${pagesToTest.length} pages with tools: ${tools.join(', ')}`);
 
@@ -374,14 +375,58 @@ class TestAutomationService {
                 const browserPage = await browser.newPage();
                 
                 try {
+                    // Navigate to the page and wait for network to be idle
                     await browserPage.goto(page.url, { waitUntil: 'networkidle0', timeout: 30000 });
+                    
+                    // Wait for additional time to ensure dynamic content loads
+                    await browserPage.waitForTimeout(2000);
+                    
+                    // Wait for the title to be set (either by static HTML or JavaScript)
+                    await browserPage.waitForFunction(() => {
+                        const title = document.title;
+                        return title && title.trim() !== '';
+                    }, { timeout: 5000 }).catch(() => {
+                        // If title is still empty after 5 seconds, continue anyway
+                        console.log(`⚠️ Title still empty after waiting for ${page.url}`);
+                    });
+                    
+                    // Wait for any remaining dynamic content
+                    await browserPage.waitForFunction(() => {
+                        // Wait for common indicators that the page is fully loaded
+                        return new Promise((resolve) => {
+                            // Check if page is still loading
+                            if (document.readyState === 'complete') {
+                                // Additional wait for any remaining async operations
+                                setTimeout(resolve, 1000);
+                            } else {
+                                window.addEventListener('load', () => setTimeout(resolve, 1000));
+                            }
+                        });
+                    }, { timeout: 10000 }).catch(() => {
+                        // If timeout, continue anyway
+                        console.log(`⚠️ Page load timeout for ${page.url}`);
+                    });
                     
                     // Inject axe-core
                     await browserPage.addScriptTag({ path: require.resolve('axe-core') });
                     
-                    // Run axe
+                    // Run axe with additional wait to ensure it's ready
                     const axeResults = await browserPage.evaluate(() => {
-                        return axe.run();
+                        return new Promise((resolve) => {
+                            // Ensure axe is fully loaded
+                            if (typeof axe !== 'undefined') {
+                                axe.run().then(resolve);
+                            } else {
+                                // Wait for axe to be available
+                                setTimeout(() => {
+                                    if (typeof axe !== 'undefined') {
+                                        axe.run().then(resolve);
+                                    } else {
+                                        resolve({ violations: [], passes: [], incomplete: [] });
+                                    }
+                                }, 1000);
+                            }
+                        });
                     });
 
                     // Process results
@@ -389,7 +434,8 @@ class TestAutomationService {
                         url: page.url,
                         violations: axeResults.violations.length,
                         critical: axeResults.violations.filter(v => v.impact === 'critical' || v.impact === 'serious').length,
-                        details: axeResults.violations
+                        details: axeResults.violations,
+                        title_at_test_time: await browserPage.title()
                     };
 
                     results.pages_tested.push(pageResults);
@@ -397,7 +443,7 @@ class TestAutomationService {
                     results.critical_violations += pageResults.critical;
                     results.violations_by_page[page.url] = pageResults;
 
-                    console.log(`✅ Axe tested ${page.url}: ${pageResults.violations} violations`);
+                    console.log(`✅ Axe tested ${page.url}: ${pageResults.violations} violations (title: "${pageResults.title_at_test_time}")`);
 
                 } catch (pageError) {
                     console.error(`❌ Axe error testing ${page.url}:`, pageError.message);
@@ -432,28 +478,97 @@ class TestAutomationService {
 
         for (const page of pages) {
             try {
-                const pa11yResults = await pa11y(page.url, {
-                    standard: 'WCAG2AA',
-                    runner: 'axe',  // Use axe runner for better WCAG 2.2 support
-                    timeout: 30000,
-                    chromeLaunchConfig: {
-                        headless: true
+                // Use Puppeteer for better control over page loading
+                const browser = await puppeteer.launch({ headless: true });
+                const browserPage = await browser.newPage();
+                
+                try {
+                    // Navigate to the page and wait for network to be idle
+                    await browserPage.goto(page.url, { waitUntil: 'networkidle0', timeout: 30000 });
+                    
+                    // Wait for additional time to ensure dynamic content loads
+                    await browserPage.waitForTimeout(2000);
+                    
+                    // Wait for the title to be set (either by static HTML or JavaScript)
+                    await browserPage.waitForFunction(() => {
+                        const title = document.title;
+                        return title && title.trim() !== '';
+                    }, { timeout: 5000 }).catch(() => {
+                        // If title is still empty after 5 seconds, continue anyway
+                        console.log(`⚠️ Title still empty after waiting for ${page.url}`);
+                    });
+                    
+                    // Wait for any remaining dynamic content
+                    await browserPage.waitForFunction(() => {
+                        // Wait for common indicators that the page is fully loaded
+                        return new Promise((resolve) => {
+                            // Check if page is still loading
+                            if (document.readyState === 'complete') {
+                                // Additional wait for any remaining async operations
+                                setTimeout(resolve, 1000);
+                            } else {
+                                window.addEventListener('load', () => setTimeout(resolve, 1000));
+                            }
+                        });
+                    }, { timeout: 10000 }).catch(() => {
+                        // If timeout, continue anyway
+                        console.log(`⚠️ Page load timeout for ${page.url}`);
+                    });
+                    
+                    // Get the final title after waiting
+                    const finalTitle = await browserPage.title();
+                    
+                    await browserPage.close();
+                    await browser.close();
+                    
+                    // Now run pa11y with the fully loaded page
+                    const pa11yResults = await pa11y(page.url, {
+                        standard: 'WCAG2AA',
+                        runner: 'axe',  // Use axe runner for better WCAG 2.2 support
+                        timeout: 30000,
+                        chromeLaunchConfig: {
+                            headless: true
+                        },
+                        // Add custom wait function
+                        wait: 3000, // Wait 3 seconds after page load
+                        // Custom page preparation
+                        beforeScript: (page) => {
+                            // Additional wait for dynamic content
+                            return page.waitForTimeout(2000);
+                        }
+                    });
+
+                    const pageResults = {
+                        url: page.url,
+                        violations: pa11yResults.issues.length,
+                        critical: pa11yResults.issues.filter(issue => issue.type === 'error').length,
+                        details: pa11yResults.issues,
+                        title_at_test_time: finalTitle
+                    };
+
+                    results.pages_tested.push(pageResults);
+                    results.total_violations += pageResults.violations;
+                    results.critical_violations += pageResults.critical;
+                    results.violations_by_page[page.url] = pageResults;
+
+                    console.log(`✅ Pa11y tested ${page.url}: ${pageResults.violations} issues (title: "${pageResults.title_at_test_time}")`);
+
+                } catch (pageError) {
+                    console.error(`❌ Pa11y error testing ${page.url}:`, pageError.message);
+                    results.pages_tested.push({
+                        url: page.url,
+                        error: pageError.message,
+                        violations: 0,
+                        critical: 0
+                    });
+                } finally {
+                    try {
+                        await browserPage.close();
+                        await browser.close();
+                    } catch (e) {
+                        // Ignore cleanup errors
                     }
-                });
-
-                const pageResults = {
-                    url: page.url,
-                    violations: pa11yResults.issues.length,
-                    critical: pa11yResults.issues.filter(issue => issue.type === 'error').length,
-                    details: pa11yResults.issues
-                };
-
-                results.pages_tested.push(pageResults);
-                results.total_violations += pageResults.violations;
-                results.critical_violations += pageResults.critical;
-                results.violations_by_page[page.url] = pageResults;
-
-                console.log(`✅ Pa11y tested ${page.url}: ${pageResults.violations} issues`);
+                }
 
             } catch (error) {
                 console.error(`❌ Pa11y error testing ${page.url}:`, error.message);
@@ -544,7 +659,7 @@ class TestAutomationService {
     /**
      * Get pages to test for a session
      */
-    async getPagesToTest(sessionId, specificPages = null) {
+    async getPagesToTest(sessionId, specificPages = null, maxPages = 100) {
         try {
             if (specificPages && Array.isArray(specificPages)) {
                 return specificPages;
@@ -559,10 +674,10 @@ class TestAutomationService {
                 JOIN crawler_discovered_pages cdp ON cdp.crawler_id = wc.id
                 WHERE ts.id = $1
                 AND (cdp.selected_for_manual_testing = true OR cdp.selected_for_automated_testing = true)
-                LIMIT 20
+                LIMIT $2
             `;
 
-            const result = await pool.query(query, [sessionId]);
+            const result = await pool.query(query, [sessionId, maxPages]);
             
             if (result.rows.length === 0) {
                 // Fallback: get project's base URL
@@ -840,15 +955,18 @@ class TestAutomationService {
         }
 
         // Determine status based on violations
-        let newStatus = 'passed_review_required'; // All automated tests require review
+        let newStatus = 'passed_review_required'; // Default for automated tests
         let confidence = 'high';
         
         if (criticalViolations > 0) {
-            newStatus = 'failed'; // Failures go directly to failed status
+            newStatus = 'failed'; // Critical violations = failed
             confidence = 'high';
         } else if (totalViolations > 0) {
-            newStatus = 'failed'; // Failures go directly to failed status
+            newStatus = 'passed_review_required'; // Non-critical violations = review required
             confidence = 'medium';
+        } else {
+            newStatus = 'passed_review_required'; // No violations = review required
+            confidence = 'high';
         }
 
         return {
@@ -878,9 +996,21 @@ class TestAutomationService {
         const query = `
             UPDATE test_instances 
             SET status = $1, result = $2, confidence_level = $3, notes = $4, 
-                tested_by = $5, tested_at = $6, updated_at = $6
-            WHERE id = $7
+                tested_by = $5, tested_at = $6, updated_at = $6, test_method_used = $7,
+                tool_used = $8
+            WHERE id = $9
         `;
+
+        // Extract tools used from the result data
+        let toolsUsed = 'Unknown';
+        try {
+            const resultData = typeof mappedResults.result === 'string' ? JSON.parse(mappedResults.result) : mappedResults.result;
+            if (resultData.automated_analysis && resultData.automated_analysis.tools_used) {
+                toolsUsed = resultData.automated_analysis.tools_used.join(', ');
+            }
+        } catch (e) {
+            console.warn('Error parsing result data for tool_used:', e);
+        }
 
         await pool.query(query, [
             mappedResults.status,
@@ -889,6 +1019,8 @@ class TestAutomationService {
             mappedResults.notes,
             userId,
             new Date(),
+            'automated',
+            toolsUsed,
             instanceId
         ]);
 

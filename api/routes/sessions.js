@@ -1342,7 +1342,7 @@ router.delete('/bulk', async (req, res) => {
                         )
                     `, [session.id]);
                     
-                    await client.query('DELETE FROM frontend_test_runs WHERE test_session_id = $1', [session.id]);
+                    await client.query('DELETE FROM frontend_test_runs WHERE session_id = $1', [session.id]);
                     await client.query('DELETE FROM automated_test_results WHERE test_session_id = $1', [session.id]);
                     await client.query('DELETE FROM manual_test_results WHERE test_session_id = $1', [session.id]);
                     const deleteTestInstances = await client.query('DELETE FROM test_instances WHERE session_id = $1', [session.id]);
@@ -1506,7 +1506,7 @@ router.delete('/:id', async (req, res) => {
                 
                 // 5. Delete frontend test runs
                 console.log('🗑️ Deleting frontend test runs...');
-                await client.query('DELETE FROM frontend_test_runs WHERE test_session_id = $1', [id]);
+                                    await client.query('DELETE FROM frontend_test_runs WHERE session_id = $1', [id]);
                 
                 // 6. Delete automated test results
                 console.log('🗑️ Deleting automated test results...');

@@ -22,7 +22,8 @@ router.post('/run/:sessionId', authenticateToken, async (req, res) => {
             pages = null, // Specific pages to test, null = all pages
             requirements = null, // Specific requirements to test, null = all requirements
             update_test_instances = true,
-            create_evidence = true 
+            create_evidence = true,
+            max_pages = 100 // Maximum number of pages to test
         } = req.body;
 
         console.log(`🤖 Starting automated tests for session ${sessionId} with tools: ${tools.join(', ')}`);
@@ -45,6 +46,7 @@ router.post('/run/:sessionId', authenticateToken, async (req, res) => {
             requirements,
             updateTestInstances: update_test_instances,
             createEvidence: create_evidence,
+            maxPages: max_pages,
             userId: req.user.userId,
             clientMetadata: {
                 client_ip: req.ip || req.connection.remoteAddress || 'unknown',

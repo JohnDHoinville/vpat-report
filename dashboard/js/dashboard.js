@@ -54,12 +54,7 @@ window.dashboard = function() {
         socket: null,
         socketConnected: false,
         realtimeUpdates: true,
-        automationProgress: {
-            completedTests: 0,
-            totalTests: 0,
-            violationsFound: 0,
-            progress: 0
-        },
+        automationProgress: null,
         
         // ===== FORM OBJECTS =====
         loginForm: { username: '', password: '' },
@@ -381,6 +376,7 @@ window.dashboard = function() {
                     console.log('🔍 Processing requirement:', req);
                     return {
                         id: req.id || req.requirement_id,
+                        requirement_id: req.requirement_id || req.criterion_number,
                         criterion_number: req.requirement_id || req.criterion_number,
                         title: req.title,
                         description: req.description,
@@ -946,15 +942,8 @@ window.dashboard = function() {
             }
             this._initialized = true;
             
-            // Initialize automationProgress to prevent null errors
-            if (!this.automationProgress) {
-                this.automationProgress = {
-                    completedTests: 0,
-                    totalTests: 0,
-                    violationsFound: 0,
-                    progress: 0
-                };
-            }
+            // Initialize automationProgress to null so progress bar only shows when there's actual progress
+            this.automationProgress = null;
             
             console.log('✅ Dashboard initialized');
             
@@ -1056,7 +1045,7 @@ window.dashboard = function() {
             
             // Automation progress events
             this.socket.on('session_progress', (data) => {
-                console.log('📊 Automation progress update:', data);
+                console.log('📊 Automation progress update received:', data);
                 this.handleAutomationProgress(data);
                 
                 // Refresh test grid to show status changes if it's open
@@ -7476,6 +7465,9 @@ window.dashboard = function() {
                 this.loadingSessionDetails = true;
                 this.sessionDetailsActiveTab = 'overview';
                 
+                // Join WebSocket room for this session to receive real-time updates
+                this.joinSessionRoom(session.id);
+                
                 // Load comprehensive session details
                 await this.loadSessionDetailsData(session.id);
                 
@@ -7498,6 +7490,11 @@ window.dashboard = function() {
             this.sessionDetailsTestInstances = [];
             this.sessionDetailsPages = [];
             this.automationSummary = {};
+            
+            // Leave the session WebSocket room when closing the modal
+            if (this.socket && this.socketConnected) {
+                this.socket.emit('leave_session');
+            }
         },
         
         // Load comprehensive session details data
@@ -7551,11 +7548,11 @@ window.dashboard = function() {
                     
                     // Calculate level breakdown from requirements (not test instances)
                     const stats = {
-                        levelA: requirements.filter(r => (r.standard_type || r.requirement_type) === 'wcag' && r.level === 'A').length,
-                        levelAA: requirements.filter(r => (r.standard_type || r.requirement_type) === 'wcag' && r.level === 'AA').length,
-                        levelAAA: requirements.filter(r => (r.standard_type || r.requirement_type) === 'wcag' && r.level === 'AAA').length,
-                        section508Base: requirements.filter(r => (r.standard_type || r.requirement_type) === 'section508' && r.level === 'base').length,
-                        section508Enhanced: requirements.filter(r => (r.standard_type || r.requirement_type) === 'section508' && r.level === 'enhanced').length,
+                        levelA: requirements.filter(r => (r.standard_type || r.requirement_type) === 'wcag' && r.level === 'a').length,
+                        levelAA: requirements.filter(r => (r.standard_type || r.requirement_type) === 'wcag' && r.level === 'aa').length,
+                        levelAAA: requirements.filter(r => (r.standard_type || r.requirement_type) === 'wcag' && r.level === 'aaa').length,
+                        section508Base: requirements.filter(r => (r.standard_type || r.requirement_type) === 'section_508' && r.level === 'base').length,
+                        section508Enhanced: requirements.filter(r => (r.standard_type || r.requirement_type) === 'section_508' && r.level === 'enhanced').length,
                         
                         // Test method breakdown from requirements
                         manualTests: requirements.filter(r => r.test_method === 'manual').length,
@@ -7567,6 +7564,10 @@ window.dashboard = function() {
                     console.log('📊 Session stats loaded from requirements:', stats);
                     console.log('📊 Conformance level:', conformanceLevel);
                     console.log('📊 Total requirements:', requirements.length);
+                    
+                    // Debug: Show sample requirements for troubleshooting
+                    console.log('🔍 Sample WCAG requirements:', requirements.filter(r => r.standard_type === 'wcag').slice(0, 3));
+                    console.log('🔍 Sample Section 508 requirements:', requirements.filter(r => r.standard_type === 'section_508').slice(0, 3));
                 } else {
                     // Fallback to test instances if requirements API fails
                     const response = await this.apiCall(`/test-instances?session_id=${sessionId}`);
