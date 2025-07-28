@@ -7203,7 +7203,7 @@ function dashboard() {
                         <div><strong>Last Updated:</strong> ${testInstance.updated_at ? new Date(testInstance.updated_at).toLocaleDateString() : 'Never'}</div>
                     </div>
                     ${testInstance.notes ? `<div><strong>Notes:</strong><br/>${testInstance.notes}</div>` : ''}
-                    ${testInstance.result ? `<div><strong>Test Result:</strong><br/><pre class="text-xs bg-gray-100 p-2 rounded max-h-40 overflow-y-auto">${typeof testInstance.result === 'string' ? testInstance.result : JSON.stringify(testInstance.result, null, 2)}</pre></div>` : ''}
+                    ${testInstance.result ? `<div><strong>Test Result:</strong><br/>${this.formatTestResult(testInstance.result)}</div>` : ''}
                     <div class="mt-4">
                         <button onclick="window.dashboardInstance.viewAutomationResults('${testInstance.id}')" class="px-3 py-2 text-sm bg-purple-600 text-white rounded hover:bg-purple-700">
                             <i class="fas fa-robot mr-1"></i>View Automation Results
@@ -9450,6 +9450,328 @@ function dashboard() {
     componentInstance.viewTimelineItemDetails = function(item) {
         // Show detailed modal or expanded view
         this.showNotification('info', 'Item Details', `Full details for ${item.action_type} action`);
+    };
+
+    componentInstance.formatTestResult = function(result) {
+        if (!result) return '<span class="text-gray-500">No result data</span>';
+        
+        let parsedResult;
+        try {
+            parsedResult = typeof result === 'string' ? JSON.parse(result) : result;
+        } catch (e) {
+            return `<pre class="text-xs bg-gray-100 p-2 rounded max-h-40 overflow-y-auto">${result}</pre>`;
+        }
+
+        if (!parsedResult.automated_analysis) {
+            return `<pre class="text-xs bg-gray-100 p-2 rounded max-h-40 overflow-y-auto">${JSON.stringify(parsedResult, null, 2)}</pre>`;
+        }
+
+        const analysis = parsedResult.automated_analysis;
+        let html = '<div class="bg-gray-50 p-3 rounded-lg text-sm">';
+        
+        // Summary
+        html += `<div class="mb-3">
+            <div class="flex items-center gap-4 mb-2">
+                <span class="font-semibold text-gray-700">Test Summary:</span>
+                <span class="px-2 py-1 text-xs rounded ${analysis.total_violations > 0 ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}">
+                    ${analysis.total_violations} violation${analysis.total_violations !== 1 ? 's' : ''} found
+                </span>
+                ${analysis.critical_violations > 0 ? `<span class="px-2 py-1 text-xs rounded bg-orange-100 text-orange-700">${analysis.critical_violations} critical</span>` : ''}
+            </div>
+            <div class="text-xs text-gray-600">Tools used: ${analysis.tools_used ? analysis.tools_used.join(', ') : 'N/A'}</div>
+        </div>`;
+
+        // Tool Results
+        if (analysis.tool_results) {
+            for (const [toolName, toolData] of Object.entries(analysis.tool_results)) {
+                html += `<div class="mb-3 border-l-2 border-blue-200 pl-3">
+                    <div class="font-medium text-blue-700 mb-1">${toolName.toUpperCase()} Results</div>`;
+                
+                if (toolData.violations !== undefined) {
+                    html += `<div class="text-xs text-gray-600 mb-2">${toolData.violations} violations (${toolData.critical || 0} critical)</div>`;
+                }
+
+                // Show page-specific results
+                if (toolData.pages && Array.isArray(toolData.pages)) {
+                    toolData.pages.forEach(page => {
+                        if (page.details && Array.isArray(page.details) && page.details.length > 0) {
+                            html += `<div class="mb-2">
+                                <div class="text-xs font-medium text-gray-700 mb-1">Page: ${page.url}</div>`;
+                            
+                            page.details.forEach((violation, index) => {
+                                const severity = violation.type === 'error' || violation.critical ? 'critical' : 'warning';
+                                const severityColor = severity === 'critical' ? 'text-red-600' : 'text-yellow-600';
+                                
+                                html += `<div class="mb-2 p-2 bg-white rounded border-l-2 ${severity === 'critical' ? 'border-red-300' : 'border-yellow-300'}">
+                                    <div class="flex items-start gap-2">
+                                        <span class="text-xs px-1 py-0.5 rounded ${severity === 'critical' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}">${severity.toUpperCase()}</span>
+                                        <div class="flex-1 text-xs">
+                                            <div class="font-medium ${severityColor} mb-1">${violation.message || 'Accessibility violation found'}</div>
+                                            ${violation.code ? `<div class="text-gray-600 mb-1">Rule: ${violation.code}</div>` : ''}
+                                            ${violation.selector ? `<div class="text-gray-500">Element: <code class="bg-gray-100 px-1 rounded">${violation.selector}</code></div>` : ''}
+                                        </div>
+                                    </div>
+                                </div>`;
+                            });
+                            
+                            html += '</div>';
+                        }
+                    });
+                } else if (toolData.details) {
+                    // Handle direct details format
+                    html += `<div class="text-xs bg-white p-2 rounded border max-h-32 overflow-y-auto">
+                        <pre class="whitespace-pre-wrap text-gray-600">${JSON.stringify(toolData.details, null, 2)}</pre>
+                    </div>`;
+                }
+                
+                html += '</div>';
+            }
+        }
+
+        html += '</div>';
+        return html;
+    };
+
+    // Add saveTestEvidence function to the component instance
+    componentInstance.saveTestEvidence = async function(instanceId, modal) {
+        try {
+            const form = modal.querySelector('#evidenceForm');
+            const formData = new FormData(form);
+            formData.append('test_instance_id', instanceId);
+            
+            // For now, simulate evidence upload (can be enhanced with actual file upload)
+            const evidenceData = {
+                test_instance_id: instanceId,
+                evidence_type: formData.get('evidence_type'),
+                description: formData.get('description'),
+                external_url: formData.get('external_url'),
+                file_name: formData.get('evidence_file')?.name || null,
+                created_by: this.currentUser?.userId,
+                created_at: new Date().toISOString()
+            };
+            
+            // TODO: Implement actual file upload to server
+            console.log('Evidence data to save:', evidenceData);
+            
+            this.showNotification('success', 'Evidence Added', 'Evidence has been recorded for this test instance');
+            modal.remove();
+            
+            // Add evidence note to the test instance
+            const noteUpdate = {
+                notes: `Evidence added: ${evidenceData.evidence_type} - ${evidenceData.description}${evidenceData.external_url ? ' (URL: ' + evidenceData.external_url + ')' : ''}`
+            };
+            
+            await this.apiCall(`/test-instances/${instanceId}`, {
+                method: 'PUT',
+                body: JSON.stringify(noteUpdate)
+            });
+            
+            // Refresh the test grid if available
+            if (this.selectedTestSession && this.loadTestInstancesForGrid) {
+                this.loadTestInstancesForGrid(this.selectedTestSession.id, this.testGridPagination.currentPage, true);
+            }
+            
+        } catch (error) {
+            console.error('Error adding evidence:', error);
+            this.showNotification('error', 'Upload Failed', error.message);
+        }
+    };
+
+    // Add viewAutomationResults function to the component instance
+    componentInstance.viewAutomationResults = async function(instanceId) {
+        try {
+            console.log('🔍 Loading automation results for instance:', instanceId);
+            
+            // Get automation results from the backend
+            const response = await this.apiCall(`/automated-testing/results/${instanceId}`);
+            
+            if (response.success && response.results?.length > 0) {
+                const results = response.results;
+                
+                // Create results display HTML
+                const resultsHTML = `
+                    <div class="space-y-4">
+                        <h3 class="text-lg font-semibold flex items-center">
+                            <i class="fas fa-robot mr-2 text-purple-600"></i>
+                            Automation Results (${results.length} runs)
+                        </h3>
+                        
+                        ${results.map((result, index) => `
+                            <div class="border rounded-lg p-4 ${result.status === 'completed' ? 'bg-green-50 border-green-200' : result.status === 'failed' ? 'bg-red-50 border-red-200' : 'bg-yellow-50 border-yellow-200'}">
+                                <div class="flex justify-between items-start mb-2">
+                                    <h4 class="font-medium">Run ${index + 1} - ${new Date(result.created_at).toLocaleString()}</h4>
+                                    <span class="text-sm px-2 py-1 rounded ${result.status === 'completed' ? 'bg-green-100 text-green-800' : result.status === 'failed' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'}">
+                                        ${result.status}
+                                    </span>
+                                </div>
+                                
+                                <div class="text-sm space-y-2">
+                                    <div><strong>Tools Used:</strong> ${result.tools_used ? JSON.parse(result.tools_used).join(', ') : 'N/A'}</div>
+                                    ${result.issues_found ? `<div><strong>Issues Found:</strong> ${result.issues_found}</div>` : ''}
+                                    ${result.summary ? `<div><strong>Summary:</strong> ${result.summary}</div>` : ''}
+                                    
+                                    ${result.result ? `
+                                        <details class="mt-2">
+                                            <summary class="cursor-pointer font-medium">View Detailed Results</summary>
+                                            <div class="mt-2">${this.formatTestResult(result.result)}</div>
+                                        </details>
+                                    ` : ''}
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+                
+                // Show results modal
+                const modal = document.createElement('div');
+                modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4';
+                modal.innerHTML = `
+                    <div class="bg-white rounded-lg p-6 max-w-4xl max-h-[80vh] overflow-y-auto">
+                        ${resultsHTML}
+                        <div class="mt-6 flex justify-end">
+                            <button onclick="this.closest('.fixed').remove()" class="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400">Close</button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+                
+            } else {
+                this.showNotification('info', 'No Results', 'No automation results found for this test instance. Try running automation first.');
+            }
+            
+        } catch (error) {
+            console.error('Error loading automation results:', error);
+            this.showNotification('error', 'Loading Failed', 'Failed to load automation results');
+        }
+    };
+
+    // Add viewFullAuditTrail function to the component instance
+    componentInstance.viewFullAuditTrail = async function(sessionId) {
+        try {
+            console.log('🔍 Opening full audit trail for session:', sessionId);
+            
+            // Get full audit trail from the backend
+            const response = await this.apiCall(`/audit-trail/session/${sessionId}?limit=200&include_metadata=true`);
+            
+            if (response.success && response.data?.length > 0) {
+                const auditEntries = response.data;
+                
+                // Create audit trail display HTML
+                const auditHTML = `
+                    <div class="space-y-4">
+                        <h3 class="text-lg font-semibold flex items-center">
+                            <i class="fas fa-clipboard-list mr-2 text-indigo-600"></i>
+                            Complete Audit Trail (${auditEntries.length} entries)
+                        </h3>
+                        
+                        <div class="text-sm text-gray-600 mb-4">
+                            Session: ${sessionId} • Generated: ${new Date().toLocaleString()}
+                        </div>
+                        
+                        <div class="space-y-3 max-h-96 overflow-y-auto">
+                            ${auditEntries.map((entry, index) => `
+                                <div class="border-l-4 ${this.getAuditTypeColor(entry.action_type)} bg-gray-50 p-4 rounded-r-lg">
+                                    <div class="flex justify-between items-start mb-2">
+                                        <div class="flex items-center space-x-2">
+                                            <span class="inline-flex items-center justify-center w-6 h-6 rounded-full ${this.getAuditTypeBgColor(entry.action_type)} text-white text-xs font-medium">
+                                                ${this.getAuditTypeIcon(entry.action_type)}
+                                            </span>
+                                            <h4 class="font-medium text-gray-900">${this.getActionTypeDisplayText(entry.action_type)}</h4>
+                                        </div>
+                                        <span class="text-xs text-gray-500">${this.formatRelativeTime(entry.changed_at)}</span>
+                                    </div>
+                                    
+                                    <div class="text-sm text-gray-700 mb-2">
+                                        ${entry.reason || 'No description provided'}
+                                    </div>
+                                    
+                                    ${entry.changed_by_name ? `
+                                        <div class="text-xs text-gray-600 mb-2">
+                                            <i class="fas fa-user mr-1"></i>by ${entry.changed_by_name}
+                                        </div>
+                                    ` : ''}
+                                    
+                                    ${entry.field_changed ? `
+                                        <div class="text-xs bg-white p-2 rounded border">
+                                            <strong>Changed:</strong> ${entry.field_changed}
+                                            ${entry.old_value && entry.new_value ? `
+                                                <div class="mt-1">
+                                                    <span class="text-red-600">- ${entry.old_value}</span><br>
+                                                    <span class="text-green-600">+ ${entry.new_value}</span>
+                                                </div>
+                                            ` : ''}
+                                        </div>
+                                    ` : ''}
+                                    
+                                    ${entry.metadata && Object.keys(entry.metadata).length > 0 ? `
+                                        <details class="mt-2">
+                                            <summary class="cursor-pointer text-xs text-indigo-600 hover:text-indigo-800">View Details</summary>
+                                            <pre class="text-xs bg-white p-2 rounded border mt-1 max-h-32 overflow-y-auto">${JSON.stringify(entry.metadata, null, 2)}</pre>
+                                        </details>
+                                    ` : ''}
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+                
+                // Show audit trail modal
+                const modal = document.createElement('div');
+                modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4';
+                modal.innerHTML = `
+                    <div class="bg-white rounded-lg p-6 max-w-5xl max-h-[90vh] overflow-y-auto">
+                        ${auditHTML}
+                        <div class="mt-6 flex justify-between">
+                            <button onclick="navigator.clipboard.writeText('${JSON.stringify(auditEntries, null, 2).replace(/'/g, '\\\'')}')" class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700">
+                                <i class="fas fa-copy mr-2"></i>Copy JSON
+                            </button>
+                            <button onclick="this.closest('.fixed').remove()" class="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400">Close</button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+                
+            } else {
+                this.showNotification('info', 'No Audit Trail', 'No audit trail entries found for this session.');
+            }
+            
+        } catch (error) {
+            console.error('Error loading audit trail:', error);
+            this.showNotification('error', 'Loading Failed', 'Failed to load audit trail: ' + error.message);
+        }
+    };
+
+    // Add audit trail helper functions
+    componentInstance.getAuditTypeColor = function(actionType) {
+        const colors = {
+            'automation_started': 'border-blue-400',
+            'automation_completed': 'border-green-400', 
+            'automation_failed': 'border-red-400',
+            'automation_tool_completed': 'border-purple-400',
+            'status_change': 'border-yellow-400',
+            'evidence_created': 'border-indigo-400',
+            'created': 'border-gray-400',
+            'assignment': 'border-cyan-400',
+            'note_updated': 'border-orange-400',
+            'reviewed': 'border-green-400'
+        };
+        return colors[actionType] || 'border-gray-400';
+    };
+
+    componentInstance.getAuditTypeBgColor = function(actionType) {
+        const colors = {
+            'automation_started': 'bg-blue-500',
+            'automation_completed': 'bg-green-500', 
+            'automation_failed': 'bg-red-500',
+            'automation_tool_completed': 'bg-purple-500',
+            'status_change': 'bg-yellow-500',
+            'evidence_created': 'bg-indigo-500',
+            'created': 'bg-gray-500',
+            'assignment': 'bg-cyan-500',
+            'note_updated': 'bg-orange-500',
+            'reviewed': 'bg-green-500'
+        };
+        return colors[actionType] || 'bg-gray-500';
     };
     
     // 🛡️ Mark as initialized and store instance
