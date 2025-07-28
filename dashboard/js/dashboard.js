@@ -9391,9 +9391,12 @@ window.dashboard = function() {
             const mappedLevel = mapping[level];
             const count = this.requirementCounts[mappedLevel] || 0;
             
-            // Debug only when needed
-            if (level && count === 0 && this.availableRequirements?.length > 0) {
+            // Debug only when needed - with rate limiting
+            if (level && count === 0 && this.availableRequirements?.length > 0 && !this._loggedNoRequirements) {
                 console.log(`⚠️ No requirements found for ${level} (mapped to ${mappedLevel})`);
+                this._loggedNoRequirements = true;
+                // Reset after 5 seconds
+                setTimeout(() => { this._loggedNoRequirements = false; }, 5000);
             }
             
             return count;
@@ -9413,6 +9416,62 @@ window.dashboard = function() {
             return this.sessionWizard.conformance_levels.reduce((total, level) => {
                 return total + this.getRequirementCount(level);
             }, 0);
+        },
+
+        // Get requirement overall status class (for styling)
+        getRequirementOverallStatusClass(requirement) {
+            if (!requirement) return 'bg-gray-100 text-gray-600';
+            
+            // Check if requirement has test instances
+            const testInstances = this.getTestInstancesForRequirement(requirement.requirement_id);
+            
+            if (!testInstances || testInstances.length === 0) {
+                return 'bg-gray-100 text-gray-600'; // Not tested
+            }
+            
+            // Calculate overall status based on test instance statuses
+            const statuses = testInstances.map(instance => instance.status);
+            const passedCount = statuses.filter(s => s === 'passed' || s === 'passed_review_required').length;
+            const failedCount = statuses.filter(s => s === 'failed').length;
+            const totalCount = statuses.length;
+            
+            if (failedCount > 0) {
+                return 'bg-red-100 text-red-700'; // Failed
+            } else if (passedCount === totalCount) {
+                return 'bg-green-100 text-green-700'; // All passed
+            } else if (passedCount > 0) {
+                return 'bg-yellow-100 text-yellow-700'; // Partially passed
+            } else {
+                return 'bg-gray-100 text-gray-600'; // Not tested
+            }
+        },
+
+        // Get requirement overall status text
+        getRequirementOverallStatus(requirement) {
+            if (!requirement) return 'Not Tested';
+            
+            // Check if requirement has test instances
+            const testInstances = this.getTestInstancesForRequirement(requirement.requirement_id);
+            
+            if (!testInstances || testInstances.length === 0) {
+                return 'Not Tested';
+            }
+            
+            // Calculate overall status based on test instance statuses
+            const statuses = testInstances.map(instance => instance.status);
+            const passedCount = statuses.filter(s => s === 'passed' || s === 'passed_review_required').length;
+            const failedCount = statuses.filter(s => s === 'failed').length;
+            const totalCount = statuses.length;
+            
+            if (failedCount > 0) {
+                return 'Failed';
+            } else if (passedCount === totalCount) {
+                return 'Passed';
+            } else if (passedCount > 0) {
+                return 'Partial';
+            } else {
+                return 'Not Tested';
+            }
         },
 
         // Next wizard step
@@ -9647,7 +9706,12 @@ window.dashboard = function() {
             const levelsString = JSON.stringify(this.sessionWizard.conformance_levels.sort());
             if (this.cachedSelectedRequirements?.length > 0 && 
                 this.lastConformanceLevelsString === levelsString) {
-                console.log(`✅ Using cached ${this.cachedSelectedRequirements.length} requirements`);
+                // Rate limit the cache usage log
+                if (!this._loggedCacheUsage) {
+                    console.log(`✅ Using cached ${this.cachedSelectedRequirements.length} requirements`);
+                    this._loggedCacheUsage = true;
+                    setTimeout(() => { this._loggedCacheUsage = false; }, 2000);
+                }
                 return this.cachedSelectedRequirements;
             }
             

@@ -743,7 +743,7 @@
                                             </tr>
                                         </thead>
                                         <tbody class="bg-white divide-y divide-gray-200">
-                                            <template x-for="requirement in paginatedRequirements" :key="requirement.criterion_number">
+                                            <template x-for="requirement in paginatedRequirements" :key="requirement.requirement_id || requirement.criterion_number">
                                                 <tr class="hover:bg-gray-50">
                                                     <!-- Requirement Info -->
                                                     <td class="px-6 py-4">
@@ -819,18 +819,18 @@
                                                     
                                                     <!-- Manual Results -->
                                                     <td class="px-6 py-4 whitespace-nowrap">
-                                                        <div x-show="requirement.manual_tests?.length > 0" class="space-y-1">
-                                                            <template x-for="manualTest in requirement.manual_tests.slice(0, 2)" :key="manualTest.id">
+                                                        <div x-show="(requirement.manual_tests || [])?.length > 0" class="space-y-1">
+                                                            <template x-for="manualTest in (requirement.manual_tests || []).slice(0, 2)" :key="manualTest.id || $index">
                                                                 <div class="flex items-center space-x-2">
                                                                     <span :class="getTestStatusBadgeClass(manualTest.status) + ' px-2 py-1 text-xs font-medium rounded'" 
                                                                           x-text="manualTest.status"></span>
                                                                 </div>
                                                             </template>
-                                                            <div x-show="requirement.manual_tests?.length > 2" class="text-xs text-gray-500">
-                                                                +<span x-text="requirement.manual_tests.length - 2"></span> more
+                                                            <div x-show="(requirement.manual_tests || [])?.length > 2" class="text-xs text-gray-500">
+                                                                +<span x-text="(requirement.manual_tests || []).length - 2"></span> more
                                                             </div>
                                                         </div>
-                                                        <div x-show="!requirement.manual_tests?.length" class="text-sm text-gray-400 italic">
+                                                        <div x-show="!(requirement.manual_tests || [])?.length" class="text-sm text-gray-400 italic">
                                                             No manual tests
                                                         </div>
                                                     </td>
