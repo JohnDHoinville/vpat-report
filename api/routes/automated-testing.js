@@ -440,16 +440,16 @@ router.get('/config', authenticateToken, async (req, res) => {
 
 /**
  * Get automation results for a specific test instance
- * GET /api/automated-testing/results/:instanceId
+ * GET /api/automated-testing/instance-results/:instanceId
  */
-router.get('/results/:instanceId', authenticateToken, async (req, res) => {
+router.get('/instance-results/:instanceId', authenticateToken, async (req, res) => {
     try {
         const { instanceId } = req.params;
         
         console.log(`🔍 Getting automation results for test instance: ${instanceId}`);
         
         // Query automation results from the database
-        const { pool } = require('../server');
+        const { pool } = require('../../database/config');
         
         const query = `
             SELECT 
@@ -457,12 +457,15 @@ router.get('/results/:instanceId', authenticateToken, async (req, res) => {
                 atr.session_id,
                 atr.status,
                 atr.tools_used,
-                atr.result,
-                atr.issues_found,
-                atr.summary,
+                atr.raw_results,
+                atr.total_issues,
+                atr.critical_issues,
+                atr.test_instances_updated,
+                atr.evidence_files_created,
                 atr.created_at,
                 atr.completed_at,
-                atr.created_by
+                atr.created_by,
+                atr.pages_tested
             FROM automated_test_runs atr
             JOIN test_instances ti ON ti.session_id = atr.session_id
             WHERE ti.id = $1

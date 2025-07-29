@@ -8541,6 +8541,7 @@ window.dashboard = function() {
 
         getStatusBadgeClass(status) {
             const classes = {
+                // Test status classes
                 'pending': 'bg-gray-100 text-gray-800',
                 'in_progress': 'bg-blue-100 text-blue-800',
                 'passed': 'bg-green-100 text-green-800',
@@ -8550,7 +8551,22 @@ window.dashboard = function() {
                 'not_applicable': 'bg-gray-100 text-gray-600',
                 'completed': 'bg-green-100 text-green-800',
                 'running': 'bg-blue-100 text-blue-800',
-                'error': 'bg-red-100 text-red-800'
+                'error': 'bg-red-100 text-red-800',
+                // Audit log action type classes
+                'created': 'bg-green-100 text-green-800',
+                'assignment': 'bg-blue-100 text-blue-800',
+                'status_change': 'bg-purple-100 text-purple-800',
+                'note_added': 'bg-yellow-100 text-yellow-800',
+                'note_updated': 'bg-yellow-100 text-yellow-800',
+                'evidence_uploaded': 'bg-indigo-100 text-indigo-800',
+                'evidence_removed': 'bg-red-100 text-red-800',
+                'review_requested': 'bg-orange-100 text-orange-800',
+                'reviewed': 'bg-green-100 text-green-800',
+                'approved': 'bg-green-100 text-green-800',
+                'rejected': 'bg-red-100 text-red-800',
+                'remediation_added': 'bg-teal-100 text-teal-800',
+                'automated_update': 'bg-purple-100 text-purple-800',
+                'updated': 'bg-gray-100 text-gray-800'
             };
             return classes[status] || 'bg-gray-100 text-gray-800';
         },
@@ -8713,20 +8729,10 @@ window.dashboard = function() {
                             <!-- Additional Info -->
                             <div class="space-y-4">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">Testing Priority</label>
-                                    <select id="testing-priority-select" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                        <option value="low" ${testInstance.testing_priority === 'low' ? 'selected' : ''}>Low</option>
-                                        <option value="medium" ${testInstance.testing_priority === 'medium' ? 'selected' : ''}>Medium</option>
-                                        <option value="high" ${testInstance.testing_priority === 'high' ? 'selected' : ''}>High</option>
-                                        <option value="critical" ${testInstance.testing_priority === 'critical' ? 'selected' : ''}>Critical</option>
-                                    </select>
-                                </div>
-
-                                <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-2">Assigned Tester</label>
                                     <input type="text" id="assigned-tester" 
                                            value="${testInstance.assigned_tester_name || ''}"
-                                           placeholder="Enter tester name"
+                                           placeholder="Enter tester name or UUID"
                                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                                 </div>
                             </div>
@@ -8870,19 +8876,31 @@ window.dashboard = function() {
             try {
                 const status = modal.querySelector('#test-status-select').value;
                 const confidenceLevel = modal.querySelector('#confidence-level-select').value;
-                const testingPriority = modal.querySelector('#testing-priority-select').value;
                 const assignedTester = modal.querySelector('#assigned-tester').value;
                 const notes = modal.querySelector('#test-notes').value;
                 const remediationNotes = modal.querySelector('#remediation-notes').value;
                 
+                // Build updates object with only the fields that exist in the database
                 const updates = {
                     status,
                     confidence_level: confidenceLevel,
-                    testing_priority: testingPriority,
-                    assigned_tester_name: assignedTester,
                     notes,
                     remediation_notes: remediationNotes
                 };
+                
+                // Only include assigned_tester if it's a valid UUID (not empty string)
+                if (assignedTester && assignedTester.trim() !== '') {
+                    // For now, we'll store the assigned tester name in notes if it's not a UUID
+                    // In a real implementation, you'd want to look up the user ID by name
+                    if (assignedTester.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+                        updates.assigned_tester = assignedTester;
+                    } else {
+                        // If it's not a UUID, append to notes
+                        updates.notes = (notes || '') + (notes ? '\n\n' : '') + `Assigned Tester: ${assignedTester}`;
+                    }
+                }
+                
+                console.log('Saving test instance updates:', { instanceId, updates });
                 
                 const response = await this.apiCall(`/test-instances/${instanceId}`, {
                     method: 'PUT',
@@ -8954,7 +8972,7 @@ window.dashboard = function() {
                 const instanceId = instanceIdMatch[1];
                 
                 // Load automation results for this test instance
-                const response = await this.apiCall(`/automated-tests?test_instance_id=${instanceId}`);
+                const response = await this.apiCall(`/automated-testing/instance-results/${instanceId}`);
                 const automationList = document.getElementById('automation-list');
                 
                 if (response.success && response.data.length > 0 && automationList) {
@@ -9053,12 +9071,12 @@ window.dashboard = function() {
                         <div class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
                             <div class="flex justify-between items-start mb-3">
                                 <div class="flex items-center space-x-3">
-                                    <span class="px-3 py-1 text-xs font-medium rounded-full ${this.getStatusBadgeClass(entry.status_to || entry.status)}">
-                                        ${entry.status_to || entry.status || 'Updated'}
+                                    <span class="px-3 py-1 text-xs font-medium rounded-full ${this.getStatusBadgeClass(entry.action_type)}">
+                                        ${entry.action_type || 'Updated'}
                                     </span>
                                     <div class="flex items-center space-x-2">
                                         <i class="fas fa-user text-gray-400"></i>
-                                        <span class="text-sm font-medium text-gray-700">${entry.user_username || entry.changed_by_user || 'System'}</span>
+                                        <span class="text-sm font-medium text-gray-700">${entry.user_username || 'System'}</span>
                                     </div>
                                 </div>
                                 <div class="text-right">
@@ -9067,32 +9085,44 @@ window.dashboard = function() {
                                 </div>
                             </div>
                             
-                            ${entry.change_description ? `
-                                <div class="mb-2">
-                                    <div class="text-sm font-medium text-gray-700 mb-1">Change Description:</div>
-                                    <div class="text-sm text-gray-600 bg-gray-50 p-2 rounded">${entry.change_description}</div>
-                                </div>
-                            ` : ''}
-                            
-                            ${entry.change_reason ? `
+                            ${entry.reason ? `
                                 <div class="mb-2">
                                     <div class="text-sm font-medium text-gray-700 mb-1">Reason:</div>
-                                    <div class="text-sm text-gray-600 bg-gray-50 p-2 rounded">${entry.change_reason}</div>
+                                    <div class="text-sm text-gray-600 bg-gray-50 p-2 rounded">${entry.reason}</div>
                                 </div>
                             ` : ''}
                             
-                            ${entry.reviewer_notes ? `
+                            ${entry.field_changed ? `
                                 <div class="mb-2">
-                                    <div class="text-sm font-medium text-gray-700 mb-1">Reviewer Notes:</div>
-                                    <div class="text-sm text-gray-600 bg-blue-50 p-2 rounded border-l-4 border-blue-200">${entry.reviewer_notes}</div>
+                                    <div class="text-sm font-medium text-gray-700 mb-1">Field Changed:</div>
+                                    <div class="text-sm text-gray-600 bg-blue-50 p-2 rounded">${entry.field_changed}</div>
                                 </div>
                             ` : ''}
                             
-                            ${entry.tool_name ? `
-                                <div class="flex items-center space-x-2 text-xs text-gray-500">
-                                    <i class="fas fa-robot"></i>
-                                    <span>Tool: ${entry.tool_name}</span>
-                                    ${entry.tool_confidence_score ? `<span>• Confidence: ${entry.tool_confidence_score}%</span>` : ''}
+                            ${entry.old_value ? `
+                                <div class="mb-2">
+                                    <div class="text-sm font-medium text-gray-700 mb-1">Previous Value:</div>
+                                    <div class="text-sm text-gray-600 bg-red-50 p-2 rounded">
+                                        <pre class="text-xs">${JSON.stringify(entry.old_value, null, 2)}</pre>
+                                    </div>
+                                </div>
+                            ` : ''}
+                            
+                            ${entry.new_value ? `
+                                <div class="mb-2">
+                                    <div class="text-sm font-medium text-gray-700 mb-1">New Value:</div>
+                                    <div class="text-sm text-gray-600 bg-green-50 p-2 rounded">
+                                        <pre class="text-xs">${JSON.stringify(entry.new_value, null, 2)}</pre>
+                                    </div>
+                                </div>
+                            ` : ''}
+                            
+                            ${entry.metadata ? `
+                                <div class="mb-2">
+                                    <div class="text-sm font-medium text-gray-700 mb-1">Additional Details:</div>
+                                    <div class="text-sm text-gray-600 bg-purple-50 p-2 rounded">
+                                        <pre class="text-xs">${JSON.stringify(entry.metadata, null, 2)}</pre>
+                                    </div>
                                 </div>
                             ` : ''}
                         </div>

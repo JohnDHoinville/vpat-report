@@ -3931,12 +3931,11 @@ router.get('/:sessionId/test-progress', async (req, res) => {
         const frontendRunsQuery = await pool.query(`
             SELECT 
                 id, run_name, status, test_suite, test_environment,
-                started_at, completed_at, execution_duration_ms,
-                total_tests_executed, tests_passed, tests_failed,
-                total_violations_found, browsers_tested, viewports_tested,
+                started_at, completed_at,
+                browsers, viewports, results_summary,
                 created_at
             FROM frontend_test_runs 
-            WHERE test_session_id = $1 
+            WHERE session_id = $1 
             ORDER BY created_at DESC
         `, [sessionId]);
 
@@ -3948,11 +3947,12 @@ router.get('/:sessionId/test-progress', async (req, res) => {
                 COUNT(*) FILTER (WHERE violations_count > 0) as failed_tests,
                 SUM(violations_count) as total_violations,
                 COUNT(DISTINCT tool_name) as tools_used,
-                COUNT(DISTINCT page_url) as pages_tested,
+                COUNT(DISTINCT dp.url) as pages_tested,
                 MIN(executed_at) as first_test,
                 MAX(executed_at) as last_test
-            FROM automated_test_results 
-            WHERE test_session_id = $1
+            FROM automated_test_results atr
+            LEFT JOIN discovered_pages dp ON atr.page_id = dp.id
+            WHERE atr.test_session_id = $1
         `, [sessionId]);
 
         // Get overall unified results if available

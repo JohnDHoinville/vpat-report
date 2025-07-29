@@ -431,30 +431,19 @@ router.get('/:id/audit-log', authenticateToken, async (req, res) => {
         const auditQuery = `
             SELECT 
                 tal.id,
-                tal.status_from,
-                tal.status_to,
-                tal.confidence_level_from,
-                tal.confidence_level_to,
-                tal.changed_by_type,
-                tal.changed_by_user,
-                tal.tool_name,
-                tal.change_reason,
-                tal.change_description,
-                tal.reviewer_notes,
-                tal.evidence,
-                tal.raw_tool_output,
-                tal.screenshots,
-                tal.supporting_files,
-                tal.automated_result_id,
-                tal.tool_confidence_score,
-                tal.tool_execution_time_ms,
-                tal.created_at,
+                tal.action_type,
+                tal.field_changed,
+                tal.old_value,
+                tal.new_value,
+                tal.changed_at as created_at,
+                tal.reason,
+                tal.metadata,
                 u.username as user_username,
                 u.email as user_email
             FROM test_audit_log tal
-            LEFT JOIN users u ON tal.changed_by_user = u.id
+            LEFT JOIN users u ON tal.changed_by = u.id
             WHERE tal.test_instance_id = $1
-            ORDER BY tal.created_at DESC
+            ORDER BY tal.changed_at DESC
             LIMIT 50
         `;
         

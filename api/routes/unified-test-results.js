@@ -14,9 +14,9 @@ const { authenticateToken } = require('../middleware/auth');
 const pool = new Pool({
     host: process.env.DB_HOST || 'localhost',
     port: process.env.DB_PORT || 5432,
-    database: process.env.DB_NAME || 'vpat_db',
-    user: process.env.DB_USER || 'vpat_user',
-    password: process.env.DB_PASSWORD || 'vpat_password',
+    database: process.env.DB_NAME || 'accessibility_testing',
+    user: process.env.DB_USER || 'johnhoinville',
+    password: process.env.DB_PASSWORD || '',
     ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 });
 
@@ -96,18 +96,17 @@ router.get('/session/:sessionId', authenticateToken, async (req, res) => {
         const testRunsQuery = await pool.query(`
             SELECT 
                 id, run_name, test_suite, test_environment, status,
-                started_at, completed_at, execution_duration_ms,
-                total_tests_executed, tests_passed, tests_failed,
-                total_violations_found, browsers_tested, viewports_tested
+                started_at, completed_at,
+                browsers, viewports, results_summary
             FROM frontend_test_runs 
-            WHERE test_session_id = $1 
+            WHERE session_id = $1 
             ORDER BY created_at DESC
         `, [sessionId]);
 
         // Get test coverage by WCAG criteria
         const wcagCoverageQuery = await pool.query(`
             SELECT 
-                v.wcag_criterion,
+                v.wcag_criteria,
                 COUNT(DISTINCT atr.id) as automated_tests,
                 COUNT(DISTINCT mtr.id) as manual_tests,
                 SUM(CASE WHEN atr.violations_count = 0 AND mtr.result = 'pass' THEN 1 
@@ -119,9 +118,9 @@ router.get('/session/:sessionId', authenticateToken, async (req, res) => {
             LEFT JOIN automated_test_results atr ON ts.id = atr.test_session_id
             LEFT JOIN violations v ON atr.id = v.automated_result_id
             LEFT JOIN manual_test_results mtr ON ts.id = mtr.test_session_id
-            WHERE ts.id = $1 AND v.wcag_criterion IS NOT NULL
-            GROUP BY v.wcag_criterion
-            ORDER BY v.wcag_criterion
+            WHERE ts.id = $1 AND v.wcag_criteria IS NOT NULL
+            GROUP BY v.wcag_criteria
+            ORDER BY v.wcag_criteria
         `, [sessionId]);
 
         // Compile comprehensive response
@@ -189,8 +188,8 @@ router.get('/session/:sessionId/violations', authenticateToken, async (req, res)
                 v.id as violation_id,
                 v.violation_type,
                 v.severity,
-                v.wcag_criterion,
-                v.section_508_criterion,
+                v.wcag_criteria,
+                v.section_508_criteria,
                 v.description,
                 v.remediation_guidance,
                 v.element_selector,
@@ -234,7 +233,7 @@ router.get('/session/:sessionId/violations', authenticateToken, async (req, res)
         }
 
         if (wcagCriterion) {
-            violationsQuery += ` AND v.wcag_criterion = $${paramIndex}`;
+            violationsQuery += ` AND v.wcag_criteria = $${paramIndex}`;
             queryParams.push(wcagCriterion);
             paramIndex++;
         }
@@ -263,7 +262,7 @@ router.get('/session/:sessionId/violations', authenticateToken, async (req, res)
                         groupKey = violation.severity || 'Unknown';
                         break;
                     case 'wcag':
-                        groupKey = violation.wcag_criterion || 'No WCAG Mapping';
+                        groupKey = violation.wcag_criteria || 'No WCAG Mapping';
                         break;
                     case 'source':
                         groupKey = violation.source_type || 'Unknown Source';
@@ -301,7 +300,7 @@ router.get('/session/:sessionId/violations', authenticateToken, async (req, res)
             statistics.bySource[source] = (statistics.bySource[source] || 0) + 1;
 
             // By WCAG criterion
-            const wcag = violation.wcag_criterion || 'unmapped';
+            const wcag = violation.wcag_criteria || 'unmapped';
             statistics.byWCAG[wcag] = (statistics.byWCAG[wcag] || 0) + 1;
 
             // By page
@@ -347,7 +346,7 @@ router.get('/session/:sessionId/coverage', authenticateToken, async (req, res) =
             ),
             tested_criteria AS (
                 SELECT DISTINCT 
-                    v.wcag_criterion,
+                    v.wcag_criteria,
                     COUNT(DISTINCT atr.id) as automated_tests,
                     COUNT(DISTINCT mtr.id) as manual_tests,
                     SUM(CASE WHEN atr.violations_count = 0 THEN 1 ELSE 0 END) as automated_passes,
@@ -358,8 +357,8 @@ router.get('/session/:sessionId/coverage', authenticateToken, async (req, res) =
                 LEFT JOIN automated_test_results atr ON v.automated_result_id = atr.id
                 LEFT JOIN manual_test_results mtr ON v.manual_result_id = mtr.id
                 WHERE COALESCE(atr.test_session_id, mtr.test_session_id) = $1
-                AND v.wcag_criterion IS NOT NULL
-                GROUP BY v.wcag_criterion
+                AND v.wcag_criteria IS NOT NULL
+                GROUP BY v.wcag_criteria
             )
             SELECT 
                 wc.criterion_number,
@@ -376,7 +375,7 @@ router.get('/session/:sessionId/coverage', authenticateToken, async (req, res) =
                     ELSE 'not_tested'
                 END as coverage_status
             FROM wcag_criteria wc
-            LEFT JOIN tested_criteria tc ON wc.criterion_number = tc.wcag_criterion
+            LEFT JOIN tested_criteria tc ON wc.criterion_number = tc.wcag_criteria
             ORDER BY wc.criterion_number
         `, [sessionId]);
 

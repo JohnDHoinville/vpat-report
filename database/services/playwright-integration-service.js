@@ -43,6 +43,18 @@ class PlaywrightIntegrationService {
             
             const session = sessionCheck.rows[0];
             
+            // Validate initiatedBy is a valid UUID or set to null
+            let initiatedBy = null;
+            if (runConfig.initiatedBy) {
+                // Check if it's a valid UUID format
+                const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+                if (uuidRegex.test(runConfig.initiatedBy)) {
+                    initiatedBy = runConfig.initiatedBy;
+                } else {
+                    console.log(`⚠️  Invalid UUID format for initiatedBy: ${runConfig.initiatedBy}, setting to null`);
+                }
+            }
+
             // Create frontend test run
             const testRun = await client.query(`
                 INSERT INTO frontend_test_runs (
@@ -59,7 +71,7 @@ class PlaywrightIntegrationService {
                 JSON.stringify(runConfig.browsers || ['chromium']),
                 JSON.stringify(runConfig.viewports || ['desktop']),
                 JSON.stringify(runConfig.testTypes || ['basic']),
-                runConfig.initiatedBy || null,
+                initiatedBy,
                 JSON.stringify(runConfig.metadata || {})
             ]);
             
