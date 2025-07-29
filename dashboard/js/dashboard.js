@@ -10238,26 +10238,7 @@ window.dashboard = function() {
                 (crawler.status === 'completed' || crawler.pages_for_testing > 0)
             );
             
-            // Rate limiting for debug logging
-            if (!this._loggedCrawlerDebug) {
-                console.log('🔍 DEBUG: getTotalDiscoveredPages - found crawlers:', projectCrawlers.map(c => ({
-                    name: c.name,
-                    status: c.status,
-                    pages_for_testing: c.pages_for_testing,
-                    total_pages_found: c.total_pages_found
-                })));
-                this._loggedCrawlerDebug = true;
-                setTimeout(() => { this._loggedCrawlerDebug = false; }, 5000);
-            }
-            
             const total = projectCrawlers.reduce((total, crawler) => total + (crawler.pages_for_testing || 0), 0);
-            
-            // Rate limiting for debug logging
-            if (!this._loggedTotalDebug) {
-                console.log('🔍 DEBUG: getTotalDiscoveredPages - returning total:', total);
-                this._loggedTotalDebug = true;
-                setTimeout(() => { this._loggedTotalDebug = false; }, 5000);
-            }
             
             return total;
         },
