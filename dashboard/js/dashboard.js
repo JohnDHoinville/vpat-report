@@ -566,6 +566,7 @@ window.dashboard = function() {
         sessionDetailsTeam: {},
         sessionDetailsTestInstances: [],
         sessionDetailsPages: [],
+        sessionResults: null,
         automationRuns: [],
         automationRunsSummary: {},
         loadingAutomationRuns: false,
@@ -7748,6 +7749,150 @@ window.dashboard = function() {
                 }
             } catch (error) {
                 console.error('Error loading session stats:', error);
+            }
+        },
+        
+        // Load session results for the Results tab
+        async loadSessionResults(sessionId) {
+            try {
+                console.log('📊 Loading session results for:', sessionId);
+                
+                // Initialize session results structure
+                this.sessionResults = {
+                    summary: {
+                        passedTests: 0,
+                        failedTests: 0,
+                        totalViolations: 0,
+                        complianceScore: 0
+                    },
+                    toolResults: [],
+                    recentRuns: [],
+                    violations: []
+                };
+                
+                // Load test instances for summary
+                const testInstancesResponse = await this.apiCall(`/test-instances?session_id=${sessionId}`);
+                if (testInstancesResponse.success && testInstancesResponse.test_instances) {
+                    const instances = testInstancesResponse.test_instances;
+                    this.sessionResults.summary.passedTests = instances.filter(t => t.status === 'passed').length;
+                    this.sessionResults.summary.failedTests = instances.filter(t => t.status === 'failed').length;
+                    const totalTests = instances.length;
+                    this.sessionResults.summary.complianceScore = totalTests > 0 ? 
+                        Math.round((this.sessionResults.summary.passedTests / totalTests) * 100) : 0;
+                }
+                
+                // For now, create a simple tool breakdown based on test instances
+                // TODO: Update to use actual automated test results when API is available
+                const toolMap = new Map();
+                
+                if (testInstancesResponse.success && testInstancesResponse.test_instances) {
+                    testInstancesResponse.test_instances.forEach(instance => {
+                        const tool = instance.tool_used || 'Manual';
+                        if (!toolMap.has(tool)) {
+                            toolMap.set(tool, {
+                                tool: tool,
+                                pagesTested: 0,
+                                violations: 0,
+                                passes: 0,
+                                lastRun: null,
+                                successRate: 0
+                            });
+                        }
+                        
+                        const toolData = toolMap.get(tool);
+                        toolData.pagesTested++;
+                        
+                        if (instance.status === 'failed') {
+                            toolData.violations++;
+                        } else if (instance.status === 'passed') {
+                            toolData.passes++;
+                        }
+                        
+                        if (!toolData.lastRun || new Date(instance.updated_at) > new Date(toolData.lastRun)) {
+                            toolData.lastRun = instance.updated_at;
+                        }
+                    });
+                    
+                    // Calculate success rates
+                    toolMap.forEach(toolData => {
+                        const total = toolData.violations + toolData.passes;
+                        toolData.successRate = total > 0 ? Math.round((toolData.passes / total) * 100) : 0;
+                    });
+                    
+                    this.sessionResults.toolResults = Array.from(toolMap.values());
+                    this.sessionResults.summary.totalViolations = Array.from(toolMap.values())
+                        .reduce((sum, tool) => sum + tool.violations, 0);
+                }
+                
+                // For now, create a simple recent runs list based on test instances
+                // TODO: Update to use actual automation runs when API is available
+                if (testInstancesResponse.success && testInstancesResponse.test_instances) {
+                    const recentInstances = testInstancesResponse.test_instances
+                        .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))
+                        .slice(0, 10);
+                    
+                    this.sessionResults.recentRuns = recentInstances.map(instance => ({
+                        id: instance.id,
+                        status: instance.status,
+                        tools: instance.tool_used ? [instance.tool_used] : [],
+                        pagesTested: 1,
+                        startedAt: instance.created_at,
+                        duration: 0
+                    }));
+                }
+                
+                // For now, skip violations since the API needs to be updated for the current schema
+                // TODO: Update violations API to work with the current database schema
+                this.sessionResults.violations = [];
+                
+                console.log('📊 Session results loaded:', this.sessionResults);
+            } catch (error) {
+                console.error('Error loading session results:', error);
+                this.sessionResults = null;
+            }
+        },
+        
+        // Refresh session results
+        async refreshSessionResults(sessionId) {
+            if (!sessionId) return;
+            
+            try {
+                await this.loadSessionResults(sessionId);
+                this.showNotification('success', 'Results Updated', 'Session results have been refreshed');
+            } catch (error) {
+                console.error('Error refreshing session results:', error);
+                this.showNotification('error', 'Refresh Failed', 'Failed to refresh session results');
+            }
+        },
+        
+        // Export session results
+        async exportSessionResults(session) {
+            try {
+                console.log('📤 Exporting session results for:', session.id);
+                
+                const response = await this.apiCall(`/sessions/${session.id}/export-results`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.success && response.data.downloadUrl) {
+                    // Create a temporary link to download the file
+                    const link = document.createElement('a');
+                    link.href = response.data.downloadUrl;
+                    link.download = `session-results-${session.name}-${new Date().toISOString().split('T')[0]}.json`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    
+                    this.showNotification('success', 'Export Complete', 'Session results have been exported');
+                } else {
+                    throw new Error(response.error || 'Export failed');
+                }
+            } catch (error) {
+                console.error('Error exporting session results:', error);
+                this.showNotification('error', 'Export Failed', 'Failed to export session results');
             }
         },
         

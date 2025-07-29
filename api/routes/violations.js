@@ -51,9 +51,9 @@ router.get('/session/:sessionId', async (req, res) => {
                     WHEN v.manual_result_id IS NOT NULL THEN 'manual'
                 END as source_type
             FROM violations v
-            LEFT JOIN automated_test_results atr ON v.automated_result_id = atr.id
-            LEFT JOIN manual_test_results mtr ON v.manual_result_id = mtr.id
-            LEFT JOIN discovered_pages dp ON (atr.page_id = dp.id OR mtr.page_id = dp.id)
+            LEFT JOIN automated_tests atr ON v.automated_result_id = atr.id
+            LEFT JOIN manual_tests mtr ON v.manual_result_id = mtr.id
+            LEFT JOIN crawler_discovered_pages dp ON (atr.page_id = dp.id OR mtr.page_id = dp.id)
             LEFT JOIN wcag_requirements wr ON v.wcag_criterion = wr.criterion_number
             LEFT JOIN section_508_requirements sr ON v.section_508_criterion = sr.section_number
             WHERE (atr.test_session_id = $1 OR mtr.test_session_id = $1)
@@ -143,9 +143,9 @@ router.get('/session/:sessionId', async (req, res) => {
         let countQuery = `
             SELECT COUNT(DISTINCT v.id) as total
             FROM violations v
-            LEFT JOIN automated_test_results atr ON v.automated_result_id = atr.id
-            LEFT JOIN manual_test_results mtr ON v.manual_result_id = mtr.id
-            LEFT JOIN discovered_pages dp ON (atr.page_id = dp.id OR mtr.page_id = dp.id)
+            LEFT JOIN automated_tests atr ON v.automated_result_id = atr.id
+            LEFT JOIN manual_tests mtr ON v.manual_result_id = mtr.id
+            LEFT JOIN crawler_discovered_pages dp ON (atr.page_id = dp.id OR mtr.page_id = dp.id)
             LEFT JOIN wcag_requirements wr ON v.wcag_criterion = wr.criterion_number
             WHERE (atr.test_session_id = $1 OR mtr.test_session_id = $1)
         `;

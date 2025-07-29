@@ -4516,4 +4516,204 @@ router.get('/:sessionId/comprehensive-summary', async (req, res) => {
     }
 });
 
+/**
+ * POST /api/sessions/:sessionId/export-results
+ * Export comprehensive session results as JSON
+ */
+router.post('/:sessionId/export-results', authenticateToken, async (req, res) => {
+    try {
+        const { sessionId } = req.params;
+
+        // Get session details
+        const sessionQuery = await pool.query(`
+            SELECT ts.*, p.name as project_name, p.primary_url
+            FROM test_sessions ts
+            JOIN projects p ON ts.project_id = p.id
+            WHERE ts.id = $1
+        `, [sessionId]);
+
+        if (sessionQuery.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Test session not found'
+            });
+        }
+
+        const session = sessionQuery.rows[0];
+
+        // Get comprehensive test results
+        const resultsQuery = await pool.query(`
+            SELECT 
+                ti.*,
+                tr.criterion_number,
+                tr.title as requirement_title,
+                tr.description as requirement_description,
+                tr.level as requirement_level,
+                dp.url as page_url,
+                dp.title as page_title,
+                tester.username as tester_username,
+                reviewer.username as reviewer_username
+            FROM test_instances ti
+            LEFT JOIN test_requirements tr ON ti.requirement_id = tr.id
+            LEFT JOIN crawler_discovered_pages dp ON ti.page_id = dp.id
+            LEFT JOIN users tester ON ti.assigned_tester = tester.id
+            LEFT JOIN users reviewer ON ti.reviewer = reviewer.id
+            WHERE ti.session_id = $1
+            ORDER BY tr.criterion_number, dp.url
+        `, [sessionId]);
+
+        // Get automated test results
+        const automatedResultsQuery = await pool.query(`
+            SELECT 
+                atr.*,
+                ftr.run_name,
+                ftr.test_suite
+            FROM automated_test_results atr
+            LEFT JOIN frontend_test_runs ftr ON atr.frontend_test_run_id = ftr.id
+            WHERE atr.test_session_id = $1
+            ORDER BY atr.executed_at DESC
+        `, [sessionId]);
+
+        // Get violations
+        const violationsQuery = await pool.query(`
+            SELECT 
+                v.*,
+                atr.page_url,
+                atr.tool_name
+            FROM violations v
+            JOIN automated_test_results atr ON v.automated_result_id = atr.id
+            WHERE atr.test_session_id = $1
+            ORDER BY v.severity DESC, v.wcag_criterion
+        `, [sessionId]);
+
+        // Get audit trail
+        const auditQuery = await pool.query(`
+            SELECT 
+                at.*,
+                u.username as user_username
+            FROM audit_trail at
+            LEFT JOIN users u ON at.user_id = u.id
+            WHERE at.session_id = $1
+            ORDER BY at.timestamp DESC
+            LIMIT 100
+        `, [sessionId]);
+
+        // Calculate summary statistics
+        const testInstances = resultsQuery.rows;
+        const automatedResults = automatedResultsQuery.rows;
+        const violations = violationsQuery.rows;
+
+        const summary = {
+            totalTestInstances: testInstances.length,
+            passedTests: testInstances.filter(t => t.status === 'passed').length,
+            failedTests: testInstances.filter(t => t.status === 'failed').length,
+            inProgressTests: testInstances.filter(t => t.status === 'in_progress').length,
+            totalAutomatedResults: automatedResults.length,
+            totalViolations: violations.length,
+            criticalViolations: violations.filter(v => v.severity === 'critical').length,
+            highViolations: violations.filter(v => v.severity === 'high').length,
+            mediumViolations: violations.filter(v => v.severity === 'medium').length,
+            lowViolations: violations.filter(v => v.severity === 'low').length
+        };
+
+        // Create export data
+        const exportData = {
+            exportInfo: {
+                exportedAt: new Date().toISOString(),
+                sessionId: sessionId,
+                sessionName: session.name,
+                projectName: session.project_name,
+                exportVersion: '1.0'
+            },
+            session: {
+                id: session.id,
+                name: session.name,
+                description: session.description,
+                status: session.status,
+                conformance_level: session.conformance_level,
+                testing_approach: session.testing_approach,
+                created_at: session.created_at,
+                updated_at: session.updated_at,
+                started_at: session.started_at,
+                completed_at: session.completed_at
+            },
+            summary: summary,
+            testInstances: testInstances.map(ti => ({
+                id: ti.id,
+                requirement: {
+                    criterion_number: ti.criterion_number,
+                    title: ti.requirement_title,
+                    description: ti.requirement_description,
+                    level: ti.requirement_level
+                },
+                page: {
+                    url: ti.page_url,
+                    title: ti.page_title
+                },
+                status: ti.status,
+                test_method_used: ti.test_method_used,
+                confidence_level: ti.confidence_level,
+                notes: ti.notes,
+                assigned_tester: ti.tester_username,
+                reviewer: ti.reviewer_username,
+                created_at: ti.created_at,
+                updated_at: ti.updated_at
+            })),
+            automatedResults: automatedResults.map(ar => ({
+                id: ar.id,
+                tool_name: ar.tool_name,
+                test_url: ar.test_url,
+                violations_count: ar.violations_count,
+                warnings_count: ar.warnings_count,
+                passes_count: ar.passes_count,
+                browser_name: ar.browser_name,
+                viewport_width: ar.viewport_width,
+                viewport_height: ar.viewport_height,
+                test_environment: ar.test_environment,
+                executed_at: ar.executed_at,
+                run_name: ar.run_name,
+                test_suite: ar.test_suite
+            })),
+            violations: violations.map(v => ({
+                id: v.id,
+                severity: v.severity,
+                wcag_criterion: v.wcag_criterion,
+                description: v.description,
+                help: v.help,
+                help_url: v.help_url,
+                page_url: v.page_url,
+                tool_name: v.tool_name,
+                created_at: v.created_at
+            })),
+            auditTrail: auditQuery.rows.map(at => ({
+                id: at.id,
+                action_type: at.action_type,
+                description: at.description,
+                user: at.user_username,
+                timestamp: at.timestamp,
+                metadata: at.metadata
+            }))
+        };
+
+        // For now, return the data directly
+        // In a production environment, you might want to save this to a file and return a download URL
+        res.json({
+            success: true,
+            data: {
+                downloadUrl: null, // Would be a file URL in production
+                exportData: exportData,
+                message: 'Export data generated successfully'
+            }
+        });
+
+    } catch (error) {
+        console.error('Error exporting session results:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to export session results',
+            details: error.message
+        });
+    }
+});
+
 module.exports = router; 
