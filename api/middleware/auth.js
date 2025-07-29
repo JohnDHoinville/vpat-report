@@ -174,17 +174,12 @@ async function authenticateToken(req, res, next) {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
     
-    // Development bypass for 'test' token
-    if (token === 'test' && process.env.NODE_ENV === 'development') {
-        console.log('🔧 Development mode: Bypassing authentication with test token');
-        req.user = {
-            id: 'ef726585-0873-44a9-99e5-d8f81fd4ef35', // Use the actual admin user UUID
-            username: 'admin',
-            email: 'admin@localhost',
-            role: 'admin',
-            sessionId: 'test-session'
-        };
-        return next();
+    // No development bypass - proper authentication required
+    if (token === 'test') {
+        return res.status(401).json({ 
+            error: 'Test token not allowed - proper authentication required',
+            code: 'INVALID_TOKEN'
+        });
     }
     
     if (!token) {
@@ -265,17 +260,12 @@ async function authenticateWithRateLimit(req, res, next) {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
     
-    // Development bypass for 'test' token
-    if (token === 'test' && process.env.NODE_ENV === 'development') {
-        console.log('🔧 Development mode: Bypassing authentication with test token (rate limited)');
-        req.user = {
-            id: 'ef726585-0873-44a9-99e5-d8f81fd4ef35', // Use the actual admin user UUID
-            username: 'admin',
-            email: 'admin@localhost',
-            role: 'admin',
-            sessionId: 'test-session'
-        };
-        return next();
+    // No development bypass - proper authentication required
+    if (token === 'test') {
+        return res.status(401).json({ 
+            error: 'Test token not allowed - proper authentication required',
+            code: 'INVALID_TOKEN'
+        });
     }
     
     if (!token) {

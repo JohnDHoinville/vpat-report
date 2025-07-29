@@ -44,15 +44,9 @@ class WebSocketService {
                     return next(new Error('Authentication token required'));
                 }
 
-                // Development bypass for 'test' token
-                if (token === 'test' && process.env.NODE_ENV === 'development') {
-                    console.log('🔧 Development mode: Bypassing WebSocket authentication with test token');
-                    socket.userId = 'ef726585-0873-44a9-99e5-d8f81fd4ef35'; // Use the actual admin user UUID
-                    socket.username = 'admin';
-                    socket.role = 'admin';
-                    socket.sessionId = 'test-session';
-                    console.log(`🔌 WebSocket authenticated: ${socket.username} (${socket.userId})`);
-                    return next();
+                // No development bypass - proper authentication required
+                if (token === 'test') {
+                    return next(new Error('Test token not allowed - proper authentication required'));
                 }
 
                 // Validate JWT token

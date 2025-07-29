@@ -5,8 +5,11 @@
             <!-- 1. Projects Tab (Always First) -->
             <button @click="setActiveTab('projects')"
                 :class="activeTab === 'projects' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
-                class="whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm focus:outline-none transition-colors">
+                class="whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm focus:outline-none transition-colors relative">
                 <i class="fas fa-folder-open mr-2"></i>Projects
+                <!-- Project Selection Indicator -->
+                <div x-show="selectedProject" 
+                     class="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
             </button>
             
             <!-- 2. Authentication Tab -->

@@ -1713,9 +1713,12 @@ ${requirement.failure_examples}
             const refreshToken = localStorage.getItem('refresh_token');
             
             if (!token) {
-                // Auto-login with admin credentials for development
-                console.log('🔐 No token found, attempting auto-login with admin credentials...');
-                await this.autoLogin();
+                // No token found - require proper authentication
+                console.log('🔐 No authentication token found. Please log in.');
+                this.auth.isAuthenticated = false;
+                this.ui.modals.showLogin = true;
+                this.isAuthenticated = false;
+                this.showLogin = true;
                 return;
             }
             
@@ -1837,74 +1840,7 @@ ${requirement.failure_examples}
             this.showLogin = true;
         },
         
-        async autoLogin() {
-            console.log('🔐 Attempting auto-login with admin credentials...');
-            
-            try {
-                const response = await fetch(`${this.config.apiBaseUrl}/api/auth/login`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        username: 'admin',
-                        password: 'admin123'
-                    })
-                });
-                
-                const data = await response.json();
-                
-                if (response.ok) {
-                    // Set organized state first
-                    this.auth.token = data.token;
-                    this.auth.user = data.user;
-                    this.auth.isAuthenticated = true;
-                    this.ui.modals.showLogin = false;
-                    
-                    // Set legacy state for template compatibility
-                    this.token = data.token;
-                    this.user = data.user;
-                    this.isAuthenticated = true;
-                    this.showLogin = false;
-                    
-                    // Store token in localStorage
-                    localStorage.setItem('auth_token', data.token);
-                    if (data.refresh_token) {
-                        localStorage.setItem('refresh_token', data.refresh_token);
-                        this.auth.refreshToken = data.refresh_token;
-                    }
-                    
-                    // Initialize profile form
-                    this.profileForm.full_name = data.user.full_name || '';
-                    this.profileForm.email = data.user.email || '';
-                    
-                    console.log('✅ Auto-login successful:', data.user.username);
-                    this.showNotification('success', 'Auto-Login Successful', `Welcome, ${data.user.full_name || data.user.username}!`);
-                    
-                    // Start with projects tab
-                    this.activeTab = 'projects';
-                    
-                    // Initialize WebSocket and load data
-                    this.startTokenRefreshTimer();
-                    this.initializeWebSocket();
-                    await this.loadInitialData();
-                } else {
-                    console.error('❌ Auto-login failed:', data.error);
-                    // Fall back to manual login
-                    this.auth.isAuthenticated = false;
-                    this.ui.modals.showLogin = true;
-                    this.isAuthenticated = false;
-                    this.showLogin = true;
-                }
-            } catch (error) {
-                console.error('❌ Auto-login error:', error);
-                // Fall back to manual login
-                this.auth.isAuthenticated = false;
-                this.ui.modals.showLogin = true;
-                this.isAuthenticated = false;
-                this.showLogin = true;
-            }
-        },
+        // Auto-login functionality removed for security - users must authenticate properly
         
         async login() {
             this.loginError = '';
@@ -1997,10 +1933,10 @@ ${requirement.failure_examples}
                 token = this.token;
             }
             
-            // Return a default token for development if none found
+            // No default token - require proper authentication
             if (!token) {
-                console.warn('No authentication token found. Using default "test" token for development.');
-                return 'test'; // Default token for development
+                console.warn('No authentication token found. Authentication required.');
+                return null; // No default token
             }
             return token;
         },

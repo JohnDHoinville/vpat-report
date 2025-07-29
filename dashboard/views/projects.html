@@ -10,7 +10,16 @@
     <!-- Projects List -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <template x-for="project in projects.filter(p => p && p.id)" :key="project.id">
-            <div class="bg-white rounded-lg shadow-md border border-gray-200 p-6 hover:shadow-lg transition-shadow">
+            <div :class="selectedProject === project.id ? 'bg-blue-50 border-blue-300 shadow-lg' : 'bg-white border-gray-200'"
+                 class="rounded-lg shadow-md border-2 p-6 hover:shadow-lg transition-all duration-200 relative">
+                <!-- Selection Indicator -->
+                <div x-show="selectedProject === project.id" 
+                     class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 to-blue-600 rounded-t-lg"></div>
+                <!-- Selected Badge -->
+                <div x-show="selectedProject === project.id" 
+                     class="absolute top-2 right-2 bg-blue-600 text-white text-xs px-2 py-1 rounded-full font-medium">
+                    <i class="fas fa-check mr-1"></i>Selected
+                </div>
                 <div class="flex justify-between items-start mb-4">
                     <h3 class="text-lg font-semibold text-gray-900" x-text="project.name"></h3>
                     <span :class="getStatusBadgeClass(project.status)" 
@@ -29,8 +38,14 @@
                     </div>
                 </div>
                 <div class="mt-4 flex space-x-2">
-                    <button @click="selectProject(project)" class="flex-1 bg-blue-600 text-white px-3 py-2 rounded text-sm hover:bg-blue-700 transition-colors">
+                    <button x-show="selectedProject !== project.id" 
+                            @click="selectProject(project)" 
+                            class="flex-1 bg-blue-600 text-white px-3 py-2 rounded text-sm hover:bg-blue-700 transition-colors">
                         <i class="fas fa-arrow-right mr-1"></i>Select
+                    </button>
+                    <button x-show="selectedProject === project.id" 
+                            class="flex-1 bg-green-600 text-white px-3 py-2 rounded text-sm cursor-default">
+                        <i class="fas fa-check mr-1"></i>Selected
                     </button>
                     <button @click="editProject(project)" class="bg-gray-200 text-gray-700 px-3 py-2 rounded text-sm hover:bg-gray-300 transition-colors">
                         <i class="fas fa-edit"></i>
