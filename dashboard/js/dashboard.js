@@ -1102,7 +1102,7 @@ window.dashboard = function() {
             
             const progress = data.progress;
             
-            // Update automation progress state
+            // Update automation progress state with enhanced information
             this.automationProgress = {
                 sessionId: data.sessionId,
                 percentage: progress.percentage || 0,
@@ -1113,19 +1113,59 @@ window.dashboard = function() {
                 message: progress.message || 'Processing...',
                 stage: progress.stage || 'testing',
                 violationsFound: progress.violationsFound || 0,
-                statistics: progress.statistics || {}
+                statistics: progress.statistics || {},
+                // Enhanced fields for detailed status
+                currentPageIndex: progress.currentPageIndex || 0,
+                totalPages: progress.totalPages || 0,
+                completedPages: progress.completedPages || 0,
+                status: progress.status || 'processing',
+                lastResult: progress.lastResult || null,
+                lastError: progress.lastError || null
             };
             
-            // Show real-time notification
+            // Show enhanced real-time notification with detailed information
             if (this.realtimeUpdates) {
-                this.showNotification('info', 'Automation Progress', 
-                    `${progress.percentage}% complete - ${progress.message}`);
+                let notificationMessage = `${progress.percentage}% complete`;
+                
+                // Add detailed status information
+                if (progress.currentPage) {
+                    notificationMessage += ` - Testing ${progress.currentPage}`;
+                }
+                
+                if (progress.currentTool) {
+                    notificationMessage += ` with ${progress.currentTool}`;
+                }
+                
+                if (progress.currentPageIndex && progress.totalPages) {
+                    notificationMessage += ` (Page ${progress.currentPageIndex}/${progress.totalPages})`;
+                }
+                
+                if (progress.lastResult) {
+                    notificationMessage += ` - ${progress.lastResult.violations} violations found`;
+                }
+                
+                if (progress.lastError) {
+                    notificationMessage += ` - Error: ${progress.lastError.error}`;
+                }
+                
+                this.showNotification('info', 'Automation Progress', notificationMessage);
             }
             
             // Update session details if they're open
             if (this.selectedTestSession?.id === data.sessionId) {
                 this.refreshSessionAutomationSummary();
             }
+            
+            // Log detailed progress for debugging
+            console.log('📊 Enhanced automation progress:', {
+                tool: progress.currentTool,
+                page: progress.currentPage,
+                progress: `${progress.currentPageIndex || 0}/${progress.totalPages || 0}`,
+                status: progress.status,
+                message: progress.message,
+                lastResult: progress.lastResult,
+                lastError: progress.lastError
+            });
         },
         
         // Handle automation completion
@@ -1170,7 +1210,29 @@ window.dashboard = function() {
         handleTestResults(data) {
             if (!data || !data.testData) return;
             
-            console.log('📊 New test result:', data.testData);
+            const testData = data.testData;
+            console.log('📊 New test result:', testData);
+            
+            // Show detailed test result notification
+            if (this.realtimeUpdates && testData.status === 'completed') {
+                let resultMessage = `${testData.tool} completed ${testData.url}`;
+                
+                if (testData.violations !== undefined) {
+                    resultMessage += ` - ${testData.violations} violations`;
+                    if (testData.critical !== undefined && testData.critical > 0) {
+                        resultMessage += ` (${testData.critical} critical)`;
+                    }
+                }
+                
+                if (testData.title) {
+                    resultMessage += ` - "${testData.title}"`;
+                }
+                
+                this.showNotification('success', 'Test Completed', resultMessage);
+            } else if (this.realtimeUpdates && testData.status === 'error') {
+                this.showNotification('error', 'Test Error', 
+                    `${testData.tool} error testing ${testData.url}: ${testData.error}`);
+            }
             
             // If test grid is open, refresh it to show new results
             if (this.showTestGrid && this.selectedTestSession?.id === data.sessionId) {
@@ -9286,8 +9348,8 @@ window.dashboard = function() {
             }
         },
         
-        // Export session report
-        async exportSessionReport(session) {
+        // Export session report (placeholder for session object parameter)
+        async exportSessionReportFromSession(session) {
             try {
                 this.loading = true;
                 console.log('📄 Exporting session report for:', session.id);

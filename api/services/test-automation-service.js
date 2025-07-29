@@ -158,10 +158,10 @@ class TestAutomationService {
                 
                 switch (tool) {
                     case 'axe-core':
-                        results.axe = await this.runAxe(pages);
+                        results.axe = await this.runAxe(pages, sessionId);
                         break;
                     case 'pa11y':
-                        results.pa11y = await this.runPa11y(pages);
+                        results.pa11y = await this.runPa11y(pages, sessionId);
                         break;
                     case 'lighthouse':
                         results.lighthouse = await this.runLighthouse(pages);
@@ -360,7 +360,7 @@ class TestAutomationService {
     /**
      * Run Axe-core tests
      */
-    async runAxe(pages) {
+    async runAxe(pages, sessionId = null) {
         const browser = await puppeteer.launch({ headless: true });
         const results = {
             tool: 'axe-core',
@@ -371,12 +371,43 @@ class TestAutomationService {
         };
 
         try {
-            for (const page of pages) {
+            for (let pageIndex = 0; pageIndex < pages.length; pageIndex++) {
+                const page = pages[pageIndex];
                 const browserPage = await browser.newPage();
+                
+                // Emit page-level progress
+                if (sessionId) {
+                    this.emitProgress(sessionId, {
+                        percentage: Math.round((pageIndex / pages.length) * 100),
+                        message: `Testing ${page.url} with Axe-core`,
+                        stage: 'testing',
+                        currentTool: 'axe-core',
+                        currentPage: page.url,
+                        currentPageIndex: pageIndex + 1,
+                        totalPages: pages.length,
+                        completedPages: pageIndex,
+                        status: 'loading_page'
+                    });
+                }
                 
                 try {
                     // Navigate to the page and wait for network to be idle
                     await browserPage.goto(page.url, { waitUntil: 'networkidle0', timeout: 30000 });
+                    
+                    // Emit page loaded status
+                    if (sessionId) {
+                        this.emitProgress(sessionId, {
+                            percentage: Math.round((pageIndex / pages.length) * 100),
+                            message: `Page loaded, running Axe-core tests on ${page.url}`,
+                            stage: 'testing',
+                            currentTool: 'axe-core',
+                            currentPage: page.url,
+                            currentPageIndex: pageIndex + 1,
+                            totalPages: pages.length,
+                            completedPages: pageIndex,
+                            status: 'running_tests'
+                        });
+                    }
                     
                     // Wait for additional time to ensure dynamic content loads
                     await browserPage.evaluate(() => new Promise(resolve => setTimeout(resolve, 2000)));
@@ -445,6 +476,36 @@ class TestAutomationService {
 
                     console.log(`✅ Axe tested ${page.url}: ${pageResults.violations} violations (title: "${pageResults.title_at_test_time}")`);
 
+                    // Emit page completion with results
+                    if (sessionId) {
+                        this.emitTestResults(sessionId, page.url, {
+                            tool: 'axe-core',
+                            url: page.url,
+                            violations: pageResults.violations,
+                            critical: pageResults.critical,
+                            title: pageResults.title_at_test_time,
+                            status: 'completed',
+                            timestamp: new Date().toISOString()
+                        });
+                        
+                        this.emitProgress(sessionId, {
+                            percentage: Math.round(((pageIndex + 1) / pages.length) * 100),
+                            message: `✅ Axe-core completed ${page.url}: ${pageResults.violations} violations found`,
+                            stage: 'testing',
+                            currentTool: 'axe-core',
+                            currentPage: page.url,
+                            currentPageIndex: pageIndex + 1,
+                            totalPages: pages.length,
+                            completedPages: pageIndex + 1,
+                            status: 'page_completed',
+                            lastResult: {
+                                url: page.url,
+                                violations: pageResults.violations,
+                                critical: pageResults.critical
+                            }
+                        });
+                    }
+
                 } catch (pageError) {
                     console.error(`❌ Axe error testing ${page.url}:`, pageError.message);
                     results.pages_tested.push({
@@ -453,6 +514,33 @@ class TestAutomationService {
                         violations: 0,
                         critical: 0
                     });
+                    
+                    // Emit error status
+                    if (sessionId) {
+                        this.emitTestResults(sessionId, page.url, {
+                            tool: 'axe-core',
+                            url: page.url,
+                            error: pageError.message,
+                            status: 'error',
+                            timestamp: new Date().toISOString()
+                        });
+                        
+                        this.emitProgress(sessionId, {
+                            percentage: Math.round(((pageIndex + 1) / pages.length) * 100),
+                            message: `❌ Axe-core error testing ${page.url}: ${pageError.message}`,
+                            stage: 'testing',
+                            currentTool: 'axe-core',
+                            currentPage: page.url,
+                            currentPageIndex: pageIndex + 1,
+                            totalPages: pages.length,
+                            completedPages: pageIndex + 1,
+                            status: 'page_error',
+                            lastError: {
+                                url: page.url,
+                                error: pageError.message
+                            }
+                        });
+                    }
                 } finally {
                     await browserPage.close();
                 }
@@ -467,7 +555,7 @@ class TestAutomationService {
     /**
      * Run Pa11y tests
      */
-    async runPa11y(pages) {
+    async runPa11y(pages, sessionId = null) {
         const results = {
             tool: 'pa11y',
             pages_tested: [],
@@ -476,7 +564,23 @@ class TestAutomationService {
             violations_by_page: {}
         };
 
-        for (const page of pages) {
+        for (let pageIndex = 0; pageIndex < pages.length; pageIndex++) {
+            const page = pages[pageIndex];
+            
+            // Emit page-level progress
+            if (sessionId) {
+                this.emitProgress(sessionId, {
+                    percentage: Math.round((pageIndex / pages.length) * 100),
+                    message: `Testing ${page.url} with Pa11y`,
+                    stage: 'testing',
+                    currentTool: 'pa11y',
+                    currentPage: page.url,
+                    currentPageIndex: pageIndex + 1,
+                    totalPages: pages.length,
+                    completedPages: pageIndex,
+                    status: 'loading_page'
+                });
+            }
             try {
                 // Use Puppeteer for better control over page loading
                 const browser = await puppeteer.launch({ headless: true });
@@ -485,6 +589,21 @@ class TestAutomationService {
                 try {
                     // Navigate to the page and wait for network to be idle
                     await browserPage.goto(page.url, { waitUntil: 'networkidle0', timeout: 30000 });
+                    
+                    // Emit page loaded status
+                    if (sessionId) {
+                        this.emitProgress(sessionId, {
+                            percentage: Math.round((pageIndex / pages.length) * 100),
+                            message: `Page loaded, running Pa11y tests on ${page.url}`,
+                            stage: 'testing',
+                            currentTool: 'pa11y',
+                            currentPage: page.url,
+                            currentPageIndex: pageIndex + 1,
+                            totalPages: pages.length,
+                            completedPages: pageIndex,
+                            status: 'running_tests'
+                        });
+                    }
                     
                     // Wait for additional time to ensure dynamic content loads
                     await browserPage.evaluate(() => new Promise(resolve => setTimeout(resolve, 2000)));
@@ -553,6 +672,36 @@ class TestAutomationService {
 
                     console.log(`✅ Pa11y tested ${page.url}: ${pageResults.violations} issues (title: "${pageResults.title_at_test_time}")`);
 
+                    // Emit page completion with results
+                    if (sessionId) {
+                        this.emitTestResults(sessionId, page.url, {
+                            tool: 'pa11y',
+                            url: page.url,
+                            violations: pageResults.violations,
+                            critical: pageResults.critical,
+                            title: pageResults.title_at_test_time,
+                            status: 'completed',
+                            timestamp: new Date().toISOString()
+                        });
+                        
+                        this.emitProgress(sessionId, {
+                            percentage: Math.round(((pageIndex + 1) / pages.length) * 100),
+                            message: `✅ Pa11y completed ${page.url}: ${pageResults.violations} issues found`,
+                            stage: 'testing',
+                            currentTool: 'pa11y',
+                            currentPage: page.url,
+                            currentPageIndex: pageIndex + 1,
+                            totalPages: pages.length,
+                            completedPages: pageIndex + 1,
+                            status: 'page_completed',
+                            lastResult: {
+                                url: page.url,
+                                violations: pageResults.violations,
+                                critical: pageResults.critical
+                            }
+                        });
+                    }
+
                 } catch (pageError) {
                     console.error(`❌ Pa11y error testing ${page.url}:`, pageError.message);
                     results.pages_tested.push({
@@ -561,6 +710,33 @@ class TestAutomationService {
                         violations: 0,
                         critical: 0
                     });
+                    
+                    // Emit error status
+                    if (sessionId) {
+                        this.emitTestResults(sessionId, page.url, {
+                            tool: 'pa11y',
+                            url: page.url,
+                            error: pageError.message,
+                            status: 'error',
+                            timestamp: new Date().toISOString()
+                        });
+                        
+                        this.emitProgress(sessionId, {
+                            percentage: Math.round(((pageIndex + 1) / pages.length) * 100),
+                            message: `❌ Pa11y error testing ${page.url}: ${pageError.message}`,
+                            stage: 'testing',
+                            currentTool: 'pa11y',
+                            currentPage: page.url,
+                            currentPageIndex: pageIndex + 1,
+                            totalPages: pages.length,
+                            completedPages: pageIndex + 1,
+                            status: 'page_error',
+                            lastError: {
+                                url: page.url,
+                                error: pageError.message
+                            }
+                        });
+                    }
                 } finally {
                     try {
                         await browserPage.close();
@@ -860,9 +1036,12 @@ class TestAutomationService {
      * Map automation result to specific requirement
      */
     mapResultToRequirement(testInstance, results) {
-        const { automated_tools, tool_mapping, criterion_number } = testInstance;
+        const { criterion_number } = testInstance;
         
-        if (!automated_tools || !Array.isArray(automated_tools)) {
+        // Get the actual tools that were run from the results object
+        const toolsRun = Object.keys(results).filter(key => results[key] && typeof results[key] === 'object');
+        
+        if (!toolsRun || toolsRun.length === 0) {
             return { shouldUpdate: false };
         }
 
@@ -873,12 +1052,14 @@ class TestAutomationService {
         let remediationGuidance = [];
 
         // Check each tool's results
-        for (const tool of automated_tools) {
-            const toolKey = tool.replace('-', ''); // axe-core becomes axe
+        for (const toolKey of toolsRun) {
             const toolResult = results[toolKey];
             
             if (toolResult) {
-                toolResults[tool] = {
+                // Convert tool key back to full name for display
+                const toolName = toolKey === 'axe' ? 'axe-core' : toolKey;
+                
+                toolResults[toolName] = {
                     violations: toolResult.total_violations || 0,
                     critical: toolResult.critical_violations || 0,
                     pages: toolResult.pages_tested || []
@@ -977,7 +1158,7 @@ class TestAutomationService {
                 automated_analysis: {
                     total_violations: totalViolations,
                     critical_violations: criticalViolations,
-                    tools_used: automated_tools,
+                    tools_used: toolsRun.map(key => key === 'axe' ? 'axe-core' : key),
                     tool_results: toolResults,
                     specialized_analysis: specializedAnalysis,
                     remediation_guidance: remediationGuidance,

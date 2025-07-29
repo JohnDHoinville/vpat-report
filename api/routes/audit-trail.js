@@ -480,6 +480,126 @@ router.get('/config', authenticateToken, async (req, res) => {
 });
 
 /**
+ * Generate compliance report for a test session
+ * GET /api/audit-trail/compliance-report/:sessionId
+ */
+router.get('/compliance-report/:sessionId', authenticateToken, async (req, res) => {
+    try {
+        const { sessionId } = req.params;
+        const { format = 'json' } = req.query;
+
+        console.log(`📊 Generating compliance report for session ${sessionId}`);
+
+        // Get session details
+        const sessionResult = await pool.query(`
+            SELECT 
+                ts.*,
+                p.name as project_name,
+                u.username as created_by_username
+            FROM test_sessions ts
+            LEFT JOIN projects p ON ts.project_id = p.id
+            LEFT JOIN users u ON ts.created_by = u.id
+            WHERE ts.id = $1
+        `, [sessionId]);
+
+        if (sessionResult.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Testing session not found'
+            });
+        }
+
+        const session = sessionResult.rows[0];
+
+        // Get test instances with requirements
+        const testInstancesResult = await pool.query(`
+            SELECT 
+                ti.*,
+                tr.criterion_number,
+                tr.title as requirement_title,
+                tr.description as requirement_description,
+                tr.level,
+                tr.requirement_type
+            FROM test_instances ti
+            LEFT JOIN test_requirements tr ON ti.requirement_id = tr.id
+            WHERE ti.session_id = $1
+            ORDER BY tr.criterion_number, ti.created_at
+        `, [sessionId]);
+
+        // Get audit trail
+        const auditTrail = await auditService.getSessionAuditTrail(sessionId, {
+            limit: 1000,
+            offset: 0,
+            includeMetadata: true
+        });
+
+        // Calculate compliance statistics
+        const totalTests = testInstancesResult.rows.length;
+        const passedTests = testInstancesResult.rows.filter(ti => ti.status === 'passed').length;
+        const failedTests = testInstancesResult.rows.filter(ti => ti.status === 'failed').length;
+        const needsReviewTests = testInstancesResult.rows.filter(ti => ti.status === 'passed_review_required').length;
+        const notApplicableTests = testInstancesResult.rows.filter(ti => ti.status === 'not_applicable').length;
+
+        const complianceReport = {
+            session: {
+                id: session.id,
+                name: session.name,
+                description: session.description,
+                project_name: session.project_name,
+                conformance_level: session.conformance_level,
+                status: session.status,
+                created_at: session.created_at,
+                updated_at: session.updated_at,
+                created_by: session.created_by_username,
+                testing_approach: session.testing_approach
+            },
+            compliance_summary: {
+                total_tests: totalTests,
+                passed_tests: passedTests,
+                failed_tests: failedTests,
+                needs_review_tests: needsReviewTests,
+                not_applicable_tests: notApplicableTests,
+                completion_percentage: totalTests > 0 ? Math.round(((passedTests + failedTests + needsReviewTests + notApplicableTests) / totalTests) * 100) : 0,
+                compliance_status: failedTests === 0 && needsReviewTests === 0 ? 'compliant' : 'non_compliant'
+            },
+            test_results: testInstancesResult.rows.map(ti => ({
+                requirement_id: ti.requirement_id,
+                criterion_number: ti.criterion_number,
+                requirement_title: ti.requirement_title,
+                requirement_description: ti.requirement_description,
+                level: ti.level,
+                requirement_type: ti.requirement_type,
+                status: ti.status,
+                test_method_used: ti.test_method_used,
+                tool_used: ti.tool_used,
+                tester_notes: ti.tester_notes,
+                created_at: ti.created_at,
+                updated_at: ti.updated_at
+            })),
+            audit_trail: {
+                total_entries: auditTrail.entries.length,
+                entries: auditTrail.entries.slice(0, 100), // Limit to last 100 entries
+                summary: auditTrail.summary
+            },
+            generated_at: new Date().toISOString(),
+            generated_by: req.user.userId || 'system'
+        };
+
+        res.json({
+            success: true,
+            data: complianceReport
+        });
+
+    } catch (error) {
+        console.error('Error generating compliance report:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message || 'Failed to generate compliance report'
+        });
+    }
+});
+
+/**
  * Verify audit trail integrity
  * POST /api/audit-trail/verify/:sessionId
  */
