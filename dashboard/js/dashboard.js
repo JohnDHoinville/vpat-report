@@ -11126,6 +11126,36 @@ window.dashboard = function() {
         return classes[testMethod] || classes.manual;
     };
 
+    // Add missing helper functions for requirements modal
+    componentInstance.getLevelBadgeClass = function(level) {
+        const classes = {
+            'a': 'bg-green-100 text-green-800',
+            'aa': 'bg-blue-100 text-blue-800',
+            'aaa': 'bg-purple-100 text-purple-800',
+            'base': 'bg-yellow-100 text-yellow-800',
+            'enhanced': 'bg-orange-100 text-orange-800'
+        };
+        return classes[level] || 'bg-gray-100 text-gray-800';
+    };
+
+    componentInstance.getLevelDisplay = function(level) {
+        if (!level) return 'Unknown';
+        return level.toUpperCase();
+    };
+
+    componentInstance.getTestMethodDisplay = function(method) {
+        if (!method) return 'Manual';
+        return method.charAt(0).toUpperCase() + method.slice(1);
+    };
+
+    componentInstance.getTestInstancesForRequirement = function(requirementId) {
+        if (!this.requirementsTestInstances) return [];
+        return this.requirementsTestInstances.filter(instance => 
+            instance.requirement_id === requirementId || 
+            instance.criterion_number === requirementId
+        );
+    };
+
     // Legacy function for compatibility with older view templates
     componentInstance.applyRequirementsFilters = function() {
         // Map legacy filters to new structure and call the main filter function
@@ -11204,6 +11234,12 @@ window.dashboard = function() {
     window.filterRequirements = () => componentInstance.filterRequirements();
     window.updateRequirementsPagination = () => componentInstance.updateRequirementsPagination();
     window.triggerAutomatedTest = (sessionId) => componentInstance.triggerAutomatedTest(sessionId);
+    
+    // Add missing functions for requirements modal
+    window.getLevelBadgeClass = (level) => componentInstance.getLevelBadgeClass(level);
+    window.getLevelDisplay = (level) => componentInstance.getLevelDisplay(level);
+    window.getTestMethodDisplay = (method) => componentInstance.getTestMethodDisplay(method);
+    window.getTestInstancesForRequirement = (requirementId) => componentInstance.getTestInstancesForRequirement(requirementId);
     window.getGroupedTimeline = () => componentInstance.getGroupedTimeline ? componentInstance.getGroupedTimeline() : {};
     
     return componentInstance;
