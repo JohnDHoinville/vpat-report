@@ -493,7 +493,7 @@ class AuditTrailService {
 
             if (changedBy) {
                 paramCount++;
-                conditions.push(`tal.changed_by = $${paramCount}`);
+                conditions.push(`tal.user_id = $${paramCount}`);
                 params.push(changedBy);
             }
 
@@ -518,11 +518,11 @@ class AuditTrailService {
                     ti.id as test_instance_id,
                     tr.criterion_number, tr.title as requirement_title
                 FROM test_audit_log tal
-                LEFT JOIN users u ON tal.changed_by = u.id
+                LEFT JOIN users u ON tal.user_id = u.id
                 LEFT JOIN test_instances ti ON tal.test_instance_id = ti.id  
                 LEFT JOIN test_requirements tr ON ti.requirement_id = tr.id
                 WHERE ${whereClause}
-                ORDER BY tal.changed_at DESC
+                ORDER BY tal.timestamp DESC
                 LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}
             `;
 
@@ -573,9 +573,9 @@ class AuditTrailService {
                     tal.*,
                     u.username, u.full_name
                 FROM test_audit_log tal
-                LEFT JOIN users u ON tal.changed_by = u.id
+                LEFT JOIN users u ON tal.user_id = u.id
                 WHERE tal.test_instance_id = $1
-                ORDER BY tal.changed_at DESC
+                ORDER BY tal.timestamp DESC
             `;
 
             const result = await this.pool.query(query, [instanceId]);

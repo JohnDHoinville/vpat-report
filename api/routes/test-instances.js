@@ -163,7 +163,7 @@ router.get('/', authenticateToken, async (req, res) => {
         let query = `
             SELECT ti.*,
                    tr.criterion_number, tr.title as requirement_title, tr.level as requirement_level,
-                   tr.test_method as requirement_test_method, tr.automated_tools, tr.automation_confidence,
+                   tr.test_method as requirement_test_method,
                    cdp.url as page_url, cdp.title as page_title,
                    tester.username as assigned_tester_username,
                    reviewer.username as reviewer_username
@@ -432,18 +432,18 @@ router.get('/:id/audit-log', authenticateToken, async (req, res) => {
             SELECT 
                 tal.id,
                 tal.action_type,
-                tal.field_changed,
+                tal.action_type as field_changed,
                 tal.old_value,
                 tal.new_value,
-                tal.changed_at as created_at,
-                tal.reason,
-                tal.metadata,
+                tal.timestamp as created_at,
+                tal.change_description as reason,
+                tal.details as metadata,
                 u.username as user_username,
                 u.email as user_email
             FROM test_audit_log tal
-            LEFT JOIN users u ON tal.changed_by = u.id
+            LEFT JOIN users u ON tal.user_id = u.id
             WHERE tal.test_instance_id = $1
-            ORDER BY tal.changed_at DESC
+            ORDER BY tal.timestamp DESC
             LIMIT 50
         `;
         
@@ -591,8 +591,8 @@ router.put('/:id', authenticateToken, async (req, res) => {
         if (changeDescription.length > 0) {
             const auditQuery = `
                 INSERT INTO test_audit_log (
-                    test_instance_id, session_id, changed_by, action_type, reason,
-                    old_value, new_value, changed_at
+                    test_instance_id, session_id, user_id, action_type, change_description,
+                    old_value, new_value, timestamp
                 ) VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP)
             `;
             
@@ -762,8 +762,8 @@ router.post('/bulk-create', authenticateToken, async (req, res) => {
         if (newInstances.length > 0) {
             const auditQuery = `
                 INSERT INTO test_audit_log (
-                    test_instance_id, session_id, changed_by, action_type, reason,
-                    changed_at, metadata
+                    test_instance_id, session_id, user_id, action_type, change_description,
+                    timestamp, details
                 ) SELECT 
                     id, $3, $1, 'created', 'Test instance created via bulk creation',
                     CURRENT_TIMESTAMP, '{"bulk_creation": true, "page_count": $2}'::jsonb
@@ -837,8 +837,8 @@ router.post('/:id/assign', authenticateToken, async (req, res) => {
         // Log assignment
         const auditQuery = `
             INSERT INTO test_audit_log (
-                test_instance_id, session_id, changed_by, action_type, reason,
-                changed_at
+                test_instance_id, session_id, user_id, action_type, change_description,
+                timestamp
             ) VALUES ($1, $2, $3, 'assignment', $4, CURRENT_TIMESTAMP)
         `;
         

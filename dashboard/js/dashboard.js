@@ -8795,7 +8795,7 @@ ${requirement.failure_examples}
                         <div class="flex justify-between items-center mb-3">
                             <h4 class="text-lg font-semibold text-purple-900">Automation Results</h4>
                             <button id="toggle-automation-btn" 
-                                    onclick="window.toggleAutomationResults()"
+                                    onclick="window.toggleAutomationResults('${testInstance.id}')"
                                     class="px-3 py-1 text-sm bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors">
                                 <i class="fas fa-robot mr-1"></i>Show Results
                             </button>
@@ -8961,7 +8961,7 @@ ${requirement.failure_examples}
         },
 
         // Toggle automation results visibility
-        toggleAutomationResults() {
+        toggleAutomationResults(instanceId) {
             const automationContainer = document.getElementById('automation-results');
             const toggleBtn = document.getElementById('toggle-automation-btn');
             
@@ -8973,8 +8973,8 @@ ${requirement.failure_examples}
                     '<i class="fas fa-eye-slash mr-1"></i>Hide Results';
                 
                 // Load automation results if showing and not already loaded
-                if (!isVisible) {
-                    this.loadAutomationResults();
+                if (!isVisible && instanceId) {
+                    this.loadAutomationResults(instanceId);
                 }
             }
         },
@@ -8999,21 +8999,12 @@ ${requirement.failure_examples}
         },
 
         // Load automation results for current test instance
-        async loadAutomationResults() {
+        async loadAutomationResults(instanceId) {
             try {
-                // Get the current test instance ID from the modal
-                const modal = document.querySelector('.fixed');
-                if (!modal) return;
-                
-                // Extract instance ID from the save button onclick attribute
-                const saveBtn = modal.querySelector('button[onclick*="saveTestInstanceDetails"]');
-                if (!saveBtn) return;
-                
-                const onclickAttr = saveBtn.getAttribute('onclick');
-                const instanceIdMatch = onclickAttr.match(/saveTestInstanceDetails\('([^']+)'/);
-                if (!instanceIdMatch) return;
-                
-                const instanceId = instanceIdMatch[1];
+                if (!instanceId) {
+                    console.error('No instance ID provided for loadAutomationResults');
+                    return;
+                }
                 
                 // Load automation results for this test instance
                 const response = await this.apiCall(`/automated-testing/instance-results/${instanceId}`);
@@ -9033,8 +9024,8 @@ ${requirement.failure_examples}
                                     </div>
                                 </div>
                                 <div class="text-right">
-                                    <div class="text-sm font-medium text-purple-900">${new Date(result.created_at).toLocaleDateString()}</div>
-                                    <div class="text-xs text-purple-500">${new Date(result.created_at).toLocaleTimeString()}</div>
+                                    <div class="text-sm font-medium text-purple-900">${new Date(result.executed_at).toLocaleDateString()}</div>
+                                    <div class="text-xs text-purple-500">${new Date(result.executed_at).toLocaleTimeString()}</div>
                                 </div>
                             </div>
                             
@@ -9047,37 +9038,35 @@ ${requirement.failure_examples}
                                 </div>
                             ` : ''}
                             
-                            ${result.issues_count > 0 ? `
+                            ${result.warnings_count > 0 ? `
                                 <div class="mb-3">
-                                    <div class="text-sm font-medium text-purple-700 mb-1">Issues Found:</div>
+                                    <div class="text-sm font-medium text-purple-700 mb-1">Warnings Found:</div>
                                     <div class="text-sm text-purple-600 bg-yellow-50 p-2 rounded border-l-4 border-yellow-200">
-                                        ${result.issues_count} issues detected
+                                        ${result.warnings_count} warnings detected
                                     </div>
                                 </div>
                             ` : ''}
                             
-                            ${result.passed_count > 0 ? `
+                            ${result.passes_count > 0 ? `
                                 <div class="mb-3">
                                     <div class="text-sm font-medium text-purple-700 mb-1">Passed Tests:</div>
                                     <div class="text-sm text-purple-600 bg-green-50 p-2 rounded border-l-4 border-green-200">
-                                        ${result.passed_count} tests passed
+                                        ${result.passes_count} tests passed
                                     </div>
                                 </div>
                             ` : ''}
                             
-                            ${result.confidence_score ? `
-                                <div class="mb-3">
-                                    <div class="text-sm font-medium text-purple-700 mb-1">Confidence Score:</div>
-                                    <div class="text-sm text-purple-600 bg-purple-50 p-2 rounded">
-                                        ${result.confidence_score}%
-                                    </div>
-                                </div>
-                            ` : ''}
-                            
-                            ${result.execution_time_ms ? `
+                            ${result.test_duration_ms ? `
                                 <div class="flex items-center space-x-2 text-xs text-purple-500">
                                     <i class="fas fa-clock"></i>
-                                    <span>Execution time: ${Math.round(result.execution_time_ms / 1000)}s</span>
+                                    <span>Execution time: ${Math.round(result.test_duration_ms / 1000)}s</span>
+                                </div>
+                            ` : ''}
+                            
+                            ${result.browser_name ? `
+                                <div class="flex items-center space-x-2 text-xs text-purple-500">
+                                    <i class="fas fa-globe"></i>
+                                    <span>Browser: ${result.browser_name}</span>
                                 </div>
                             ` : ''}
                         </div>
@@ -12396,7 +12385,7 @@ ${requirement.failure_examples}
     window.saveTestInstanceEdit = (instanceId, modal) => componentInstance.saveTestInstanceEdit(instanceId, modal);
     window.viewTestInstanceDetails = (testInstance) => componentInstance.viewTestInstanceDetails(testInstance);
     window.editTestInstance = (testInstance) => componentInstance.editTestInstance(testInstance);
-    window.toggleAutomationResults = () => componentInstance.toggleAutomationResults();
+    window.toggleAutomationResults = (instanceId) => componentInstance.toggleAutomationResults(instanceId);
     window.saveTestEvidence = (instanceId, modal) => componentInstance.saveTestEvidence(instanceId, modal);
     
     return componentInstance;

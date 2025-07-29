@@ -427,7 +427,7 @@ router.get('/crawlers/:crawlerId/pages', optionalAuth, async (req, res) => {
             paramCount++;
         }
 
-        query += ` ORDER BY cdp.discovered_at DESC, cdp.url ASC LIMIT $${paramCount++} OFFSET $${paramCount}`;
+        query += ` ORDER BY cdp.first_discovered_at DESC, cdp.url ASC LIMIT $${paramCount++} OFFSET $${paramCount}`;
         params.push(limit, offset);
 
         // Get total count for pagination

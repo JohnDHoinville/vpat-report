@@ -1,6 +1,10 @@
 const express = require('express');
-const { pool } = require('../../database/config');
 const router = express.Router();
+const jwt = require('jsonwebtoken');
+const { pool } = require('../../database/config');
+
+// JWT configuration
+const JWT_SECRET = process.env.JWT_SECRET || 'accessibility-testing-secret-key-change-in-production';
 
 // Simple health check endpoint
 router.get('/', async (req, res) => {
@@ -163,6 +167,29 @@ router.get('/live', (req, res) => {
         timestamp: new Date().toISOString(),
         uptime: process.uptime()
     });
+});
+
+router.get('/jwt-test', (req, res) => {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+    
+    const testToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI0NjA4ODIzMC02MTMzLTQ1ZTMtOGEwNC0wNmZlZWEyOTgwOTQiLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBsb2NhbGhvc3QiLCJpYXQiOjE3NTM4MTcyNjUsImV4cCI6MTc1NDQyMjA2NX0.JHGlLir3-bnrLqCUvJrCMj6MX91TPl3oBHD9jMgtxpQ';
+    
+    try {
+        const decoded = jwt.verify(testToken, JWT_SECRET);
+        res.json({ 
+            success: true, 
+            decoded, 
+            jwt_secret: JWT_SECRET,
+            provided_token: token ? token.substring(0, 50) + '...' : 'null'
+        });
+    } catch (error) {
+        res.json({ 
+            error: error.message, 
+            jwt_secret: JWT_SECRET,
+            provided_token: token ? token.substring(0, 50) + '...' : 'null'
+        });
+    }
 });
 
 module.exports = router; 

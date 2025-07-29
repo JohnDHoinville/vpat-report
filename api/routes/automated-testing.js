@@ -454,29 +454,31 @@ router.get('/instance-results/:instanceId', authenticateToken, async (req, res) 
         const query = `
             SELECT 
                 atr.id,
-                atr.session_id,
-                atr.status,
-                atr.tools_used,
+                atr.test_session_id,
+                atr.tool_name,
+                atr.tool_version,
                 atr.raw_results,
-                atr.total_issues,
-                atr.critical_issues,
-                atr.test_instances_updated,
-                atr.evidence_files_created,
-                atr.created_at,
-                atr.completed_at,
-                atr.created_by,
-                atr.pages_tested
-            FROM automated_test_runs atr
-            JOIN test_instances ti ON ti.session_id = atr.session_id
+                atr.violations_count,
+                atr.warnings_count,
+                atr.passes_count,
+                atr.test_duration_ms,
+                atr.executed_at,
+                atr.browser_name,
+                atr.viewport_width,
+                atr.viewport_height,
+                atr.test_environment,
+                atr.test_suite
+            FROM automated_test_results atr
+            JOIN test_instances ti ON ti.session_id = atr.test_session_id
             WHERE ti.id = $1
-            ORDER BY atr.created_at DESC
+            ORDER BY atr.executed_at DESC
         `;
         
         const result = await pool.query(query, [instanceId]);
         
         res.json({
             success: true,
-            results: result.rows,
+            data: result.rows,
             count: result.rows.length,
             message: `Found ${result.rows.length} automation results for test instance`
         });
@@ -498,7 +500,7 @@ router.get('/specialized-analysis/:instanceId', authenticateToken, async (req, r
         // Get test instance with result data
         const query = `
             SELECT ti.*, tr.criterion_number, tr.title as requirement_title,
-                   tr.test_method, tr.automated_tools, tr.automation_confidence
+                   tr.test_method
             FROM test_instances ti
             LEFT JOIN test_requirements tr ON ti.requirement_id = tr.id
             WHERE ti.id = $1

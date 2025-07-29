@@ -174,6 +174,9 @@ async function authenticateToken(req, res, next) {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
     
+    console.log('🔍 DEBUG: JWT_SECRET =', JWT_SECRET);
+    console.log('🔍 DEBUG: Token received =', token ? token.substring(0, 50) + '...' : 'null');
+    
     // No development bypass - proper authentication required
     if (token === 'test') {
         return res.status(401).json({ 
@@ -191,6 +194,7 @@ async function authenticateToken(req, res, next) {
     
     try {
         // Verify JWT token
+        console.log('🔍 DEBUG: Attempting to verify token with secret:', JWT_SECRET);
         const decoded = jwt.verify(token, JWT_SECRET);
         
         // Validate session in database

@@ -156,9 +156,7 @@ router.get('/', authenticateToken, async (req, res) => {
                 is_active as enabled,
                 priority,
                 estimated_time_minutes,
-                automated_tools,
-                tool_mapping,
-                automation_confidence,
+
                 created_at,
                 updated_at
             FROM test_requirements

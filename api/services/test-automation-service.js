@@ -884,16 +884,16 @@ class TestAutomationService {
      */
     async createAutomationRun(sessionId, runId, tools, userId) {
         const query = `
-            INSERT INTO automated_test_runs (
-                id, session_id, tools_used, pages_tested, started_at, 
-                total_issues, critical_issues, test_instances_updated, 
-                evidence_files_created, raw_results, created_at, created_by
-            ) VALUES ($1, $2, $3, 0, $4, 0, 0, 0, 0, '{}', $4, $5)
+            INSERT INTO automated_test_results (
+                id, test_session_id, tool_name, tool_version, raw_results, 
+                violations_count, warnings_count, passes_count, test_duration_ms, 
+                executed_at, browser_name, test_environment, test_suite
+            ) VALUES ($1, $2, $3, '1.0', '{}', 0, 0, 0, 0, $4, 'chrome', 'desktop', 'default')
             RETURNING *
         `;
 
         const result = await pool.query(query, [
-            runId, sessionId, JSON.stringify(tools), new Date(), userId
+            runId, sessionId, tools[0] || 'axe', new Date()
         ]);
 
         return result.rows[0];
@@ -915,7 +915,7 @@ class TestAutomationService {
         values.unshift(runId); // runId is always $1
 
         const query = `
-            UPDATE automated_test_runs 
+            UPDATE automated_test_results 
             SET ${updates.join(', ')}
             WHERE id = $1
         `;
@@ -932,7 +932,7 @@ class TestAutomationService {
         try {
             // Get test instances for this session
             const instancesQuery = `
-                SELECT ti.*, tr.criterion_number, tr.automated_tools, tr.tool_mapping
+                SELECT ti.*, tr.criterion_number
                 FROM test_instances ti
                 JOIN test_requirements tr ON ti.requirement_id = tr.id
                 WHERE ti.session_id = $1
@@ -1268,8 +1268,8 @@ class TestAutomationService {
 
         const query = `
             INSERT INTO test_audit_log (
-                test_instance_id, session_id, action_type, changed_by, changed_at, 
-                reason, metadata
+                test_instance_id, session_id, action_type, user_id, timestamp, 
+                change_description, details
             ) VALUES ($1, $2, $3, $4, $5, $6, $7)
         `;
 
@@ -1309,8 +1309,8 @@ class TestAutomationService {
 
         const query = `
             INSERT INTO test_audit_log (
-                test_instance_id, session_id, action_type, changed_by, changed_at, 
-                reason, metadata
+                test_instance_id, session_id, action_type, user_id, timestamp, 
+                change_description, details
             ) VALUES (NULL, $1, $2, $3, $4, $5, $6)
         `;
 
@@ -1576,14 +1576,14 @@ class TestAutomationService {
 
         try {
             const query = `
-                SELECT * FROM automated_test_runs 
-                WHERE session_id = $1 
-                ORDER BY started_at DESC 
+                SELECT * FROM automated_test_results 
+                WHERE test_session_id = $1 
+                ORDER BY executed_at DESC 
                 LIMIT $2 OFFSET $3
             `;
 
             const countQuery = `
-                SELECT COUNT(*) as total FROM automated_test_runs WHERE session_id = $1
+                SELECT COUNT(*) as total FROM automated_test_results WHERE test_session_id = $1
             `;
 
             const [runsResult, countResult] = await Promise.all([
@@ -1615,7 +1615,7 @@ class TestAutomationService {
             const query = `
                 SELECT atr.*, 
                        COUNT(te.id) as evidence_count
-                FROM automated_test_runs atr
+                FROM automated_test_results atr
                 LEFT JOIN test_evidence te ON te.metadata->>'run_id' = atr.id::text
                 WHERE atr.id = $1
                 GROUP BY atr.id

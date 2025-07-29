@@ -330,6 +330,9 @@ router.get('/conformance/:level', authenticateToken, async (req, res) => {
         } else if (level === 'section_508') {
             whereCondition = `WHERE requirement_type = 'section_508'`;
         }
+        
+        // Add is_active condition to existing WHERE clause
+        whereCondition += ` AND is_active = true`;
 
         const result = await pool.query(`
             SELECT 
@@ -349,13 +352,9 @@ router.get('/conformance/:level', authenticateToken, async (req, res) => {
                 wcag_url,
                 section_508_url,
                 created_at,
-                updated_at,
-                automated_tools,
-                tool_mapping,
-                automation_confidence
+                updated_at
             FROM test_requirements 
             ${whereCondition}
-            AND is_active = true
             ORDER BY requirement_type, criterion_number
         `);
 
@@ -442,6 +441,9 @@ router.get('/session/:sessionId', async (req, res) => {
             // Default to WCAG AA
             whereCondition = `WHERE requirement_type = 'wcag' AND level IN ('a', 'aa')`;
         }
+        
+        // Add is_active condition to existing WHERE clause
+        whereCondition += ` AND is_active = true`;
 
         const result = await pool.query(`
             SELECT 
@@ -461,13 +463,9 @@ router.get('/session/:sessionId', async (req, res) => {
                 wcag_url,
                 section_508_url,
                 created_at,
-                updated_at,
-                automated_tools,
-                tool_mapping,
-                automation_confidence
+                updated_at
             FROM test_requirements 
             ${whereCondition}
-            AND is_active = true
             ORDER BY requirement_type, criterion_number
         `);
 

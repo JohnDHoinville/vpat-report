@@ -388,11 +388,11 @@ router.post('/', authenticateToken, async (req, res) => {
         
         // Map wizard conformance levels to database values for session storage
         const dbLevelMapping = {
-            'wcag_22_a': 'wcag_a',
-            'wcag_22_aa': 'wcag_aa',
-            'wcag_22_aaa': 'wcag_aaa',
-            'section_508_base': 'section_508',
-            'section_508_enhanced': 'section_508'
+            'wcag_22_a': 'A',
+            'wcag_22_aa': 'AA',
+            'wcag_22_aaa': 'AAA',
+            'section_508_base': 'Section508',
+            'section_508_enhanced': 'Section508'
         };
         
         const mappedLevels = conformance_levels.map(level => dbLevelMapping[level] || level);
@@ -450,10 +450,10 @@ router.post('/', authenticateToken, async (req, res) => {
         // Log session creation
         const auditQuery = `
             INSERT INTO test_audit_log (
-                test_instance_id, session_id, changed_by, action_type, reason,
-                changed_at, metadata
+                test_instance_id, user_id, action_type, change_description,
+                timestamp, details
             ) SELECT 
-                id, $2, $1, 'created', 'Test instance created for new session',
+                id, $1, 'created', 'Test instance created for new session',
                 CURRENT_TIMESTAMP, '{"session_creation": true}'::jsonb
             FROM (SELECT id FROM test_instances WHERE session_id = $2) ti
         `;
@@ -868,19 +868,20 @@ async function getSelectedPagesFromCrawlers(selectedPageIds, selectedCrawlerIds)
             return [];
         }
         
-        // Query to get pages from crawler_discovered_pages (web crawler data)
+        // Query to get pages from crawler_discovered_pages and map to discovered_pages
         const query = `
             SELECT 
-                id,
-                url,
-                title,
-                crawler_id,
-                status_code,
-                content_type,
-                first_discovered_at
-            FROM crawler_discovered_pages 
-            WHERE id = ANY($1::uuid[])
-            ORDER BY url
+                dp.id,
+                cdp.url,
+                cdp.title,
+                cdp.crawler_id,
+                cdp.status_code,
+                cdp.content_type,
+                cdp.first_discovered_at
+            FROM crawler_discovered_pages cdp
+            JOIN discovered_pages dp ON cdp.url = dp.url
+            WHERE cdp.id = ANY($1::uuid[])
+            ORDER BY cdp.url
         `;
         
         const result = await pool.query(query, [selectedPageIds]);
