@@ -648,11 +648,11 @@ class TestAutomationService {
                         chromeLaunchConfig: {
                             headless: true
                         },
-                        // Add custom wait function
+                        // Add custom wait function - use evaluate instead of waitForTimeout
                         wait: 3000, // Wait 3 seconds after page load
-                        // Custom page preparation
+                        // Custom page preparation - use evaluate for compatibility
                         beforeScript: (page) => {
-                            // Additional wait for dynamic content using evaluate
+                            // Additional wait for dynamic content using evaluate (compatible with all Puppeteer versions)
                             return page.evaluate(() => new Promise(resolve => setTimeout(resolve, 2000)));
                         }
                     });

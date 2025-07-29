@@ -566,6 +566,9 @@ window.dashboard = function() {
         sessionDetailsTeam: {},
         sessionDetailsTestInstances: [],
         sessionDetailsPages: [],
+        automationRuns: [],
+        automationRunsSummary: {},
+        loadingAutomationRuns: false,
         
         // ===== AUDIT TIMELINE STATE =====
         auditTimeline: {
@@ -7587,6 +7590,94 @@ window.dashboard = function() {
                 throw error;
             }
         },
+
+        // Load automation runs for a session
+        async loadAutomationRuns(sessionId) {
+            try {
+                this.loadingAutomationRuns = true;
+                console.log('🤖 Loading automation runs for session:', sessionId);
+                
+                const response = await this.apiCall(`/automated-testing/history/${sessionId}?limit=50`);
+                
+                if (response.success) {
+                    this.automationRuns = response.data.runs || [];
+                    this.calculateAutomationRunsSummary();
+                    console.log('✅ Loaded automation runs:', this.automationRuns.length);
+                } else {
+                    throw new Error(response.error || 'Failed to load automation runs');
+                }
+                
+            } catch (error) {
+                console.error('Error loading automation runs:', error);
+                this.showNotification('error', 'Load Failed', 'Failed to load automation runs');
+                this.automationRuns = [];
+                this.automationRunsSummary = {};
+            } finally {
+                this.loadingAutomationRuns = false;
+            }
+        },
+
+        // Calculate automation runs summary statistics
+        calculateAutomationRunsSummary() {
+            const runs = this.automationRuns;
+            
+            const totalRuns = runs.length;
+            const successfulRuns = runs.filter(run => run.status === 'completed').length;
+            const failedRuns = runs.filter(run => run.status === 'failed').length;
+            const totalIssues = runs.reduce((sum, run) => sum + (run.total_issues || 0), 0);
+            const criticalIssues = runs.reduce((sum, run) => sum + (run.critical_issues || 0), 0);
+            
+            this.automationRunsSummary = {
+                total_runs: totalRuns,
+                successful_runs: successfulRuns,
+                failed_runs: failedRuns,
+                total_issues: totalIssues,
+                critical_issues: criticalIssues,
+                success_rate: totalRuns > 0 ? Math.round((successfulRuns / totalRuns) * 100) : 0,
+                avg_issues_per_run: totalRuns > 0 ? Math.round(totalIssues / totalRuns) : 0
+            };
+        },
+
+        // View automation run details
+        async viewAutomationRunDetails(run) {
+            try {
+                console.log('🔍 Viewing automation run details:', run.id);
+                
+                // Load detailed results for this run
+                const response = await this.apiCall(`/automated-testing/results/${run.id}`);
+                
+                if (response.success) {
+                    // Show detailed results in a modal or expand the row
+                    this.showNotification('info', 'Run Details', 
+                        `Run ${run.id.substring(0, 8)}: ${response.data.results.length} results loaded`);
+                    
+                    // You could open a modal here to show detailed results
+                    // For now, just show a notification
+                } else {
+                    throw new Error(response.error || 'Failed to load run details');
+                }
+                
+            } catch (error) {
+                console.error('Error viewing automation run details:', error);
+                this.showNotification('error', 'Load Failed', 'Failed to load run details');
+            }
+        },
+
+        // Download automation run report
+        async downloadAutomationRunReport(runId) {
+            try {
+                console.log('📄 Downloading automation run report:', runId);
+                
+                // This would typically generate and download a report
+                // For now, just show a notification
+                this.showNotification('info', 'Download Started', 
+                    'Automation run report download initiated');
+                
+            } catch (error) {
+                console.error('Error downloading automation run report:', error);
+                this.showNotification('error', 'Download Failed', 'Failed to download report');
+            }
+        },
         
         // Load session statistics breakdown
         async loadSessionStats(sessionId) {
@@ -11156,6 +11247,49 @@ window.dashboard = function() {
         );
     };
 
+    // Automation Run Helper Functions
+    componentInstance.getAutomationRunStatusClass = function(status) {
+        const classes = {
+            'running': 'bg-blue-100 text-blue-800',
+            'completed': 'bg-green-100 text-green-800',
+            'failed': 'bg-red-100 text-red-800',
+            'cancelled': 'bg-gray-100 text-gray-800',
+            'pending': 'bg-yellow-100 text-yellow-800'
+        };
+        return classes[status] || classes.pending;
+    };
+
+    componentInstance.getAutomationRunStatusDisplay = function(status) {
+        const displays = {
+            'running': 'Running',
+            'completed': 'Completed',
+            'failed': 'Failed',
+            'cancelled': 'Cancelled',
+            'pending': 'Pending'
+        };
+        return displays[status] || status;
+    };
+
+    componentInstance.formatDuration = function(ms) {
+        if (!ms) return 'N/A';
+        const seconds = Math.floor(ms / 1000);
+        const minutes = Math.floor(seconds / 60);
+        const hours = Math.floor(minutes / 60);
+        
+        if (hours > 0) {
+            return `${hours}h ${minutes % 60}m`;
+        } else if (minutes > 0) {
+            return `${minutes}m ${seconds % 60}s`;
+        } else {
+            return `${seconds}s`;
+        }
+    };
+
+    componentInstance.formatTime = function(date) {
+        if (!date) return '';
+        return new Date(date).toLocaleTimeString();
+    };
+
     // Legacy function for compatibility with older view templates
     componentInstance.applyRequirementsFilters = function() {
         // Map legacy filters to new structure and call the main filter function
@@ -11224,6 +11358,10 @@ window.dashboard = function() {
     window.getTestMethodBadgeClass = (method) => componentInstance.getTestMethodBadgeClass(method);
     window.getTestStatusBadgeClass = (status) => componentInstance.getTestStatusBadgeClass(status);
     window.getTestStatusDisplay = (status) => componentInstance.getTestStatusDisplay(status);
+    window.getAutomationRunStatusClass = (status) => componentInstance.getAutomationRunStatusClass(status);
+    window.getAutomationRunStatusDisplay = (status) => componentInstance.getAutomationRunStatusDisplay(status);
+    window.formatDuration = (ms) => componentInstance.formatDuration(ms);
+    window.formatTime = (date) => componentInstance.formatTime(date);
     window.getRequirementLevelBadgeClass = (level) => componentInstance.getRequirementLevelBadgeClass(level);
     window.getRequirementLevelDisplay = (level) => componentInstance.getRequirementLevelDisplay(level);
     window.getConformanceLevelBadgeClass = (level) => componentInstance.getConformanceLevelBadgeClass(level);
@@ -11234,6 +11372,9 @@ window.dashboard = function() {
     window.filterRequirements = () => componentInstance.filterRequirements();
     window.updateRequirementsPagination = () => componentInstance.updateRequirementsPagination();
     window.triggerAutomatedTest = (sessionId) => componentInstance.triggerAutomatedTest(sessionId);
+    window.loadAutomationRuns = (sessionId) => componentInstance.loadAutomationRuns(sessionId);
+    window.viewAutomationRunDetails = (run) => componentInstance.viewAutomationRunDetails(run);
+    window.downloadAutomationRunReport = (runId) => componentInstance.downloadAutomationRunReport(runId);
     
     // Add missing functions for requirements modal
     window.getLevelBadgeClass = (level) => componentInstance.getLevelBadgeClass(level);
