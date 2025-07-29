@@ -8795,7 +8795,7 @@ ${requirement.failure_examples}
                         <div class="flex justify-between items-center mb-3">
                             <h4 class="text-lg font-semibold text-purple-900">Automation Results</h4>
                             <button id="toggle-automation-btn" 
-                                    onclick="window.dashboardInstance.toggleAutomationResults()"
+                                    onclick="window.toggleAutomationResults()"
                                     class="px-3 py-1 text-sm bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors">
                                 <i class="fas fa-robot mr-1"></i>Show Results
                             </button>
@@ -8812,7 +8812,7 @@ ${requirement.failure_examples}
                         <div class="flex justify-between items-center mb-3">
                             <h4 class="text-lg font-semibold text-gray-900">Test History & Audit Trail</h4>
                             <button id="toggle-history-btn" 
-                                    onclick="window.dashboardInstance.toggleTestHistory()"
+                                    onclick="window.toggleTestHistory('${testInstance.id}')"
                                     class="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors">
                                 <i class="fas fa-history mr-1"></i>Show History
                             </button>
@@ -8830,7 +8830,7 @@ ${requirement.failure_examples}
                                 class="px-6 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors">
                             Cancel
                         </button>
-                        <button onclick="window.dashboardInstance.saveTestInstanceDetails('${testInstance.id}', this.closest('.fixed'))" 
+                        <button onclick="window.saveTestInstanceDetails('${testInstance.id}', this.closest('.fixed'))" 
                                 class="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
                             Save Changes
                         </button>
@@ -8896,7 +8896,7 @@ ${requirement.failure_examples}
                     ${editHTML}
                     <div class="mt-6 flex justify-end space-x-2">
                         <button onclick="this.closest('.fixed').remove()" class="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400">Cancel</button>
-                        <button onclick="window.dashboardInstance.saveTestInstanceEdit('${testInstance.id}', this.closest('.fixed'))" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Save Changes</button>
+                        <button onclick="window.saveTestInstanceEdit('${testInstance.id}', this.closest('.fixed'))" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Save Changes</button>
                     </div>
                 </div>
             `;
@@ -8906,11 +8906,16 @@ ${requirement.failure_examples}
         // Save test instance details
         async saveTestInstanceDetails(instanceId, modal) {
             try {
+                console.log('🔧 Starting save process for instance:', instanceId);
+                console.log('🔧 Modal element:', modal);
+                
                 const status = modal.querySelector('#test-status-select').value;
                 const confidenceLevel = modal.querySelector('#confidence-level-select').value;
                 const assignedTester = modal.querySelector('#assigned-tester').value;
                 const notes = modal.querySelector('#test-notes').value;
                 const remediationNotes = modal.querySelector('#remediation-notes').value;
+                
+                console.log('🔧 Form values:', { status, confidenceLevel, assignedTester, notes, remediationNotes });
                 
                 // Build updates object with only the fields that exist in the database
                 const updates = {
@@ -8932,12 +8937,14 @@ ${requirement.failure_examples}
                     }
                 }
                 
-                console.log('Saving test instance updates:', { instanceId, updates });
+                console.log('🔧 Saving test instance updates:', { instanceId, updates });
                 
                 const response = await this.apiCall(`/test-instances/${instanceId}`, {
                     method: 'PUT',
                     body: JSON.stringify(updates)
                 });
+                
+                console.log('🔧 API response:', response);
                 
                 if (response.success) {
                     this.showNotification('success', 'Updated', 'Test instance updated successfully');
@@ -8973,7 +8980,7 @@ ${requirement.failure_examples}
         },
 
         // Toggle test history visibility
-        toggleTestHistory() {
+        toggleTestHistory(instanceId) {
             const historyContainer = document.getElementById('test-history');
             const toggleBtn = document.getElementById('toggle-history-btn');
             
@@ -8983,6 +8990,11 @@ ${requirement.failure_examples}
                 toggleBtn.innerHTML = isVisible ? 
                     '<i class="fas fa-history mr-1"></i>Show History' : 
                     '<i class="fas fa-eye-slash mr-1"></i>Hide History';
+                
+                // Load test history when showing
+                if (!isVisible && instanceId) {
+                    this.loadTestInstanceHistory(instanceId);
+                }
             }
         },
 
@@ -10124,7 +10136,7 @@ ${requirement.failure_examples}
                     ${evidenceHTML}
                     <div class="mt-6 flex justify-end space-x-2">
                         <button onclick="this.closest('.fixed').remove()" class="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400">Cancel</button>
-                        <button onclick="window.dashboardInstance.saveTestEvidence('${instance.id}', this.closest('.fixed'))" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">Upload Evidence</button>
+                        <button onclick="window.saveTestEvidence('${instance.id}', this.closest('.fixed'))" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">Upload Evidence</button>
                     </div>
                 </div>
             `;
@@ -12365,6 +12377,27 @@ ${requirement.failure_examples}
     window.getTestMethodDisplay = (method) => componentInstance.getTestMethodDisplay(method);
     window.getTestInstancesForRequirement = (requirementId) => componentInstance.getTestInstancesForRequirement(requirementId);
     window.getGroupedTimeline = () => componentInstance.getGroupedTimeline ? componentInstance.getGroupedTimeline() : {};
+    
+    // Audit Timeline Global Functions
+    window.openAuditTimeline = (sessionId, sessionName) => componentInstance.openAuditTimeline(sessionId, sessionName);
+    window.closeAuditTimeline = () => componentInstance.closeAuditTimeline();
+    window.loadAuditTimeline = () => componentInstance.loadAuditTimeline();
+    window.loadMoreTimelineItems = () => componentInstance.loadMoreTimelineItems();
+    window.applyAuditTimelineFilters = () => componentInstance.applyAuditTimelineFilters();
+    window.resetAuditTimelineFilters = () => componentInstance.resetAuditTimelineFilters();
+    
+    // Test History Global Functions
+    window.toggleTestHistory = (instanceId) => componentInstance.toggleTestHistory(instanceId);
+    window.loadTestHistory = (instanceId) => componentInstance.loadTestHistory(instanceId);
+    window.closeTestHistory = () => componentInstance.closeTestHistory();
+    
+    // Test Instance Management Global Functions
+    window.saveTestInstanceDetails = (instanceId, modal) => componentInstance.saveTestInstanceDetails(instanceId, modal);
+    window.saveTestInstanceEdit = (instanceId, modal) => componentInstance.saveTestInstanceEdit(instanceId, modal);
+    window.viewTestInstanceDetails = (testInstance) => componentInstance.viewTestInstanceDetails(testInstance);
+    window.editTestInstance = (testInstance) => componentInstance.editTestInstance(testInstance);
+    window.toggleAutomationResults = () => componentInstance.toggleAutomationResults();
+    window.saveTestEvidence = (instanceId, modal) => componentInstance.saveTestEvidence(instanceId, modal);
     
     return componentInstance;
 }
