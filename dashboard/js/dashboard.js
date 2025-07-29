@@ -235,6 +235,7 @@ window.dashboard = function() {
         showRequirementsModal: false,
         showRequirementDetailsModal: false,
         currentRequirement: null,
+        loadingRequirementDetails: false,
         allRequirements: [],
         sessionRequirements: [],
         filteredRequirements: [],
@@ -506,13 +507,91 @@ window.dashboard = function() {
         },
         
         viewRequirementDetails: function(requirement) {
+            // First show the modal with basic info
             this.currentRequirement = requirement;
             this.showRequirementDetailsModal = true;
+            this.loadingRequirementDetails = true;
+            
+            // Then fetch the full requirement details from the database
+            this.fetchFullRequirementDetails(requirement.criterion_number);
+        },
+        
+        fetchFullRequirementDetails: function(criterionNumber) {
+            if (!criterionNumber) return;
+            
+            this.apiCall('/requirements', {
+                method: 'GET',
+                params: {
+                    search: criterionNumber,
+                    limit: 10
+                }
+            }).then(response => {
+                if (response.success && response.data && response.data.requirements && response.data.requirements.length > 0) {
+                    // Find the exact match for the criterion number
+                    const fullRequirement = response.data.requirements.find(req => 
+                        req.criterion_number === criterionNumber
+                    );
+                    
+                    if (fullRequirement) {
+                        // Merge the full requirement details with the current requirement
+                        this.currentRequirement = {
+                            ...this.currentRequirement,
+                            ...fullRequirement
+                        };
+                        console.log('✅ Loaded full requirement details:', fullRequirement);
+                    }
+                    this.loadingRequirementDetails = false;
+                }
+            }).catch(error => {
+                console.error('Error fetching full requirement details:', error);
+                this.loadingRequirementDetails = false;
+            });
         },
         
         closeRequirementDetailsModal: function() {
             this.showRequirementDetailsModal = false;
             this.currentRequirement = null;
+        },
+        
+        copyRequirementToClipboard: function() {
+            if (!this.currentRequirement) return;
+            
+            const requirement = this.currentRequirement;
+            const text = `WCAG Requirement ${requirement.criterion_number}: ${requirement.title}
+
+Level: ${requirement.level?.toUpperCase() || 'N/A'}
+Test Method: ${(requirement.test_method || 'manual').charAt(0).toUpperCase() + (requirement.test_method || 'manual').slice(1)}
+Priority: ${requirement.priority === 1 ? 'High' : requirement.priority === 2 ? 'Medium' : 'Low'}
+Estimated Time: ${requirement.estimated_time_minutes ? requirement.estimated_time_minutes + ' minutes' : 'Not specified'}
+
+Description:
+${requirement.description || 'No description available'}
+
+${requirement.testing_instructions ? `Testing Instructions:
+${requirement.testing_instructions}
+
+` : ''}${requirement.acceptance_criteria ? `Acceptance Criteria:
+${requirement.acceptance_criteria}
+
+` : ''}${requirement.failure_examples ? `Failure Examples:
+${requirement.failure_examples}
+
+` : ''}${requirement.wcag_url ? `WCAG Documentation: ${requirement.wcag_url}` : ''}`;
+            
+            navigator.clipboard.writeText(text).then(() => {
+                this.showNotification('success', 'Copied!', 'Requirement details copied to clipboard');
+            }).catch(err => {
+                console.error('Failed to copy to clipboard:', err);
+                this.showNotification('error', 'Copy Failed', 'Failed to copy to clipboard');
+            });
+        },
+        
+        getRequirementTestInstances: function(criterionNumber) {
+            if (!criterionNumber || !this.sessionDetailsTestInstances) return [];
+            
+            return this.sessionDetailsTestInstances.filter(instance => 
+                instance.criterion_number === criterionNumber
+            );
         },
         
         // ===== AUDIT TIMELINE FUNCTIONS (for Alpine.js template access) =====
@@ -2044,9 +2123,7 @@ window.dashboard = function() {
                         : this.data.selectedProject.id || this.data.selectedProject;
                         
                     console.log('🔗 Joining WebSocket room for project:', projectId);
-                    this.ws.socket.emit('join_project', { 
-                        projectId: projectId
-                    });
+                    this.ws.socket.emit('join_project', projectId);
                 }
             });
             
@@ -2152,11 +2229,20 @@ window.dashboard = function() {
             const currentUrl = crawlerRun.current_url || crawlerRun.currentUrl || '';
             
             this.crawlerProgress = {
-                percentage: Math.min(100, (pagesFound / (crawlerRun.maxPages || 50)) * 100),
+                percentage: Math.min(100, (pagesFound / (crawlerRun.max_pages || 50)) * 100),
                 message: `Crawling ${crawler?.name || 'site'}... Found ${pagesFound} pages`,
                 pagesFound: pagesFound,
                 currentUrl: currentUrl
             };
+            
+            // Force Alpine.js to update the UI
+            this.$nextTick(() => {
+                console.log('🔄 UI Updated - Progress:', {
+                    percentage: this.crawlerProgress.percentage,
+                    pagesFound: this.crawlerProgress.pagesFound,
+                    currentUrl: this.crawlerProgress.currentUrl
+                });
+            });
             
             this.syncLegacyState();
             
@@ -2693,6 +2779,15 @@ window.dashboard = function() {
                 if (response.ok) {
                     crawler.status = 'running';
                     
+                    // Join WebSocket project room to receive real-time updates
+                    if (this.ws.socket && this.data.selectedProject) {
+                        const projectId = typeof this.data.selectedProject === 'string' 
+                            ? this.data.selectedProject 
+                            : this.data.selectedProject.id || this.data.selectedProject;
+                        this.ws.socket.emit('join_project', projectId);
+                        console.log('🔌 WebSocket: Joined project room for crawler updates');
+                    }
+                    
                     // Set progress tracking
                     this.crawlerInProgress = true;
                     this.crawlerProgress = {
@@ -2749,6 +2844,7 @@ window.dashboard = function() {
                 request_delay_ms: 2000,
                 session_persistence: false,
                 respect_robots_txt: false,
+                headful_mode: false,
                 saml_config: {
                     idp_domain: '',
                     username_selector: '',

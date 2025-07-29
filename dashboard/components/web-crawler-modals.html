@@ -178,6 +178,20 @@
                                class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded mr-2">
                         <span class="text-sm text-gray-700">Respect robots.txt</span>
                     </label>
+                    
+                    <label class="flex items-center">
+                        <input x-model="newCrawler.headful_mode" type="checkbox"
+                               class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded mr-2">
+                        <span class="text-sm text-gray-700">Headful Mode (Interactive Authentication)</span>
+                        <i class="fas fa-info-circle ml-2 text-gray-400" 
+                           title="Enable to see the browser window and manually enter passwords during authentication"></i>
+                    </label>
+                    <div x-show="newCrawler.headful_mode" class="ml-6 mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                        <p class="text-xs text-blue-800">
+                            <i class="fas fa-info-circle mr-1"></i>
+                            <strong>Interactive Mode:</strong> When enabled, the crawler will open a browser window and wait for you to manually enter the password and click submit. This is more secure than storing passwords in the database.
+                        </p>
+                    </div>
                 </div>
             </fieldset>
             

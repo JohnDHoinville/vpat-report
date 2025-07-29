@@ -30,10 +30,10 @@ class PlaywrightCrawlerService {
                     request_delay_ms, wait_conditions, custom_selectors, javascript_execution,
                     extraction_rules, content_filters, url_patterns, browser_type,
                     viewport_config, user_agent, headers, enable_caching, cache_duration_hours,
-                    session_persistence, respect_robots_txt, created_by
+                    session_persistence, respect_robots_txt, headful_mode, created_by
                 ) VALUES (
                     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15,
-                    $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27
+                    $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28
                 ) RETURNING *
             `;
 
@@ -64,6 +64,7 @@ class PlaywrightCrawlerService {
                 crawlerData.cache_duration_hours || 24,
                 crawlerData.session_persistence !== false,
                 crawlerData.respect_robots_txt || false, // Default to false for accessibility testing
+                crawlerData.headful_mode || false, // Default to false (headless mode)
                 crawlerData.created_by
             ];
 
@@ -198,8 +199,14 @@ class PlaywrightCrawlerService {
 
             // Initialize browser and context
             const browserType = this.getBrowserType(crawler.browser_type);
+            
+            // Check if headful mode is enabled in crawler configuration
+            const headfulMode = crawler.headful_mode === true || runConfig.headful_mode === true;
+            const slowMo = headfulMode ? 1000 : 0; // Only slow down if in headful mode
+            
             browser = await browserType.launch({
-                headless: runConfig.headless !== false,
+                headless: !headfulMode, // Use headful mode if enabled
+                slowMo: slowMo, // Slow down actions if in headful mode
                 args: [
                     '--disable-dev-shm-usage', 
                     '--no-sandbox',
@@ -246,7 +253,13 @@ class PlaywrightCrawlerService {
                 }
             }
 
-            context = await browser.newContext(contextOptions);
+            context = await browser.newContext({
+                ...contextOptions,
+                recordVideo: {
+                    dir: '/tmp/',
+                    size: { width: 1280, height: 720 }
+                }
+            });
             page = await context.newPage();
 
             // Set up request interception for monitoring
@@ -472,7 +485,13 @@ class PlaywrightCrawlerService {
      */
     async crawlPages(page, crawler, crawlerRunId, runConfig) {
         const visited = new Set();
-        const queue = [{ url: crawler.base_url, depth: 0 }];
+        
+        // Start from the current page after authentication, or fall back to base_url
+        const startUrl = page.url() !== 'about:blank' ? page.url() : crawler.base_url;
+        const queue = [{ url: startUrl, depth: 0 }];
+        
+        console.log(`🚀 Starting crawl from: ${startUrl}`);
+        
         const results = {
             totalPages: 0,
             crawledPages: 0,
@@ -1045,39 +1064,140 @@ class PlaywrightCrawlerService {
     }
 
     async handleBasicAuthentication(page, crawler) {
-        // Parse auth credentials if it's a JSON string
-        const authCredentials = typeof crawler.auth_credentials === 'string'
-            ? JSON.parse(crawler.auth_credentials)
-            : crawler.auth_credentials;
-        const credentials = this.decryptCredentials(authCredentials);
-        
         // Parse auth workflow if it's a JSON string
         const authWorkflow = typeof crawler.auth_workflow === 'string'
             ? JSON.parse(crawler.auth_workflow)
             : (crawler.auth_workflow || {});
         
+        // Check if interactive mode is enabled
+        const isInteractiveMode = crawler.headful_mode === true;
+        
         // Use login_url from auth_workflow if available, otherwise fall back to base_url
         const loginUrl = authWorkflow.login_url || crawler.base_url;
+        console.log(`🔐 Navigating to login page: ${loginUrl}`);
         await page.goto(loginUrl);
         
         // Wait for the page to load and for form elements to be available
         await page.waitForLoadState('networkidle');
+        console.log(`🔐 Login page loaded. Current URL: ${page.url()}`);
         
-        if (authWorkflow.username_selector && credentials.username) {
-            try {
-                await page.waitForSelector(authWorkflow.username_selector, { timeout: 10000 });
-                await page.fill(authWorkflow.username_selector, credentials.username);
-            } catch (error) {
-                console.log(`❌ Could not find username field with selector: ${authWorkflow.username_selector}`);
-            }
+        // Take a screenshot of the login page
+        try {
+            await page.screenshot({ 
+                path: `/tmp/auth-login-page-${Date.now()}.png`,
+                fullPage: true 
+            });
+            console.log(`📸 Screenshot saved of login page`);
+        } catch (error) {
+            console.log(`❌ Failed to take login page screenshot: ${error.message}`);
         }
         
-        if (authWorkflow.password_selector && credentials.password) {
-            try {
-                await page.waitForSelector(authWorkflow.password_selector, { timeout: 10000 });
-                await page.fill(authWorkflow.password_selector, credentials.password);
-            } catch (error) {
-                console.log(`❌ Could not find password field with selector: ${authWorkflow.password_selector}`);
+        if (isInteractiveMode) {
+            // INTERACTIVE MODE: Let user enter password manually
+            console.log(`🔐 INTERACTIVE MODE: Waiting for user to enter password manually`);
+            console.log(`🔐 Please enter the password in the browser window and click submit`);
+            
+            // Fill username if available
+            if (authWorkflow.username_selector) {
+                try {
+                    await page.waitForSelector(authWorkflow.username_selector, { timeout: 10000 });
+                    // Try to get username from stored credentials or use a default
+                    const authCredentials = typeof crawler.auth_credentials === 'string'
+                        ? JSON.parse(crawler.auth_credentials)
+                        : crawler.auth_credentials;
+                    const credentials = this.decryptCredentials(authCredentials);
+                    const username = credentials.username || 'admin';
+                    await page.fill(authWorkflow.username_selector, username);
+                    console.log(`🔐 Pre-filled username: ${username}`);
+                } catch (error) {
+                    console.log(`❌ Could not find username field with selector: ${authWorkflow.username_selector}`);
+                }
+            }
+            
+            // Wait for user to manually enter password and submit
+            await this.waitForUserAuthentication(page, authWorkflow);
+            
+        } else {
+            // AUTOMATED MODE: Use stored credentials
+            console.log(`🔐 AUTOMATED MODE: Using stored credentials`);
+            
+            // Parse auth credentials if it's a JSON string
+            const authCredentials = typeof crawler.auth_credentials === 'string'
+                ? JSON.parse(crawler.auth_credentials)
+                : crawler.auth_credentials;
+            const credentials = this.decryptCredentials(authCredentials);
+            
+            // DEBUG: Log the exact credentials being used
+            console.log(`🔍 DEBUG: Raw auth_credentials from database:`, JSON.stringify(authCredentials, null, 2));
+            console.log(`🔍 DEBUG: Decrypted credentials:`, JSON.stringify(credentials, null, 2));
+            console.log(`🔍 DEBUG: Username being used: "${credentials.username}"`);
+            console.log(`🔍 DEBUG: Password being used: "${credentials.password}"`);
+            console.log(`🔍 DEBUG: Password length: ${credentials.password ? credentials.password.length : 0}`);
+            console.log(`🔍 DEBUG: Password bytes:`, credentials.password ? Buffer.from(credentials.password).toString('hex') : 'null');
+            
+            if (authWorkflow.username_selector && credentials.username) {
+                try {
+                    await page.waitForSelector(authWorkflow.username_selector, { timeout: 10000 });
+                    await page.fill(authWorkflow.username_selector, credentials.username);
+                } catch (error) {
+                    console.log(`❌ Could not find username field with selector: ${authWorkflow.username_selector}`);
+                }
+            }
+            
+            if (authWorkflow.password_selector && credentials.password) {
+                try {
+                    await page.waitForSelector(authWorkflow.password_selector, { timeout: 10000 });
+                    
+                    // VISUAL VERIFICATION: Show password before filling
+                    console.log(`🔍 VISUAL VERIFICATION:`);
+                    console.log(`🔍 Password to be used: "${credentials.password}"`);
+                    console.log(`🔍 Password length: ${credentials.password.length}`);
+                    console.log(`🔍 Password hex: ${Buffer.from(credentials.password).toString('hex')}`);
+                    console.log(`🔍 Password char codes: ${Array.from(credentials.password).map(c => c.charCodeAt(0)).join(', ')}`);
+                    
+                    // Temporarily make password field visible so you can see it in the browser
+                    try {
+                        await page.evaluate((selector) => {
+                            const passwordField = document.querySelector(selector);
+                            if (passwordField) {
+                                passwordField.type = 'text';
+                                passwordField.style.backgroundColor = 'yellow';
+                                passwordField.style.border = '3px solid red';
+                                console.log('Password field made visible for inspection');
+                            }
+                        }, authWorkflow.password_selector);
+                        console.log(`🔍 Made password field visible in browser for inspection`);
+                    } catch (error) {
+                        console.log(`❌ Could not make password field visible: ${error.message}`);
+                    }
+                    
+                    // Pause for visual inspection (10 seconds)
+                    console.log(`⏸️ PAUSING FOR 10 SECONDS - Check the password in the browser window!`);
+                    await page.waitForTimeout(10000);
+                    
+                    console.log(`🔍 DEBUG: About to fill password field with: "${credentials.password}"`);
+                    await page.fill(authWorkflow.password_selector, credentials.password);
+                    console.log(`🔍 DEBUG: Password field filled successfully`);
+                    
+                    // Verify what was actually filled
+                    const filledValue = await page.inputValue(authWorkflow.password_selector);
+                    console.log(`🔍 DEBUG: Actual value in password field: "${filledValue}"`);
+                    console.log(`🔍 DEBUG: Filled value length: ${filledValue.length}`);
+                    console.log(`🔍 DEBUG: Filled value bytes:`, Buffer.from(filledValue).toString('hex'));
+                    
+                    // Take a screenshot to show the filled form
+                    try {
+                        await page.screenshot({ 
+                            path: `/tmp/password-filled-form-${Date.now()}.png`,
+                            fullPage: true 
+                        });
+                        console.log(`📸 Screenshot saved showing filled password form`);
+                    } catch (error) {
+                        console.log(`❌ Failed to take screenshot: ${error.message}`);
+                    }
+                } catch (error) {
+                    console.log(`❌ Could not find password field with selector: ${authWorkflow.password_selector}`);
+                }
             }
         }
         
@@ -1090,7 +1210,187 @@ class PlaywrightCrawlerService {
             }
         }
         
+        // Wait for navigation to complete after form submission
         await page.waitForLoadState('networkidle');
+        
+        // Pause for manual inspection (uncomment to use)
+        // console.log('⏸️ Pausing for 10 seconds for manual inspection...');
+        // await page.waitForTimeout(10000);
+        
+        // Take a screenshot after form submission to see what happened
+        try {
+            await page.screenshot({ 
+                path: `/tmp/auth-after-submit-${Date.now()}.png`,
+                fullPage: true 
+            });
+            console.log(`📸 Screenshot saved after form submission`);
+        } catch (error) {
+            console.log(`❌ Failed to take screenshot: ${error.message}`);
+        }
+        
+        // Check for success indicators and redirect
+        if (authWorkflow.success_indicators && authWorkflow.success_indicators.length > 0) {
+            let successDetected = false;
+            let currentUrl = page.url();
+            
+            console.log(`🔍 Checking authentication success. Current URL: ${currentUrl}`);
+            console.log(`🔍 Success indicators to check: ${authWorkflow.success_indicators.join(', ')}`);
+            
+            // Wait a bit for any redirects to complete
+            await page.waitForTimeout(3000);
+            
+            // Get the final URL after waiting
+            const finalUrl = page.url();
+            console.log(`🔍 Final URL after waiting: ${finalUrl}`);
+            
+            // Check if we've been redirected to a success page
+            for (const indicator of authWorkflow.success_indicators) {
+                console.log(`🔍 Checking indicator: ${indicator}`);
+                
+                // Check URL for success indicators
+                if (currentUrl.includes(indicator) || finalUrl.includes(indicator)) {
+                    console.log(`✅ Success indicator detected in URL: ${indicator}`);
+                    successDetected = true;
+                    break;
+                }
+                
+                // Check page content for success indicators
+                try {
+                    const hasIndicator = await page.evaluate((text) => {
+                        return document.body.innerText.toLowerCase().includes(text.toLowerCase()) ||
+                               document.title.toLowerCase().includes(text.toLowerCase());
+                    }, indicator);
+                    
+                    if (hasIndicator) {
+                        console.log(`✅ Success indicator detected in content: ${indicator}`);
+                        successDetected = true;
+                        break;
+                    } else {
+                        console.log(`❌ Indicator not found in content: ${indicator}`);
+                    }
+                } catch (error) {
+                    console.log(`❌ Error checking content for indicator ${indicator}: ${error.message}`);
+                }
+            }
+            
+            if (!successDetected) {
+                console.log(`⚠️ No success indicators detected. Current URL: ${page.url()}`);
+                // Check if we're still on the login page
+                if (page.url().includes('/login')) {
+                    console.log(`❌ Still on login page - authentication may have failed`);
+                }
+            } else {
+                console.log(`✅ Authentication successful - redirected to: ${page.url()}`);
+                
+                // If authentication was successful but we're not on /app, navigate there explicitly
+                if (!page.url().includes('/app')) {
+                    console.log(`🔄 Navigating to /app page after successful authentication`);
+                    try {
+                        await page.goto('https://run-analysis.onrender.com/app');
+                        await page.waitForLoadState('networkidle');
+                        console.log(`✅ Successfully navigated to /app: ${page.url()}`);
+                    } catch (error) {
+                        console.log(`❌ Failed to navigate to /app: ${error.message}`);
+                    }
+                }
+            }
+        }
+    }
+
+    async waitForUserAuthentication(page, authWorkflow) {
+        console.log(`🔐 Waiting for user to complete authentication manually...`);
+        console.log(`🔐 Please enter your password and click the submit button in the browser window`);
+        
+        // Wait for the user to submit the form by monitoring for navigation or form submission
+        const startTime = Date.now();
+        const maxWaitTime = 5 * 60 * 1000; // 5 minutes max wait time
+        const checkInterval = 2000; // Check every 2 seconds
+        
+        while (Date.now() - startTime < maxWaitTime) {
+            const currentUrl = page.url();
+            
+            // Check if we've navigated away from the login page
+            if (!currentUrl.includes('/login') && !currentUrl.includes('login')) {
+                console.log(`✅ User has navigated away from login page: ${currentUrl}`);
+                break;
+            }
+            
+            // Check if the form has been submitted by looking for success indicators
+            if (authWorkflow.success_indicators && authWorkflow.success_indicators.length > 0) {
+                let successDetected = false;
+                
+                for (const indicator of authWorkflow.success_indicators) {
+                    try {
+                        const hasIndicator = await page.evaluate((text) => {
+                            return document.body.innerText.toLowerCase().includes(text.toLowerCase()) ||
+                                   document.title.toLowerCase().includes(text.toLowerCase()) ||
+                                   window.location.href.toLowerCase().includes(text.toLowerCase());
+                        }, indicator);
+                        
+                        if (hasIndicator) {
+                            console.log(`✅ Success indicator detected: ${indicator}`);
+                            successDetected = true;
+                            break;
+                        }
+                    } catch (error) {
+                        // Ignore errors during indicator checking
+                    }
+                }
+                
+                if (successDetected) {
+                    console.log(`✅ Authentication appears successful based on indicators`);
+                    break;
+                }
+            }
+            
+            // Check if submit button was clicked by monitoring for form submission events
+            try {
+                const formSubmitted = await page.evaluate(() => {
+                    // Check if any form submission events have occurred
+                    return window.formSubmitted || document.querySelector('form[data-submitted="true"]');
+                });
+                
+                if (formSubmitted) {
+                    console.log(`✅ Form submission detected`);
+                    break;
+                }
+            } catch (error) {
+                // Ignore errors during form submission checking
+            }
+            
+            // Wait before next check
+            await page.waitForTimeout(checkInterval);
+            
+            // Show progress indicator
+            const elapsed = Math.floor((Date.now() - startTime) / 1000);
+            if (elapsed % 10 === 0) { // Show message every 10 seconds
+                console.log(`⏳ Still waiting for user authentication... (${elapsed}s elapsed)`);
+            }
+        }
+        
+        // Check if we timed out
+        if (Date.now() - startTime >= maxWaitTime) {
+            console.log(`⏰ Timeout waiting for user authentication (5 minutes)`);
+            throw new Error('User authentication timeout - no form submission detected within 5 minutes');
+        }
+        
+        // Wait a bit more for any redirects to complete
+        console.log(`🔄 Waiting for authentication redirects to complete...`);
+        await page.waitForLoadState('networkidle');
+        
+        const finalUrl = page.url();
+        console.log(`✅ User authentication completed. Final URL: ${finalUrl}`);
+        
+        // Take a screenshot after authentication
+        try {
+            await page.screenshot({ 
+                path: `/tmp/post-auth-${Date.now()}.png`,
+                fullPage: true 
+            });
+            console.log(`📸 Screenshot saved after authentication`);
+        } catch (error) {
+            console.log(`❌ Failed to take post-auth screenshot: ${error.message}`);
+        }
     }
 
     async handleCustomAuthentication(page, crawler) {

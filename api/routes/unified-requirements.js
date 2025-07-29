@@ -322,19 +322,41 @@ router.get('/conformance/:level', authenticateToken, async (req, res) => {
 
         let whereCondition = '';
         if (level === 'wcag_a') {
-            whereCondition = `WHERE standard_type = 'wcag' AND level = 'A'`;
+            whereCondition = `WHERE requirement_type = 'wcag' AND level = 'a'`;
         } else if (level === 'wcag_aa') {
-            whereCondition = `WHERE standard_type = 'wcag' AND level IN ('A', 'AA')`;
+            whereCondition = `WHERE requirement_type = 'wcag' AND level IN ('a', 'aa')`;
         } else if (level === 'wcag_aaa') {
-            whereCondition = `WHERE standard_type = 'wcag' AND level IN ('A', 'AA', 'AAA')`;
+            whereCondition = `WHERE requirement_type = 'wcag' AND level IN ('a', 'aa', 'aaa')`;
         } else if (level === 'section_508') {
-            whereCondition = `WHERE standard_type = 'section508'`;
+            whereCondition = `WHERE requirement_type = 'section_508'`;
         }
 
         const result = await pool.query(`
-            SELECT * FROM unified_requirements 
+            SELECT 
+                id,
+                requirement_type as standard_type,
+                criterion_number,
+                title,
+                description,
+                level,
+                test_method,
+                testing_instructions,
+                acceptance_criteria,
+                failure_examples,
+                is_active,
+                priority,
+                estimated_time_minutes,
+                wcag_url,
+                section_508_url,
+                created_at,
+                updated_at,
+                automated_tools,
+                tool_mapping,
+                automation_confidence
+            FROM test_requirements 
             ${whereCondition}
-            ORDER BY standard_type, requirement_id
+            AND is_active = true
+            ORDER BY requirement_type, criterion_number
         `);
 
         // Group by requirement type and level for better organization
@@ -411,25 +433,47 @@ router.get('/session/:sessionId', async (req, res) => {
         // Map session conformance level to requirements filter
         let whereCondition = '';
         if (conformanceLevel === 'wcag_a') {
-            whereCondition = `WHERE standard_type = 'wcag' AND level = 'A'`;
+            whereCondition = `WHERE requirement_type = 'wcag' AND level = 'a'`;
         } else if (conformanceLevel === 'wcag_aa') {
-            whereCondition = `WHERE standard_type = 'wcag' AND level IN ('A', 'AA')`;
+            whereCondition = `WHERE requirement_type = 'wcag' AND level IN ('a', 'aa')`;
         } else if (conformanceLevel === 'wcag_aaa') {
-            whereCondition = `WHERE standard_type = 'wcag' AND level IN ('A', 'AA', 'AAA')`;
+            whereCondition = `WHERE requirement_type = 'wcag' AND level IN ('a', 'aa', 'aaa')`;
         } else if (conformanceLevel === 'section_508') {
-            whereCondition = `WHERE standard_type = 'section_508'`;
+            whereCondition = `WHERE requirement_type = 'section_508'`;
         } else if (conformanceLevel === 'combined') {
             // Combined includes all WCAG and Section 508 requirements
-            whereCondition = `WHERE standard_type IN ('wcag', 'section_508')`;
+            whereCondition = `WHERE requirement_type IN ('wcag', 'section_508')`;
         } else {
             // Default to WCAG AA
-            whereCondition = `WHERE standard_type = 'wcag' AND level IN ('A', 'AA')`;
+            whereCondition = `WHERE requirement_type = 'wcag' AND level IN ('a', 'aa')`;
         }
 
         const result = await pool.query(`
-            SELECT * FROM unified_requirements 
+            SELECT 
+                id,
+                requirement_type as standard_type,
+                criterion_number,
+                title,
+                description,
+                level,
+                test_method,
+                testing_instructions,
+                acceptance_criteria,
+                failure_examples,
+                is_active,
+                priority,
+                estimated_time_minutes,
+                wcag_url,
+                section_508_url,
+                created_at,
+                updated_at,
+                automated_tools,
+                tool_mapping,
+                automation_confidence
+            FROM test_requirements 
             ${whereCondition}
-            ORDER BY standard_type, requirement_id
+            AND is_active = true
+            ORDER BY requirement_type, criterion_number
         `);
 
         res.json({
