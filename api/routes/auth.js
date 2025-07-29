@@ -880,7 +880,7 @@ router.post('/configs', async (req, res) => {
         } = req.body;
         
         // Get user ID from JWT token (assuming it's available in req.user)
-        const created_by = req.user?.id || '46088230-6133-45e3-8a04-06feea298094'; // fallback to admin
+        const created_by = req.user?.id || 'ef726585-0873-44a9-99e5-d8f81fd4ef35'; // fallback to admin
         
         // Check if a config with the same role already exists for this domain/project
         const existingConfig = await db.query(`
