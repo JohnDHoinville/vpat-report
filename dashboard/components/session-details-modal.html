@@ -9,7 +9,7 @@
      class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
      @click.self="closeSessionDetailsModal()">
      
-    <div class="bg-white rounded-lg shadow-xl w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col"
+    <div class="bg-white rounded-lg shadow-xl w-full max-w-7xl max-h-[90vh] overflow-hidden flex flex-col"
          @click.stop>
          
         <!-- Modal Header -->
@@ -112,13 +112,13 @@
                         <div class="flex items-center justify-between">
                             <div>
                                 <p class="text-sm font-medium text-red-600">Issues</p>
-                                <p class="text-2xl font-bold text-red-800" x-text="(selectedSessionDetails?.progress?.failedTests || 0) + (selectedSessionDetails?.progress?.needsReviewTests || 0)"></p>
+                                <p class="text-2xl font-bold text-red-800" x-text="(selectedSessionDetails?.progress?.failedTests || 0) + (selectedSessionDetails?.progress?.needsReviewTests || 0) + (automationSummary?.total_issues_found || 0)"></p>
                             </div>
                             <div class="w-12 h-12 bg-red-200 rounded-full flex items-center justify-center">
                                 <i class="fas fa-exclamation-triangle text-red-600"></i>
                             </div>
                         </div>
-                        <p class="text-xs text-red-600 mt-2" x-text="`${selectedSessionDetails?.progress?.failedTests || 0} failed, ${selectedSessionDetails?.progress?.needsReviewTests || 0} review`"></p>
+                        <p class="text-xs text-red-600 mt-2" x-text="`${selectedSessionDetails?.progress?.failedTests || 0} manual, ${automationSummary?.total_issues_found || 0} automated`"></p>
                     </div>
                 </div>
 
@@ -147,11 +147,11 @@
                                     class="py-4 px-1 border-b-2 font-medium text-sm transition-colors">
                                 <i class="fas fa-robot mr-2"></i>Automation
                             </button>
-                            <button @click="sessionDetailsActiveTab = 'automation-runs'; $nextTick(() => { loadAutomationRuns(selectedSessionDetails?.id); })" 
-                                    :class="sessionDetailsActiveTab === 'automation-runs' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
-                                    class="py-4 px-1 border-b-2 font-medium text-sm transition-colors">
-                                <i class="fas fa-robot mr-2"></i>Automation Runs
-                            </button>
+                                                            <button @click="sessionDetailsActiveTab = 'automation-runs'; $nextTick(() => { loadAutomationRuns(selectedSessionDetails?.id); initAutomationChart(); })" 
+                                        :class="sessionDetailsActiveTab === 'automation-runs' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
+                                        class="py-4 px-1 border-b-2 font-medium text-sm transition-colors">
+                                    <i class="fas fa-robot mr-2"></i>Automation Runs
+                                </button>
                             <button @click="sessionDetailsActiveTab = 'audit'" 
                                     :class="sessionDetailsActiveTab === 'audit' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
                                     class="py-4 px-1 border-b-2 font-medium text-sm transition-colors">
@@ -445,25 +445,25 @@
                                     <table class="min-w-full divide-y divide-gray-200">
                                         <thead class="bg-gray-50 sticky top-0">
                                             <tr>
-                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-2/5">
                                                     Requirement
                                                 </th>
-                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-16">
                                                     Level
                                                 </th>
-                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
                                                     Test Method
                                                 </th>
-                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
                                                     Status
                                                 </th>
-                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
                                                     Assigned To
                                                 </th>
-                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
                                                     Last Updated
                                                 </th>
-                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
                                                     Actions
                                                 </th>
                                             </tr>
@@ -472,7 +472,7 @@
                                             <template x-for="testInstance in sessionDetailsTestInstances" :key="testInstance.id">
                                                 <tr class="hover:bg-gray-50">
                                                                                         <!-- Requirement -->
-                                    <td class="px-6 py-4">
+                                    <td class="px-6 py-4 w-2/5">
                                         <div class="flex flex-col">
                                             <div class="text-sm font-medium text-gray-900" x-text="testInstance.criterion_number"></div>
                                             <div class="text-sm text-gray-600" x-text="testInstance.requirement_title || testInstance.title"></div>
@@ -513,38 +513,38 @@
                                     </td>
                                                     
                                                     <!-- Level -->
-                                                    <td class="px-6 py-4">
+                                                    <td class="px-6 py-4 w-16">
                                                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
                                                               :class="getRequirementLevelBadgeClass(testInstance.requirement_level || testInstance.level)"
                                                               x-text="getRequirementLevelDisplay(testInstance.requirement_level || testInstance.level)"></span>
                                                     </td>
                                                     
                                                     <!-- Test Method -->
-                                                    <td class="px-6 py-4">
+                                                    <td class="px-6 py-4 w-24">
                                                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
                                                               :class="getTestMethodBadgeClass(testInstance.test_method_used || testInstance.requirement_test_method)"
                                                               x-text="getTestMethodDisplay(testInstance.test_method_used || testInstance.requirement_test_method)"></span>
                                                     </td>
                                                     
                                                     <!-- Status -->
-                                                    <td class="px-6 py-4">
+                                                    <td class="px-6 py-4 w-20">
                                                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
                                                               :class="getTestStatusBadgeClass(testInstance.status)"
                                                               x-text="getTestStatusDisplay(testInstance.status)"></span>
                                                     </td>
                                                     
                                                     <!-- Assigned To -->
-                                                    <td class="px-6 py-4">
+                                                    <td class="px-6 py-4 w-24">
                                                         <div class="text-sm text-gray-900" x-text="testInstance.assigned_tester_name || 'Unassigned'"></div>
                                                     </td>
                                                     
                                                     <!-- Last Updated -->
-                                                    <td class="px-6 py-4">
+                                                    <td class="px-6 py-4 w-24">
                                                         <div class="text-sm text-gray-900" x-text="formatDate(testInstance.updated_at)"></div>
                                                     </td>
                                                     
                                                     <!-- Actions -->
-                                                    <td class="px-6 py-4">
+                                                    <td class="px-6 py-4 w-20">
                                                         <div class="flex items-center space-x-2">
                                                             <button @click="viewTestInstanceDetails(testInstance)" 
                                                                     class="text-blue-600 hover:text-blue-800 text-sm">
@@ -743,20 +743,20 @@
                                     <table class="min-w-full divide-y divide-gray-200">
                                         <thead class="bg-gray-50 sticky top-0">
                                             <tr>
-                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Requirement</th>
-                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Level</th>
-                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Test Method</th>
-                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Automated</th>
-                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Manual</th>
-                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-2/5">Requirement</th>
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-16">Level</th>
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">Test Method</th>
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20">Automated</th>
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20">Manual</th>
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20">Status</th>
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20">Actions</th>
                                             </tr>
                                         </thead>
                                         <tbody class="bg-white divide-y divide-gray-200">
                                             <template x-for="requirement in paginatedRequirements" :key="requirement.id">
                                                 <tr class="hover:bg-gray-50">
                                                     <!-- Requirement Info -->
-                                                    <td class="px-6 py-4">
+                                                    <td class="px-6 py-4 w-2/5">
                                                         <div class="flex items-start space-x-3">
                                                             <div class="flex-shrink-0">
                                                                 <span class="inline-block w-8 h-8 bg-blue-100 text-blue-600 rounded-full text-xs font-medium flex items-center justify-center"
@@ -773,13 +773,13 @@
                                                     </td>
                                                     
                                                     <!-- WCAG Level -->
-                                                    <td class="px-6 py-4 whitespace-nowrap">
+                                                    <td class="px-6 py-4 whitespace-nowrap w-16">
                                                         <span :class="getRequirementLevelBadgeClass(requirement.level) + ' px-2 py-1 text-xs font-medium rounded-full'" 
                                                               x-text="getRequirementLevelDisplay(requirement.level)"></span>
                                                     </td>
                                                     
                                                     <!-- Test Method -->
-                                                    <td class="px-6 py-4 whitespace-nowrap">
+                                                    <td class="px-6 py-4 whitespace-nowrap w-24">
                                                         <div class="space-y-1">
                                                             <span :class="getTestMethodBadgeClass(requirement.test_method) + ' px-2 py-1 text-xs font-medium rounded-full'" 
                                                                   x-text="(requirement.test_method || 'manual').charAt(0).toUpperCase() + (requirement.test_method || 'manual').slice(1)"></span>
@@ -807,7 +807,7 @@
                                                     </td>
                                                     
                                                     <!-- Automated Results -->
-                                                    <td class="px-6 py-4 whitespace-nowrap">
+                                                    <td class="px-6 py-4 whitespace-nowrap w-20">
                                                         <div x-show="requirement.automated_tests && requirement.automated_tests.length > 0" class="space-y-1">
                                                             <template x-for="(autoTest, index) in (requirement.automated_tests || []).slice(0, 2)" :key="autoTest.tool_name + '_' + index">
                                                                 <div class="flex items-center space-x-2">
@@ -828,7 +828,7 @@
                                                     </td>
                                                     
                                                     <!-- Manual Results -->
-                                                    <td class="px-6 py-4 whitespace-nowrap">
+                                                    <td class="px-6 py-4 whitespace-nowrap w-20">
                                                         <div x-show="(requirement.manual_tests || [])?.length > 0" class="space-y-1">
                                                             <template x-for="manualTest in (requirement.manual_tests || []).slice(0, 2)" :key="manualTest.id || $index">
                                                                 <div class="flex items-center space-x-2">
@@ -846,13 +846,13 @@
                                                     </td>
                                                     
                                                     <!-- Overall Status -->
-                                                    <td class="px-6 py-4 whitespace-nowrap">
+                                                    <td class="px-6 py-4 whitespace-nowrap w-20">
                                                         <span :class="getRequirementOverallStatusClass(requirement) + ' px-2 py-1 text-xs font-medium rounded-full'" 
                                                               x-text="getRequirementOverallStatus(requirement)"></span>
                                                     </td>
                                                     
                                                     <!-- Actions -->
-                                                    <td class="px-6 py-4 whitespace-nowrap text-sm space-x-2">
+                                                    <td class="px-6 py-4 whitespace-nowrap text-sm space-x-2 w-20">
                                                         <button @click="viewRequirementDetails(requirement)" 
                                                                 class="text-blue-600 hover:text-blue-800">
                                                             <i class="fas fa-eye mr-1"></i>View
@@ -1070,6 +1070,51 @@
                                         <div class="w-10 h-10 bg-purple-200 rounded-full flex items-center justify-center">
                                             <i class="fas fa-exclamation-triangle text-purple-600"></i>
                                         </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Automation Runs Chart -->
+                            <div class="bg-white rounded-lg border border-gray-200 p-6">
+                                <div class="flex justify-between items-center mb-4">
+                                    <h4 class="text-lg font-medium text-gray-900">Test Runs Over Time</h4>
+                                    <div class="flex space-x-2">
+                                        <button @click="updateAutomationChart('7d')" 
+                                                :class="automationChartPeriod === '7d' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'"
+                                                class="px-3 py-1 text-sm rounded-md transition-colors">
+                                            7 Days
+                                        </button>
+                                        <button @click="updateAutomationChart('30d')" 
+                                                :class="automationChartPeriod === '30d' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'"
+                                                class="px-3 py-1 text-sm rounded-md transition-colors">
+                                            30 Days
+                                        </button>
+                                        <button @click="updateAutomationChart('all')" 
+                                                :class="automationChartPeriod === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'"
+                                                class="px-3 py-1 text-sm rounded-md transition-colors">
+                                            All Time
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="relative" style="height: 300px;">
+                                    <canvas id="automationRunsChart" x-ref="automationRunsChart"></canvas>
+                                </div>
+                                <div class="mt-4 flex justify-center space-x-6 text-sm">
+                                    <div class="flex items-center">
+                                        <div class="w-3 h-3 bg-blue-500 rounded-full mr-2"></div>
+                                        <span class="text-gray-600">Total Runs</span>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <div class="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
+                                        <span class="text-gray-600">Successful</span>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <div class="w-3 h-3 bg-red-500 rounded-full mr-2"></div>
+                                        <span class="text-gray-600">Failed</span>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <div class="w-3 h-3 bg-yellow-500 rounded-full mr-2"></div>
+                                        <span class="text-gray-600">Issues Found</span>
                                     </div>
                                 </div>
                             </div>
@@ -1306,7 +1351,7 @@
                             <div x-show="sessionResults?.violations && sessionResults.violations.length > 0" class="bg-white border border-gray-200 rounded-lg p-6">
                                 <h4 class="text-lg font-semibold text-gray-900 mb-4">Critical Violations</h4>
                                 <div class="space-y-3">
-                                    <template x-for="violation in sessionResults.violations.slice(0, 10)" :key="violation.id">
+                                    <template x-for="violation in (sessionResults?.violations || []).slice(0, 10)" :key="violation.id">
                                         <div class="border border-red-200 rounded-lg p-3 bg-red-50">
                                             <div class="flex justify-between items-start">
                                                 <div class="flex-1">

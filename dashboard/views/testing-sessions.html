@@ -250,10 +250,6 @@
                                             class="px-2 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors text-xs">
                                         <i class="fas fa-copy"></i>
                                     </button>
-                                    <button @click="viewTestGrid(session)" 
-                                            class="px-2 py-1 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors text-xs">
-                                        <i class="fas fa-table mr-1"></i>Test Grid
-                                    </button>
                                     <button @click="deleteSession(session)" 
                                             class="px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700 transition-colors text-xs">
                                         <i class="fas fa-trash"></i>
@@ -769,7 +765,7 @@
                     
                     <!-- Requirements List -->
                     <div x-show="!loading && filteredRequirements.length > 0" class="divide-y divide-gray-200">
-                        <template x-for="requirement in filteredRequirements" :key="requirement.id">
+                        <template x-for="(requirement, index) in filteredRequirements" :key="`${requirement.id}-${index}`">
                             <div class="p-6 hover:bg-gray-50">
                                 <!-- Requirement Header -->
                                 <div class="flex items-start justify-between mb-3">
@@ -795,7 +791,7 @@
                                 <div x-show="requirement.automated_tools && requirement.automated_tools.length > 0" class="mt-4">
                                     <h5 class="text-sm font-medium text-indigo-900 mb-2">Automated Testing Tools</h5>
                                     <div class="flex flex-wrap gap-2 mb-2">
-                                        <template x-for="tool in (requirement.automated_tools || [])" :key="tool">
+                                        <template x-for="(tool, toolIndex) in (requirement.automated_tools || [])" :key="`${tool}-${toolIndex}`">
                                             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800" x-text="tool"></span>
                                         </template>
                                     </div>
@@ -831,7 +827,7 @@
                                     
                                     <div x-show="showInstances" x-transition class="mt-3 pl-4 border-l-2 border-blue-200">
                                         <!-- Test Instances -->
-                                        <template x-for="instance in getTestInstancesForRequirement(requirement.requirement_id)" :key="instance.id">
+                                        <template x-for="(instance, instanceIndex) in getTestInstancesForRequirement(requirement.requirement_id)" :key="`${instance.id}-${instanceIndex}`">
                                             <div class="mb-3 p-3 bg-gray-50 rounded-md">
                                                 <div class="flex items-center justify-between">
                                                     <div class="flex-1">

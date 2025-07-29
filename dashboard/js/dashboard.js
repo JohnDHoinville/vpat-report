@@ -396,9 +396,17 @@ window.dashboard = function() {
                 
                 console.log(`✅ Transformed ${transformedRequirements.length} requirements`);
                 
-                // Store the requirements data
-                this.sessionRequirements = transformedRequirements;
-                this.filteredRequirements = [...transformedRequirements];
+                // Store the requirements data - ensure unique IDs
+                const uniqueRequirements = transformedRequirements.reduce((acc, req) => {
+                    const key = req.id || req.requirement_id || req.criterion_number;
+                    if (!acc.find(existing => (existing.id || existing.requirement_id || existing.criterion_number) === key)) {
+                        acc.push(req);
+                    }
+                    return acc;
+                }, []);
+                
+                this.sessionRequirements = uniqueRequirements;
+                this.filteredRequirements = [...uniqueRequirements];
                 
                 // Calculate statistics
                 this.calculateRequirementStats();
@@ -570,6 +578,63 @@ window.dashboard = function() {
         automationRuns: [],
         automationRunsSummary: {},
         loadingAutomationRuns: false,
+        
+        // ===== AUTOMATION CHART STATE =====
+        automationChart: null,
+        automationChartPeriod: '7d', // '7d', '30d', 'all'
+        automationChartData: {
+            labels: [],
+            datasets: []
+        },
+        isUpdatingChart: false,
+        
+        // ===== UTILITY FUNCTIONS =====
+        getAutomationRunStatusClass(status) {
+            const classes = {
+                'running': 'bg-blue-100 text-blue-800',
+                'completed': 'bg-green-100 text-green-800',
+                'failed': 'bg-red-100 text-red-800',
+                'cancelled': 'bg-gray-100 text-gray-800',
+                'pending': 'bg-yellow-100 text-yellow-800'
+            };
+            return classes[status] || classes.pending;
+        },
+        
+        getAutomationRunStatusDisplay(status) {
+            const displays = {
+                'running': 'Running',
+                'completed': 'Completed',
+                'failed': 'Failed',
+                'cancelled': 'Cancelled',
+                'pending': 'Pending'
+            };
+            return displays[status] || status;
+        },
+        
+        formatTime(date) {
+            if (!date) return '';
+            return new Date(date).toLocaleTimeString();
+        },
+        
+        formatDate(date) {
+            if (!date) return '';
+            return new Date(date).toLocaleDateString();
+        },
+        
+        formatDuration(ms) {
+            if (!ms) return 'N/A';
+            const seconds = Math.floor(ms / 1000);
+            const minutes = Math.floor(seconds / 60);
+            const hours = Math.floor(minutes / 60);
+            
+            if (hours > 0) {
+                return `${hours}h ${minutes % 60}m`;
+            } else if (minutes > 0) {
+                return `${minutes}m ${seconds % 60}s`;
+            } else {
+                return `${seconds}s`;
+            }
+        },
         
         // ===== AUDIT TIMELINE STATE =====
         auditTimeline: {
@@ -6245,8 +6310,19 @@ window.dashboard = function() {
                 const requirementsResponse = await this.apiCall('/requirements?limit=100');
                 
                 if (requirementsResponse.success) {
-                    this.allRequirements = requirementsResponse.data?.requirements || [];
-                    this.filteredRequirements = this.allRequirements;
+                    const requirements = requirementsResponse.data?.requirements || [];
+                    
+                    // Ensure unique requirements by ID
+                    const uniqueRequirements = requirements.reduce((acc, req) => {
+                        const key = req.id || req.requirement_id || req.criterion_number;
+                        if (!acc.find(existing => (existing.id || existing.requirement_id || existing.criterion_number) === key)) {
+                            acc.push(req);
+                        }
+                        return acc;
+                    }, []);
+                    
+                    this.allRequirements = uniqueRequirements;
+                    this.filteredRequirements = [...uniqueRequirements];
                     this.showRequirementsModal = true;
                     this.applyRequirementsFilters();
                     
@@ -6285,6 +6361,11 @@ window.dashboard = function() {
         
         // Apply filters to requirements
         applyRequirementsFilters() {
+            if (!this.allRequirements || !Array.isArray(this.allRequirements)) {
+                this.filteredRequirements = [];
+                return;
+            }
+            
             let filtered = [...this.allRequirements];
             
             // Filter by type
@@ -7604,6 +7685,17 @@ window.dashboard = function() {
                     this.automationRuns = response.data.runs || [];
                     this.calculateAutomationRunsSummary();
                     console.log('✅ Loaded automation runs:', this.automationRuns.length);
+                    
+                    // Initialize chart first, then update with data
+                    this.$nextTick(() => {
+                        this.initAutomationChart();
+                        // Wait a bit longer for chart to be fully initialized
+                        setTimeout(() => {
+                            if (this.automationChart) {
+                                this.updateAutomationChart(this.automationChartPeriod);
+                            }
+                        }, 200);
+                    });
                 } else {
                     throw new Error(response.error || 'Failed to load automation runs');
                 }
@@ -7679,7 +7771,219 @@ window.dashboard = function() {
                 this.showNotification('error', 'Download Failed', 'Failed to download report');
             }
         },
+
+        // ===== AUTOMATION CHART FUNCTIONS =====
         
+        // Initialize automation chart
+        initAutomationChart() {
+            try {
+                const ctx = this.$refs.automationRunsChart;
+                if (!ctx) {
+                    console.log('Chart canvas not found, will initialize when available');
+                    return;
+                }
+
+                // Destroy existing chart if it exists
+                if (this.automationChart) {
+                    this.automationChart.destroy();
+                    this.automationChart = null;
+                }
+
+                // Check if Chart.js is available
+                if (typeof Chart === 'undefined') {
+                    console.error('Chart.js not loaded');
+                    return;
+                }
+
+                // Initialize with empty data first
+                this.automationChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: [],
+                        datasets: []
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            tooltip: {
+                                mode: 'index',
+                                intersect: false
+                            }
+                        },
+                        scales: {
+                            x: {
+                                type: 'category',
+                                grid: {
+                                    display: false
+                                }
+                            },
+                            y: {
+                                beginAtZero: true,
+                                grid: {
+                                    color: 'rgba(0, 0, 0, 0.1)'
+                                }
+                            }
+                        }
+                    }
+                });
+
+                console.log('📊 Automation chart initialized successfully');
+            } catch (error) {
+                console.error('Error initializing automation chart:', error);
+            }
+        },
+
+        // Update automation chart with new data
+        updateAutomationChart(period = '7d') {
+            // Prevent multiple simultaneous updates
+            if (this.isUpdatingChart) {
+                console.log('📊 Chart update already in progress, skipping');
+                return;
+            }
+            
+            try {
+                this.isUpdatingChart = true;
+                this.automationChartPeriod = period;
+                console.log('📊 Updating automation chart for period:', period);
+
+                // Safety check for chart initialization
+                if (!this.automationChart) {
+                    console.log('Chart not initialized, initializing now...');
+                    this.initAutomationChart();
+                    // Don't call updateAutomationChart recursively - let the caller handle it
+                    return;
+                }
+
+                if (!this.automationRuns || this.automationRuns.length === 0) {
+                    console.log('No automation runs data available for chart');
+                    // Show empty chart with message
+                    this.automationChartData = {
+                        labels: [],
+                        datasets: []
+                    };
+                    if (this.automationChart) {
+                        this.automationChart.data = this.automationChartData;
+                        this.automationChart.update('none');
+                    }
+                    return;
+                }
+
+                // Filter runs based on period
+                const now = new Date();
+                const filteredRuns = this.automationRuns.filter(run => {
+                    const runDate = new Date(run.started_at || run.created_at);
+                    switch (period) {
+                        case '7d':
+                            return (now - runDate) <= 7 * 24 * 60 * 60 * 1000;
+                        case '30d':
+                            return (now - runDate) <= 30 * 24 * 60 * 60 * 1000;
+                        case 'all':
+                            return true;
+                        default:
+                            return true;
+                    }
+                });
+
+                // Group runs by date
+                const runsByDate = {};
+                filteredRuns.forEach(run => {
+                    const date = new Date(run.started_at || run.created_at);
+                    const dateKey = date.toISOString().split('T')[0]; // YYYY-MM-DD
+                    
+                    if (!runsByDate[dateKey]) {
+                        runsByDate[dateKey] = {
+                            total: 0,
+                            successful: 0,
+                            failed: 0,
+                            issues: 0
+                        };
+                    }
+                    
+                    runsByDate[dateKey].total++;
+                    if (run.status === 'completed') {
+                        runsByDate[dateKey].successful++;
+                    } else if (run.status === 'failed') {
+                        runsByDate[dateKey].failed++;
+                    }
+                    runsByDate[dateKey].issues += run.total_issues || 0;
+                });
+
+                // Sort dates and prepare chart data
+                const sortedDates = Object.keys(runsByDate).sort();
+                const labels = sortedDates.map(date => {
+                    const d = new Date(date + 'T00:00:00');
+                    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                });
+                const totalRuns = sortedDates.map(date => runsByDate[date].total);
+                const successfulRuns = sortedDates.map(date => runsByDate[date].successful);
+                const failedRuns = sortedDates.map(date => runsByDate[date].failed);
+                const issuesFound = sortedDates.map(date => runsByDate[date].issues);
+
+                // Update chart data
+                this.automationChartData = {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Total Runs',
+                            data: totalRuns,
+                            borderColor: '#3b82f6',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            borderWidth: 2,
+                            fill: false,
+                            tension: 0.4
+                        },
+                        {
+                            label: 'Successful',
+                            data: successfulRuns,
+                            borderColor: '#10b981',
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            borderWidth: 2,
+                            fill: false,
+                            tension: 0.4
+                        },
+                        {
+                            label: 'Failed',
+                            data: failedRuns,
+                            borderColor: '#ef4444',
+                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                            borderWidth: 2,
+                            fill: false,
+                            tension: 0.4
+                        },
+                        {
+                            label: 'Issues Found',
+                            data: issuesFound,
+                            borderColor: '#f59e0b',
+                            backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                            borderWidth: 2,
+                            fill: false,
+                            tension: 0.4
+                        }
+                    ]
+                };
+
+                // Update chart with new data
+                if (this.automationChart && this.automationChart.data && this.automationChart.update) {
+                    try {
+                        this.automationChart.data = this.automationChartData;
+                        this.automationChart.update('none');
+                    } catch (updateError) {
+                        console.error('Error updating chart data:', updateError);
+                    }
+                }
+
+                console.log('📊 Chart updated with', filteredRuns.length, 'runs across', labels.length, 'dates');
+            } catch (error) {
+                console.error('Error updating automation chart:', error);
+            } finally {
+                this.isUpdatingChart = false;
+            }
+        },
+
         // Load session statistics breakdown
         async loadSessionStats(sessionId) {
             try {
@@ -8239,22 +8543,185 @@ window.dashboard = function() {
         viewTestInstanceDetails(testInstance) {
             console.log('👀 Viewing test instance details:', testInstance.id);
             
-            // Create detailed modal content
+            // Create comprehensive modal content
             const detailsHTML = `
-                <div class="space-y-4">
-                    <h3 class="text-lg font-semibold">${testInstance.criterion_number}: ${testInstance.criterion_title}</h3>
-                    <div class="grid grid-cols-2 gap-4 text-sm">
-                        <div><strong>Status:</strong> <span class="capitalize">${testInstance.status || 'pending'}</span></div>
-                        <div><strong>Level:</strong> ${testInstance.level || 'N/A'}</div>
-                        <div><strong>Test Method:</strong> ${testInstance.test_method_used || testInstance.requirement_test_method || 'Not specified'}</div>
-                        <div><strong>Assigned To:</strong> ${testInstance.assigned_tester_name || 'Unassigned'}</div>
-                        <div><strong>Page:</strong> ${testInstance.page_title || testInstance.page_url || 'N/A'}</div>
-                        <div><strong>Last Updated:</strong> ${testInstance.updated_at ? new Date(testInstance.updated_at).toLocaleDateString() : 'Never'}</div>
+                <div class="space-y-6">
+                    <!-- Modal Header -->
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <h3 class="text-2xl font-bold text-gray-900">Test Instance Details</h3>
+                            <p class="text-gray-600 text-sm mt-1">${testInstance.criterion_number} - ${testInstance.requirement_title || testInstance.title || 'Untitled'}</p>
+                        </div>
+                        <button onclick="this.closest('.fixed').remove()" class="text-gray-400 hover:text-gray-600">
+                            <i class="fas fa-times text-xl"></i>
+                        </button>
                     </div>
-                    ${testInstance.notes ? `<div><strong>Notes:</strong><br/>${testInstance.notes}</div>` : ''}
-                    ${testInstance.result ? `<div><strong>Test Result:</strong><br/>${this.formatTestResult(testInstance.result)}</div>` : ''}
-                    <div class="mt-4">
-                        <button onclick="window.dashboardInstance.viewAutomationResults('${testInstance.id}')" class="px-3 py-2 text-sm bg-purple-600 text-white rounded hover:bg-purple-700">
+
+                    <!-- Test Overview -->
+                    <div class="bg-blue-50 rounded-lg p-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <h4 class="text-lg font-semibold text-blue-900 mb-3">Test Details</h4>
+                                <div class="space-y-2 text-sm">
+                                    <div>
+                                        <span class="font-medium text-blue-800">WCAG Criterion:</span>
+                                        <span class="ml-2 font-mono bg-blue-100 px-2 py-1 rounded text-blue-900">${testInstance.criterion_number}</span>
+                                    </div>
+                                    <div>
+                                        <span class="font-medium text-blue-800">WCAG Level:</span>
+                                        <span class="ml-2 px-2 py-1 rounded text-xs font-semibold bg-yellow-100 text-yellow-800">${(testInstance.requirement_level || testInstance.level || 'N/A').toUpperCase()}</span>
+                                    </div>
+                                    <div>
+                                        <span class="font-medium text-blue-800">Test Method:</span>
+                                        <span class="ml-2 text-blue-900">${testInstance.test_method_used || testInstance.requirement_test_method || 'Manual'}</span>
+                                    </div>
+                                    <div>
+                                        <span class="font-medium text-blue-800">Page:</span>
+                                        ${testInstance.page_url ? `<a href="${testInstance.page_url}" target="_blank" class="ml-2 text-blue-600 hover:text-blue-800">
+                                            <span>${testInstance.page_title || testInstance.page_url}</span>
+                                            <i class="fas fa-external-link-alt ml-1 text-xs"></i>
+                                        </a>` : '<span class="ml-2 text-blue-900">Site-wide test</span>'}
+                                    </div>
+                                </div>
+                            </div>
+                            <div>
+                                <h4 class="text-lg font-semibold text-blue-900 mb-3">Current Status</h4>
+                                <div class="space-y-2 text-sm">
+                                    <div>
+                                        <span class="font-medium text-blue-800">Status:</span>
+                                        <span class="ml-2 px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800">${testInstance.status || 'pending'}</span>
+                                    </div>
+                                    <div>
+                                        <span class="font-medium text-blue-800">Assigned Tester:</span>
+                                        <span class="ml-2 text-blue-900">${testInstance.assigned_tester_name || 'Unassigned'}</span>
+                                    </div>
+                                    <div>
+                                        <span class="font-medium text-blue-800">Confidence Level:</span>
+                                        <span class="ml-2 text-blue-900">${testInstance.confidence_level || 'Medium'}</span>
+                                    </div>
+                                    <div>
+                                        <span class="font-medium text-blue-800">Last Updated:</span>
+                                        <span class="ml-2 text-blue-900">${testInstance.updated_at ? new Date(testInstance.updated_at).toLocaleDateString() : 'Never'}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Requirement Description -->
+                    <div class="bg-gray-50 border border-gray-200 rounded-lg p-6">
+                        <h4 class="text-lg font-semibold text-gray-900 mb-3">Requirement Description</h4>
+                        <div class="bg-white border border-gray-200 rounded p-4">
+                            <p class="text-sm text-gray-900">${testInstance.requirement_description || testInstance.description || 'No description available'}</p>
+                        </div>
+                        ${testInstance.wcag_url || testInstance.section_508_url ? `
+                        <div class="mt-4 flex space-x-4">
+                            ${testInstance.wcag_url ? `
+                            <a href="${testInstance.wcag_url}" target="_blank" class="inline-flex items-center text-sm text-blue-600 hover:text-blue-800">
+                                <i class="fas fa-external-link-alt mr-1"></i>WCAG Understanding Guide
+                            </a>` : ''}
+                            ${testInstance.section_508_url ? `
+                            <a href="${testInstance.section_508_url}" target="_blank" class="inline-flex items-center text-sm text-blue-600 hover:text-blue-800">
+                                <i class="fas fa-external-link-alt mr-1"></i>Section 508 Reference
+                            </a>` : ''}
+                        </div>` : ''}
+                    </div>
+
+                    <!-- Test Results -->
+                    <div class="bg-white border border-gray-200 rounded-lg p-6">
+                        <h4 class="text-lg font-semibold text-gray-900 mb-4">Test Results</h4>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <!-- Status and Assignment -->
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Test Status</label>
+                                    <select id="test-status-select" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                        <option value="pending" ${testInstance.status === 'pending' ? 'selected' : ''}>Pending</option>
+                                        <option value="in_progress" ${testInstance.status === 'in_progress' ? 'selected' : ''}>In Progress</option>
+                                        <option value="passed" ${testInstance.status === 'passed' ? 'selected' : ''}>Passed</option>
+                                        <option value="failed" ${testInstance.status === 'failed' ? 'selected' : ''}>Failed</option>
+                                        <option value="not_applicable" ${testInstance.status === 'not_applicable' ? 'selected' : ''}>Not Applicable</option>
+                                        <option value="untestable" ${testInstance.status === 'untestable' ? 'selected' : ''}>Untestable</option>
+                                        <option value="needs_review" ${testInstance.status === 'needs_review' ? 'selected' : ''}>Needs Review</option>
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Confidence Level</label>
+                                    <select id="confidence-level-select" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                        <option value="low" ${testInstance.confidence_level === 'low' ? 'selected' : ''}>Low</option>
+                                        <option value="medium" ${testInstance.confidence_level === 'medium' ? 'selected' : ''}>Medium</option>
+                                        <option value="high" ${testInstance.confidence_level === 'high' ? 'selected' : ''}>High</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Evidence Upload -->
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Evidence Files</label>
+                                    <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                                        <input type="file" multiple accept="image/*,.pdf,.doc,.docx" 
+                                               id="evidence-upload"
+                                               class="hidden">
+                                        <label for="evidence-upload" class="cursor-pointer">
+                                            <div class="text-gray-400">
+                                                <i class="fas fa-cloud-upload-alt text-3xl mb-2"></i>
+                                                <p class="text-sm">Click to upload evidence files</p>
+                                                <p class="text-xs text-gray-500">PNG, JPG, PDF, DOC files</p>
+                                            </div>
+                                        </label>
+                                    </div>
+                                    
+                                    <!-- Evidence List -->
+                                    <div id="evidence-list" class="mt-3 space-y-2" style="display: none;">
+                                        <!-- Evidence files will be listed here -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Notes Section -->
+                        <div class="mt-6 space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Test Notes</label>
+                                <textarea id="test-notes" 
+                                          rows="4" 
+                                          placeholder="Add detailed notes about the test results, findings, or observations..."
+                                          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">${testInstance.notes || ''}</textarea>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Remediation Notes</label>
+                                <textarea id="remediation-notes" 
+                                          rows="3" 
+                                          placeholder="Add notes about recommended fixes or remediation steps..."
+                                          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">${testInstance.remediation_notes || ''}</textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Test History -->
+                    <div id="test-history" class="bg-gray-50 border border-gray-200 rounded-lg p-6" style="display: none;">
+                        <h4 class="text-lg font-semibold text-gray-900 mb-3">Test History</h4>
+                        <div class="space-y-3" id="history-list">
+                            <!-- Test history will be loaded here -->
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="flex justify-end space-x-3 pt-6 border-t border-gray-200">
+                        <button onclick="this.closest('.fixed').remove()" 
+                                class="px-6 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors">
+                            Cancel
+                        </button>
+                        <button onclick="window.dashboardInstance.saveTestInstanceDetails('${testInstance.id}', this.closest('.fixed'))" 
+                                class="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
+                            Save Changes
+                        </button>
+                        <button onclick="window.dashboardInstance.viewAutomationResults('${testInstance.id}')" 
+                                class="px-6 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors">
                             <i class="fas fa-robot mr-1"></i>View Automation Results
                         </button>
                     </div>
@@ -8265,14 +8732,14 @@ window.dashboard = function() {
             const modal = document.createElement('div');
             modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4';
             modal.innerHTML = `
-                <div class="bg-white rounded-lg p-6 max-w-4xl max-h-[80vh] overflow-y-auto">
+                <div class="bg-white rounded-lg p-6 max-w-6xl max-h-[90vh] overflow-y-auto">
                     ${detailsHTML}
-                    <div class="mt-6 flex justify-end">
-                        <button onclick="this.closest('.fixed').remove()" class="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400">Close</button>
-                    </div>
                 </div>
             `;
             document.body.appendChild(modal);
+
+            // Load test history
+            this.loadTestInstanceHistory(testInstance.id);
         },
         
         editTestInstance(testInstance) {
@@ -8282,7 +8749,7 @@ window.dashboard = function() {
             const editHTML = `
                 <div class="space-y-4">
                     <h3 class="text-lg font-semibold">Edit Test Instance</h3>
-                    <div class="text-sm text-gray-600">${testInstance.criterion_number}: ${testInstance.criterion_title}</div>
+                    <div class="text-sm text-gray-600">${testInstance.criterion_number}: ${testInstance.requirement_title || testInstance.title || 'Untitled'}</div>
                     <form id="editInstanceForm" class="space-y-4">
                         <div>
                             <label class="block text-sm font-medium mb-1">Status</label>
@@ -8315,7 +8782,7 @@ window.dashboard = function() {
             const modal = document.createElement('div');
             modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4';
             modal.innerHTML = `
-                <div class="bg-white rounded-lg p-6 max-w-2xl max-h-[80vh] overflow-y-auto">
+                <div class="bg-white rounded-lg p-6 max-w-3xl max-h-[80vh] overflow-y-auto">
                     ${editHTML}
                     <div class="mt-6 flex justify-end space-x-2">
                         <button onclick="this.closest('.fixed').remove()" class="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400">Cancel</button>
@@ -8326,7 +8793,71 @@ window.dashboard = function() {
             document.body.appendChild(modal);
         },
         
-        // Save test instance edits
+        // Save test instance details
+        async saveTestInstanceDetails(instanceId, modal) {
+            try {
+                const status = modal.querySelector('#test-status-select').value;
+                const confidenceLevel = modal.querySelector('#confidence-level-select').value;
+                const notes = modal.querySelector('#test-notes').value;
+                const remediationNotes = modal.querySelector('#remediation-notes').value;
+                
+                const updates = {
+                    status,
+                    confidence_level: confidenceLevel,
+                    notes,
+                    remediation_notes: remediationNotes
+                };
+                
+                const response = await this.apiCall(`/test-instances/${instanceId}`, {
+                    method: 'PUT',
+                    body: JSON.stringify(updates)
+                });
+                
+                if (response.success) {
+                    this.showNotification('success', 'Updated', 'Test instance updated successfully');
+                    modal.remove();
+                    // Refresh the test grid
+                    this.loadTestInstancesForGrid(this.selectedTestSession.id, this.testGridPagination.currentPage, true);
+                } else {
+                    throw new Error(response.error || 'Failed to update test instance');
+                }
+            } catch (error) {
+                console.error('Error updating test instance:', error);
+                this.showNotification('error', 'Update Failed', error.message);
+            }
+        },
+
+        // Load test instance history
+        async loadTestInstanceHistory(instanceId) {
+            try {
+                const response = await this.apiCall(`/test-instances/${instanceId}/audit-log`);
+                if (response.success && response.data.length > 0) {
+                    const historyContainer = document.getElementById('test-history');
+                    const historyList = document.getElementById('history-list');
+                    
+                    if (historyContainer && historyList) {
+                        historyContainer.style.display = 'block';
+                        historyList.innerHTML = response.data.map(entry => `
+                            <div class="bg-white border border-gray-200 rounded p-3">
+                                <div class="flex justify-between items-start mb-2">
+                                    <div class="flex items-center space-x-2">
+                                        <span class="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800">${entry.status_to || entry.status}</span>
+                                        <span class="text-sm text-gray-600">${entry.changed_by_user || 'System'}</span>
+                                    </div>
+                                    <span class="text-xs text-gray-500">${new Date(entry.created_at).toLocaleDateString()}</span>
+                                </div>
+                                ${entry.change_description ? `<div class="text-sm text-gray-700">${entry.change_description}</div>` : ''}
+                                ${entry.notes ? `<div class="text-sm text-gray-600 mt-1">${entry.notes}</div>` : ''}
+                            </div>
+                        `).join('');
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading test instance history:', error);
+            }
+        },
+
+        // Save test instance edits (legacy function for edit modal)
         async saveTestInstanceEdit(instanceId, modal) {
             try {
                 const form = modal.querySelector('#editInstanceForm');
@@ -11520,6 +12051,8 @@ window.dashboard = function() {
     window.loadAutomationRuns = (sessionId) => componentInstance.loadAutomationRuns(sessionId);
     window.viewAutomationRunDetails = (run) => componentInstance.viewAutomationRunDetails(run);
     window.downloadAutomationRunReport = (runId) => componentInstance.downloadAutomationRunReport(runId);
+    window.updateAutomationChart = (period) => componentInstance.updateAutomationChart(period);
+    window.initAutomationChart = () => componentInstance.initAutomationChart();
     
     // Add missing functions for requirements modal
     window.getLevelBadgeClass = (level) => componentInstance.getLevelBadgeClass(level);

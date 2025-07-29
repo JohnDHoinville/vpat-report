@@ -270,6 +270,7 @@ class TestAutomationService {
             const completedAt = new Date();
             await this.updateRunStatus(runId, 'completed', {
                 completed_at: completedAt,
+                pages_tested: pages.length,
                 total_issues: totalIssues,
                 critical_issues: criticalIssues,
                 test_instances_updated: testInstancesUpdated,
@@ -335,7 +336,10 @@ class TestAutomationService {
 
         } catch (error) {
             console.error(`❌ Error executing automation run ${runId}:`, error);
-            await this.updateRunStatus(runId, 'failed', { error: error.message });
+            await this.updateRunStatus(runId, 'failed', { 
+                error: error.message,
+                pages_tested: pages.length
+            });
             
             // Create session-level audit entry for automation failure
             await this.createSessionAuditLogEntry(
