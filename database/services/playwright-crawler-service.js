@@ -1056,18 +1056,38 @@ class PlaywrightCrawlerService {
             ? JSON.parse(crawler.auth_workflow)
             : (crawler.auth_workflow || {});
         
-        await page.goto(crawler.base_url);
+        // Use login_url from auth_workflow if available, otherwise fall back to base_url
+        const loginUrl = authWorkflow.login_url || crawler.base_url;
+        await page.goto(loginUrl);
+        
+        // Wait for the page to load and for form elements to be available
+        await page.waitForLoadState('networkidle');
         
         if (authWorkflow.username_selector && credentials.username) {
-            await page.fill(authWorkflow.username_selector, credentials.username);
+            try {
+                await page.waitForSelector(authWorkflow.username_selector, { timeout: 10000 });
+                await page.fill(authWorkflow.username_selector, credentials.username);
+            } catch (error) {
+                console.log(`❌ Could not find username field with selector: ${authWorkflow.username_selector}`);
+            }
         }
         
         if (authWorkflow.password_selector && credentials.password) {
-            await page.fill(authWorkflow.password_selector, credentials.password);
+            try {
+                await page.waitForSelector(authWorkflow.password_selector, { timeout: 10000 });
+                await page.fill(authWorkflow.password_selector, credentials.password);
+            } catch (error) {
+                console.log(`❌ Could not find password field with selector: ${authWorkflow.password_selector}`);
+            }
         }
         
         if (authWorkflow.submit_selector) {
-            await page.click(authWorkflow.submit_selector);
+            try {
+                await page.waitForSelector(authWorkflow.submit_selector, { timeout: 10000 });
+                await page.click(authWorkflow.submit_selector);
+            } catch (error) {
+                console.log(`❌ Could not find submit button with selector: ${authWorkflow.submit_selector}`);
+            }
         }
         
         await page.waitForLoadState('networkidle');
