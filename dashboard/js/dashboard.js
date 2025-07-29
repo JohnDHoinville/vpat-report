@@ -8538,6 +8538,35 @@ window.dashboard = function() {
             };
             return displays[status] || status?.replace('_', ' ').charAt(0).toUpperCase() + status?.replace('_', ' ').slice(1) || 'Unknown';
         },
+
+        getStatusBadgeClass(status) {
+            const classes = {
+                'pending': 'bg-gray-100 text-gray-800',
+                'in_progress': 'bg-blue-100 text-blue-800',
+                'passed': 'bg-green-100 text-green-800',
+                'passed_review_required': 'bg-orange-100 text-orange-800',
+                'failed': 'bg-red-100 text-red-800',
+                'untestable': 'bg-yellow-100 text-yellow-800',
+                'not_applicable': 'bg-gray-100 text-gray-600',
+                'completed': 'bg-green-100 text-green-800',
+                'running': 'bg-blue-100 text-blue-800',
+                'error': 'bg-red-100 text-red-800'
+            };
+            return classes[status] || 'bg-gray-100 text-gray-800';
+        },
+
+        getAutomationStatusBadgeClass(status) {
+            const classes = {
+                'completed': 'bg-green-100 text-green-800',
+                'running': 'bg-blue-100 text-blue-800',
+                'failed': 'bg-red-100 text-red-800',
+                'error': 'bg-red-100 text-red-800',
+                'pending': 'bg-gray-100 text-gray-800',
+                'success': 'bg-green-100 text-green-800',
+                'warning': 'bg-yellow-100 text-yellow-800'
+            };
+            return classes[status] || 'bg-purple-100 text-purple-800';
+        },
         
         // Test instance action methods
         viewTestInstanceDetails(testInstance) {
@@ -8631,7 +8660,7 @@ window.dashboard = function() {
                     <div class="bg-white border border-gray-200 rounded-lg p-6">
                         <h4 class="text-lg font-semibold text-gray-900 mb-4">Test Results</h4>
                         
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                             <!-- Status and Assignment -->
                             <div class="space-y-4">
                                 <div>
@@ -8680,6 +8709,27 @@ window.dashboard = function() {
                                     </div>
                                 </div>
                             </div>
+
+                            <!-- Additional Info -->
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Testing Priority</label>
+                                    <select id="testing-priority-select" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                        <option value="low" ${testInstance.testing_priority === 'low' ? 'selected' : ''}>Low</option>
+                                        <option value="medium" ${testInstance.testing_priority === 'medium' ? 'selected' : ''}>Medium</option>
+                                        <option value="high" ${testInstance.testing_priority === 'high' ? 'selected' : ''}>High</option>
+                                        <option value="critical" ${testInstance.testing_priority === 'critical' ? 'selected' : ''}>Critical</option>
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Assigned Tester</label>
+                                    <input type="text" id="assigned-tester" 
+                                           value="${testInstance.assigned_tester_name || ''}"
+                                           placeholder="Enter tester name"
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                </div>
+                            </div>
                         </div>
 
                         <!-- Notes Section -->
@@ -8702,11 +8752,37 @@ window.dashboard = function() {
                         </div>
                     </div>
 
+                    <!-- Automation Results -->
+                    <div class="bg-purple-50 border border-purple-200 rounded-lg p-6">
+                        <div class="flex justify-between items-center mb-3">
+                            <h4 class="text-lg font-semibold text-purple-900">Automation Results</h4>
+                            <button id="toggle-automation-btn" 
+                                    onclick="window.dashboardInstance.toggleAutomationResults()"
+                                    class="px-3 py-1 text-sm bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors">
+                                <i class="fas fa-robot mr-1"></i>Show Results
+                            </button>
+                        </div>
+                        <div id="automation-results" class="space-y-3" style="display: none;">
+                            <div id="automation-list">
+                                <!-- Automation results will be loaded here -->
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Test History -->
-                    <div id="test-history" class="bg-gray-50 border border-gray-200 rounded-lg p-6" style="display: none;">
-                        <h4 class="text-lg font-semibold text-gray-900 mb-3">Test History</h4>
-                        <div class="space-y-3" id="history-list">
-                            <!-- Test history will be loaded here -->
+                    <div class="bg-gray-50 border border-gray-200 rounded-lg p-6">
+                        <div class="flex justify-between items-center mb-3">
+                            <h4 class="text-lg font-semibold text-gray-900">Test History & Audit Trail</h4>
+                            <button id="toggle-history-btn" 
+                                    onclick="window.dashboardInstance.toggleTestHistory()"
+                                    class="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors">
+                                <i class="fas fa-history mr-1"></i>Show History
+                            </button>
+                        </div>
+                        <div id="test-history" class="space-y-3" style="display: none;">
+                            <div id="history-list">
+                                <!-- Test history will be loaded here -->
+                            </div>
                         </div>
                     </div>
 
@@ -8720,10 +8796,6 @@ window.dashboard = function() {
                                 class="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
                             Save Changes
                         </button>
-                        <button onclick="window.dashboardInstance.viewAutomationResults('${testInstance.id}')" 
-                                class="px-6 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors">
-                            <i class="fas fa-robot mr-1"></i>View Automation Results
-                        </button>
                     </div>
                 </div>
             `;
@@ -8732,7 +8804,7 @@ window.dashboard = function() {
             const modal = document.createElement('div');
             modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4';
             modal.innerHTML = `
-                <div class="bg-white rounded-lg p-6 max-w-6xl max-h-[90vh] overflow-y-auto">
+                <div class="bg-white rounded-lg p-6 max-w-7xl max-h-[95vh] overflow-y-auto">
                     ${detailsHTML}
                 </div>
             `;
@@ -8798,12 +8870,16 @@ window.dashboard = function() {
             try {
                 const status = modal.querySelector('#test-status-select').value;
                 const confidenceLevel = modal.querySelector('#confidence-level-select').value;
+                const testingPriority = modal.querySelector('#testing-priority-select').value;
+                const assignedTester = modal.querySelector('#assigned-tester').value;
                 const notes = modal.querySelector('#test-notes').value;
                 const remediationNotes = modal.querySelector('#remediation-notes').value;
                 
                 const updates = {
                     status,
                     confidence_level: confidenceLevel,
+                    testing_priority: testingPriority,
+                    assigned_tester_name: assignedTester,
                     notes,
                     remediation_notes: remediationNotes
                 };
@@ -8827,33 +8903,219 @@ window.dashboard = function() {
             }
         },
 
+        // Toggle automation results visibility
+        toggleAutomationResults() {
+            const automationContainer = document.getElementById('automation-results');
+            const toggleBtn = document.getElementById('toggle-automation-btn');
+            
+            if (automationContainer && toggleBtn) {
+                const isVisible = automationContainer.style.display !== 'none';
+                automationContainer.style.display = isVisible ? 'none' : 'block';
+                toggleBtn.innerHTML = isVisible ? 
+                    '<i class="fas fa-robot mr-1"></i>Show Results' : 
+                    '<i class="fas fa-eye-slash mr-1"></i>Hide Results';
+                
+                // Load automation results if showing and not already loaded
+                if (!isVisible) {
+                    this.loadAutomationResults();
+                }
+            }
+        },
+
+        // Toggle test history visibility
+        toggleTestHistory() {
+            const historyContainer = document.getElementById('test-history');
+            const toggleBtn = document.getElementById('toggle-history-btn');
+            
+            if (historyContainer && toggleBtn) {
+                const isVisible = historyContainer.style.display !== 'none';
+                historyContainer.style.display = isVisible ? 'none' : 'block';
+                toggleBtn.innerHTML = isVisible ? 
+                    '<i class="fas fa-history mr-1"></i>Show History' : 
+                    '<i class="fas fa-eye-slash mr-1"></i>Hide History';
+            }
+        },
+
+        // Load automation results for current test instance
+        async loadAutomationResults() {
+            try {
+                // Get the current test instance ID from the modal
+                const modal = document.querySelector('.fixed');
+                if (!modal) return;
+                
+                // Extract instance ID from the save button onclick attribute
+                const saveBtn = modal.querySelector('button[onclick*="saveTestInstanceDetails"]');
+                if (!saveBtn) return;
+                
+                const onclickAttr = saveBtn.getAttribute('onclick');
+                const instanceIdMatch = onclickAttr.match(/saveTestInstanceDetails\('([^']+)'/);
+                if (!instanceIdMatch) return;
+                
+                const instanceId = instanceIdMatch[1];
+                
+                // Load automation results for this test instance
+                const response = await this.apiCall(`/automated-tests?test_instance_id=${instanceId}`);
+                const automationList = document.getElementById('automation-list');
+                
+                if (response.success && response.data.length > 0 && automationList) {
+                    automationList.innerHTML = response.data.map(result => `
+                        <div class="bg-white border border-purple-200 rounded-lg p-4 shadow-sm">
+                            <div class="flex justify-between items-start mb-3">
+                                <div class="flex items-center space-x-3">
+                                    <span class="px-3 py-1 text-xs font-medium rounded-full ${this.getAutomationStatusBadgeClass(result.status)}">
+                                        ${result.status || 'Completed'}
+                                    </span>
+                                    <div class="flex items-center space-x-2">
+                                        <i class="fas fa-robot text-purple-400"></i>
+                                        <span class="text-sm font-medium text-purple-700">${result.tool_name || 'Automated Tool'}</span>
+                                    </div>
+                                </div>
+                                <div class="text-right">
+                                    <div class="text-sm font-medium text-purple-900">${new Date(result.created_at).toLocaleDateString()}</div>
+                                    <div class="text-xs text-purple-500">${new Date(result.created_at).toLocaleTimeString()}</div>
+                                </div>
+                            </div>
+                            
+                            ${result.violations_count > 0 ? `
+                                <div class="mb-3">
+                                    <div class="text-sm font-medium text-purple-700 mb-1">Violations Found:</div>
+                                    <div class="text-sm text-purple-600 bg-red-50 p-2 rounded border-l-4 border-red-200">
+                                        ${result.violations_count} accessibility violations detected
+                                    </div>
+                                </div>
+                            ` : ''}
+                            
+                            ${result.issues_count > 0 ? `
+                                <div class="mb-3">
+                                    <div class="text-sm font-medium text-purple-700 mb-1">Issues Found:</div>
+                                    <div class="text-sm text-purple-600 bg-yellow-50 p-2 rounded border-l-4 border-yellow-200">
+                                        ${result.issues_count} issues detected
+                                    </div>
+                                </div>
+                            ` : ''}
+                            
+                            ${result.passed_count > 0 ? `
+                                <div class="mb-3">
+                                    <div class="text-sm font-medium text-purple-700 mb-1">Passed Tests:</div>
+                                    <div class="text-sm text-purple-600 bg-green-50 p-2 rounded border-l-4 border-green-200">
+                                        ${result.passed_count} tests passed
+                                    </div>
+                                </div>
+                            ` : ''}
+                            
+                            ${result.confidence_score ? `
+                                <div class="mb-3">
+                                    <div class="text-sm font-medium text-purple-700 mb-1">Confidence Score:</div>
+                                    <div class="text-sm text-purple-600 bg-purple-50 p-2 rounded">
+                                        ${result.confidence_score}%
+                                    </div>
+                                </div>
+                            ` : ''}
+                            
+                            ${result.execution_time_ms ? `
+                                <div class="flex items-center space-x-2 text-xs text-purple-500">
+                                    <i class="fas fa-clock"></i>
+                                    <span>Execution time: ${Math.round(result.execution_time_ms / 1000)}s</span>
+                                </div>
+                            ` : ''}
+                        </div>
+                    `).join('');
+                } else if (automationList) {
+                    automationList.innerHTML = `
+                        <div class="text-center py-8 text-purple-500">
+                            <i class="fas fa-robot text-3xl mb-2"></i>
+                            <p>No automation results available for this test instance.</p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error loading automation results:', error);
+                const automationList = document.getElementById('automation-list');
+                if (automationList) {
+                    automationList.innerHTML = `
+                        <div class="text-center py-8 text-red-500">
+                            <i class="fas fa-exclamation-triangle text-3xl mb-2"></i>
+                            <p>Error loading automation results: ${error.message}</p>
+                        </div>
+                    `;
+                }
+            }
+        },
+
         // Load test instance history
         async loadTestInstanceHistory(instanceId) {
             try {
                 const response = await this.apiCall(`/test-instances/${instanceId}/audit-log`);
-                if (response.success && response.data.length > 0) {
-                    const historyContainer = document.getElementById('test-history');
-                    const historyList = document.getElementById('history-list');
-                    
-                    if (historyContainer && historyList) {
-                        historyContainer.style.display = 'block';
-                        historyList.innerHTML = response.data.map(entry => `
-                            <div class="bg-white border border-gray-200 rounded p-3">
-                                <div class="flex justify-between items-start mb-2">
+                const historyList = document.getElementById('history-list');
+                
+                if (response.success && response.data.length > 0 && historyList) {
+                    historyList.innerHTML = response.data.map(entry => `
+                        <div class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+                            <div class="flex justify-between items-start mb-3">
+                                <div class="flex items-center space-x-3">
+                                    <span class="px-3 py-1 text-xs font-medium rounded-full ${this.getStatusBadgeClass(entry.status_to || entry.status)}">
+                                        ${entry.status_to || entry.status || 'Updated'}
+                                    </span>
                                     <div class="flex items-center space-x-2">
-                                        <span class="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800">${entry.status_to || entry.status}</span>
-                                        <span class="text-sm text-gray-600">${entry.changed_by_user || 'System'}</span>
+                                        <i class="fas fa-user text-gray-400"></i>
+                                        <span class="text-sm font-medium text-gray-700">${entry.user_username || entry.changed_by_user || 'System'}</span>
                                     </div>
-                                    <span class="text-xs text-gray-500">${new Date(entry.created_at).toLocaleDateString()}</span>
                                 </div>
-                                ${entry.change_description ? `<div class="text-sm text-gray-700">${entry.change_description}</div>` : ''}
-                                ${entry.notes ? `<div class="text-sm text-gray-600 mt-1">${entry.notes}</div>` : ''}
+                                <div class="text-right">
+                                    <div class="text-sm font-medium text-gray-900">${new Date(entry.created_at).toLocaleDateString()}</div>
+                                    <div class="text-xs text-gray-500">${new Date(entry.created_at).toLocaleTimeString()}</div>
+                                </div>
                             </div>
-                        `).join('');
-                    }
+                            
+                            ${entry.change_description ? `
+                                <div class="mb-2">
+                                    <div class="text-sm font-medium text-gray-700 mb-1">Change Description:</div>
+                                    <div class="text-sm text-gray-600 bg-gray-50 p-2 rounded">${entry.change_description}</div>
+                                </div>
+                            ` : ''}
+                            
+                            ${entry.change_reason ? `
+                                <div class="mb-2">
+                                    <div class="text-sm font-medium text-gray-700 mb-1">Reason:</div>
+                                    <div class="text-sm text-gray-600 bg-gray-50 p-2 rounded">${entry.change_reason}</div>
+                                </div>
+                            ` : ''}
+                            
+                            ${entry.reviewer_notes ? `
+                                <div class="mb-2">
+                                    <div class="text-sm font-medium text-gray-700 mb-1">Reviewer Notes:</div>
+                                    <div class="text-sm text-gray-600 bg-blue-50 p-2 rounded border-l-4 border-blue-200">${entry.reviewer_notes}</div>
+                                </div>
+                            ` : ''}
+                            
+                            ${entry.tool_name ? `
+                                <div class="flex items-center space-x-2 text-xs text-gray-500">
+                                    <i class="fas fa-robot"></i>
+                                    <span>Tool: ${entry.tool_name}</span>
+                                    ${entry.tool_confidence_score ? `<span>• Confidence: ${entry.tool_confidence_score}%</span>` : ''}
+                                </div>
+                            ` : ''}
+                        </div>
+                    `).join('');
+                } else if (historyList) {
+                    historyList.innerHTML = `
+                        <div class="text-center py-8 text-gray-500">
+                            <i class="fas fa-history text-3xl mb-2"></i>
+                            <p>No audit history available for this test instance.</p>
+                        </div>
+                    `;
                 }
             } catch (error) {
                 console.error('Error loading test instance history:', error);
+                const historyList = document.getElementById('history-list');
+                if (historyList) {
+                    historyList.innerHTML = `
+                        <div class="text-center py-8 text-red-500">
+                            <i class="fas fa-exclamation-triangle text-3xl mb-2"></i>
+                            <p>Error loading audit history: ${error.message}</p>
+                        </div>
+                    `;
+                }
             }
         },
 
