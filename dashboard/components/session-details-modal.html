@@ -354,8 +354,8 @@
                                                     
                                                     <!-- Pages -->
                                                     <td class="px-6 py-4">
-                                                        <div x-show="reqGroup.pages.length > 0" class="space-y-2">
-                                                            <template x-for="page in reqGroup.pages" :key="page.page_url">
+                                                                                                                <div x-show="$strictArray(reqGroup.pages, 'session-pages').length > 0" class="space-y-2">
+                                                             <template x-for="(page, pageIndex) in $strictArray(reqGroup.pages, 'session-pages')" :key="$strictKey(page, pageIndex, `req-${reqGroup.criterion_number}`, 'session-page-loop')"
                                                                 <div class="bg-gray-50 rounded-md p-3 border"
                                                                      :class="page.is_available_page ? 'border-blue-200 bg-blue-50' : 'border-gray-200'">
                                                                     <div class="flex items-start space-x-2">
@@ -388,13 +388,13 @@
                                                                     </div>
                                                                 </div>
                                                             </template>
-                                                            <div x-show="reqGroup.pages.some(p => p.is_available_page)" class="text-xs text-blue-600 bg-blue-50 p-2 rounded border border-blue-200">
+                                                                                                                         <div x-show="$strictArray(reqGroup.pages, 'session-pages').some(p => p.is_available_page)" class="text-xs text-blue-600 bg-blue-50 p-2 rounded border border-blue-200">
                                                                 <i class="fas fa-info-circle mr-1"></i>
                                                                 Showing sample pages available for testing this requirement. 
                                                                 <span x-text="sessionDetailsPages?.length || 0"></span> total pages discovered.
                                                             </div>
                                                         </div>
-                                                        <div x-show="reqGroup.pages.length === 0" class="text-xs text-blue-600 bg-blue-50 p-2 rounded">
+                                                        <div x-show="$strictArray(reqGroup.pages, 'session-pages').length === 0" class="text-xs text-blue-600 bg-blue-50 p-2 rounded">
                                                             <i class="fas fa-globe mr-1"></i>Testing across all applicable pages
                                                         </div>
                                                     </td>

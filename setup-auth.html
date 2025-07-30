@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Auth Setup</title>
+</head>
+<body>
+    <h1>Setting up authentication...</h1>
+    <p>This will set your authentication token and redirect to the dashboard.</p>
+    
+    <script>
+        // Set the token in localStorage
+        localStorage.setItem('auth_token', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI0NjA4ODIzMC02MTMzLTQ1ZTMtOGEwNC0wNmZlZWEyOTgwOTQiLCJ1c2VybmFtZSI6ImFkbWluIiwicm9sZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBsb2NhbGhvc3QiLCJpYXQiOjE3NTM4Nzc4MDIsImV4cCI6MTc1NDQ4MjYwMn0.NHWzllJWkDZmHV0nB07Iq1t7BukXPrSjQEdTkm_MHEo');
+        localStorage.setItem('user_info', JSON.stringify({
+            id: '46088230-6133-45e3-8a04-06feea298094',
+            username: 'admin',
+            email: 'admin@localhost',
+            role: 'admin',
+            full_name: 'System Administrator'
+        }));
+        
+        console.log('✅ Authentication token set in localStorage');
+        
+        // Redirect to dashboard after a short delay
+        setTimeout(() => {
+            window.location.href = '/dashboard.html';
+        }, 2000);
+    </script>
+</body>
+</html>

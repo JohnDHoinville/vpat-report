@@ -62,6 +62,11 @@
     </script>
     <!-- Ultimate Modal Fix - Comprehensive protection -->
     <script src="ultimate-modal-fix.js"></script>
+    <!-- Super Interceptor - Real-time phantom creation blocking -->
+    <script src="super-interceptor.js"></script>
+    <!-- Alpine.js Error Handler (load before Alpine) -->
+    <script src="dashboard/js/alpine-error-handler.js"></script>
+    
     <!-- Block Alpine.js auto-start until dashboard is ready -->
     <script src="alpine-block-autostart.js"></script>
     <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
@@ -1258,8 +1263,8 @@
                     <div class="flex justify-between items-center">
                         <h3 class="text-lg font-semibold text-gray-900">Test Sessions for <span x-text="selectedProject?.name" class="text-purple-600"></span></h3>
                         <div class="flex items-center space-x-4">
-                        <div class="text-sm text-gray-600">
-                            <span x-text="testSessions.length"></span> session(s) created
+                            <div class="text-sm text-gray-600">
+                                <span x-text="testSessions.length"></span> session(s) created
                             </div>
                             <button x-show="currentlyViewedSession" 
                                     @click="currentlyViewedSession = null; currentViewingMode = null;" 
@@ -4804,40 +4809,40 @@
                 <div class="p-6">
                     <p class="text-gray-600 mb-4">
                         Are you sure you want to delete the test session 
-                        <strong x-text="sessionToDelete?.name" class="text-gray-900"></strong>?
+                            <strong x-text="sessionToDelete?.name" class="text-gray-900"></strong>?
                     </p>
                     <div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
-                        <div class="flex">
-                            <i class="fas fa-exclamation-triangle text-red-400 mr-3 mt-1 text-sm"></i>
-                            <div class="text-sm">
+                            <div class="flex">
+                                <i class="fas fa-exclamation-triangle text-red-400 mr-3 mt-1 text-sm"></i>
+                                <div class="text-sm">
                                 <p class="text-red-800 font-medium">This action cannot be undone.</p>
                                 <p class="text-red-700 mt-1">
                                     This will permanently delete:
                                 </p>
-                                <ul class="text-red-700 mt-2 space-y-1">
+                                    <ul class="text-red-700 mt-2 space-y-1">
                                     <li>• All test results and findings from this session</li>
                                     <li>• Session progress and configuration data</li>
                                     <li>• Associated accessibility reports</li>
                                     <li>• Manual testing notes and observations</li>
-                                </ul>
+                                    </ul>
+                                </div>
                             </div>
                         </div>
-                    </div>
                     <div class="flex justify-end space-x-3">
                         <button @click="cancelDeleteSession()" 
                                 class="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 transition-colors">
                             Cancel
                         </button>
                         <button @click="confirmDeleteSession()" 
-                                :disabled="loading"
+                                        :disabled="loading"
                                 class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors disabled:bg-red-400 disabled:cursor-not-allowed">
-                            <span x-show="!loading" class="flex items-center">
+                                    <span x-show="!loading" class="flex items-center">
                                 <i class="fas fa-trash mr-2"></i>Delete Session
-                            </span>
-                            <span x-show="loading" class="flex items-center">
-                                <i class="fas fa-spinner fa-spin mr-2"></i>Deleting...
-                            </span>
-                        </button>
+                                    </span>
+                                    <span x-show="loading" class="flex items-center">
+                                        <i class="fas fa-spinner fa-spin mr-2"></i>Deleting...
+                                    </span>
+                                </button>
                     </div>
                 </div>
             </div>
@@ -6271,7 +6276,7 @@
                     <!-- Requirement Description -->
                     <div class="bg-gray-50 border border-gray-200 rounded-lg p-6">
                         <h4 class="text-lg font-semibold text-gray-900 mb-3">Requirement Description</h4>
-                        <div class="bg-white border border-gray-200 rounded p-4">
+                            <div class="bg-white border border-gray-200 rounded p-4">
                             <p class="text-sm text-gray-900" x-text="currentRequirement?.description || 'No description available'"></p>
                         </div>
                     </div>
@@ -6974,8 +6979,8 @@
                 
                 // Load Real WCAG Requirements Service
                 await loadScript(`scripts/real-wcag-requirements-service.js?v=${timestamp}&r=${randomId}&bust=true`);
-                
-                // Then load dashboard helpers
+        
+        // Then load dashboard helpers
                 await loadScript(`dashboard_helpers.js?v=${timestamp}&r=${randomId}&bust=true`);
                 
                 // Load modal click fix
@@ -7361,8 +7366,8 @@
                 </div>
             </div>
         </div>
-    </div>
-</div>
+                </div>
+            </div>
 
         <!-- Create Web Crawler Modal -->
         <div x-show="showCreateCrawler" 
@@ -7390,7 +7395,7 @@
                                 <input x-model="newCrawler.name" type="text" required 
                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
                                        placeholder="e.g., Main Site Crawler">
-                            </div>
+        </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Browser Type</label>
                                 <select x-model="newCrawler.browser_type" 
@@ -7399,8 +7404,8 @@
                                     <option value="firefox">Firefox</option>
                                     <option value="webkit">WebKit (Safari)</option>
                                 </select>
-                            </div>
-                        </div>
+    </div>
+</div>
 
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">Base URL</label>
@@ -7697,7 +7702,7 @@
                                                        @change="toggleCrawlerPageExclusion(page.id)"
                                                        class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
                                             </div>
-                                        </td>
+                                    </td>
                                         <td class="px-4 py-3">
                                             <span :class="{
                                                 'bg-green-100 text-green-800': page.status_code >= 200 && page.status_code < 300,
@@ -7705,7 +7710,7 @@
                                                 'bg-red-100 text-red-800': page.status_code >= 400,
                                                 'bg-gray-100 text-gray-800': !page.status_code
                                             }" class="px-2 py-1 text-xs font-medium rounded-full" x-text="page.status_code || 'Unknown'"></span>
-                                        </td>
+                                    </td>
                                         <td class="px-4 py-3">
                                             <div class="flex items-center">
                                                 <div class="flex-shrink-0 w-8 h-8">
@@ -7728,11 +7733,11 @@
                                                     </div>
                                                 </div>
                                                 <div class="ml-3 min-w-0 flex-1">
-                                                    <a :href="page.url" target="_blank" 
+                                            <a :href="page.url" target="_blank" 
                                                        class="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline truncate block">
-                                                        <span x-text="page.url"></span>
-                                                        <i class="fas fa-external-link-alt ml-1 text-xs"></i>
-                                                    </a>
+                                                <span x-text="page.url"></span>
+                                                <i class="fas fa-external-link-alt ml-1 text-xs"></i>
+                                            </a>
                                                 </div>
                                             </div>
                                         </td>
@@ -7768,7 +7773,7 @@
                                                 <button class="text-blue-600 hover:text-blue-800 text-xs" 
                                                         @click="window.open(page.url, '_blank')">
                                                     <i class="fas fa-external-link-alt mr-1"></i>Visit
-                                                </button>
+                                            </button>
                                                 <button class="text-green-600 hover:text-green-800 text-xs"
                                                         @click="showNotification('Test this page feature coming soon!', 'info')">
                                                     <i class="fas fa-flask mr-1"></i>Test
@@ -7780,7 +7785,7 @@
                             </tbody>
                         </table>
                     </div>
-                </div>
+                    </div>
 
                 <!-- Empty State -->
                 <div x-show="!crawlerPagesLoading && crawlerPages.length === 0" class="flex-1 flex items-center justify-center p-8">
@@ -7788,8 +7793,8 @@
                         <i class="fas fa-search text-gray-400 text-4xl mb-4"></i>
                         <h3 class="text-lg font-medium text-gray-900 mb-2">No Pages Found</h3>
                         <p class="text-gray-600">This crawler hasn't found any pages yet.</p>
-                    </div>
-                </div>
+                                </div>
+                                </div>
 
                 <!-- All Pages Excluded State -->
                 <div x-show="!crawlerPagesLoading && crawlerPages.length > 0 && getIncludedCrawlerPagesCount() === 0" class="flex-1 flex items-center justify-center p-8">
@@ -7800,8 +7805,8 @@
                         <button @click="selectAllCrawlerPages()" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors">
                             <i class="fas fa-check mr-2"></i>Include All Pages
                         </button>
-                    </div>
-                </div>
+                            </div>
+                                </div>
 
                 <!-- Footer -->
                 <div class="px-6 py-4 border-t border-gray-200 bg-gray-50">
@@ -7809,32 +7814,32 @@
                         <div class="text-sm text-gray-600">
                             <div x-show="selectedCrawler" class="mb-2">
                                 Crawler: <span x-text="selectedCrawler?.name"></span>
-                            </div>
+                                </div>
                             <div class="grid grid-cols-3 gap-4">
                                 <div>
                                     <div class="font-medium">Total</div>
                                     <div class="text-lg text-gray-900" x-text="crawlerPages.length"></div>
-                                </div>
+                            </div>
                                 <div>
                                     <div class="font-medium text-green-600">Included</div>
                                     <div class="text-lg text-green-900" x-text="getIncludedCrawlerPagesCount()"></div>
-                                </div>
+                        </div>
                                 <div>
                                     <div class="font-medium text-red-600">Excluded</div>
                                     <div class="text-lg text-red-900" x-text="getExcludedCrawlerPagesCount()"></div>
                                 </div>
                             </div>
-                        </div>
-                        <div class="flex space-x-3">
+                            </div>
+                            <div class="flex space-x-3">
                             <button @click="saveCrawlerPageSelections()" 
                                     class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors">
                                 <i class="fas fa-save mr-2"></i>Save Selections
-                            </button>
+                                </button>
                             <button @click="closeCrawlerPagesModal()" 
                                     class="bg-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-400 transition-colors">
                                 <i class="fas fa-times mr-2"></i>Close
-                            </button>
-                        </div>
+                                </button>
+                            </div>
                     </div>
                 </div>
             </div>

@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alpine.js STRICT Error-First System Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .test-case { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #28a745; }
+        .error { background-color: #f8d7da; border-color: #dc3545; }
+        .console-output { background: #f8f9fa; padding: 10px; margin: 10px 0; border-radius: 3px; font-family: monospace; }
+    </style>
+
+    <!-- Load Alpine Error Handler BEFORE Alpine.js -->
+    <script src="/dashboard/js/alpine-error-handler.js"></script>
+    
+    <!-- Load Alpine.js -->
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</head>
+<body>
+    <h1>Alpine.js STRICT Error-First System Test</h1>
+    
+    <div class="console-output">
+        <strong>Console Output:</strong>
+        <div id="console-log"></div>
+    </div>
+
+    <div class="test-case">
+        <h3>Test 1: STRICT Array with undefined data (SHOULD ERROR)</h3>
+        <div x-data="{ items: undefined }">
+            <p>This should show an error overlay because items is undefined:</p>
+            <p>Items count: <span x-text="$strictArray(items, 'test1').length"></span></p>
+            <ul>
+                <template x-for="(item, index) in $strictArray(items, 'test1')" :key="$strictKey(item, index, 'test1', 'test1-loop')">
+                    <li x-text="item.name || 'Unknown'"></li>
+                </template>
+            </ul>
+        </div>
+    </div>
+
+    <div class="test-case">
+        <h3>Test 2: Safe Array with null data</h3>
+        <div x-data="{ products: null }">
+            <p>Products count: <span x-text="$safeArray(products).length"></span></p>
+            <div x-show="$safeArray(products).length > 0">
+                <p>Products available!</p>
+            </div>
+            <div x-show="$safeArray(products).length === 0">
+                <p>No products available</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="test-case">
+        <h3>Test 3: Safe Array with real data</h3>
+        <div x-data="{ users: [{ id: 1, name: 'John' }, { id: 2, name: 'Jane' }] }">
+            <p>Users count: <span x-text="$safeArray(users).length"></span></p>
+            <ul>
+                <template x-for="(user, index) in $safeArray(users)" :key="$uniqueKey(user, index, 'user')">
+                    <li x-text="`${user.name} (ID: ${user.id})`"></li>
+                </template>
+            </ul>
+        </div>
+    </div>
+
+    <div class="test-case">
+        <h3>Test 4: Unique Key Generation</h3>
+        <div x-data="{ pages: [{ url: '/home' }, { url: '/about' }, { url: '/home' }] }">
+            <p>Pages (note: duplicate URLs should have unique keys):</p>
+            <ul>
+                <template x-for="(page, index) in $safeArray(pages)" :key="$uniqueKey(page, index, 'page')">
+                    <li>
+                        <span x-text="page.url"></span> 
+                        (Key: <span x-text="$uniqueKey(page, index, 'page')"></span>)
+                    </li>
+                </template>
+            </ul>
+        </div>
+    </div>
+
+    <div class="test-case">
+        <h3>Test 5: Safe Property Access</h3>
+        <div x-data="{ user: { profile: { name: 'John Doe', settings: { theme: 'dark' } } } }">
+            <p>Name: <span x-text="$safe(user, 'profile.name', 'No name')"></span></p>
+            <p>Theme: <span x-text="$safe(user, 'profile.settings.theme', 'No theme')"></span></p>
+            <p>Missing: <span x-text="$safe(user, 'profile.missing.property', 'Default value')"></span></p>
+        </div>
+    </div>
+
+    <div class="test-case">
+        <h3>Test 6: Error Boundary Test (Intentional Errors)</h3>
+        <div x-data="{ brokenData: null }">
+            <p>This should fail gracefully:</p>
+            <!-- These expressions should fail but be caught by our error handler -->
+            <p>Broken length: <span x-text="brokenData.length || 'Handled gracefully'"></span></p>
+            <div x-show="$safeArray(brokenData.items).length > 0">
+                This should not show
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Capture console output for display
+        const consoleLog = document.getElementById('console-log');
+        const originalConsoleLog = console.log;
+        const originalConsoleError = console.error;
+        const originalConsoleWarn = console.warn;
+
+        function addToConsole(type, message) {
+            const div = document.createElement('div');
+            div.style.color = type === 'error' ? 'red' : type === 'warn' ? 'orange' : 'blue';
+            div.textContent = `[${type.toUpperCase()}] ${message}`;
+            consoleLog.appendChild(div);
+            consoleLog.scrollTop = consoleLog.scrollHeight;
+        }
+
+        console.log = function(...args) {
+            addToConsole('log', args.join(' '));
+            return originalConsoleLog.apply(console, args);
+        };
+
+        console.error = function(...args) {
+            addToConsole('error', args.join(' '));
+            return originalConsoleError.apply(console, args);
+        };
+
+        console.warn = function(...args) {
+            addToConsole('warn', args.join(' '));
+            return originalConsoleWarn.apply(console, args);
+        };
+
+        // Test the error handler system
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('🧪 Alpine.js Defensive System Test Started');
+            
+            // Check if our helpers are available
+            if (window.alpineHelpers) {
+                console.log('✅ alpineHelpers loaded successfully');
+                console.log('📚 Available helpers:', Object.keys(window.alpineHelpers));
+            } else {
+                console.error('❌ alpineHelpers not loaded');
+            }
+
+            // Test the helpers directly
+            setTimeout(() => {
+                if (window.alpineHelpers) {
+                    console.log('🧪 Testing safeArray with null:', window.alpineHelpers.safeArray(null));
+                    console.log('🧪 Testing safeArray with undefined:', window.alpineHelpers.safeArray(undefined));
+                    console.log('🧪 Testing safeArray with array:', window.alpineHelpers.safeArray([1, 2, 3]));
+                    console.log('🧪 Testing uniqueKey:', window.alpineHelpers.uniqueKey({ id: 'test' }, 0, 'item'));
+                    console.log('🧪 Testing safeGet:', window.alpineHelpers.safeGet({ a: { b: 'value' } }, 'a.b', 'default'));
+                }
+            }, 1000);
+        });
+
+        // Listen for Alpine ready
+        document.addEventListener('alpine:init', () => {
+            console.log('🎯 Alpine.js initialized');
+        });
+    </script>
+</body>
+</html> 

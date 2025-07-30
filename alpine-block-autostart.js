@@ -42,13 +42,42 @@ console.log('🛑 ALPINE BLOCK: Preventing Alpine.js auto-start until dashboard 
     function checkDashboardAndStart() {
         attempts++;
         
-        if (window.dashboard && typeof window.dashboard === 'function' && window.Alpine && window.Alpine._originalStart) {
+        if (window.dashboard && typeof window.dashboard === 'function' && window.Alpine && window.Alpine._originalStart && window.alpineHelpers) {
             console.log('🎯 ALPINE BLOCK: Dashboard function found - registering and starting Alpine');
             
             // Register dashboard with Alpine
             window.Alpine.data('dashboard', window.dashboard);
             
-            // Now start Alpine with the dashboard registered
+            // Ensure Alpine STRICT properties are registered before starting
+            if (window.alpineHelpers && typeof window.alpineHelpers === 'object') {
+                console.log('🪄 ALPINE BLOCK: Registering STRICT magic properties before start...');
+                
+                // Register STRICT magic properties - NO FALLBACKS
+                window.Alpine.magic('strictArray', () => {
+                    return (arr, context = 'template') => {
+                        return window.alpineHelpers.strictArray(arr, context);
+                    };
+                });
+
+                window.Alpine.magic('strictKey', () => {
+                    return (item, index, prefix = 'item', context = 'template') => {
+                        return window.alpineHelpers.strictUniqueKey(item, index, prefix, context);
+                    };
+                });
+
+                window.Alpine.magic('strictGet', () => {
+                    return (obj, path, context = 'template') => {
+                        return window.alpineHelpers.strictGet(obj, path, context);
+                    };
+                });
+                
+                console.log('✅ ALPINE BLOCK: STRICT magic properties registered - FAIL FAST mode active');
+            } else {
+                console.error('🚨 ALPINE BLOCK: alpineHelpers not available - this will cause immediate failures');
+                throw new Error('Alpine helpers not loaded - cannot start Alpine safely');
+            }
+            
+            // Now start Alpine with everything registered
             window.Alpine._originalStart.call(window.Alpine);
             
             console.log('✅ ALPINE BLOCK: Alpine.js started successfully with dashboard registered');
