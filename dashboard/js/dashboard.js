@@ -12150,6 +12150,39 @@ ${requirement.failure_examples}
         return colors[actionType] || 'border-gray-400';
     };
 
+    // Add helper functions for enhanced evidence display
+    componentInstance.getToolIcon = function(tool) {
+        const icons = {
+            'axe': 'shield-alt',
+            'pa11y': 'universal-access',
+            'lighthouse': 'lighthouse',
+            'contrast-analyzer': 'palette',
+            'mobile-accessibility': 'mobile-alt',
+            'wave': 'water',
+            'playwright': 'theater-masks',
+            'cypress': 'tree'
+        };
+        return icons[tool] || 'tools';
+    };
+
+    componentInstance.getConfidenceColor = function(confidenceLevel) {
+        switch(confidenceLevel?.toLowerCase()) {
+            case 'high': return 'green';
+            case 'medium': return 'yellow';
+            case 'low': return 'red';
+            default: return 'gray';
+        }
+    };
+
+    componentInstance.getConfidencePercentage = function(confidenceLevel) {
+        switch(confidenceLevel?.toLowerCase()) {
+            case 'high': return 90;
+            case 'medium': return 60;
+            case 'low': return 30;
+            default: return 50;
+        }
+    };
+
     // Add evidence rendering function
     componentInstance.renderEvidenceSection = function(entry) {
         try {
@@ -12173,17 +12206,44 @@ ${requirement.failure_examples}
                         
                         <div class="grid grid-cols-2 gap-4 text-xs">
                             <div>
-                                <strong>Tools Used:</strong> ${(evidence.tools_used || []).join(', ')}
+                                <strong>Tools Used:</strong> 
+                                <div class="flex flex-wrap gap-1 mt-1">
+                                    ${(evidence.tools_used || []).map(tool => `
+                                        <span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">
+                                            <i class="fas fa-${this.getToolIcon(tool)} mr-1"></i>${tool}
+                                        </span>
+                                    `).join('')}
+                                </div>
                             </div>
                             <div>
-                                <strong>Confidence:</strong> ${evidence.confidence_level}
+                                <strong>Confidence:</strong> 
+                                <div class="flex items-center mt-1">
+                                    <div class="w-16 bg-gray-200 rounded-full h-2 mr-2">
+                                        <div class="bg-${this.getConfidenceColor(evidence.confidence_level)} h-2 rounded-full" 
+                                             style="width: ${this.getConfidencePercentage(evidence.confidence_level)}%"></div>
+                                    </div>
+                                    <span class="text-${this.getConfidenceColor(evidence.confidence_level)}-600 font-medium">
+                                        ${evidence.confidence_level}
+                                    </span>
+                                </div>
                             </div>
                             <div>
-                                <strong>Violations Found:</strong> ${details.violations_found || 0}
-                                ${details.critical_violations > 0 ? `<span class="text-red-600">(${details.critical_violations} critical)</span>` : ''}
+                                <strong>Violations Found:</strong> 
+                                <span class="inline-flex items-center">
+                                    ${details.violations_found || 0}
+                                    ${details.critical_violations > 0 ? `
+                                        <span class="ml-2 px-2 py-1 bg-red-100 text-red-800 rounded-full text-xs font-medium">
+                                            <i class="fas fa-exclamation-triangle mr-1"></i>${details.critical_violations} critical
+                                        </span>
+                                    ` : ''}
+                                </span>
                             </div>
                             <div>
-                                <strong>Rules Passed:</strong> ${details.passes_recorded || 0}
+                                <strong>Rules Passed:</strong> 
+                                <span class="inline-flex items-center">
+                                    <i class="fas fa-check-circle text-green-600 mr-1"></i>
+                                    ${details.passes_recorded || 0}
+                                </span>
                             </div>
                         </div>
                         

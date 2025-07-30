@@ -236,13 +236,32 @@ class TestAutomationService {
                     }
                 );
                 
-                // Emit testing milestone for tool completion
+                // Emit enhanced testing milestone for tool completion
+                const completedToolResults = results[tool.replace('-', '')] || {};
                 this.emitMilestone(sessionId, {
                     type: 'tool_complete',
                     message: `${tool} testing completed`,
                     tool: tool,
-                    violationsFound: totalIssues - (results[tool.replace('-', '')] ? 0 : totalIssues),
-                    timeElapsed: Date.now() - startTime.getTime()
+                    violationsFound: completedToolResults.total_violations || 0,
+                    criticalViolations: completedToolResults.critical_violations || 0,
+                    pagesProcessed: completedToolResults.pages_tested?.length || pages.length,
+                    timeElapsed: Date.now() - startTime.getTime(),
+                    toolIcon: this.getToolIcon(tool),
+                    confidenceLevel: this.getToolConfidenceLevel(tool, completedToolResults)
+                });
+
+                // Emit detailed progress update after each tool
+                this.emitProgress(sessionId, {
+                    percentage: Math.round(((toolIndex + 1) / tools.length) * 100),
+                    message: `${tool} completed - ${completedToolResults.total_violations || 0} violations found`,
+                    stage: 'tool_completion',
+                    completedTests: (toolIndex + 1) * pages.length,
+                    totalTests: pages.length * tools.length,
+                    currentTool: tools[toolIndex + 1] || 'finalizing',
+                    violationsFound: totalIssues,
+                    criticalViolations: criticalIssues,
+                    toolsCompleted: toolIndex + 1,
+                    totalTools: tools.length
                 });
             }
 
@@ -2234,6 +2253,57 @@ class TestAutomationService {
         if (toolResults.violationCount) return toolResults.violationCount;
         
         return 0;
+    }
+
+    /**
+     * Get tool icon identifier for UI display
+     */
+    getToolIcon(tool) {
+        const icons = {
+            'axe': 'shield-alt',
+            'pa11y': 'universal-access', 
+            'lighthouse': 'lighthouse',
+            'contrast-analyzer': 'palette',
+            'mobile-accessibility': 'mobile-alt',
+            'wave': 'water',
+            'playwright': 'theater-masks',
+            'cypress': 'tree'
+        };
+        return icons[tool] || 'tools';
+    }
+
+    /**
+     * Get confidence level based on tool type and results
+     */
+    getToolConfidenceLevel(tool, results) {
+        // Higher confidence for tools with more comprehensive coverage
+        const toolConfidence = {
+            'axe': 'high',
+            'lighthouse': 'high', 
+            'pa11y': 'medium',
+            'contrast-analyzer': 'high',
+            'mobile-accessibility': 'medium',
+            'wave': 'high'
+        };
+
+        let baseConfidence = toolConfidence[tool] || 'medium';
+
+        // Adjust confidence based on results quality
+        if (results) {
+            const violationCount = results.total_violations || 0;
+            const pagesCount = results.pages_tested?.length || 0;
+            
+            // Lower confidence if no pages were tested
+            if (pagesCount === 0) {
+                baseConfidence = 'low';
+            }
+            // High confidence if comprehensive testing with clear results
+            else if (pagesCount > 1 && (violationCount > 0 || results.passes_count > 0)) {
+                baseConfidence = 'high';
+            }
+        }
+
+        return baseConfidence;
     }
     
     /**

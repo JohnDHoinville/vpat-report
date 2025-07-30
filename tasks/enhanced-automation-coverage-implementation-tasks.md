@@ -9,8 +9,9 @@
 ## **Relevant Files**
 - **api/routes/testing-sessions.js**: Fixed JOIN to use `assigned_tester` instead of `tested_by`
 - **database/services/manual-testing-service.js**: Fixed INSERT to use `assigned_tester` column mapping
-- **api/services/test-automation-service.js**: Fixed createAutomationRun to create entries for all tools with unique IDs, proper UPSERT handling, enhanced page_id fallback logic, added complete runContrastAnalyzer() method integration, and added comprehensive runMobileAccessibility() method with multi-viewport testing
+- **api/services/test-automation-service.js**: Fixed createAutomationRun to create entries for all tools with unique IDs, proper UPSERT handling, enhanced page_id fallback logic, added complete runContrastAnalyzer() method integration, added comprehensive runMobileAccessibility() method with multi-viewport testing, and enhanced WebSocket progress updates with detailed tool completion milestones
 - **api/routes/automated-testing.js**: Added contrast-analyzer and mobile-accessibility to validTools array
+- **dashboard/js/dashboard.js**: Enhanced evidence display with visual indicators, tool icons, confidence progress bars, and improved violation/pass display
 - **scripts/mobile-accessibility-tester.js**: Existing comprehensive mobile testing tool integrated into automation pipeline
 - **Database**: Removed NOT NULL constraint from test_audit_log.test_instance_id to allow session-level audit entries
 - **Server Management**: Resolved multiple Node.js server processes issue that was causing old code to persist
@@ -141,15 +142,15 @@
 ### 1.4 Enhanced WebSocket and Evidence Integration
 **Priority: P1 | Estimate: 2 days**
 
-- [ ] **Task 1.4.1**: Complete WebSocket automation progress
-  - Fix WebSocket progress updates during tool execution
-  - Add real-time status updates for each tool completion
-  - Include evidence generation progress
+- [x] **Task 1.4.1**: Complete WebSocket automation progress
+  - [x] Fix WebSocket progress updates during tool execution
+  - [x] Add real-time status updates for each tool completion
+  - [x] Include evidence generation progress
   - **Acceptance**: Real-time automation progress visible in UI
 
-- [ ] **Task 1.4.2**: Enhance evidence display in audit trail UI
-  - Complete implementation of `renderEvidenceSection()` in dashboard
-  - Add visual indicators for evidence quality and completeness
+- [x] **Task 1.4.2**: Enhance evidence display in audit trail UI
+  - [x] Complete implementation of `renderEvidenceSection()` in dashboard
+  - [x] Add visual indicators for evidence quality and completeness
   - **Acceptance**: Rich evidence display in audit trail interface
 
 **Dependencies**: P0.1 (Database fixes), 1.1-1.3 (Evidence generation)
