@@ -9,6 +9,7 @@
 ## **Relevant Files**
 - **api/routes/testing-sessions.js**: Fixed JOIN to use `assigned_tester` instead of `tested_by`
 - **database/services/manual-testing-service.js**: Fixed INSERT to use `assigned_tester` column mapping
+- **api/services/test-automation-service.js**: Fixed createAutomationRun to create entries for all tools with unique IDs and proper UPSERT handling
 
 ---
 
@@ -31,9 +32,10 @@
   - [x] Verify column existence in database schema
   - **Acceptance**: All automation service queries use correct column names
 
-- [ ] **Task P0.1.2**: Fix `automated_test_results` table queries
-  - Remove attempts to update non-existent `started_at` and `error` columns
-  - Ensure `updateRunStatus()` only logs status changes without database updates
+- [x] **Task P0.1.2**: Fix `automated_test_results` table queries
+  - [x] Remove attempts to update non-existent `started_at` and `error` columns
+  - [x] Ensure `updateRunStatus()` only logs status changes without database updates
+  - [x] Fix UPSERT operations for multiple tools to prevent duplicate key violations
   - **Acceptance**: No more column existence errors in automation runs
 
 - [ ] **Task P0.1.3**: Fix audit log constraints

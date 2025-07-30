@@ -969,33 +969,38 @@ class TestAutomationService {
         const pageId = pageResult.rows[0].page_id;
         console.log('🔍 DEBUG: Selected page_id:', pageId);
         
-        const query = `
-            INSERT INTO automated_test_results (
-                id, test_session_id, page_id, tool_name, tool_version, raw_results, 
-                violations_count, warnings_count, passes_count, test_duration_ms, 
-                executed_at, browser_name, test_environment, test_suite
-            ) VALUES ($1, $2, $3, $4, '1.0', '{}', 0, 0, 0, 0, $5, 'chrome', 'desktop', 'default')
-            ON CONFLICT (test_session_id, page_id, tool_name) 
-            DO UPDATE SET 
-                id = EXCLUDED.id,
-                executed_at = EXCLUDED.executed_at,
-                tool_version = EXCLUDED.tool_version,
-                raw_results = EXCLUDED.raw_results,
-                violations_count = EXCLUDED.violations_count,
-                warnings_count = EXCLUDED.warnings_count,
-                passes_count = EXCLUDED.passes_count,
-                test_duration_ms = EXCLUDED.test_duration_ms,
-                browser_name = EXCLUDED.browser_name,
-                test_environment = EXCLUDED.test_environment,
-                test_suite = EXCLUDED.test_suite
-            RETURNING *
-        `;
+        // Create entries for all tools
+        const results = [];
+        for (const tool of tools) {
+            const query = `
+                INSERT INTO automated_test_results (
+                    id, test_session_id, page_id, tool_name, tool_version, raw_results, 
+                    violations_count, warnings_count, passes_count, test_duration_ms, 
+                    executed_at, browser_name, test_environment, test_suite
+                ) VALUES ($1, $2, $3, $4, '1.0', '{}', 0, 0, 0, 0, $5, 'chrome', 'desktop', 'default')
+                ON CONFLICT (test_session_id, page_id, tool_name) 
+                DO UPDATE SET 
+                    id = EXCLUDED.id,
+                    executed_at = EXCLUDED.executed_at,
+                    tool_version = EXCLUDED.tool_version,
+                    raw_results = EXCLUDED.raw_results,
+                    violations_count = EXCLUDED.violations_count,
+                    warnings_count = EXCLUDED.warnings_count,
+                    passes_count = EXCLUDED.passes_count,
+                    test_duration_ms = EXCLUDED.test_duration_ms,
+                    browser_name = EXCLUDED.browser_name,
+                    test_environment = EXCLUDED.test_environment,
+                    test_suite = EXCLUDED.test_suite
+                RETURNING *
+            `;
 
-        const result = await pool.query(query, [
-            runId, sessionId, pageId, tools[0] || 'axe', new Date()
-        ]);
+            const result = await pool.query(query, [
+                `${runId}-${tool}`, sessionId, pageId, tool, new Date()
+            ]);
+            results.push(result.rows[0]);
+        }
 
-        return result.rows[0];
+        return results[0]; // Return first result for compatibility
     }
 
     /**
