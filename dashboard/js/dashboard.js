@@ -629,9 +629,25 @@ ${requirement.failure_examples}
         },
         
         // ===== USER MANAGEMENT STATE =====
-        showUserManagement: false,
+        get showUserManagement() {
+            return this._showUserManagement || false;
+        },
+        set showUserManagement(value) {
+            if (value && this.preventAutoUserManagement) {
+                console.log('🛑 DEBUG: Attempt to set showUserManagement=true blocked during initialization', {
+                    stackTrace: new Error().stack
+                });
+                return;
+            }
+            console.log('🔍 DEBUG: showUserManagement state changed to:', value, {
+                stackTrace: new Error().stack
+            });
+            this._showUserManagement = value;
+        },
+        _showUserManagement: false,
         showUserForm: false,
         showDeleteUserModal: false,
+        preventAutoUserManagement: true, // Prevent auto-opening during initialization
         userForm: {
             id: null,
             username: '',
@@ -1089,6 +1105,7 @@ ${requirement.failure_examples}
                 return;
             }
             this._initialized = true;
+            this._initializationTime = Date.now(); // Track when component was initialized
             
             // Initialize automationProgress to null so progress bar only shows when there's actual progress
             this.automationProgress = null;
@@ -1751,6 +1768,12 @@ ${requirement.failure_examples}
                     this.initializeWebSocket();
                     await this.loadInitialData();
                     this.syncLegacyState(); // Sync legacy state
+                    
+                    // Allow user management modal to open after initialization is complete
+                    setTimeout(() => {
+                        this.preventAutoUserManagement = false;
+                        console.log('✅ User management modal auto-open protection disabled');
+                    }, 10000); // Wait 10 seconds after auth check
                 } else if (response.status === 401 && refreshToken) {
                     // Try to refresh token
                     await this.refreshToken();
@@ -1889,6 +1912,12 @@ ${requirement.failure_examples}
                     // Initialize WebSocket and load data
                     this.initializeWebSocket();
                     await this.loadInitialData();
+                    
+                    // Allow user management modal to open after initialization is complete
+                    setTimeout(() => {
+                        this.preventAutoUserManagement = false;
+                        console.log('✅ User management modal auto-open protection disabled');
+                    }, 10000); // Wait 10 seconds after login
                 } else {
                     this.loginError = data.error || 'Login failed';
                 }
@@ -6473,7 +6502,47 @@ ${requirement.failure_examples}
         // ===== USER MANAGEMENT METHODS =====
         
         // Open user management modal
-        async openUserManagement() {
+        async openUserManagement(manualOpen = false) {
+            // Debug: Log who called this function
+            console.log('🔍 DEBUG: openUserManagement called', {
+                manualOpen,
+                preventAutoUserManagement: this.preventAutoUserManagement,
+                stackTrace: new Error().stack
+            });
+            
+            // Aggressive prevention: Block any auto-opening during the first 10 seconds after initialization
+            const now = Date.now();
+            const initTime = this._initializationTime || now;
+            const timeSinceInit = now - initTime;
+            
+            // Additional check: Don't auto-open if we're still loading initial data
+            if (!manualOpen && (timeSinceInit < 10000 || this.loading)) {
+                console.log('🛑 AGGRESSIVE BLOCK: Preventing auto-opening of user management modal', {
+                    timeSinceInit,
+                    loading: this.loading,
+                    manualOpen,
+                    preventAutoUserManagement: this.preventAutoUserManagement
+                });
+                return;
+            }
+            
+            // NUCLEAR OPTION: Block ALL opens during critical startup and authentication period
+            if ((!this.auth.isAuthenticated && timeSinceInit < 15000) || 
+                (this.auth.isAuthenticated && timeSinceInit < 20000)) {
+                console.log('🚫 NUCLEAR BLOCK: Preventing ALL user management modal opens during startup/auth period', {
+                    timeSinceInit,
+                    isAuthenticated: this.auth.isAuthenticated,
+                    manualOpen
+                });
+                return;
+            }
+            
+            // Prevent auto-opening during initialization (unless manually triggered)
+            if (this.preventAutoUserManagement && !manualOpen) {
+                console.log('🛑 Preventing auto-opening of user management modal during initialization');
+                return;
+            }
+            
             try {
                 console.log('🔍 Opening user management modal');
                 this.showUserManagement = true;
@@ -6509,7 +6578,10 @@ ${requirement.failure_examples}
 
         // Global function alias for Alpine.js calls
         showUserManagement() {
-            return this.openUserManagement();
+            console.log('🔍 DEBUG: showUserManagement alias called', {
+                stackTrace: new Error().stack
+            });
+            return this.openUserManagement(true); // Manual open
         },
         
         // Load users from API
@@ -12725,7 +12797,27 @@ ${requirement.failure_examples}
     window.nextUsersPage = () => componentInstance.nextUsersPage();
     window.sortUsers = (field) => componentInstance.sortUsers(field);
     window.closeUserManagement = () => componentInstance.closeUserManagement();
-        window.showUserManagement = () => componentInstance.openUserManagement();
+        window.showUserManagement = () => {
+            console.log('🔍 DEBUG: window.showUserManagement called', {
+                stackTrace: new Error().stack
+            });
+            
+            // Nuclear protection during startup
+            const now = Date.now();
+            const initTime = componentInstance._initializationTime || now;
+            const timeSinceInit = now - initTime;
+            
+            if ((!componentInstance.auth.isAuthenticated && timeSinceInit < 15000) || 
+                (componentInstance.auth.isAuthenticated && timeSinceInit < 20000)) {
+                console.log('🚫 NUCLEAR BLOCK: Preventing window.showUserManagement during startup period', {
+                    timeSinceInit,
+                    isAuthenticated: componentInstance.auth.isAuthenticated
+                });
+                return;
+            }
+            
+            return componentInstance.openUserManagement(true); // Manual open
+        };
         window.showAddUserForm = () => componentInstance.showAddUserForm();
         window.closeUserForm = () => componentInstance.closeUserForm();
     

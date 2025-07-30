@@ -1049,7 +1049,7 @@ class TestAutomationService {
     async updateTestInstanceStatus(instanceId, status, userId, notes = null) {
         const query = `
             UPDATE test_instances 
-            SET status = $1, tested_by = $2, updated_at = $3
+            SET status = $1, assigned_tester = $2, updated_at = $3
             ${notes ? ', notes = $4' : ''}
             WHERE id = ${notes ? '$5' : '$4'}
         `;
@@ -1185,15 +1185,18 @@ class TestAutomationService {
             confidence = 'high';
         }
 
+        const toolsUsedList = toolsRun.map(key => key === 'axe' ? 'axe-core' : key);
+        
         return {
             shouldUpdate: true,
             status: newStatus,
             confidence_level: confidence,
+            tool_name: toolsUsedList.length > 0 ? toolsUsedList[0] : 'axe-core', // Add direct tool reference
             result: JSON.stringify({
                 automated_analysis: {
                     total_violations: totalViolations,
                     critical_violations: criticalViolations,
-                    tools_used: toolsRun.map(key => key === 'axe' ? 'axe-core' : key),
+                    tools_used: toolsUsedList,
                     tool_results: toolResults,
                     specialized_analysis: specializedAnalysis,
                     remediation_guidance: remediationGuidance,
@@ -1212,7 +1215,7 @@ class TestAutomationService {
         const query = `
             UPDATE test_instances 
             SET status = $1, result = $2, confidence_level = $3, notes = $4, 
-                tested_by = $5, tested_at = $6, updated_at = $6, test_method_used = $7,
+                assigned_tester = $5, completed_at = $6, updated_at = $6, test_method_used = $7,
                 tool_used = $8
             WHERE id = $9
         `;
@@ -1221,8 +1224,24 @@ class TestAutomationService {
         let toolsUsed = 'Unknown';
         try {
             const resultData = typeof mappedResults.result === 'string' ? JSON.parse(mappedResults.result) : mappedResults.result;
+            
+            // Try multiple ways to get the tool information
             if (resultData.automated_analysis && resultData.automated_analysis.tools_used) {
-                toolsUsed = resultData.automated_analysis.tools_used.join(', ');
+                toolsUsed = Array.isArray(resultData.automated_analysis.tools_used) 
+                    ? resultData.automated_analysis.tools_used.join(', ')
+                    : resultData.automated_analysis.tools_used;
+            } else if (resultData.tool_name) {
+                toolsUsed = resultData.tool_name;
+            } else if (resultData.tools_used) {
+                toolsUsed = Array.isArray(resultData.tools_used) 
+                    ? resultData.tools_used.join(', ')
+                    : resultData.tools_used;
+            } else {
+                // If no tool info in results, try to get from the automation context
+                // This might be passed in mappedResults if available
+                if (mappedResults.tool_name) {
+                    toolsUsed = mappedResults.tool_name;
+                }
             }
         } catch (e) {
             console.warn('Error parsing result data for tool_used:', e);
