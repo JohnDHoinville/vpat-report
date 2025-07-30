@@ -148,10 +148,10 @@
                                 <i class="fas fa-robot mr-2"></i>Automation
                             </button>
                                                             <button @click="sessionDetailsActiveTab = 'automation-runs'; $nextTick(() => { loadAutomationRuns(selectedSessionDetails?.id); initAutomationChart(); })" 
-                                        :class="sessionDetailsActiveTab === 'automation-runs' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
-                                        class="py-4 px-1 border-b-2 font-medium text-sm transition-colors">
-                                    <i class="fas fa-robot mr-2"></i>Automation Runs
-                                </button>
+                                    :class="sessionDetailsActiveTab === 'automation-runs' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
+                                    class="py-4 px-1 border-b-2 font-medium text-sm transition-colors">
+                                <i class="fas fa-robot mr-2"></i>Automation Runs
+                            </button>
                             <button @click="sessionDetailsActiveTab = 'audit'" 
                                     :class="sessionDetailsActiveTab === 'audit' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
                                     class="py-4 px-1 border-b-2 font-medium text-sm transition-colors">
@@ -1446,16 +1446,16 @@
             </div>
             <!-- Enhanced Modal Header -->
             <div x-show="!loadingRequirementDetails" class="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg p-6 text-white">
-                <div class="flex justify-between items-start">
+            <div class="flex justify-between items-start">
                     <div class="flex-1">
                         <div class="flex items-center space-x-3 mb-2">
                             <div class="bg-white bg-opacity-20 rounded-full p-2">
                                 <i class="fas fa-list-check text-xl"></i>
                             </div>
-                            <div>
+                <div>
                                 <h3 class="text-2xl font-bold">Requirement Details</h3>
                                 <p class="text-blue-100 text-sm" x-text="currentRequirement?.criterion_number + ' - ' + currentRequirement?.title"></p>
-                            </div>
+                </div>
                         </div>
                         
                         <!-- Quick Stats -->
@@ -1479,8 +1479,8 @@
                         </div>
                     </div>
                     <button @click="closeRequirementDetailsModal()" class="text-white hover:text-blue-200 transition-colors">
-                        <i class="fas fa-times text-xl"></i>
-                    </button>
+                    <i class="fas fa-times text-xl"></i>
+                </button>
                 </div>
             </div>
 
@@ -1531,7 +1531,7 @@
             <div x-show="!loadingRequirementDetails" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <!-- Left Column -->
                 <div class="space-y-6">
-                    <!-- Requirement Description -->
+            <!-- Requirement Description -->
                     <div class="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-6">
                         <h4 class="text-lg font-semibold text-blue-900 mb-3 flex items-center">
                             <i class="fas fa-info-circle mr-2"></i>Requirement Description
@@ -1839,14 +1839,14 @@
                     
                     <!-- Right side - Primary Actions -->
                     <div class="flex items-center space-x-3">
-                        <button @click="closeRequirementDetailsModal()" 
-                                class="px-6 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors">
+                <button @click="closeRequirementDetailsModal()" 
+                        class="px-6 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors">
                             <i class="fas fa-times mr-2"></i>Close
-                        </button>
-                        <button x-show="currentRequirement?.test_method === 'automated' || currentRequirement?.test_method === 'both'" 
-                                @click="runAutomatedTestForRequirement(currentRequirement)" 
+                </button>
+                <button x-show="currentRequirement?.test_method === 'automated' || currentRequirement?.test_method === 'both'" 
+                        @click="runAutomatedTestForRequirement(currentRequirement)" 
                                 class="px-6 py-2 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-md hover:from-purple-700 hover:to-purple-800 transition-all shadow-md">
-                            <i class="fas fa-robot mr-2"></i>Run Automated Test
+                    <i class="fas fa-robot mr-2"></i>Run Automated Test
                 </button>
             </div>
         </div>

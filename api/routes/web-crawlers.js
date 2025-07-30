@@ -392,6 +392,39 @@ router.get('/crawlers/:crawlerId/pages', optionalAuth, async (req, res) => {
             search 
         } = req.query;
 
+        console.log(`🔍 DEBUG: API called /crawlers/${crawlerId}/pages with params:`, req.query);
+        console.log(`🔍 DEBUG: selected_for_testing parameter value:`, selected_for_testing);
+        console.log(`🔍 DEBUG: User-Agent:`, req.headers['user-agent']);
+        console.log(`🔍 DEBUG: Referer:`, req.headers['referer']);
+        
+        // Smart fallback: if selected_for_testing=true but no pages are selected, return all pages
+        let actuallyFilterBySelection = selected_for_testing === 'true';
+        
+        if (selected_for_testing === 'true') {
+            console.log('⚠️ WARNING: API called with selected_for_testing=true - checking if any pages are selected...');
+            
+            // Quick check: count pages that are selected for testing
+            const checkClient = await crawlerService.pool.connect();
+            try {
+                const selectedCount = await checkClient.query(`
+                    SELECT COUNT(*) as count 
+                    FROM crawler_discovered_pages cdp 
+                    WHERE cdp.crawler_id = $1 
+                    AND (cdp.selected_for_manual_testing = true OR cdp.selected_for_automated_testing = true)
+                `, [crawlerId]);
+                
+                const hasSelectedPages = parseInt(selectedCount.rows[0].count) > 0;
+                console.log(`🔍 DEBUG: Found ${selectedCount.rows[0].count} pages selected for testing`);
+                
+                if (!hasSelectedPages) {
+                    console.log('🔧 SMART FALLBACK: No pages selected for testing, ignoring selected_for_testing parameter and returning all pages');
+                    actuallyFilterBySelection = false;
+                }
+            } finally {
+                checkClient.release();
+            }
+        }
+
         let query = `
             SELECT cdp.*, cr.started_at as run_started_at,
                    cdp.selected_for_manual_testing,
@@ -409,7 +442,7 @@ router.get('/crawlers/:crawlerId/pages', optionalAuth, async (req, res) => {
             params.push(run_id);
         }
 
-        if (selected_for_testing === 'true') {
+        if (actuallyFilterBySelection) {
             query += ` AND (cdp.selected_for_manual_testing = true OR cdp.selected_for_automated_testing = true)`;
         }
 
@@ -445,7 +478,7 @@ router.get('/crawlers/:crawlerId/pages', optionalAuth, async (req, res) => {
             countQuery += ` AND cdp.crawler_run_id = $${countParamNum++}`;
             countParams.push(run_id);
         }
-        if (selected_for_testing === 'true') {
+        if (actuallyFilterBySelection) {
             countQuery += ` AND (cdp.selected_for_manual_testing = true OR cdp.selected_for_automated_testing = true)`;
         }
         if (has_forms === 'true') {
