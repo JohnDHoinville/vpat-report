@@ -382,7 +382,7 @@ class ManualTestingService {
                 testing_environment: resultData.testing_environment || {},
                 assistive_tech_used: resultData.assistive_tech_used || [],
                 browser_used: resultData.browser_used,
-                tested_by: resultData.tested_by,
+                assigned_tester: resultData.tested_by,
                 testing_duration_minutes: resultData.testing_duration_minutes,
                 review_status: 'pending_review'
             });

@@ -6,6 +6,10 @@
 **Total Estimated Time**: 4-6 weeks  
 **Priority**: High  
 
+## **Relevant Files**
+- **api/routes/testing-sessions.js**: Fixed JOIN to use `assigned_tester` instead of `tested_by`
+- **database/services/manual-testing-service.js**: Fixed INSERT to use `assigned_tester` column mapping
+
 ---
 
 ## **Pre-Implementation: Critical Database Schema Fixes**
@@ -21,10 +25,10 @@
 - `duplicate key value violates unique constraint "automated_test_results_test_session_id_page_id_tool_name_key"`
 
 **Tasks**:
-- [ ] **Task P0.1.1**: Fix `test_instances` table schema mismatch
-  - Update all references from `tested_by` to `assigned_tester`
-  - Update all references from `tested_at` to `completed_at`
-  - Verify column existence in database schema
+- [x] **Task P0.1.1**: Fix `test_instances` table schema mismatch
+  - [x] Update all references from `tested_by` to `assigned_tester`
+  - [x] Update all references from `tested_at` to `completed_at`
+  - [x] Verify column existence in database schema
   - **Acceptance**: All automation service queries use correct column names
 
 - [ ] **Task P0.1.2**: Fix `automated_test_results` table queries

@@ -1015,7 +1015,7 @@ router.get('/:sessionId/vpat', authenticateToken, async (req, res) => {
                 FROM test_instances ti
                 JOIN test_requirements tr ON ti.requirement_id = tr.id
                 LEFT JOIN crawler_discovered_pages cdp ON ti.page_id = cdp.id
-                LEFT JOIN users u ON ti.tested_by = u.id
+                LEFT JOIN users u ON ti.assigned_tester = u.id
                 LEFT JOIN test_evidence te ON ti.id = te.test_instance_id
                 WHERE ti.session_id = $1
             )
