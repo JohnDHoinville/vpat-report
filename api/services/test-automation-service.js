@@ -188,6 +188,10 @@ class TestAutomationService {
                         toolResults = await this.runMobileAccessibility(pages);
                         results['mobile-accessibility'] = toolResults;
                         break;
+                    case 'wave':
+                        toolResults = await this.runWaveApi(pages);
+                        results.wave = toolResults;
+                        break;
                 }
 
                 // Emit tool completion milestone
@@ -2136,6 +2140,14 @@ class TestAutomationService {
                 description: 'Mobile accessibility testing across multiple viewports and touch interfaces',
                 version: '1.0.0',
                 capabilities: ['touch-targets', 'responsive-design', 'mobile-viewport', 'tablet-testing']
+            },
+            {
+                name: 'wave',
+                description: 'WebAIM\'s WAVE API for comprehensive accessibility analysis',
+                version: '2.0.0',
+                capabilities: ['wcag-compliance', 'structure-analysis', 'aria-validation', 'comprehensive-scanning'],
+                rateLimited: true,
+                monthlyLimit: 500
             }
         ];
     }
@@ -2304,6 +2316,98 @@ class TestAutomationService {
         }
 
         return baseConfidence;
+    }
+
+    /**
+     * Run WAVE API analysis on pages
+     */
+    async runWaveApi(pages) {
+        const WaveApiTester = require('../../scripts/wave-api-tester.js');
+        const waveApi = new WaveApiTester();
+        
+        const results = {
+            tool: 'wave',
+            pages_tested: [],
+            total_violations: 0,
+            critical_violations: 0,
+            violations_by_page: {},
+            rate_limit_status: {
+                requests_made: 0,
+                credits_remaining: waveApi.getRemainingCredits(),
+                rate_limited: false
+            }
+        };
+
+        for (const page of pages) {
+            try {
+                console.log(`🌊 Running WAVE API analysis for ${page.url}`);
+                
+                // Check rate limit before each request
+                if (waveApi.getRemainingCredits() <= 0) {
+                    console.warn(`⚠️ WAVE API monthly limit reached, skipping ${page.url}`);
+                    results.rate_limit_status.rate_limited = true;
+                    break;
+                }
+                
+                const waveResults = await waveApi.analyzeUrl(page.url, {
+                    reporttype: '4', // Full detailed report
+                    userId: 'vpat-automation'
+                });
+                
+                results.pages_tested.push({
+                    url: page.url,
+                    violations: waveResults.summary.totalIssues,
+                    critical: waveResults.summary.criticalIssues,
+                    moderate: waveResults.summary.moderateIssues,
+                    minor: waveResults.summary.minorIssues,
+                    page_title: waveResults.statistics.pageTitle
+                });
+                
+                results.total_violations += waveResults.summary.totalIssues;
+                results.critical_violations += waveResults.summary.criticalIssues;
+                results.violations_by_page[page.url] = waveResults.summary.totalIssues;
+                results.rate_limit_status.requests_made++;
+                
+                // Update credits remaining if provided by API
+                if (waveResults.statistics.creditsRemaining !== null) {
+                    results.rate_limit_status.credits_remaining = waveResults.statistics.creditsRemaining;
+                }
+
+                console.log(`✅ WAVE analysis completed for ${page.url}: ${waveResults.summary.totalIssues} issues found`);
+
+            } catch (error) {
+                console.error(`❌ WAVE API error for ${page.url}:`, error.message);
+                
+                // Handle rate limiting
+                if (error.message.includes('WAVE_RATE_LIMIT_EXCEEDED')) {
+                    console.warn('🚫 WAVE API rate limit exceeded, stopping analysis');
+                    results.rate_limit_status.rate_limited = true;
+                    
+                    // Emit WebSocket notification about rate limiting
+                    if (this.wsService) {
+                        this.wsService.emitRateLimitNotification('wave', {
+                            message: 'WAVE API rate limit exceeded. Analysis paused.',
+                            creditsRemaining: results.rate_limit_status.credits_remaining,
+                            requestsMade: results.rate_limit_status.requests_made
+                        });
+                    }
+                    break;
+                }
+                
+                results.pages_tested.push({
+                    url: page.url,
+                    error: error.message,
+                    violations: 0,
+                    critical: 0
+                });
+            }
+        }
+
+        console.log(`🌊 WAVE API analysis completed: ${results.pages_tested.length} pages processed`);
+        console.log(`📊 Total violations found: ${results.total_violations} (${results.critical_violations} critical)`);
+        console.log(`🎫 Credits remaining: ${results.rate_limit_status.credits_remaining}`);
+
+        return results;
     }
     
     /**

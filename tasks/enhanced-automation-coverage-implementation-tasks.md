@@ -12,6 +12,10 @@
 - **api/services/test-automation-service.js**: Fixed createAutomationRun to create entries for all tools with unique IDs, proper UPSERT handling, enhanced page_id fallback logic, added complete runContrastAnalyzer() method integration, added comprehensive runMobileAccessibility() method with multi-viewport testing, and enhanced WebSocket progress updates with detailed tool completion milestones
 - **api/routes/automated-testing.js**: Added contrast-analyzer and mobile-accessibility to validTools array
 - **dashboard/js/dashboard.js**: Enhanced evidence display with visual indicators, tool icons, confidence progress bars, and improved violation/pass display
+- **scripts/wave-api-tester.js**: New WAVE API integration service with free plan API key, rate limiting, and comprehensive accessibility analysis
+- **api/services/test-automation-service.js**: Added runWaveApi() method with rate limiting, WebSocket notifications, and WAVE tool integration
+- **api/services/websocket-service.js**: Added emitRateLimitNotification() method for real-time rate limit updates
+- **api/routes/automated-testing.js**: Added 'wave' to validTools array
 - **scripts/mobile-accessibility-tester.js**: Existing comprehensive mobile testing tool integrated into automation pipeline
 - **Database**: Removed NOT NULL constraint from test_audit_log.test_instance_id to allow session-level audit entries
 - **Server Management**: Resolved multiple Node.js server processes issue that was causing old code to persist
@@ -167,8 +171,11 @@
 - **Current Usage Projection**: ~100-200 monthly calls (well within limit)
 - **Rate Limiting Strategy**: Pause automation with WebSocket user notifications
 
-- [ ] **Task 2.1.1**: Set up WAVE API integration
-  - ✅ API credentials obtained: `geTFWXSu5663`
+- [x] **Task 2.1.1**: Set up WAVE API integration
+  - [x] API credentials obtained: `geTFWXSu5663`
+  - [x] Created WAVE API service with rate limiting
+  - [x] Integrated into automation pipeline
+  - [x] Added WebSocket rate limit notifications
   - Implement WAVE API client in automation service with rate limiting
   - Add WAVE to supported tools list
   - Implement pause/resume functionality for rate limits

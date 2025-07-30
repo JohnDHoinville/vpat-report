@@ -503,6 +503,27 @@ class WebSocketService {
     }
 
     /**
+     * Emit rate limit notification via WebSocket
+     */
+    emitRateLimitNotification(tool, details) {
+        const message = {
+            type: 'rate_limit_notification',
+            tool: tool,
+            details: {
+                message: details.message,
+                creditsRemaining: details.creditsRemaining,
+                requestsMade: details.requestsMade,
+                action: 'automation_paused'
+            },
+            timestamp: new Date().toISOString()
+        };
+
+        // Broadcast to all connected clients
+        this.io.emit('rate_limit_notification', message);
+        console.log(`📡 Rate limit notification broadcast for ${tool}: ${details.message}`);
+    }
+
+    /**
      * Close WebSocket service
      */
     close() {
