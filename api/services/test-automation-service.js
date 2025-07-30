@@ -923,26 +923,22 @@ class TestAutomationService {
 
     /**
      * Update automation run status
+     * Note: automated_test_results doesn't track run status - it stores individual test results
+     * This method now just logs status changes instead of trying to update non-existent columns
      */
     async updateRunStatus(runId, status, data = {}) {
-        const updates = [];
-        const values = [];
-        let paramCount = 1;
-
-        for (const [key, value] of Object.entries(data)) {
-            updates.push(`${key} = $${++paramCount}`);
-            values.push(typeof value === 'object' ? JSON.stringify(value) : value);
+        console.log(`📊 Automation Run ${runId}: Status changed to ${status}`, data);
+        
+        // If we need to track run status, we would need a separate automated_test_runs table
+        // For now, just log the status change without database updates
+        
+        if (status === 'failed' && data.error) {
+            console.error(`❌ Automation Run ${runId} failed:`, data.error);
         }
-
-        values.unshift(runId); // runId is always $1
-
-        const query = `
-            UPDATE automated_test_results 
-            SET ${updates.join(', ')}
-            WHERE id = $1
-        `;
-
-        await pool.query(query, values);
+        
+        if (status === 'completed') {
+            console.log(`✅ Automation Run ${runId} completed successfully`);
+        }
     }
 
     /**

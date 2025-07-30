@@ -354,8 +354,8 @@
                                                     
                                                     <!-- Pages -->
                                                     <td class="px-6 py-4">
-                                                                                                                <div x-show="$strictArray(reqGroup.pages, 'session-pages').length > 0" class="space-y-2">
-                                                             <template x-for="(page, pageIndex) in $strictArray(reqGroup.pages, 'session-pages')" :key="$strictKey(page, pageIndex, `req-${reqGroup.criterion_number}`, 'session-page-loop')"
+                                                        <div x-show="$strictArray(reqGroup.pages, 'session-pages').length > 0" class="space-y-2">
+                                                            <template x-for="(page, pageIndex) in $strictArray(reqGroup.pages, 'session-pages')" :key="$strictKey(page, pageIndex, `req-${reqGroup.criterion_number}`, 'session-page-loop')">
                                                                 <div class="bg-gray-50 rounded-md p-3 border"
                                                                      :class="page.is_available_page ? 'border-blue-200 bg-blue-50' : 'border-gray-200'">
                                                                     <div class="flex items-start space-x-2">

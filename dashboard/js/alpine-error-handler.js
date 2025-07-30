@@ -225,14 +225,14 @@ window.alpineHelpers = {
         }
         
         if (item && typeof item === 'object') {
+            // Always include index to ensure uniqueness, even if item has an ID
             const key = item.id || item.key || item.url || item.page_id || item.page_url;
             if (key) {
-                return `${prefix}-${key}`;
+                return `${prefix}-${key}-${index}`;
             }
         }
         
-        // Use index as last resort but warn about it
-        console.warn(`🟡 WARNING: Using index-based key for item in context: ${context}. Consider adding an 'id' property for better performance.`);
+        // Use index as fallback
         return `${prefix}-${index}`;
     },
 
