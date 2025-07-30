@@ -10,6 +10,7 @@
 - **api/routes/testing-sessions.js**: Fixed JOIN to use `assigned_tester` instead of `tested_by`
 - **database/services/manual-testing-service.js**: Fixed INSERT to use `assigned_tester` column mapping
 - **api/services/test-automation-service.js**: Fixed createAutomationRun to create entries for all tools with unique IDs and proper UPSERT handling
+- **Database**: Removed NOT NULL constraint from test_audit_log.test_instance_id to allow session-level audit entries
 
 ---
 
@@ -38,9 +39,10 @@
   - [x] Fix UPSERT operations for multiple tools to prevent duplicate key violations
   - **Acceptance**: No more column existence errors in automation runs
 
-- [ ] **Task P0.1.3**: Fix audit log constraints
-  - Modify `createSessionAuditLogEntry()` to handle null `test_instance_id` properly
-  - Add fallback logic for session-level audit entries vs instance-level entries
+- [x] **Task P0.1.3**: Fix audit log constraints
+  - [x] Modify `createSessionAuditLogEntry()` to handle null `test_instance_id` properly
+  - [x] Remove NOT NULL constraint from test_audit_log.test_instance_id column
+  - [x] Fix remaining `tested_by` column references causing automation failures
   - **Acceptance**: Audit trail entries created successfully for automation events
 
 - [ ] **Task P0.1.4**: Fix duplicate key violations in automated_test_results
