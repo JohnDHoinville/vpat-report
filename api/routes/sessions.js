@@ -97,7 +97,7 @@ router.get('/info', async (req, res) => {
             WHERE wc.project_id = $1 
             AND cas.is_active = true
             AND (cas.expires_at IS NULL OR cas.expires_at > CURRENT_TIMESTAMP)
-            ORDER BY is_not_expired DESC, cookie_count DESC, cas.last_used_at DESC
+            ORDER BY is_not_expired DESC, cookie_count DESC, cas.last_used_at DESC NULLS LAST
             LIMIT 1
         `;
         
@@ -122,7 +122,7 @@ router.get('/info', async (req, res) => {
         // Extract metadata from database session
             const metadata = {
             username: session.authenticated_user || extractUsernameFromUrl(session.base_url) || 'SAML User',
-            capturedDate: session.created_at,
+            capturedDate: session.last_used_at || session.created_at, // Use last_used_at for fresh captures
             expirationDate: session.expires_at || calculateExpirationFromCookies(session.cookies) || 'Unknown',
             pagesCount: 0, // Will be calculated if needed
             sessionId: session.id,

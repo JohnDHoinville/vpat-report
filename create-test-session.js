@@ -11,7 +11,7 @@ const pool = new Pool({
 });
 
 // The JWT token we generated
-const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI0NjA4ODIzMC02MTMzLTQ1ZTMtOGEwNC0wNmZlZWEyOTgwOTQiLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBsb2NhbGhvc3QiLCJpYXQiOjE3NTM4MTc3NDksImV4cCI6MTc1NDQyMjU0OX0.Yg-nDZn-lMto1AfdnWZk-6bRVyxhFkXwwIhpauzV45g';
+    const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI0NjA4ODIzMC02MTMzLTQ1ZTMtOGEwNC0wNmZlZWEyOTgwOTQiLCJ1c2VybmFtZSI6ImFkbWluIiwicm9sZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBsb2NhbGhvc3QiLCJpYXQiOjE3NTM4MjExOTEsImV4cCI6MTc1NDQyNTk5MX0.nGeg_iYudhK-tCIZg4Kb9JjPM8azm_B54JREA7Sctso';
 
 // Create token hash
 const tokenHash = crypto.createHash('sha256').update(token).digest('hex');

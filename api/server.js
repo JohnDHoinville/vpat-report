@@ -5,6 +5,7 @@ const rateLimit = require('express-rate-limit');
 const helmet = require('helmet');
 const compression = require('compression');
 const path = require('path'); // Added for serving static files
+const SchemaValidator = require('../database/validate-schema');
 
 // Import error handling middleware
 const {
@@ -453,11 +454,9 @@ server.listen(PORT, HOST, async () => {
         await pool.query('SELECT 1');
         logger.info('Database connectivity verified');
         
-        // Validate critical tables
-        const criticalTables = ['test_sessions', 'test_requirements', 'projects'];
-        for (const table of criticalTables) {
-            await pool.query(`SELECT 1 FROM ${table} LIMIT 1`);
-        }
+        // Comprehensive schema validation and auto-fix
+        const validator = new SchemaValidator(pool);
+        await validator.validateAndFix();
         logger.info('Critical database tables validated');
         
     } catch (error) {

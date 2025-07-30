@@ -883,17 +883,39 @@ class TestAutomationService {
      * Create automation run record
      */
     async createAutomationRun(sessionId, runId, tools, userId) {
+        // Get a default page_id for this session (we'll use the first discovered page from site discovery)
+        const pageQuery = `
+            SELECT dp.id as page_id
+            FROM test_sessions ts
+            JOIN projects p ON ts.project_id = p.id
+            JOIN site_discovery sd ON sd.project_id = p.id
+            JOIN discovered_pages dp ON dp.discovery_id = sd.id
+            WHERE ts.id = $1
+            LIMIT 1
+        `;
+        
+        console.log('🔍 DEBUG: Running page query for session:', sessionId);
+        const pageResult = await pool.query(pageQuery, [sessionId]);
+        console.log('🔍 DEBUG: Page query result:', pageResult.rows.length, 'rows');
+        
+        if (pageResult.rows.length === 0) {
+            throw new Error('No pages found for testing in this session');
+        }
+        
+        const pageId = pageResult.rows[0].page_id;
+        console.log('🔍 DEBUG: Selected page_id:', pageId);
+        
         const query = `
             INSERT INTO automated_test_results (
-                id, test_session_id, tool_name, tool_version, raw_results, 
+                id, test_session_id, page_id, tool_name, tool_version, raw_results, 
                 violations_count, warnings_count, passes_count, test_duration_ms, 
                 executed_at, browser_name, test_environment, test_suite
-            ) VALUES ($1, $2, $3, '1.0', '{}', 0, 0, 0, 0, $4, 'chrome', 'desktop', 'default')
+            ) VALUES ($1, $2, $3, $4, '1.0', '{}', 0, 0, 0, 0, $5, 'chrome', 'desktop', 'default')
             RETURNING *
         `;
 
         const result = await pool.query(query, [
-            runId, sessionId, tools[0] || 'axe', new Date()
+            runId, sessionId, pageId, tools[0] || 'axe', new Date()
         ]);
 
         return result.rows[0];

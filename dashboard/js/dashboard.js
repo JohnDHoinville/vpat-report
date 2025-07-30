@@ -8352,8 +8352,8 @@ ${requirement.failure_examples}
                     // Use the first available crawler (or we could enhance this to use all crawlers)
                     const crawler = crawlersResponse.data[0];
                     
-                    // Get pages for this crawler (limit to pages selected for testing)
-                    const pagesResponse = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?selected_for_testing=true&limit=100`);
+                    // Get pages for this crawler (all pages, not just selected for testing)
+                    const pagesResponse = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=100`);
                     
                     if (pagesResponse.success) {
                         const pages = pagesResponse.data || pagesResponse.pages || [];
@@ -8689,8 +8689,41 @@ ${requirement.failure_examples}
                     <div class="bg-gray-50 border border-gray-200 rounded-lg p-6">
                         <h4 class="text-lg font-semibold text-gray-900 mb-3">Requirement Description</h4>
                         <div class="bg-white border border-gray-200 rounded p-4">
-                            <p class="text-sm text-gray-900">${testInstance.requirement_description || testInstance.description || 'No description available'}</p>
+                            <p class="text-sm text-gray-900 leading-relaxed">${testInstance.requirement_description || testInstance.description || this.getWCAGDescription(testInstance.criterion_number) || 'Loading requirement details...'}</p>
                         </div>
+                        
+                        <!-- Enhanced Testing Instructions -->
+                        <div class="mt-4 space-y-3">
+                            ${testInstance.test_method === 'both' ? `
+                                <div class="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                                    <h5 class="text-sm font-medium text-yellow-800 mb-2 flex items-center">
+                                        <i class="fas fa-info-circle mr-2"></i>Why Both Automated & Manual Testing?
+                                    </h5>
+                                    <p class="text-sm text-yellow-700">${this.getTestMethodExplanation(testInstance.criterion_number, testInstance.test_method) || 'This criterion requires both automated detection and manual verification.'}</p>
+                                </div>
+                            ` : ''}
+                            
+                            <div class="p-4 bg-green-50 border border-green-200 rounded-lg">
+                                <h5 class="text-sm font-medium text-green-800 mb-3 flex items-center">
+                                    <i class="fas fa-tasks mr-2"></i>Step-by-Step Testing Guide
+                                </h5>
+                                <div>${this.getDetailedTestingSteps(testInstance.criterion_number, testInstance.test_method)}</div>
+                            </div>
+                            
+                            <details class="bg-gray-50 border border-gray-200 rounded-lg">
+                                <summary class="p-4 cursor-pointer hover:bg-gray-100 transition-colors">
+                                    <span class="text-sm font-medium text-gray-800 flex items-center">
+                                        <i class="fas fa-exclamation-triangle mr-2 text-orange-500"></i>
+                                        Common Violations & Examples
+                                        <i class="fas fa-chevron-down ml-auto text-xs"></i>
+                                    </span>
+                                </summary>
+                                <div class="p-4 pt-0">
+                                    <div>${this.getCommonViolations(testInstance.criterion_number)}</div>
+                                </div>
+                            </details>
+                        </div>
+                        
                         ${testInstance.wcag_url || testInstance.section_508_url ? `
                         <div class="mt-4 flex space-x-4">
                             ${testInstance.wcag_url ? `
@@ -8797,12 +8830,15 @@ ${requirement.failure_examples}
                             <button id="toggle-automation-btn" 
                                     onclick="window.toggleAutomationResults('${testInstance.id}')"
                                     class="px-3 py-1 text-sm bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors">
-                                <i class="fas fa-robot mr-1"></i>Show Results
+                                <i class="fas fa-refresh mr-1"></i>Refresh Results
                             </button>
                         </div>
-                        <div id="automation-results" class="space-y-3" style="display: none;">
+                        <div id="automation-results" class="space-y-3">
                             <div id="automation-list">
-                                <!-- Automation results will be loaded here -->
+                                <div class="text-center py-4 text-purple-500">
+                                    <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
+                                    <p>Loading automation results...</p>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -8814,12 +8850,15 @@ ${requirement.failure_examples}
                             <button id="toggle-history-btn" 
                                     onclick="window.toggleTestHistory('${testInstance.id}')"
                                     class="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors">
-                                <i class="fas fa-history mr-1"></i>Show History
+                                <i class="fas fa-refresh mr-1"></i>Refresh History
                             </button>
                         </div>
-                        <div id="test-history" class="space-y-3" style="display: none;">
+                        <div id="test-history" class="space-y-3">
                             <div id="history-list">
-                                <!-- Test history will be loaded here -->
+                                <div class="text-center py-4 text-gray-500">
+                                    <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
+                                    <p>Loading audit history...</p>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -8848,8 +8887,9 @@ ${requirement.failure_examples}
             `;
             document.body.appendChild(modal);
 
-            // Load test history
+            // Load test history and automation results
             this.loadTestInstanceHistory(testInstance.id);
+            this.loadAutomationResults(testInstance.id);
         },
         
         editTestInstance(testInstance) {
@@ -9029,32 +9069,42 @@ ${requirement.failure_examples}
                                 </div>
                             </div>
                             
-                            ${result.violations_count > 0 ? `
-                                <div class="mb-3">
-                                    <div class="text-sm font-medium text-purple-700 mb-1">Violations Found:</div>
-                                    <div class="text-sm text-purple-600 bg-red-50 p-2 rounded border-l-4 border-red-200">
-                                        ${result.violations_count} accessibility violations detected
+                            <!-- Results Summary -->
+                            <div class="grid grid-cols-3 gap-3 mb-4">
+                                ${result.violations_count > 0 ? `
+                                    <div class="bg-red-50 border border-red-200 rounded p-3 text-center">
+                                        <div class="text-xl font-bold text-red-700">${result.violations_count}</div>
+                                        <div class="text-xs text-red-600">Violations</div>
                                     </div>
-                                </div>
+                                ` : ''}
+                                ${result.warnings_count > 0 ? `
+                                    <div class="bg-yellow-50 border border-yellow-200 rounded p-3 text-center">
+                                        <div class="text-xl font-bold text-yellow-700">${result.warnings_count}</div>
+                                        <div class="text-xs text-yellow-600">Warnings</div>
+                                    </div>
+                                ` : ''}
+                                ${result.passes_count > 0 ? `
+                                    <div class="bg-green-50 border border-green-200 rounded p-3 text-center">
+                                        <div class="text-xl font-bold text-green-700">${result.passes_count}</div>
+                                        <div class="text-xs text-green-600">Passed</div>
+                                    </div>
+                                ` : ''}
+                            </div>
+
+                            <!-- Detailed Results -->
+                            ${result.raw_results && Object.keys(result.raw_results).length > 0 ? `
+                                <details class="mb-3">
+                                    <summary class="cursor-pointer text-sm font-medium text-purple-700 hover:text-purple-900 flex items-center">
+                                        <i class="fas fa-list mr-2"></i>View Detailed Results
+                                        <i class="fas fa-chevron-down ml-auto text-xs"></i>
+                                    </summary>
+                                    <div class="mt-2 bg-gray-50 p-3 rounded border text-xs">
+                                        ${this.formatAutomationResults(result.raw_results)}
+                                    </div>
+                                </details>
                             ` : ''}
                             
-                            ${result.warnings_count > 0 ? `
-                                <div class="mb-3">
-                                    <div class="text-sm font-medium text-purple-700 mb-1">Warnings Found:</div>
-                                    <div class="text-sm text-purple-600 bg-yellow-50 p-2 rounded border-l-4 border-yellow-200">
-                                        ${result.warnings_count} warnings detected
-                                    </div>
-                                </div>
-                            ` : ''}
-                            
-                            ${result.passes_count > 0 ? `
-                                <div class="mb-3">
-                                    <div class="text-sm font-medium text-purple-700 mb-1">Passed Tests:</div>
-                                    <div class="text-sm text-purple-600 bg-green-50 p-2 rounded border-l-4 border-green-200">
-                                        ${result.passes_count} tests passed
-                                    </div>
-                                </div>
-                            ` : ''}
+
                             
                             ${result.test_duration_ms ? `
                                 <div class="flex items-center space-x-2 text-xs text-purple-500">
@@ -9093,71 +9143,114 @@ ${requirement.failure_examples}
             }
         },
 
-        // Load test instance history
+        // Load test instance history with enhanced audit information
         async loadTestInstanceHistory(instanceId) {
             try {
                 const response = await this.apiCall(`/test-instances/${instanceId}/audit-log`);
                 const historyList = document.getElementById('history-list');
                 
                 if (response.success && response.data.length > 0 && historyList) {
-                    historyList.innerHTML = response.data.map(entry => `
-                        <div class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+                    historyList.innerHTML = response.data.map((entry, index) => `
+                        <div class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow">
                             <div class="flex justify-between items-start mb-3">
                                 <div class="flex items-center space-x-3">
-                                    <span class="px-3 py-1 text-xs font-medium rounded-full ${this.getStatusBadgeClass(entry.action_type)}">
-                                        ${entry.action_type || 'Updated'}
-                                    </span>
+                                    <div class="flex items-center">
+                                        <div class="w-8 h-8 rounded-full ${this.getActionTypeColor(entry.action_type)} flex items-center justify-center mr-3">
+                                            <i class="fas ${this.getActionTypeIcon(entry.action_type)} text-white text-xs"></i>
+                                        </div>
+                                        <div>
+                                            <span class="px-3 py-1 text-xs font-medium rounded-full ${this.getStatusBadgeClass(entry.action_type)}">
+                                                ${this.getActionTypeDisplay(entry.action_type)}
+                                            </span>
+                                            <div class="text-xs text-gray-500 mt-1">#${index + 1} • Instance Audit</div>
+                                        </div>
+                                    </div>
                                     <div class="flex items-center space-x-2">
                                         <i class="fas fa-user text-gray-400"></i>
                                         <span class="text-sm font-medium text-gray-700">${entry.user_username || 'System'}</span>
+                                        ${entry.user_email ? `<span class="text-xs text-gray-500">(${entry.user_email})</span>` : ''}
                                     </div>
                                 </div>
                                 <div class="text-right">
                                     <div class="text-sm font-medium text-gray-900">${new Date(entry.created_at).toLocaleDateString()}</div>
                                     <div class="text-xs text-gray-500">${new Date(entry.created_at).toLocaleTimeString()}</div>
+                                    <div class="text-xs text-blue-600 mt-1">${this.timeAgo(entry.created_at)}</div>
                                 </div>
                             </div>
                             
+                            <!-- Action Description -->
                             ${entry.reason ? `
-                                <div class="mb-2">
-                                    <div class="text-sm font-medium text-gray-700 mb-1">Reason:</div>
-                                    <div class="text-sm text-gray-600 bg-gray-50 p-2 rounded">${entry.reason}</div>
+                                <div class="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                                    <div class="text-sm font-medium text-blue-800 mb-1 flex items-center">
+                                        <i class="fas fa-info-circle mr-2"></i>Change Description:
+                                    </div>
+                                    <div class="text-sm text-blue-700">
+                                        ${entry.reason}
+                                    </div>
                                 </div>
                             ` : ''}
                             
+                            <!-- Value Changes -->
+                            ${entry.old_value && entry.new_value ? `
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                                    <div class="bg-red-50 border border-red-200 rounded-lg p-3">
+                                        <div class="text-sm font-medium text-red-700 mb-2 flex items-center">
+                                            <i class="fas fa-arrow-left mr-2"></i>Previous Value:
+                                        </div>
+                                        <div class="text-sm text-red-800 bg-white p-2 rounded border">
+                                            ${this.formatAuditValue(entry.old_value)}
+                                        </div>
+                                    </div>
+                                    <div class="bg-green-50 border border-green-200 rounded-lg p-3">
+                                        <div class="text-sm font-medium text-green-700 mb-2 flex items-center">
+                                            <i class="fas fa-arrow-right mr-2"></i>New Value:
+                                        </div>
+                                        <div class="text-sm text-green-800 bg-white p-2 rounded border">
+                                            ${this.formatAuditValue(entry.new_value)}
+                                        </div>
+                                    </div>
+                                </div>
+                            ` : entry.new_value ? `
+                                <div class="mb-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                                    <div class="text-sm font-medium text-green-700 mb-2 flex items-center">
+                                        <i class="fas fa-plus mr-2"></i>Value Set:
+                                    </div>
+                                    <div class="text-sm text-green-800 bg-white p-2 rounded border">
+                                        ${this.formatAuditValue(entry.new_value)}
+                                    </div>
+                                </div>
+                            ` : ''}
+                            
+                            <!-- Field Changed Info -->
                             ${entry.field_changed ? `
-                                <div class="mb-2">
-                                    <div class="text-sm font-medium text-gray-700 mb-1">Field Changed:</div>
-                                    <div class="text-sm text-gray-600 bg-blue-50 p-2 rounded">${entry.field_changed}</div>
-                                </div>
-                            ` : ''}
-                            
-                            ${entry.old_value ? `
-                                <div class="mb-2">
-                                    <div class="text-sm font-medium text-gray-700 mb-1">Previous Value:</div>
-                                    <div class="text-sm text-gray-600 bg-red-50 p-2 rounded">
-                                        <pre class="text-xs">${JSON.stringify(entry.old_value, null, 2)}</pre>
+                                <div class="mb-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                                    <div class="text-sm font-medium text-yellow-800 mb-1 flex items-center">
+                                        <i class="fas fa-edit mr-2"></i>Field Modified:
+                                    </div>
+                                    <div class="text-sm text-yellow-700 font-mono">
+                                        ${entry.field_changed}
                                     </div>
                                 </div>
                             ` : ''}
                             
-                            ${entry.new_value ? `
-                                <div class="mb-2">
-                                    <div class="text-sm font-medium text-gray-700 mb-1">New Value:</div>
-                                    <div class="text-sm text-gray-600 bg-green-50 p-2 rounded">
-                                        <pre class="text-xs">${JSON.stringify(entry.new_value, null, 2)}</pre>
-                                    </div>
-                                </div>
-                            ` : ''}
-                            
+                            <!-- Technical Details -->
                             ${entry.metadata ? `
-                                <div class="mb-2">
-                                    <div class="text-sm font-medium text-gray-700 mb-1">Additional Details:</div>
-                                    <div class="text-sm text-gray-600 bg-purple-50 p-2 rounded">
-                                        <pre class="text-xs">${JSON.stringify(entry.metadata, null, 2)}</pre>
+                                <details class="mb-2">
+                                    <summary class="text-sm font-medium text-gray-700 cursor-pointer hover:text-gray-900 flex items-center">
+                                        <i class="fas fa-cog mr-2"></i>Technical Details
+                                        <i class="fas fa-chevron-down ml-auto text-xs"></i>
+                                    </summary>
+                                    <div class="mt-2 text-sm text-gray-600 bg-gray-50 p-3 rounded border">
+                                        <pre class="text-xs overflow-x-auto">${JSON.stringify(entry.metadata, null, 2)}</pre>
                                     </div>
-                                </div>
+                                </details>
                             ` : ''}
+                            
+                            <!-- Footer with ID -->
+                            <div class="flex items-center justify-between pt-2 mt-2 border-t border-gray-100">
+                                <span class="text-xs text-gray-500">Entry ID: ${entry.id}</span>
+                                <span class="text-xs text-gray-400">Instance: ${instanceId}</span>
+                            </div>
                         </div>
                     `).join('');
                 } else if (historyList) {
@@ -9179,6 +9272,305 @@ ${requirement.failure_examples}
                         </div>
                     `;
                 }
+            }
+        },
+
+        // Get WCAG requirement description
+        getWCAGDescription(criterionNumber) {
+            const descriptions = {
+                '1.1.1': 'All non-text content that is presented to the user has a text alternative that serves the equivalent purpose, except for specific situations.',
+                '1.3.1': 'Information, structure, and relationships conveyed through presentation can be programmatically determined or are available in text.',
+                '1.4.3': 'The visual presentation of text and images of text has a contrast ratio of at least 4.5:1, except for large text which has a contrast ratio of at least 3:1.',
+                '2.1.1': 'All functionality of the content is operable through a keyboard interface without requiring specific timings for individual keystrokes.',
+                '2.4.1': 'A mechanism is available to bypass blocks of content that are repeated on multiple Web pages.',
+                '2.4.2': 'Web pages have titles that describe topic or purpose.',
+                '2.4.6': 'Headings and labels describe topic or purpose.',
+                '4.1.1': 'In content implemented using markup languages, elements have complete start and end tags, elements are nested according to their specifications.',
+                '4.1.2': 'For all user interface components, the name and role can be programmatically determined; states, properties, and values that can be set by the user can be programmatically set.',
+                '4.1.3': 'In content implemented using markup languages, status messages can be programmatically determined through role or properties.'
+            };
+            return descriptions[criterionNumber] || null;
+        },
+
+        // Get explanation for why certain criteria require both automated and manual testing
+        getTestMethodExplanation(criterionNumber, testMethod) {
+            console.log('🔍 getTestMethodExplanation called:', criterionNumber, testMethod);
+            if (testMethod !== 'both') return null;
+            
+            const explanations = {
+                '1.1.1': 'Automated tools can detect missing alt text, but human judgment is needed to verify alt text quality and contextual appropriateness.',
+                '1.3.1': 'Automated tools identify structural markup issues, but manual review ensures logical content flow and proper heading hierarchy.',
+                '1.4.10': 'Automated tools check viewport scaling capabilities, but manual testing verifies content usability at different zoom levels.',
+                '1.4.12': 'Automated tools detect spacing modifications, but manual testing ensures text remains readable and functional with custom spacing.',
+                '1.4.13': 'Automated tools can detect hover/focus content, but manual testing verifies dismissibility, persistence, and keyboard interactions.',
+                '2.1.1': 'Automated tools identify missing keyboard handlers, but manual testing ensures complete keyboard navigation and functionality.',
+                '2.4.1': 'Automated tools detect skip links, but manual testing verifies they work correctly and provide meaningful navigation.',
+                '2.4.2': 'Automated tools check for title elements, but manual review ensures titles are descriptive and context-appropriate.',
+                '2.4.6': 'Automated tools identify headings and labels, but manual review ensures they clearly describe content and purpose.',
+                '4.1.1': 'Automated tools validate HTML syntax, but manual review ensures semantic correctness in complex structures.',
+                '4.1.2': 'Automated tools detect missing ARIA attributes, but manual testing verifies correct implementation and screen reader compatibility.',
+                '4.1.3': 'Automated tools identify status elements, but manual testing verifies proper announcement and user comprehension.'
+            };
+            
+            return explanations[criterionNumber] || 
+                   'This criterion requires both automated detection of technical issues and manual verification of user experience quality.';
+        },
+
+        // Generate detailed step-by-step testing instructions
+        getDetailedTestingSteps(criterionNumber, testMethod) {
+            const baseSteps = {
+                'automated': [
+                    'Run automated accessibility scanning tools (axe, WAVE, Lighthouse)',
+                    'Review violation reports and understand each issue',
+                    'Validate findings by manually checking flagged elements',
+                    'Document violations with screenshots and specific details',
+                    'Mark test instance with appropriate status and confidence level'
+                ],
+                'manual': [
+                    'Assign qualified accessibility tester to this criterion',
+                    'Use assistive technologies (screen reader, keyboard navigation)',
+                    'Test with multiple browsers and devices if applicable',
+                    'Document findings with detailed evidence and screenshots',
+                    'Provide specific remediation guidance for any violations',
+                    'Mark with confidence level and comprehensive notes'
+                ],
+                'both': [
+                    'PHASE 1: Run automated accessibility scanning for baseline detection',
+                    'PHASE 2: Review automated results and understand technical violations',
+                    'PHASE 3: Conduct manual testing to verify user experience quality',
+                    'PHASE 4: Test edge cases and complex interactions manually',
+                    'PHASE 5: Combine automated and manual findings for comprehensive results',
+                    'PHASE 6: Provide final assessment with confidence rating and detailed notes'
+                ]
+            };
+
+            const steps = baseSteps[testMethod] || baseSteps['manual'];
+            return '<ol class="list-decimal list-inside space-y-2 text-sm text-gray-700">' +
+                   steps.map(step => `<li>${step}</li>`).join('') +
+                   '</ol>';
+        },
+
+        // Get common violations and examples for a criterion
+        getCommonViolations(criterionNumber) {
+            const violations = {
+                '1.1.1': [
+                    'Images without alt attributes',
+                    'Alt text that duplicates nearby text',
+                    'Decorative images with descriptive alt text',
+                    'Complex images (charts, graphs) without detailed descriptions'
+                ],
+                '1.3.1': [
+                    'Using tables for layout instead of data',
+                    'Missing or incorrect heading hierarchy (h1, h2, h3)',
+                    'Form fields without proper labels',
+                    'Lists marked up as plain text with bullet characters'
+                ],
+                '1.4.3': [
+                    'Text with insufficient color contrast against background',
+                    'Links that rely only on color to indicate their function',
+                    'Error messages shown only in red color',
+                    'Interactive elements with poor contrast ratios'
+                ],
+                '2.1.1': [
+                    'Interactive elements not accessible via keyboard',
+                    'Custom controls without keyboard event handlers',
+                    'Keyboard traps that prevent navigation',
+                    'Missing focus indicators on interactive elements'
+                ],
+                '2.4.2': [
+                    'Pages without descriptive title elements',
+                    'Multiple pages sharing identical titles',
+                    'Titles that don\'t reflect page content or purpose',
+                    'Dynamic content changes not reflected in page titles'
+                ]
+            };
+
+            const criterionViolations = violations[criterionNumber] || [
+                'Review WCAG documentation for specific violation examples',
+                'Test with assistive technologies to identify issues',
+                'Consult accessibility guidelines for detailed examples'
+            ];
+
+            return '<ul class="list-disc list-inside space-y-1 text-sm text-gray-700">' +
+                   criterionViolations.map(violation => `<li>${violation}</li>`).join('') +
+                   '</ul>';
+        },
+
+        // Get testing tools and resources for a criterion
+        getTestingTools(criterionNumber, testMethod) {
+            const automatedTools = [
+                '<strong>axe-core:</strong> Browser extension for comprehensive accessibility testing',
+                '<strong>WAVE:</strong> Web accessibility evaluation tool',
+                '<strong>Lighthouse:</strong> Google\'s accessibility audit tool',
+                '<strong>Pa11y:</strong> Command-line accessibility testing tool'
+            ];
+
+            const manualTools = [
+                '<strong>Screen Readers:</strong> NVDA, JAWS, VoiceOver for testing with assistive technology',
+                '<strong>Keyboard Testing:</strong> Tab, Shift+Tab, Enter, Space, Arrow keys navigation',
+                '<strong>Browser Dev Tools:</strong> Inspect accessibility tree and properties',
+                '<strong>Color Contrast:</strong> WebAIM Contrast Checker, Colour Contrast Analyser'
+            ];
+
+            const resources = [
+                '<strong>WCAG Guidelines:</strong> <a href="https://www.w3.org/WAI/WCAG22/Understanding/" target="_blank" class="text-blue-600 hover:text-blue-800">Understanding WCAG 2.2</a>',
+                '<strong>WebAIM:</strong> <a href="https://webaim.org/" target="_blank" class="text-blue-600 hover:text-blue-800">Accessibility tutorials and resources</a>',
+                '<strong>MDN Accessibility:</strong> <a href="https://developer.mozilla.org/en-US/docs/Web/Accessibility" target="_blank" class="text-blue-600 hover:text-blue-800">Technical implementation guides</a>'
+            ];
+
+            let toolsList = '';
+            
+            if (testMethod === 'automated' || testMethod === 'both') {
+                toolsList += '<div class="mb-4"><h6 class="font-medium text-purple-800 mb-2">Automated Testing Tools:</h6>';
+                toolsList += '<ul class="list-disc list-inside space-y-1 text-sm text-purple-700">';
+                toolsList += automatedTools.map(tool => `<li>${tool}</li>`).join('');
+                toolsList += '</ul></div>';
+            }
+
+            if (testMethod === 'manual' || testMethod === 'both') {
+                toolsList += '<div class="mb-4"><h6 class="font-medium text-purple-800 mb-2">Manual Testing Tools:</h6>';
+                toolsList += '<ul class="list-disc list-inside space-y-1 text-sm text-purple-700">';
+                toolsList += manualTools.map(tool => `<li>${tool}</li>`).join('');
+                toolsList += '</ul></div>';
+            }
+
+            toolsList += '<div><h6 class="font-medium text-purple-800 mb-2">Additional Resources:</h6>';
+            toolsList += '<ul class="list-disc list-inside space-y-1 text-sm text-purple-700">';
+            toolsList += resources.map(resource => `<li>${resource}</li>`).join('');
+            toolsList += '</ul></div>';
+
+            return toolsList;
+        },
+
+        // Helper functions for enhanced audit display
+        getActionTypeColor(actionType) {
+            const colors = {
+                'created': 'bg-blue-500',
+                'updated': 'bg-green-500',
+                'status_changed': 'bg-yellow-500',
+                'assigned': 'bg-purple-500',
+                'completed': 'bg-green-600',
+                'failed': 'bg-red-500',
+                'reviewed': 'bg-indigo-500',
+                'approved': 'bg-emerald-500',
+                'rejected': 'bg-red-600',
+                'archived': 'bg-gray-500'
+            };
+            return colors[actionType] || 'bg-gray-400';
+        },
+
+        getActionTypeIcon(actionType) {
+            const icons = {
+                'created': 'fa-plus',
+                'updated': 'fa-edit',
+                'status_changed': 'fa-exchange-alt',
+                'assigned': 'fa-user-tag',
+                'completed': 'fa-check',
+                'failed': 'fa-times',
+                'reviewed': 'fa-eye',
+                'approved': 'fa-thumbs-up',
+                'rejected': 'fa-thumbs-down',
+                'archived': 'fa-archive'
+            };
+            return icons[actionType] || 'fa-info';
+        },
+
+        getActionTypeDisplay(actionType) {
+            const displays = {
+                'created': 'Created',
+                'updated': 'Updated',
+                'status_changed': 'Status Changed',
+                'assigned': 'Assigned',
+                'completed': 'Completed',
+                'failed': 'Failed',
+                'reviewed': 'Reviewed',
+                'approved': 'Approved',
+                'rejected': 'Rejected',
+                'archived': 'Archived'
+            };
+            return displays[actionType] || (actionType || 'Updated');
+        },
+
+        formatAuditValue(value) {
+            if (value === null || value === undefined) {
+                return '<em class="text-gray-400">null</em>';
+            }
+            if (typeof value === 'object') {
+                return `<pre class="text-xs overflow-x-auto">${JSON.stringify(value, null, 2)}</pre>`;
+            }
+            if (typeof value === 'string' && value.length > 100) {
+                return `<div class="text-sm">${value.substring(0, 100)}...</div><details class="mt-1"><summary class="text-xs text-blue-600 cursor-pointer">Show full value</summary><div class="mt-1 text-xs">${value}</div></details>`;
+            }
+            return `<span class="font-mono">${value}</span>`;
+        },
+
+        timeAgo(dateString) {
+            const date = new Date(dateString);
+            const now = new Date();
+            const diffMs = now - date;
+            const diffMins = Math.floor(diffMs / 60000);
+            const diffHours = Math.floor(diffMins / 60);
+            const diffDays = Math.floor(diffHours / 24);
+
+            if (diffMins < 1) return 'Just now';
+            if (diffMins < 60) return `${diffMins}m ago`;
+            if (diffHours < 24) return `${diffHours}h ago`;
+            if (diffDays < 7) return `${diffDays}d ago`;
+            return date.toLocaleDateString();
+        },
+
+        // Helper function for automation status badge
+        getAutomationStatusBadgeClass(status) {
+            const classes = {
+                'completed': 'bg-green-100 text-green-800',
+                'running': 'bg-blue-100 text-blue-800',
+                'failed': 'bg-red-100 text-red-800',
+                'pending': 'bg-yellow-100 text-yellow-800'
+            };
+            return classes[status] || 'bg-gray-100 text-gray-800';
+        },
+
+        // Format automation results for display
+        formatAutomationResults(rawResults) {
+            if (!rawResults || typeof rawResults !== 'object') {
+                return '<em class="text-gray-500">No detailed results available</em>';
+            }
+
+            // Handle different result formats (axe, pa11y, lighthouse, etc.)
+            if (rawResults.violations && Array.isArray(rawResults.violations)) {
+                // axe-core format
+                let html = '<div class="space-y-3">';
+                if (rawResults.violations.length > 0) {
+                    html += '<div><strong class="text-red-700">Violations:</strong><ul class="list-disc list-inside mt-1 space-y-1">';
+                    rawResults.violations.slice(0, 5).forEach(violation => {
+                        html += `<li class="text-red-600">${violation.description || violation.help || 'Accessibility violation'}</li>`;
+                    });
+                    if (rawResults.violations.length > 5) {
+                        html += `<li class="text-gray-500 italic">... and ${rawResults.violations.length - 5} more</li>`;
+                    }
+                    html += '</ul></div>';
+                }
+                if (rawResults.passes && rawResults.passes.length > 0) {
+                    html += `<div><strong class="text-green-700">Passes:</strong> <span class="text-green-600">${rawResults.passes.length} tests passed</span></div>`;
+                }
+                html += '</div>';
+                return html;
+            } else if (rawResults.issues && Array.isArray(rawResults.issues)) {
+                // pa11y format
+                let html = '<div class="space-y-2">';
+                const issues = rawResults.issues.slice(0, 10);
+                issues.forEach(issue => {
+                    const typeClass = issue.type === 'error' ? 'text-red-600' : issue.type === 'warning' ? 'text-yellow-600' : 'text-blue-600';
+                    html += `<div class="${typeClass}"><strong>${issue.type.toUpperCase()}:</strong> ${issue.message || 'Accessibility issue detected'}</div>`;
+                });
+                if (rawResults.issues.length > 10) {
+                    html += `<div class="text-gray-500 italic">... and ${rawResults.issues.length - 10} more issues</div>`;
+                }
+                html += '</div>';
+                return html;
+            } else {
+                // Generic object format
+                return `<pre class="text-xs overflow-x-auto whitespace-pre-wrap">${JSON.stringify(rawResults, null, 2)}</pre>`;
             }
         },
 
@@ -9294,18 +9686,19 @@ ${requirement.failure_examples}
                             status: instance.status
                         });
                     }
-                } else if (this.sessionDetailsPages?.length > 0) {
+                } else if (this.sessionDetailsPages?.length > 0 && group.pages.length === 0) {
                     // If no specific page for this test instance, show available project pages
                     // This represents all pages that could be tested for this requirement
-                    group.pages = this.sessionDetailsPages.slice(0, 5).map(page => ({
+                    group.pages = this.sessionDetailsPages.map(page => ({
                         page_url: page.url,
                         page_title: page.title,
                         page_depth: page.depth,
                         page_type: page.content_type,
                         requires_auth: page.requires_auth,
-                        status: instance.status, // Use the test instance status
+                        status: 'pending', // Default status for available pages
                         is_available_page: true // Flag to indicate this is an available page, not specifically assigned
                     }));
+                    console.log(`📄 Added ${group.pages.length} available pages for requirement ${criterionNumber}`);
                 }
                 
                 // Update status counts
@@ -9328,7 +9721,25 @@ ${requirement.failure_examples}
         
         // Get unique requirements that have page information
         getUniqueRequirementsWithPages() {
-            return this.getRequirementsWithPages().filter(group => group.pages.length > 0);
+            const requirementsWithPages = this.getRequirementsWithPages().filter(group => group.pages.length > 0);
+            console.log('🔍 Requirements with pages:', requirementsWithPages.length, 'out of', this.getRequirementsWithPages().length, 'total requirements');
+            console.log('📄 Session pages available:', this.sessionDetailsPages?.length || 0);
+            console.log('📋 Test instances loaded:', this.sessionDetailsTestInstances?.length || 0);
+            return requirementsWithPages;
+        },
+
+        // Debug function to refresh URLs data
+        async refreshURLsData() {
+            console.log('🔄 Manually refreshing URLs data...');
+            if (this.selectedTestSession) {
+                await this.loadSessionPages();
+                await this.loadSessionTestInstances(this.selectedTestSession.id);
+                console.log('✅ URLs data refreshed');
+                // Force Alpine.js to re-evaluate
+                this.$nextTick(() => {
+                    console.log('🔍 After refresh - Requirements with pages:', this.getUniqueRequirementsWithPages().length);
+                });
+            }
         },
 
         // ===== ADVANCED TEST GRID METHODS =====
@@ -12379,6 +12790,23 @@ ${requirement.failure_examples}
     window.toggleTestHistory = (instanceId) => componentInstance.toggleTestHistory(instanceId);
     window.loadTestHistory = (instanceId) => componentInstance.loadTestHistory(instanceId);
     window.closeTestHistory = () => componentInstance.closeTestHistory();
+    
+    // Debug Functions
+    window.refreshURLsData = () => componentInstance.refreshURLsData();
+    window.debugURLsData = () => {
+        console.log('📊 URLs Debug Info:');
+        console.log('- Session pages:', componentInstance.sessionDetailsPages?.length || 0);
+        console.log('- Test instances:', componentInstance.sessionDetailsTestInstances?.length || 0);
+        console.log('- Requirements with pages:', componentInstance.getUniqueRequirementsWithPages().length);
+        console.log('- Selected project:', componentInstance.selectedProject);
+        console.log('- Selected test session:', componentInstance.selectedTestSession?.id);
+    };
+
+    // Global Helper Functions (accessible from any Alpine.js context)
+    window.getTestMethodExplanation = (criterionNumber, testMethod) => componentInstance.getTestMethodExplanation(criterionNumber, testMethod);
+    window.getDetailedTestingSteps = (criterionNumber, testMethod) => componentInstance.getDetailedTestingSteps(criterionNumber, testMethod);
+    window.getCommonViolations = (criterionNumber) => componentInstance.getCommonViolations(criterionNumber);
+    window.getTestingTools = (criterionNumber, testMethod) => componentInstance.getTestingTools(criterionNumber, testMethod);
     
     // Test Instance Management Global Functions
     window.saveTestInstanceDetails = (instanceId, modal) => componentInstance.saveTestInstanceDetails(instanceId, modal);

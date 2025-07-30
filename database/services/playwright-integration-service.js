@@ -58,10 +58,10 @@ class PlaywrightIntegrationService {
             // Create frontend test run
             const testRun = await client.query(`
                 INSERT INTO frontend_test_runs (
-                    session_id, run_name, test_suite, test_environment,
-                    browsers, viewports, test_types,
-                    initiated_by, metadata
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                    test_session_id, run_name, test_suite, test_environment,
+                    browsers_tested, viewports_tested, test_configuration,
+                    initiated_by
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
                 RETURNING *
             `, [
                 sessionId,
@@ -70,9 +70,8 @@ class PlaywrightIntegrationService {
                 runConfig.testEnvironment || 'development',
                 JSON.stringify(runConfig.browsers || ['chromium']),
                 JSON.stringify(runConfig.viewports || ['desktop']),
-                JSON.stringify(runConfig.testTypes || ['basic']),
-                initiatedBy,
-                JSON.stringify(runConfig.metadata || {})
+                JSON.stringify(runConfig.metadata || {}),
+                initiatedBy
             ]);
             
             console.log(`✅ Created frontend test run: ${testRun.rows[0].id}`);

@@ -863,10 +863,59 @@
                                     </div>
                                 </div>
                                 
-                                <!-- Testing Instructions -->
-                                <div x-show="requirement.testing_instructions" class="mt-4 p-3 bg-blue-50 rounded-md">
-                                    <h5 class="text-sm font-medium text-blue-900 mb-2">Testing Instructions</h5>
-                                    <p class="text-sm text-blue-800" x-text="requirement.testing_instructions"></p>
+                                <!-- Enhanced Testing Instructions -->
+                                <div class="mt-4 space-y-3">
+                                    <!-- Basic Testing Instructions -->
+                                    <div x-show="requirement.testing_instructions" class="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                                        <h5 class="text-sm font-medium text-blue-900 mb-2 flex items-center">
+                                            <i class="fas fa-clipboard-check mr-2"></i>Testing Instructions
+                                        </h5>
+                                        <p class="text-sm text-blue-800 whitespace-pre-line" x-text="requirement.testing_instructions"></p>
+                                    </div>
+
+                                    <!-- Test Method Explanation for "Both" -->
+                                    <div x-show="requirement.test_method === 'both'" class="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                                        <h5 class="text-sm font-medium text-yellow-800 mb-2 flex items-center">
+                                            <i class="fas fa-info-circle mr-2"></i>Why Both Automated & Manual Testing?
+                                        </h5>
+                                        <p class="text-sm text-yellow-700" x-text="getTestMethodExplanation(requirement.criterion_number, requirement.test_method)"></p>
+                                    </div>
+
+                                    <!-- Detailed Testing Steps -->
+                                    <div class="p-4 bg-green-50 border border-green-200 rounded-lg">
+                                        <h5 class="text-sm font-medium text-green-800 mb-3 flex items-center">
+                                            <i class="fas fa-tasks mr-2"></i>Step-by-Step Testing Guide
+                                        </h5>
+                                        <div x-html="getDetailedTestingSteps(requirement.criterion_number, requirement.test_method)"></div>
+                                    </div>
+
+                                    <!-- Common Violations & Examples -->
+                                    <details class="bg-gray-50 border border-gray-200 rounded-lg">
+                                        <summary class="p-4 cursor-pointer hover:bg-gray-100 transition-colors">
+                                            <span class="text-sm font-medium text-gray-800 flex items-center">
+                                                <i class="fas fa-exclamation-triangle mr-2 text-orange-500"></i>
+                                                Common Violations & Examples
+                                                <i class="fas fa-chevron-down ml-auto text-xs"></i>
+                                            </span>
+                                        </summary>
+                                        <div class="p-4 pt-0">
+                                            <div x-html="getCommonViolations(requirement.criterion_number)"></div>
+                                        </div>
+                                    </details>
+
+                                    <!-- Tools & Resources -->
+                                    <details class="bg-purple-50 border border-purple-200 rounded-lg">
+                                        <summary class="p-4 cursor-pointer hover:bg-purple-100 transition-colors">
+                                            <span class="text-sm font-medium text-purple-800 flex items-center">
+                                                <i class="fas fa-tools mr-2"></i>
+                                                Testing Tools & Resources
+                                                <i class="fas fa-chevron-down ml-auto text-xs"></i>
+                                            </span>
+                                        </summary>
+                                        <div class="p-4 pt-0">
+                                            <div x-html="getTestingTools(requirement.criterion_number, requirement.test_method)"></div>
+                                        </div>
+                                    </details>
                                 </div>
                                 
                                 <!-- Acceptance Criteria -->

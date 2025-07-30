@@ -17,7 +17,7 @@ router.post('/run/:sessionId', authenticateToken, async (req, res) => {
     try {
         const { sessionId } = req.params;
         const { 
-            tools = ['axe-core', 'pa11y'], // Default tools
+            tools = ['axe', 'pa11y'], // Default tools
             run_async = true,
             pages = null, // Specific pages to test, null = all pages
             requirements = null, // Specific requirements to test, null = all requirements
@@ -29,7 +29,7 @@ router.post('/run/:sessionId', authenticateToken, async (req, res) => {
         console.log(`🤖 Starting automated tests for session ${sessionId} with tools: ${tools.join(', ')}`);
 
         // Validate tools
-        const validTools = ['axe-core', 'pa11y', 'lighthouse'];
+        const validTools = ['axe', 'pa11y', 'lighthouse', 'migrated_data', 'playwright', 'playwright-axe', 'playwright-lighthouse', 'cypress', 'selenium', 'webdriver'];
         const invalidTools = tools.filter(tool => !validTools.includes(tool));
         if (invalidTools.length > 0) {
             return res.status(400).json({
@@ -349,6 +349,61 @@ router.get('/tools', authenticateToken, async (req, res) => {
 });
 
 /**
+ * Configure automation tools
+ * POST /api/automated-testing/tools
+ */
+router.post('/tools', authenticateToken, async (req, res) => {
+    try {
+        const { tools, configuration } = req.body;
+        
+        const result = await automationService.configureTools(tools, configuration);
+        
+        res.json({
+            success: true,
+            message: 'Automation tools configured successfully',
+            data: result
+        });
+
+    } catch (error) {
+        console.error('Error configuring tools:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message || 'Failed to configure tools'
+        });
+    }
+});
+
+/**
+ * Get automation run status (GET version for status checking)
+ * GET /api/automated-testing/run/:sessionId
+ */
+router.get('/run/:sessionId', authenticateToken, async (req, res) => {
+    try {
+        const { sessionId } = req.params;
+        
+        const status = await automationService.getAutomationStatus(sessionId);
+        
+        res.json({
+            success: true,
+            data: {
+                session_id: sessionId,
+                status: status.current_status,
+                summary: status.summary,
+                latest_run: status.latest_run,
+                total_runs: status.total_runs
+            }
+        });
+
+    } catch (error) {
+        console.error('Error getting automation run status:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message || 'Failed to get automation run status'
+        });
+    }
+});
+
+/**
  * Cancel a running automation run
  * DELETE /api/automated-testing/run/:runId
  */
@@ -384,7 +439,7 @@ router.delete('/run/:runId', authenticateToken, async (req, res) => {
 router.post('/run-instance/:instanceId', authenticateToken, async (req, res) => {
     try {
         const { instanceId } = req.params;
-        const { tools = ['axe-core'] } = req.body;
+        const { tools = ['axe'] } = req.body;
         
         const result = await automationService.runTestForInstance(instanceId, {
             tools,
@@ -531,9 +586,7 @@ router.get('/specialized-analysis/:instanceId', authenticateToken, async (req, r
             requirement: {
                 criterion_number: testInstance.criterion_number,
                 title: testInstance.requirement_title,
-                test_method: testInstance.test_method,
-                automated_tools: testInstance.automated_tools,
-                automation_confidence: testInstance.automation_confidence
+                test_method: testInstance.test_method
             },
             summary: {
                 status: testInstance.status,

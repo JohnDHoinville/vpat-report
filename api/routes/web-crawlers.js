@@ -1083,5 +1083,178 @@ router.get('/crawlers/:crawlerId/page-selections', authenticateToken, async (req
     }
 });
 
+/**
+ * Root route for web crawlers - list all crawlers
+ */
+router.get('/', ensureServices, optionalAuth, async (req, res) => {
+    try {
+        const { status, limit = 50, offset = 0 } = req.query;
+
+        let query = `SELECT * FROM web_crawlers`;
+        const params = [];
+        let paramCount = 1;
+
+        if (status) {
+            query += ` WHERE status = $${paramCount++}`;
+            params.push(status);
+        }
+
+        query += ` ORDER BY created_at DESC LIMIT $${paramCount++} OFFSET $${paramCount}`;
+        params.push(limit, offset);
+
+        const client = await crawlerService.pool.connect();
+        const result = await client.query(query, params);
+        client.release();
+
+        res.json({
+            success: true,
+            data: result.rows,
+            pagination: {
+                limit: parseInt(limit),
+                offset: parseInt(offset),
+                total: result.rows.length
+            }
+        });
+    } catch (error) {
+        console.error('Error fetching all crawlers:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+/**
+ * Create a new web crawler
+ * POST /api/web-crawlers/crawlers
+ */
+router.post('/crawlers', ensureServices, authenticateToken, async (req, res) => {
+    try {
+        const { 
+            name, 
+            description, 
+            base_url, 
+            project_id,
+            auth_type = 'none',
+            saml_config = {},
+            auth_credentials = {},
+            auth_workflow = {},
+            max_pages = 100,
+            max_depth = 3,
+            concurrent_requests = 5,
+            request_delay_ms = 1000,
+            browser_type = 'chromium',
+            viewport_config = { width: 1920, height: 1080 }
+        } = req.body;
+
+        // Validate required fields
+        if (!name || !base_url || !project_id) {
+            return res.status(400).json({
+                success: false,
+                error: 'Name, base_url, and project_id are required'
+            });
+        }
+
+        const client = await crawlerService.pool.connect();
+        
+        try {
+            // Check if project exists
+            const projectCheck = await client.query(
+                'SELECT id FROM projects WHERE id = $1',
+                [project_id]
+            );
+
+            if (projectCheck.rows.length === 0) {
+                return res.status(404).json({
+                    success: false,
+                    error: 'Project not found'
+                });
+            }
+
+            // Create crawler
+            const insertQuery = `
+                INSERT INTO web_crawlers (
+                    id, project_id, name, description, base_url, auth_type, 
+                    saml_config, auth_credentials, auth_workflow, max_pages, 
+                    max_depth, concurrent_requests, request_delay_ms, 
+                    browser_type, viewport_config, status, created_at, updated_at,
+                    created_by, metadata, headful_mode, follow_external, 
+                    respect_robots, concurrent_pages, delay_ms
+                ) VALUES (
+                    gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9, 
+                    $10, $11, $12, $13, $14, 'inactive', CURRENT_TIMESTAMP, 
+                    CURRENT_TIMESTAMP, $15, '{}', false, false, true, $11, $12
+                ) RETURNING *
+            `;
+
+            const result = await client.query(insertQuery, [
+                project_id, name, description, base_url, auth_type,
+                JSON.stringify(saml_config), JSON.stringify(auth_credentials),
+                JSON.stringify(auth_workflow), max_pages, max_depth,
+                concurrent_requests, request_delay_ms, browser_type,
+                JSON.stringify(viewport_config), req.user?.userId || null
+            ]);
+
+            const newCrawler = result.rows[0];
+
+            console.log(`✅ Created new crawler: ${newCrawler.name} (${newCrawler.id})`);
+
+            res.status(201).json({
+                success: true,
+                message: 'Web crawler created successfully',
+                data: newCrawler
+            });
+
+        } finally {
+            client.release();
+        }
+
+    } catch (error) {
+        console.error('Error creating web crawler:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message || 'Failed to create web crawler'
+        });
+    }
+});
+
+/**
+ * Get crawler status
+ */
+router.get('/crawlers/:crawlerId/status', authenticateToken, async (req, res) => {
+    try {
+        const { crawlerId } = req.params;
+
+        const client = await crawlerService.pool.connect();
+        
+        try {
+            const query = `
+                SELECT id, name, status, created_at, updated_at, metadata
+                FROM web_crawlers 
+                WHERE id = $1
+            `;
+            const result = await client.query(query, [crawlerId]);
+            
+            if (result.rows.length === 0) {
+                return res.status(404).json({
+                    success: false,
+                    error: 'Crawler not found'
+                });
+            }
+
+            res.json({
+                success: true,
+                data: result.rows[0]
+            });
+
+        } finally {
+            client.release();
+        }
+    } catch (error) {
+        console.error('Error fetching crawler status:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
 module.exports = router;
 module.exports.initializeServices = initializeServices; 
