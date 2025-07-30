@@ -1006,8 +1006,8 @@ class TestAutomationService {
     async updateRunStatus(runId, status, data = {}) {
         console.log(`📊 Automation Run ${runId}: Status changed to ${status}`, data);
         
-        // If we need to track run status, we would need a separate automated_test_runs table
-        // For now, just log the status change without database updates
+        // Log status changes without database updates since automated_test_results
+        // is for individual test results, not run status tracking
         
         if (status === 'failed' && data.error) {
             console.error(`❌ Automation Run ${runId} failed:`, data.error);
