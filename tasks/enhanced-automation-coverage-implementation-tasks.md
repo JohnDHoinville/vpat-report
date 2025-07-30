@@ -9,8 +9,10 @@
 ## **Relevant Files**
 - **api/routes/testing-sessions.js**: Fixed JOIN to use `assigned_tester` instead of `tested_by`
 - **database/services/manual-testing-service.js**: Fixed INSERT to use `assigned_tester` column mapping
-- **api/services/test-automation-service.js**: Fixed createAutomationRun to create entries for all tools with unique IDs and proper UPSERT handling
+- **api/services/test-automation-service.js**: Fixed createAutomationRun to create entries for all tools with unique IDs, proper UPSERT handling, enhanced page_id fallback logic, and added complete runContrastAnalyzer() method integration
+- **api/routes/automated-testing.js**: Added contrast-analyzer to validTools array
 - **Database**: Removed NOT NULL constraint from test_audit_log.test_instance_id to allow session-level audit entries
+- **Server Management**: Resolved multiple Node.js server processes issue that was causing old code to persist
 
 ---
 
@@ -45,10 +47,11 @@
   - [x] Fix remaining `tested_by` column references causing automation failures
   - **Acceptance**: Audit trail entries created successfully for automation events
 
-- [ ] **Task P0.1.4**: Fix duplicate key violations in automated_test_results
-  - Ensure UPSERT logic is working correctly in `createAutomationRun()`
-  - Add proper conflict resolution for re-runs
-  - **Acceptance**: Automation can be re-run without duplicate key errors
+- [x] **Task P0.1.4**: Fix `null page_id` errors in `automated_test_results`
+  - [x] Ensure `page_id` is always retrieved and used in `automated_test_results` inserts
+  - [x] Add fallback logic if no pages are discovered for a session
+  - [x] Verify `createAutomationRun` handles missing pages gracefully
+  - **Acceptance**: No more `null page_id` errors in automation runs
 
 **Dependencies**: None  
 **Blockers**: Current automation system is non-functional  
@@ -60,22 +63,22 @@
 ### 1.1 Google Lighthouse Integration
 **Priority: P1 | Estimate: 1 week**
 
-- [ ] **Task 1.1.1**: Enable Lighthouse in automation pipeline
-  - Add `lighthouse` to default tools array in `dashboard/js/dashboard.js` (lines 8476, 9625)
-  - Update `validTools` in `api/routes/automated-testing.js` to include lighthouse by default
-  - Test Lighthouse tool validation
+- [x] **Task 1.1.1**: Enable Lighthouse in automation pipeline
+  - [x] Add `lighthouse` to default tools array in `dashboard/js/dashboard.js` (lines 8476, 9625)
+  - [x] Update `validTools` in `api/routes/automated-testing.js` to include lighthouse by default
+  - [x] Test Lighthouse tool validation
   - **Acceptance**: Lighthouse appears as available tool in frontend UI
 
-- [ ] **Task 1.1.2**: Enhance Lighthouse execution method
-  - Complete implementation of `runLighthouse()` in `api/services/test-automation-service.js`
-  - Add accessibility-only audit configuration
-  - Implement proper error handling and timeout management
+- [x] **Task 1.1.2**: Enhance Lighthouse execution method
+  - [x] Complete implementation of `runLighthouse()` in `api/services/test-automation-service.js`
+  - [x] Add accessibility-only audit configuration
+  - [x] Implement proper error handling and timeout management
   - **Acceptance**: Lighthouse audits execute successfully and return structured results
 
-- [ ] **Task 1.1.3**: Add Lighthouse-specific evidence capture
-  - Extend `extractSelectors()` to handle Lighthouse audit results
-  - Update `generateEvidenceDescription()` to include Lighthouse findings
-  - Add Performance-Accessibility correlation metrics
+- [x] **Task 1.1.3**: Add Lighthouse-specific evidence capture
+  - [x] Extend `extractSelectors()` to handle Lighthouse audit results
+  - [x] Update `generateEvidenceDescription()` to include Lighthouse findings
+  - [x] Add Performance-Accessibility correlation metrics
   - **Acceptance**: Lighthouse results appear in audit trail with detailed evidence
 
 - [ ] **Task 1.1.4**: Implement Core Web Vitals accessibility correlation
@@ -90,21 +93,21 @@
 ### 1.2 Enhanced Color Analysis
 **Priority: P1 | Estimate: 3 days**
 
-- [ ] **Task 1.2.1**: Extend axe-core color analysis rules
-  - Add custom color contrast rules beyond basic WCAG AA
-  - Configure enhanced contrast calculations for AAA compliance
-  - Add focus indicator contrast analysis
+- [x] **Task 1.2.1**: Extend axe-core color analysis rules
+  - [x] Add custom color contrast rules beyond basic WCAG AA
+  - [x] Configure enhanced contrast calculations for AAA compliance
+  - [x] Add focus indicator contrast analysis
   - **Acceptance**: Enhanced color violations detected beyond standard axe rules
 
-- [ ] **Task 1.2.2**: Implement advanced color dependency detection
-  - Add detection for color-only information dependencies
-  - Identify areas where color is the sole means of conveying information
+- [x] **Task 1.2.2**: Implement advanced color dependency detection
+  - [x] Add detection for color-only information dependencies
+  - [x] Identify areas where color is the sole means of conveying information
   - **Acceptance**: Color dependency violations flagged in automation results
 
-- [ ] **Task 1.2.3**: Add color analysis to evidence system
-  - Update evidence capture to include detailed color analysis
-  - Add contrast ratio details to violation descriptions
-  - Include color accessibility remediation guidance
+- [x] **Task 1.2.3**: Add color analysis to evidence system
+  - [x] Update evidence capture to include detailed color analysis
+  - [x] Add contrast ratio details to violation descriptions
+  - [x] Include color accessibility remediation guidance
   - **Acceptance**: Audit trail shows comprehensive color analysis evidence
 
 **Coverage Impact**: +1-2% automated coverage  

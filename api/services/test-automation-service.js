@@ -180,6 +180,10 @@ class TestAutomationService {
                         toolResults = await this.runLighthouse(pages);
                         results.lighthouse = toolResults;
                         break;
+                    case 'contrast-analyzer':
+                        toolResults = await this.runContrastAnalyzer(pages);
+                        results['contrast-analyzer'] = toolResults;
+                        break;
                 }
 
                 // Emit tool completion milestone
@@ -901,6 +905,64 @@ class TestAutomationService {
     }
 
     /**
+     * Run Contrast Analyzer tests
+     */
+    async runContrastAnalyzer(pages) {
+        const ContrastAnalyzer = require('../../scripts/contrast-analyzer.js');
+        const analyzer = new ContrastAnalyzer();
+        
+        const results = {
+            tool: 'contrast-analyzer',
+            pages_tested: [],
+            total_violations: 0,
+            critical_violations: 0,
+            violations_by_page: {}
+        };
+
+        for (const page of pages) {
+            try {
+                console.log(`🎨 Running contrast analysis for ${page.url}`);
+                const contrastResults = await analyzer.analyzeContrast(page.url, {
+                    level: 'AA',
+                    includeAAA: true,
+                    analyzeBackgroundImages: true,
+                    analyzeGradients: true,
+                    captureScreenshots: false
+                });
+
+                const violations = contrastResults.violations?.length || 0;
+                const criticalViolations = contrastResults.violations?.filter(v => v.level === 'AAA').length || 0;
+
+                const pageResults = {
+                    url: page.url,
+                    violations: violations,
+                    critical: criticalViolations,
+                    contrast_ratio_details: contrastResults.violations || [],
+                    overall_score: contrastResults.statistics?.passRate || 0
+                };
+
+                results.pages_tested.push(pageResults);
+                results.total_violations += violations;
+                results.critical_violations += criticalViolations;
+                results.violations_by_page[page.url] = pageResults;
+
+                console.log(`✅ Contrast analysis completed for ${page.url}: ${violations} violations found`);
+
+            } catch (pageError) {
+                console.error(`❌ Contrast analysis error for ${page.url}:`, pageError.message);
+                results.pages_tested.push({
+                    url: page.url,
+                    error: pageError.message,
+                    violations: 0,
+                    critical: 0
+                });
+            }
+        }
+
+        return results;
+    }
+
+    /**
      * Get pages to test for a session
      */
     async getPagesToTest(sessionId, specificPages = null, maxPages = 100) {
@@ -962,12 +1024,54 @@ class TestAutomationService {
         const pageResult = await pool.query(pageQuery, [sessionId]);
         console.log('🔍 DEBUG: Page query result:', pageResult.rows.length, 'rows');
         
-        if (pageResult.rows.length === 0) {
-            throw new Error('No pages found for testing in this session');
-        }
+        let pageId;
         
-        const pageId = pageResult.rows[0].page_id;
-        console.log('🔍 DEBUG: Selected page_id:', pageId);
+        if (pageResult.rows.length === 0) {
+            console.warn('⚠️ No discovered pages found for session, creating fallback page entry');
+            
+            // Get project info for fallback
+            const projectQuery = `
+                SELECT p.id as project_id, p.primary_url, p.name
+                FROM test_sessions ts
+                JOIN projects p ON ts.project_id = p.id
+                WHERE ts.id = $1
+            `;
+            
+            const projectResult = await pool.query(projectQuery, [sessionId]);
+            if (projectResult.rows.length === 0) {
+                throw new Error('Session not found or not associated with a project');
+            }
+            
+            const project = projectResult.rows[0];
+            
+            // Create a default discovered page entry for the project's primary URL
+            const createPageQuery = `
+                INSERT INTO discovered_pages (id, discovery_id, url, title, discovered_at)
+                VALUES (gen_random_uuid(), 
+                        (SELECT id FROM site_discovery WHERE project_id = $1 LIMIT 1),
+                        $2, $3, NOW())
+                ON CONFLICT (discovery_id, url) DO UPDATE SET 
+                    url = EXCLUDED.url
+                RETURNING id
+            `;
+            
+            const fallbackUrl = project.primary_url || 'http://localhost:3000';
+            const fallbackTitle = `${project.name} - Primary Page`;
+            
+            try {
+                const createPageResult = await pool.query(createPageQuery, [
+                    project.project_id, fallbackUrl, fallbackTitle
+                ]);
+                pageId = createPageResult.rows[0].id;
+                console.log('✅ Created fallback page entry with ID:', pageId);
+            } catch (createError) {
+                console.error('❌ Failed to create fallback page:', createError);
+                throw new Error('No pages available for testing and failed to create fallback page');
+            }
+        } else {
+            pageId = pageResult.rows[0].page_id;
+            console.log('🔍 DEBUG: Selected existing page_id:', pageId);
+        }
         
         // Create entries for all tools
         const results = [];
@@ -1902,6 +2006,12 @@ class TestAutomationService {
                 description: 'Google\'s web performance and accessibility auditing tool',
                 version: '10.0.0',
                 capabilities: ['performance', 'accessibility', 'best-practices']
+            },
+            {
+                name: 'contrast-analyzer',
+                description: 'Advanced color contrast analysis for accessibility compliance',
+                version: '1.0.0',
+                capabilities: ['color-contrast', 'wcag-aa', 'wcag-aaa', 'gradient-analysis']
             }
         ];
     }
