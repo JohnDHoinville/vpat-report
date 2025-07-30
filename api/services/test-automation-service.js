@@ -911,6 +911,19 @@ class TestAutomationService {
                 violations_count, warnings_count, passes_count, test_duration_ms, 
                 executed_at, browser_name, test_environment, test_suite
             ) VALUES ($1, $2, $3, $4, '1.0', '{}', 0, 0, 0, 0, $5, 'chrome', 'desktop', 'default')
+            ON CONFLICT (test_session_id, page_id, tool_name) 
+            DO UPDATE SET 
+                id = EXCLUDED.id,
+                executed_at = EXCLUDED.executed_at,
+                tool_version = EXCLUDED.tool_version,
+                raw_results = EXCLUDED.raw_results,
+                violations_count = EXCLUDED.violations_count,
+                warnings_count = EXCLUDED.warnings_count,
+                passes_count = EXCLUDED.passes_count,
+                test_duration_ms = EXCLUDED.test_duration_ms,
+                browser_name = EXCLUDED.browser_name,
+                test_environment = EXCLUDED.test_environment,
+                test_suite = EXCLUDED.test_suite
             RETURNING *
         `;
 
