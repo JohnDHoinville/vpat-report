@@ -404,9 +404,9 @@ router.get('/crawlers/:crawlerId/pages', optionalAuth, async (req, res) => {
             console.log('⚠️ WARNING: API called with selected_for_testing=true - checking if any pages are selected...');
             
             // Quick check: count pages that are selected for testing
-            const checkClient = await crawlerService.pool.connect();
+            const preCheckClient = await crawlerService.pool.connect();
             try {
-                const selectedCount = await checkClient.query(`
+                const selectedCount = await preCheckClient.query(`
                     SELECT COUNT(*) as count 
                     FROM crawler_discovered_pages cdp 
                     WHERE cdp.crawler_id = $1 
@@ -421,7 +421,7 @@ router.get('/crawlers/:crawlerId/pages', optionalAuth, async (req, res) => {
                     actuallyFilterBySelection = false;
                 }
             } finally {
-                checkClient.release();
+                preCheckClient.release();
             }
         }
 
