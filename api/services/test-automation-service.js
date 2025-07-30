@@ -184,6 +184,10 @@ class TestAutomationService {
                         toolResults = await this.runContrastAnalyzer(pages);
                         results['contrast-analyzer'] = toolResults;
                         break;
+                    case 'mobile-accessibility':
+                        toolResults = await this.runMobileAccessibility(pages);
+                        results['mobile-accessibility'] = toolResults;
+                        break;
                 }
 
                 // Emit tool completion milestone
@@ -956,6 +960,101 @@ class TestAutomationService {
                     violations: 0,
                     critical: 0
                 });
+            }
+        }
+
+        return results;
+    }
+
+    /**
+     * Run Mobile Accessibility tests
+     */
+    async runMobileAccessibility(pages) {
+        const { testMobileAccessibility } = require('../../scripts/mobile-accessibility-tester.js');
+        const puppeteer = require('puppeteer');
+        
+        const results = {
+            tool: 'mobile-accessibility',
+            pages_tested: [],
+            total_violations: 0,
+            critical_violations: 0,
+            violations_by_page: {},
+            mobile_issues: {
+                touch_targets: 0,
+                viewport_issues: 0,
+                responsive_issues: 0
+            }
+        };
+
+        let browser = null;
+        try {
+            browser = await puppeteer.launch({ 
+                headless: true,
+                args: ['--no-sandbox', '--disable-setuid-sandbox']
+            });
+
+            // Test multiple mobile viewports
+            const viewports = [
+                { width: 375, height: 667, name: 'iPhone SE' },
+                { width: 414, height: 896, name: 'iPhone 11 Pro' },
+                { width: 360, height: 640, name: 'Android Small' },
+                { width: 768, height: 1024, name: 'Tablet Portrait' }
+            ];
+
+            for (const page of pages) {
+                try {
+                    console.log(`📱 Running mobile accessibility tests for ${page.url}`);
+                    const browserPage = await browser.newPage();
+                    
+                    const pageResults = {
+                        url: page.url,
+                        viewports_tested: [],
+                        violations: 0,
+                        critical: 0
+                    };
+
+                    for (const viewport of viewports) {
+                        const mobileResults = await testMobileAccessibility(browserPage, 'chrome', viewport, page.url);
+                        
+                        pageResults.viewports_tested.push({
+                            viewport: viewport.name,
+                            touch_targets: mobileResults.summary.totalTouchTargets,
+                            valid_touch_targets: mobileResults.summary.validTouchTargets,
+                            responsive_elements: mobileResults.summary.responsiveElements,
+                            violations: mobileResults.summary.invalidTouchTargets
+                        });
+
+                        // Add to overall results
+                        results.mobile_issues.touch_targets += mobileResults.summary.invalidTouchTargets;
+                        results.mobile_issues.viewport_issues += mobileResults.violations.filter(v => v.type === 'viewport').length;
+                        results.mobile_issues.responsive_issues += mobileResults.violations.filter(v => v.type === 'responsive').length;
+                        
+                        pageResults.violations += mobileResults.summary.invalidTouchTargets;
+                    }
+
+                    results.total_violations += pageResults.violations;
+                    results.violations_by_page[page.url] = pageResults.violations;
+                    results.pages_tested.push(pageResults);
+                    
+                    await browserPage.close();
+
+                } catch (pageError) {
+                    console.error(`❌ Mobile accessibility error for ${page.url}:`, pageError.message);
+                    results.pages_tested.push({
+                        url: page.url,
+                        error: pageError.message,
+                        violations: 0,
+                        critical: 0
+                    });
+                }
+            }
+
+        } catch (error) {
+            console.error('❌ Mobile accessibility testing failed:', error.message);
+            throw error;
+        } finally {
+            if (browser) {
+                await browser.close();
             }
         }
 
@@ -2012,6 +2111,12 @@ class TestAutomationService {
                 description: 'Advanced color contrast analysis for accessibility compliance',
                 version: '1.0.0',
                 capabilities: ['color-contrast', 'wcag-aa', 'wcag-aaa', 'gradient-analysis']
+            },
+            {
+                name: 'mobile-accessibility',
+                description: 'Mobile accessibility testing across multiple viewports and touch interfaces',
+                version: '1.0.0',
+                capabilities: ['touch-targets', 'responsive-design', 'mobile-viewport', 'tablet-testing']
             }
         ];
     }
