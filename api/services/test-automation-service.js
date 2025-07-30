@@ -84,6 +84,16 @@ class TestAutomationService {
      * Execute automated tests
      */
     async executeAutomatedTests(runId, sessionId, tools, pages, updateTestInstances, createEvidence, userId, requirements = null, clientMetadata = {}) {
+        // Emit automation start via WebSocket
+        this.emitProgress(sessionId, {
+            percentage: 0,
+            message: `Starting automated tests with ${tools.join(', ')}`,
+            stage: 'initializing',
+            completedTests: 0,
+            totalTests: pages.length * tools.length,
+            currentTool: tools[0],
+            startTime: new Date().toISOString()
+        });
         const startTime = new Date();
         let totalIssues = 0;
         let criticalIssues = 0;
@@ -156,17 +166,32 @@ class TestAutomationService {
                     totalTests: pages.length * tools.length
                 });
                 
+                let toolResults;
                 switch (tool) {
                     case 'axe-core':
-                        results.axe = await this.runAxe(pages, sessionId);
+                        toolResults = await this.runAxe(pages, sessionId);
+                        results.axe = toolResults;
                         break;
                     case 'pa11y':
-                        results.pa11y = await this.runPa11y(pages, sessionId);
+                        toolResults = await this.runPa11y(pages, sessionId);
+                        results.pa11y = toolResults;
                         break;
                     case 'lighthouse':
-                        results.lighthouse = await this.runLighthouse(pages);
+                        toolResults = await this.runLighthouse(pages);
+                        results.lighthouse = toolResults;
                         break;
                 }
+
+                // Emit tool completion milestone
+                const toolViolations = this.countViolationsFromResults(toolResults);
+                this.emitMilestone(sessionId, {
+                    type: 'tool_complete',
+                    message: `${tool} testing completed`,
+                    tool: tool,
+                    violationsFound: toolViolations,
+                    passesFound: toolResults?.passes?.length || 0,
+                    timeElapsed: Date.now() - startTime.getTime()
+                });
 
                 // Count issues
                 if (results[tool.replace('-', '')]) {
@@ -219,12 +244,34 @@ class TestAutomationService {
                 testInstancesUpdated = await this.mapResultsToTestInstances(sessionId, results, userId);
                 console.log(`📝 Updated ${testInstancesUpdated} test instances with automated results`);
                 
+                // Emit completion progress via WebSocket
+                this.emitProgress(sessionId, {
+                    percentage: 100,
+                    message: `Automation completed: ${testInstancesUpdated} test instances updated`,
+                    stage: 'completed',
+                    completedTests: results.length,
+                    totalTests: pages.length * tools.length,
+                    violationsFound: totalIssues,
+                    criticalViolations: criticalIssues
+                });
+
+                // Emit completion milestone
+                this.emitMilestone(sessionId, {
+                    type: 'automation_complete',
+                    message: `Automated testing completed successfully`,
+                    violationsFound: totalIssues,
+                    criticalViolations: criticalIssues,
+                    testsUpdated: testInstancesUpdated,
+                    toolsUsed: tools,
+                    timeElapsed: Date.now() - startTime.getTime()
+                });
+
                 // Create session-level audit entry for status changes after automation
                 await this.createSessionAuditLogEntry(
                     sessionId, 
-                    'status_change', 
+                    'automation_completed', 
                     userId, 
-                    `${testInstancesUpdated} test instances updated with automated test results`,
+                    `Automated testing completed: ${testInstancesUpdated} test instances updated with results`,
                     {
                         run_id: runId,
                         field_changed: 'status_and_results',
@@ -235,7 +282,15 @@ class TestAutomationService {
                         results_summary: {
                             total_issues: totalIssues,
                             critical_issues: criticalIssues,
-                            tools_used: tools
+                            tools_used: tools,
+                            pages_tested: pages.length,
+                            total_tests_run: results.length
+                        },
+                        evidence_summary: {
+                            automation_evidence_available: true,
+                            tests_with_evidence: testInstancesUpdated,
+                            evidence_types: ['violation_details', 'passing_rules', 'dom_selectors', 'remediation_steps'],
+                            tools_providing_evidence: tools
                         },
                         ...clientMetadata
                     }
@@ -309,16 +364,25 @@ class TestAutomationService {
                 }
             );
             
-            // Emit automation completion event
-            this.emitCompletion(sessionId, {
-                run_id: runId,
-                duration: completedAt - startTime,
-                pages_tested: pages.length,
-                tools_used: tools,
-                total_issues: totalIssues,
-                critical_issues: criticalIssues,
-                test_instances_updated: testInstancesUpdated,
-                evidence_files_created: evidenceCreated
+            // Emit automation completion event via WebSocket
+            this.emitProgress(sessionId, {
+                percentage: 100,
+                message: `Final automation results: ${totalIssues} issues found`,
+                stage: 'completed',
+                completedTests: results.length,
+                totalTests: pages.length * tools.length,
+                violationsFound: totalIssues,
+                criticalViolations: criticalIssues
+            });
+
+            this.emitMilestone(sessionId, {
+                type: 'automation_complete',
+                message: `Automation run ${runId} completed successfully`,
+                violationsFound: totalIssues,
+                criticalViolations: criticalIssues,
+                testsUpdated: testInstancesUpdated,
+                evidenceCreated: evidenceCreated,
+                timeElapsed: completedAt - startTime
             });
 
             return {
@@ -1310,6 +1374,30 @@ class TestAutomationService {
                             items: resultData.automated_analysis.remediation_guidance
                         };
                     }
+
+                    // Add detailed evidence for audit trail
+                    if (resultData.automated_analysis.tool_results) {
+                        enhancedMetadata.evidence = {
+                            test_outcome: data.status,
+                            confidence_level: data.confidence_level,
+                            evidence_type: 'automated_scan',
+                            tools_used: resultData.automated_analysis.tools_used,
+                            evidence_details: {
+                                violations_found: resultData.automated_analysis.total_violations,
+                                critical_violations: resultData.automated_analysis.critical_violations,
+                                passes_recorded: resultData.automated_analysis.tool_results.passes || 0,
+                                incomplete_tests: resultData.automated_analysis.tool_results.incomplete || 0,
+                                rule_coverage: Object.keys(resultData.automated_analysis.tool_results.violations || {}).length,
+                                test_duration: resultData.automated_analysis.test_duration_ms
+                            },
+                            proof_artifacts: {
+                                violation_details: resultData.automated_analysis.tool_results.violations,
+                                passing_rules: resultData.automated_analysis.tool_results.passes,
+                                dom_selectors: this.extractSelectors(resultData.automated_analysis.tool_results),
+                                remediation_steps: resultData.automated_analysis.remediation_guidance
+                            }
+                        };
+                    }
                 }
             } catch (e) {
                 console.warn('Error parsing result data for audit log:', e);
@@ -1329,9 +1417,97 @@ class TestAutomationService {
             actionType,
             userId,
             new Date(),
-            data.notes || `Automated test result: ${data.status}`,
+            this.generateEvidenceDescription(data) || `Automated test result: ${data.status}`,
             JSON.stringify(enhancedMetadata)
         ]);
+    }
+
+    /**
+     * Extract DOM selectors from tool results for evidence
+     */
+    extractSelectors(toolResults) {
+        const selectors = [];
+        
+        // Extract from violations
+        if (toolResults.violations) {
+            Object.values(toolResults.violations).forEach(violationGroup => {
+                if (Array.isArray(violationGroup)) {
+                    violationGroup.forEach(violation => {
+                        if (violation.nodes) {
+                            violation.nodes.forEach(node => {
+                                if (node.target && node.target[0]) {
+                                    selectors.push({
+                                        selector: node.target[0],
+                                        type: 'violation',
+                                        rule: violation.id,
+                                        impact: violation.impact,
+                                        description: violation.description
+                                    });
+                                }
+                            });
+                        }
+                    });
+                }
+            });
+        }
+        
+        // Extract from passes
+        if (toolResults.passes && Array.isArray(toolResults.passes)) {
+            toolResults.passes.forEach(pass => {
+                if (pass.nodes) {
+                    pass.nodes.forEach(node => {
+                        if (node.target && node.target[0]) {
+                            selectors.push({
+                                selector: node.target[0],
+                                type: 'pass',
+                                rule: pass.id,
+                                description: pass.description
+                            });
+                        }
+                    });
+                }
+            });
+        }
+        
+        return selectors.slice(0, 50); // Limit to prevent oversized logs
+    }
+
+    /**
+     * Generate detailed evidence description for audit log
+     */
+    generateEvidenceDescription(data) {
+        try {
+            const resultData = typeof data.result === 'string' ? JSON.parse(data.result) : data.result;
+            if (resultData.automated_analysis) {
+                const analysis = resultData.automated_analysis;
+                const toolsUsed = analysis.tools_used ? analysis.tools_used.join(', ') : 'automated tools';
+                const outcome = data.status === 'passed' || data.status === 'passed_review_required' ? 'PASSED' : 'FAILED';
+                
+                let description = `${outcome}: Automated test using ${toolsUsed}. `;
+                
+                if (analysis.total_violations > 0) {
+                    description += `Found ${analysis.total_violations} violation(s)`;
+                    if (analysis.critical_violations > 0) {
+                        description += ` (${analysis.critical_violations} critical)`;
+                    }
+                    description += '. ';
+                } else {
+                    description += 'No violations detected. ';
+                }
+                
+                if (analysis.tool_results && analysis.tool_results.passes) {
+                    description += `${analysis.tool_results.passes} rule(s) passed. `;
+                }
+                
+                description += `Evidence includes: violation details, DOM selectors, and remediation guidance.`;
+                
+                return description;
+            }
+        } catch (e) {
+            console.warn('Error generating evidence description:', e);
+        }
+        
+        return data.notes || `Automated test result: ${data.status}`;
     }
 
     /**
@@ -1818,6 +1994,26 @@ class TestAutomationService {
         if (this.wsService) {
             this.wsService.emitTestingMilestone(sessionId, null, milestoneData);
         }
+    }
+
+    /**
+     * Count violations from tool results
+     */
+    countViolationsFromResults(toolResults) {
+        if (!toolResults) return 0;
+        
+        if (Array.isArray(toolResults)) {
+            return toolResults.reduce((total, result) => {
+                if (result.violations) return total + result.violations.length;
+                if (result.violationCount) return total + result.violationCount;
+                return total;
+            }, 0);
+        }
+        
+        if (toolResults.violations) return toolResults.violations.length;
+        if (toolResults.violationCount) return toolResults.violationCount;
+        
+        return 0;
     }
     
     /**

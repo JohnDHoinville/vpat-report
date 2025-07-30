@@ -11873,7 +11873,11 @@ ${requirement.failure_examples}
             'note_updated': 'Notes Updated',
             'evidence_uploaded': 'Evidence Added',
             'review_requested': 'Review Requested',
-            'reviewed': 'Test Reviewed'
+            'reviewed': 'Test Reviewed',
+            'automated_test_result': 'Automated Test Evidence',
+            'automation_started': 'Automation Started',
+            'automation_completed': 'Automation Completed',
+            'automation_failed': 'Automation Failed'
         };
         return displays[actionType] || actionType.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
     };
@@ -12088,9 +12092,11 @@ ${requirement.failure_examples}
                                         </div>
                                     ` : ''}
                                     
+                                    ${this.renderEvidenceSection(entry)}
+                                    
                                     ${entry.metadata && Object.keys(entry.metadata).length > 0 ? `
                                         <details class="mt-2">
-                                            <summary class="cursor-pointer text-xs text-indigo-600 hover:text-indigo-800">View Details</summary>
+                                            <summary class="cursor-pointer text-xs text-indigo-600 hover:text-indigo-800">View Technical Details</summary>
                                             <pre class="text-xs bg-white p-2 rounded border mt-1 max-h-32 overflow-y-auto">${JSON.stringify(entry.metadata, null, 2)}</pre>
                                         </details>
                                     ` : ''}
@@ -12133,6 +12139,7 @@ ${requirement.failure_examples}
             'automation_completed': 'border-green-400', 
             'automation_failed': 'border-red-400',
             'automation_tool_completed': 'border-purple-400',
+            'automated_test_result': 'border-indigo-400',
             'status_change': 'border-yellow-400',
             'evidence_created': 'border-indigo-400',
             'created': 'border-gray-400',
@@ -12143,12 +12150,157 @@ ${requirement.failure_examples}
         return colors[actionType] || 'border-gray-400';
     };
 
+    // Add evidence rendering function
+    componentInstance.renderEvidenceSection = function(entry) {
+        try {
+            const metadata = entry.metadata || {};
+            
+            // Check for evidence data
+            if (metadata.evidence) {
+                const evidence = metadata.evidence;
+                const details = evidence.evidence_details || {};
+                const artifacts = evidence.proof_artifacts || {};
+                
+                return `
+                    <div class="mt-3 bg-blue-50 border border-blue-200 rounded-lg p-3">
+                        <div class="flex items-center mb-2">
+                            <i class="fas fa-microscope text-blue-600 mr-2"></i>
+                            <h5 class="font-medium text-blue-900">Test Evidence</h5>
+                            <span class="ml-2 px-2 py-1 text-xs rounded-full ${this.getOutcomeBadgeStyle(evidence.test_outcome)}">
+                                ${evidence.test_outcome.toUpperCase()}
+                            </span>
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-4 text-xs">
+                            <div>
+                                <strong>Tools Used:</strong> ${(evidence.tools_used || []).join(', ')}
+                            </div>
+                            <div>
+                                <strong>Confidence:</strong> ${evidence.confidence_level}
+                            </div>
+                            <div>
+                                <strong>Violations Found:</strong> ${details.violations_found || 0}
+                                ${details.critical_violations > 0 ? `<span class="text-red-600">(${details.critical_violations} critical)</span>` : ''}
+                            </div>
+                            <div>
+                                <strong>Rules Passed:</strong> ${details.passes_recorded || 0}
+                            </div>
+                        </div>
+                        
+                        ${artifacts.violation_details && Object.keys(artifacts.violation_details).length > 0 ? `
+                            <details class="mt-2">
+                                <summary class="cursor-pointer text-blue-600 hover:text-blue-800 text-xs font-medium">
+                                    <i class="fas fa-exclamation-triangle mr-1"></i>View Violation Evidence
+                                </summary>
+                                <div class="mt-2 space-y-1 max-h-32 overflow-y-auto">
+                                    ${Object.entries(artifacts.violation_details).map(([rule, violations]) => `
+                                        <div class="text-xs bg-red-50 p-2 rounded border-l-4 border-red-400">
+                                            <strong class="text-red-800">${rule}:</strong>
+                                            <span class="text-red-700">${violations.length} instance(s)</span>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </details>
+                        ` : ''}
+                        
+                        ${artifacts.dom_selectors && artifacts.dom_selectors.length > 0 ? `
+                            <details class="mt-2">
+                                <summary class="cursor-pointer text-blue-600 hover:text-blue-800 text-xs font-medium">
+                                    <i class="fas fa-code mr-1"></i>View DOM Evidence (${artifacts.dom_selectors.length} selectors)
+                                </summary>
+                                <div class="mt-2 space-y-1 max-h-32 overflow-y-auto">
+                                    ${artifacts.dom_selectors.slice(0, 10).map(selector => `
+                                        <div class="text-xs bg-gray-50 p-2 rounded border font-mono">
+                                            <span class="text-${selector.type === 'violation' ? 'red' : 'green'}-600">${selector.type.toUpperCase()}:</span>
+                                            <code class="text-gray-800">${selector.selector}</code>
+                                            ${selector.rule ? `<span class="text-gray-500">- ${selector.rule}</span>` : ''}
+                                        </div>
+                                    `).join('')}
+                                    ${artifacts.dom_selectors.length > 10 ? `
+                                        <div class="text-xs text-gray-500 italic">... and ${artifacts.dom_selectors.length - 10} more selectors</div>
+                                    ` : ''}
+                                </div>
+                            </details>
+                        ` : ''}
+                        
+                        ${artifacts.remediation_steps && artifacts.remediation_steps.length > 0 ? `
+                            <details class="mt-2">
+                                <summary class="cursor-pointer text-blue-600 hover:text-blue-800 text-xs font-medium">
+                                    <i class="fas fa-tools mr-1"></i>View Remediation Guidance (${artifacts.remediation_steps.length} items)
+                                </summary>
+                                <div class="mt-2 space-y-1 max-h-32 overflow-y-auto">
+                                    ${artifacts.remediation_steps.slice(0, 5).map(step => `
+                                        <div class="text-xs bg-yellow-50 p-2 rounded border-l-4 border-yellow-400">
+                                            <strong class="text-yellow-800">${step.priority || 'Medium'} Priority:</strong>
+                                            <span class="text-yellow-700">${step.description || step.summary || 'Fix accessibility issue'}</span>
+                                        </div>
+                                    `).join('')}
+                                    ${artifacts.remediation_steps.length > 5 ? `
+                                        <div class="text-xs text-gray-500 italic">... and ${artifacts.remediation_steps.length - 5} more recommendations</div>
+                                    ` : ''}
+                                </div>
+                            </details>
+                        ` : ''}
+                    </div>
+                `;
+            }
+            
+            // Check for evidence summary at session level
+            if (metadata.evidence_summary) {
+                const summary = metadata.evidence_summary;
+                return `
+                    <div class="mt-3 bg-green-50 border border-green-200 rounded-lg p-3">
+                        <div class="flex items-center mb-2">
+                            <i class="fas fa-chart-bar text-green-600 mr-2"></i>
+                            <h5 class="font-medium text-green-900">Evidence Summary</h5>
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-4 text-xs">
+                            <div>
+                                <strong>Tests with Evidence:</strong> ${summary.tests_with_evidence || 0}
+                            </div>
+                            <div>
+                                <strong>Tools Used:</strong> ${(summary.tools_providing_evidence || []).join(', ')}
+                            </div>
+                            <div class="col-span-2">
+                                <strong>Evidence Types:</strong> ${(summary.evidence_types || []).join(', ')}
+                            </div>
+                        </div>
+                        
+                        ${summary.automation_evidence_available ? `
+                            <div class="mt-2 text-xs text-green-700">
+                                <i class="fas fa-check-circle mr-1"></i>
+                                Automated evidence collection completed successfully
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }
+        } catch (e) {
+            console.warn('Error rendering evidence section:', e);
+        }
+        
+        return '';
+    };
+
+    // Helper function for outcome badge styling
+    componentInstance.getOutcomeBadgeStyle = function(outcome) {
+        const styles = {
+            'passed': 'bg-green-100 text-green-800',
+            'passed_review_required': 'bg-yellow-100 text-yellow-800', 
+            'failed': 'bg-red-100 text-red-800',
+            'in_progress': 'bg-blue-100 text-blue-800'
+        };
+        return styles[outcome] || 'bg-gray-100 text-gray-800';
+    };
+
     componentInstance.getAuditTypeBgColor = function(actionType) {
         const colors = {
             'automation_started': 'bg-blue-500',
             'automation_completed': 'bg-green-500', 
             'automation_failed': 'bg-red-500',
             'automation_tool_completed': 'bg-purple-500',
+            'automated_test_result': 'bg-indigo-500',
             'status_change': 'bg-yellow-500',
             'evidence_created': 'bg-indigo-500',
             'created': 'bg-gray-500',
@@ -12157,6 +12309,23 @@ ${requirement.failure_examples}
             'reviewed': 'bg-green-500'
         };
         return colors[actionType] || 'bg-gray-500';
+    };
+
+    componentInstance.getAuditTypeIcon = function(actionType) {
+        const icons = {
+            'automation_started': '🤖',
+            'automation_completed': '✅', 
+            'automation_failed': '❌',
+            'automation_tool_completed': '🔧',
+            'automated_test_result': '🔬',
+            'status_change': '📝',
+            'evidence_created': '📎',
+            'created': '➕',
+            'assignment': '👤',
+            'note_updated': '📋',
+            'reviewed': '✔️'
+        };
+        return icons[actionType] || '📄';
     };
 
     // ===== REQUIREMENTS FUNCTIONALITY =====
