@@ -308,7 +308,7 @@ class TestAutomationService {
                     toolsUsed: tools,
                     timeElapsed: Date.now() - startTime.getTime()
                 });
-
+                
                 // Create session-level audit entry for status changes after automation
                 await this.createSessionAuditLogEntry(
                     sessionId, 
@@ -1133,14 +1133,14 @@ class TestAutomationService {
 
             // Fallback: if no test instances exist yet, fall back to project base URL
             console.log('🔍 No test instances found, using project base URL as fallback');
-            const fallbackQuery = `
+                const fallbackQuery = `
                 SELECT p.primary_url as url, p.name as title, NULL as page_id
-                FROM test_sessions ts
-                JOIN projects p ON ts.project_id = p.id
-                WHERE ts.id = $1
-            `;
-            const fallbackResult = await pool.query(fallbackQuery, [sessionId]);
-            return fallbackResult.rows;
+                    FROM test_sessions ts
+                    JOIN projects p ON ts.project_id = p.id
+                    WHERE ts.id = $1
+                `;
+                const fallbackResult = await pool.query(fallbackQuery, [sessionId]);
+                return fallbackResult.rows;
 
         } catch (error) {
             console.error('Error getting pages to test from test instances:', error);
@@ -1219,7 +1219,7 @@ class TestAutomationService {
         // Create entries for all tools
         const results = [];
         for (const tool of tools) {
-            const query = `
+        const query = `
                 INSERT INTO automated_test_results (
                     test_session_id, page_id, tool_name, tool_version, raw_results, 
                     violations_count, warnings_count, passes_count, test_duration_ms, 
@@ -1237,12 +1237,12 @@ class TestAutomationService {
                     browser_name = EXCLUDED.browser_name,
                     test_environment = EXCLUDED.test_environment,
                     test_suite = EXCLUDED.test_suite
-                RETURNING *
-            `;
+            RETURNING *
+        `;
 
-            const result = await pool.query(query, [
+        const result = await pool.query(query, [
                 sessionId, pageId, tool, new Date()
-            ]);
+        ]);
             results.push(result.rows[0]);
         }
 
@@ -1501,7 +1501,7 @@ class TestAutomationService {
         }
 
         const toolsUsedList = toolsRun.map(key => key === 'axe' ? 'axe-core' : key);
-        
+
         return {
             shouldUpdate: true,
             status: newStatus,
@@ -2316,13 +2316,13 @@ class TestAutomationService {
 
         // Get user information for better tracking
         let userInfo = null;
-        try {
-            const userQuery = await pool.query('SELECT username, email FROM users WHERE id = $1', [userId]);
+            try {
+                const userQuery = await pool.query('SELECT username, email FROM users WHERE id = $1', [userId]);
             if (userQuery.rows.length === 0) {
                 throw new Error(`Authentication required: User not found in database. Please log in again.`);
             }
             userInfo = userQuery.rows[0];
-        } catch (error) {
+            } catch (error) {
             if (error.message.includes('Authentication required')) {
                 throw error; // Re-throw auth errors
             }
@@ -3008,9 +3008,9 @@ class TestAutomationService {
      */
     emitTestResults(sessionId, pageId, testData) {
         if (this.wsService) {
-                      this.wsService.emitTestResults(sessionId, null, pageId, testData);
-      }
-  }
+            this.wsService.emitTestResults(sessionId, null, pageId, testData);
+        }
+    }
 
   /**
    * Run form accessibility analysis using specialized form tester

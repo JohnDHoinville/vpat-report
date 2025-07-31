@@ -1939,8 +1939,8 @@ ${requirement.failure_examples}
          * Get authentication token from localStorage or session
          */
         getAuthToken() {
-            // Try to get token from localStorage first
-            let token = localStorage.getItem('authToken') || localStorage.getItem('accessToken');
+            // Try to get token from localStorage first - check correct key names
+            let token = localStorage.getItem('auth_token') || localStorage.getItem('authToken') || localStorage.getItem('accessToken');
             
             // If no token in localStorage, try sessionStorage
             if (!token) {
