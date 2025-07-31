@@ -96,25 +96,33 @@ class WaveApiTester {
                     const item = category.items[itemKey];
                     const detail = details[itemKey] || {};
                     
-                    const severity = this.errorCategories[categoryKey] || 'minor';
+                    const wcagReference = this.mapToWcag(itemKey, detail);
+                    const severity = this.getViolationSeverity(itemKey, wcagReference);
                     const count = item.count || 0;
                     
                     if (count > 0) {
-                        violations.push({
+                        const violation = {
                             id: itemKey,
                             description: item.description || detail.description || itemKey,
                             severity: severity,
                             category: categoryKey,
                             count: count,
-                            help: detail.guidelines || '',
-                            helpUrl: detail.guideline_link || '',
-                            wcagReference: this.mapToWcag(itemKey, detail),
-                            selectors: this.extractSelectors(detail)
-                        });
+                            help: detail.guidelines || detail.summary || '',
+                            helpUrl: detail.guideline_link || detail.reference || '',
+                            wcagReference: wcagReference,
+                            selectors: this.extractSelectors(detail),
+                            // WAVE-specific fields
+                            wave_type: categoryKey,
+                            impact: this.getImpactLevel(itemKey, severity),
+                            remediation: this.getRemediationAdvice(itemKey),
+                            is_wave_unique: this.isWaveUniqueViolation(itemKey)
+                        };
+                        
+                        violations.push(violation);
                         
                         totalIssues += count;
                         if (severity === 'critical') criticalIssues += count;
-                        else if (severity === 'moderate') moderateIssues += count;
+                        else if (severity === 'high') moderateIssues += count;
                         else minorIssues += count;
                     }
                 });
@@ -147,38 +155,237 @@ class WaveApiTester {
     }
 
     /**
-     * Map WAVE issues to WCAG guidelines
+     * Enhanced WAVE to WCAG mapping with comprehensive violation detection
      */
     mapToWcag(itemKey, detail) {
         const wcagMappings = {
-            // Level AA mappings
-            'contrast': ['1.4.3', '1.4.6'],
+            // Images and Alternative Text (WCAG 1.1.1)
             'alt_missing': ['1.1.1'],
             'alt_redundant': ['1.1.1'],
-            'alt_duplicate': ['1.1.1'],
+            'alt_duplicate': ['1.1.1'], 
+            'alt_suspicious': ['1.1.1'],
+            'alt_long': ['1.1.1'],
+            'image_alt_missing': ['1.1.1'],
+            'image_map_missing_alt': ['1.1.1'],
+            'image_button_missing_alt': ['1.1.1'],
+            'spacer_missing_alt': ['1.1.1'],
+            
+            // Headings and Structure (WCAG 1.3.1, 2.4.6)
             'heading_skipped': ['1.3.1', '2.4.6'],
             'heading_missing': ['1.3.1', '2.4.6'],
+            'heading_empty': ['1.3.1', '2.4.6'],
+            'h1_missing': ['1.3.1', '2.4.6'],
+            'heading_possible': ['1.3.1', '2.4.6'],
+            
+            // Color and Contrast (WCAG 1.4.3, 1.4.6, 1.4.11)
+            'contrast': ['1.4.3', '1.4.6'],
+            'contrast_low': ['1.4.3'],
+            'contrast_very_low': ['1.4.3', '1.4.6'],
+            'color_contrast': ['1.4.3'],
+            'color_alone': ['1.4.1'],
+            
+            // Links and Navigation (WCAG 2.4.4, 2.4.9)
             'link_empty': ['2.4.4'],
             'link_unclear': ['2.4.4', '2.4.9'],
-            'button_empty': ['4.1.2'],
+            'link_redundant': ['2.4.4'],
+            'link_suspicious': ['2.4.4'],
+            'link_internal_broken': ['2.4.4'],
+            'link_skip_missing': ['2.4.1'],
+            
+            // Forms and Labels (WCAG 1.3.1, 3.3.2, 4.1.2)
             'label_missing': ['1.3.1', '3.3.2'],
+            'label_empty': ['1.3.1', '3.3.2'],
+            'label_multiple': ['1.3.1', '3.3.2'],
             'fieldset_missing': ['1.3.1', '3.3.2'],
+            'legend_missing': ['1.3.1', '3.3.2'],
+            'button_empty': ['4.1.2'],
+            'select_missing_label': ['1.3.1', '3.3.2'],
+            'textarea_missing_label': ['1.3.1', '3.3.2'],
+            
+            // ARIA and Semantics (WCAG 4.1.2, 1.3.1)
             'aria_label_missing': ['4.1.2'],
             'aria_labelledby_missing': ['4.1.2'],
+            'aria_describedby_missing': ['4.1.2'],
+            'aria_invalid': ['4.1.2'],
+            'aria_reference_broken': ['4.1.2'],
+            'role_invalid': ['4.1.2'],
+            'landmark_missing': ['1.3.1'],
+            'landmark_no_heading': ['1.3.1', '2.4.6'],
+            
+            // Page Structure and Language (WCAG 2.4.2, 3.1.1, 3.1.2)
             'title_invalid': ['2.4.2'],
-            'language_missing': ['3.1.1']
+            'title_empty': ['2.4.2'],
+            'title_redundant': ['2.4.2'],
+            'language_missing': ['3.1.1'],
+            'language_invalid': ['3.1.1'],
+            'lang_missing': ['3.1.2'],
+            
+            // Tables (WCAG 1.3.1)
+            'table_missing_caption': ['1.3.1'],
+            'table_missing_headers': ['1.3.1'],
+            'th_missing_scope': ['1.3.1'],
+            'layout_table': ['1.3.1'],
+            
+            // Keyboard and Focus (WCAG 2.1.1, 2.4.7)
+            'tabindex_invalid': ['2.1.1', '2.4.7'],
+            'accesskey_duplicate': ['2.1.1'],
+            'focus_indicator_missing': ['2.4.7'],
+            
+            // Video and Audio (WCAG 1.2.1, 1.2.2, 1.2.3)
+            'video_missing_captions': ['1.2.2'],
+            'audio_missing_transcript': ['1.2.1'],
+            'media_missing_alternative': ['1.2.3'],
+            
+            // Flashing and Seizures (WCAG 2.3.1)
+            'blink': ['2.3.1'],
+            'marquee': ['2.3.1'],
+            
+            // Document Structure (WCAG 1.3.1, 4.1.1)
+            'html_validation': ['4.1.1'],
+            'doctype_missing': ['4.1.1'],
+            'meta_viewport_invalid': ['1.4.10'],
+            
+            // Error Prevention (WCAG 3.3.1, 3.3.3, 3.3.4)
+            'error_empty': ['3.3.1'],
+            'error_missing': ['3.3.1'],
+            'required_missing': ['3.3.2']
         };
 
-        const guidelines = detail.guidelines || '';
+        // Enhanced guidelines parsing for WAVE-specific WCAG references
+        const guidelines = detail.guidelines || detail.description || '';
         if (guidelines.includes('WCAG')) {
-            // Extract WCAG reference from guidelines text
-            const wcagMatch = guidelines.match(/WCAG (\d+\.\d+\.\d+)/);
-            if (wcagMatch) {
-                return [wcagMatch[1]];
+            const wcagMatches = guidelines.match(/WCAG (\d+\.\d+\.\d+)/g);
+            if (wcagMatches) {
+                return wcagMatches.map(match => match.replace('WCAG ', ''));
+            }
+        }
+
+        // Check for Section 508 references and map to equivalent WCAG
+        if (guidelines.includes('Section 508')) {
+            const section508ToWcag = {
+                '1194.22(a)': ['1.1.1'], // Text alternatives
+                '1194.22(b)': ['1.2.1', '1.2.2'], // Multimedia alternatives
+                '1194.22(c)': ['1.4.1'], // Color not sole means
+                '1194.22(d)': ['1.3.1'], // Structure and presentation
+                '1194.22(g)': ['2.4.6'], // Headings
+                '1194.22(h)': ['1.3.1'], // Data tables
+                '1194.22(i)': ['2.4.4'], // Link purpose
+                '1194.22(n)': ['3.3.2'], // Form labels
+                '1194.22(o)': ['2.1.1'] // Keyboard accessibility
+            };
+            
+            for (const [section, wcagCriteria] of Object.entries(section508ToWcag)) {
+                if (guidelines.includes(section)) {
+                    return wcagCriteria;
+                }
             }
         }
 
         return wcagMappings[itemKey] || [];
+    }
+
+    /**
+     * Get violation severity based on WCAG level and impact
+     */
+    getViolationSeverity(itemKey, wcagCriteria) {
+        // Critical issues that prevent access
+        const criticalIssues = [
+            'alt_missing', 'contrast', 'heading_skipped', 'label_missing',
+            'button_empty', 'link_empty', 'language_missing', 'title_empty'
+        ];
+        
+        // High priority issues that significantly impact usability
+        const highPriorityIssues = [
+            'heading_missing', 'contrast_low', 'aria_label_missing',
+            'fieldset_missing', 'link_unclear', 'table_missing_headers'
+        ];
+        
+        if (criticalIssues.includes(itemKey)) {
+            return 'critical';
+        } else if (highPriorityIssues.includes(itemKey)) {
+            return 'high';
+        } else if (wcagCriteria.length > 0) {
+            // Check if any WCAG criteria are Level A (more critical)
+            const levelACriteria = ['1.1.1', '1.3.1', '2.1.1', '2.4.4', '3.1.1', '4.1.1', '4.1.2'];
+            if (wcagCriteria.some(criterion => levelACriteria.includes(criterion))) {
+                return 'moderate';
+            }
+        }
+        
+        return 'minor';
+    }
+
+    /**
+     * Get impact level based on violation type and severity
+     */
+    getImpactLevel(itemKey, severity) {
+        const highImpactItems = [
+            'alt_missing', 'contrast', 'heading_skipped', 'label_missing',
+            'link_empty', 'button_empty', 'language_missing'
+        ];
+        
+        const mediumImpactItems = [
+            'heading_missing', 'aria_label_missing', 'title_invalid',
+            'fieldset_missing', 'link_unclear'
+        ];
+        
+        if (severity === 'critical' || highImpactItems.includes(itemKey)) {
+            return 'high';
+        } else if (severity === 'high' || mediumImpactItems.includes(itemKey)) {
+            return 'medium';
+        }
+        
+        return 'low';
+    }
+
+    /**
+     * Get WAVE-specific remediation advice
+     */
+    getRemediationAdvice(itemKey) {
+        const remediationAdvice = {
+            'alt_missing': 'Add meaningful alternative text that describes the content or function of the image.',
+            'contrast': 'Increase color contrast between text and background to meet WCAG AA standards (4.5:1 for normal text).',
+            'heading_skipped': 'Use proper heading hierarchy without skipping levels (h1 → h2 → h3).',
+            'label_missing': 'Add proper labels to form controls using <label>, aria-label, or aria-labelledby.',
+            'link_empty': 'Provide descriptive link text that clearly indicates the destination or purpose.',
+            'button_empty': 'Add descriptive text or aria-label to buttons to indicate their function.',
+            'language_missing': 'Add lang attribute to <html> element to declare the page language.',
+            'title_invalid': 'Provide a unique, descriptive page title that identifies the page content.',
+            'fieldset_missing': 'Group related form controls using <fieldset> and <legend> elements.',
+            'aria_label_missing': 'Add aria-label or aria-labelledby to provide accessible names for interactive elements.',
+            'table_missing_headers': 'Add proper <th> elements and scope attributes to data tables.',
+            'video_missing_captions': 'Provide captions for all video content with meaningful audio.',
+            'focus_indicator_missing': 'Ensure all interactive elements have visible focus indicators.',
+            'landmark_missing': 'Add ARIA landmarks (banner, main, navigation, contentinfo) to page regions.'
+        };
+        
+        return remediationAdvice[itemKey] || 'Review WAVE documentation for specific remediation guidance.';
+    }
+
+    /**
+     * Determine if this is a WAVE-unique violation not typically caught by other tools
+     */
+    isWaveUniqueViolation(itemKey) {
+        // Violations that WAVE excels at detecting that other tools might miss
+        const waveUniqueViolations = [
+            'heading_possible',        // Detects text that looks like headings but isn't marked up
+            'link_suspicious',         // Identifies potentially problematic link text
+            'alt_suspicious',          // Flags potentially inadequate alt text
+            'color_alone',            // Detects when color is the only way to convey information
+            'layout_table',           // Identifies tables used for layout instead of data
+            'spacer_missing_alt',     // Finds spacer images without proper alt attributes
+            'aria_reference_broken',  // Detects broken ARIA references
+            'landmark_no_heading',    // Identifies landmarks without proper headings
+            'title_redundant',        // Finds redundant page titles
+            'meta_viewport_invalid',  // Detects problematic viewport settings
+            'accesskey_duplicate',    // Finds duplicate access keys
+            'lang_missing',           // Detects missing language declarations in content
+            'contrast_very_low',      // More sensitive contrast detection
+            'table_missing_caption',  // Identifies data tables without captions
+            'legend_missing'          // Detects fieldsets without legends
+        ];
+        
+        return waveUniqueViolations.includes(itemKey);
     }
 
     /**
