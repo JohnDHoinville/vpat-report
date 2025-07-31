@@ -1606,7 +1606,7 @@ class TestAutomationService {
                         };
                     }
 
-                    // Add detailed evidence for audit trail
+                    // Add detailed evidence for audit trail with WAVE-specific enhancements
                     if (resultData.automated_analysis.tool_results) {
                         enhancedMetadata.evidence = {
                             test_outcome: data.status,
@@ -1628,6 +1628,11 @@ class TestAutomationService {
                                 remediation_steps: resultData.automated_analysis.remediation_guidance
                             }
                         };
+
+                        // Add WAVE-specific evidence enhancements
+                        if (resultData.automated_analysis.tools_used?.includes('wave')) {
+                            enhancedMetadata.evidence.wave_specific = this.generateWaveEvidenceMetadata(resultData.automated_analysis);
+                        }
                     }
                 }
             } catch (e) {
@@ -1704,7 +1709,7 @@ class TestAutomationService {
     }
 
     /**
-     * Generate detailed evidence description for audit log
+     * Generate detailed evidence description for audit log with WAVE-specific enhancements
      */
     generateEvidenceDescription(data) {
         try {
@@ -1716,21 +1721,32 @@ class TestAutomationService {
                 
                 let description = `${outcome}: Automated test using ${toolsUsed}. `;
                 
-                if (analysis.total_violations > 0) {
-                    description += `Found ${analysis.total_violations} violation(s)`;
-                    if (analysis.critical_violations > 0) {
-                        description += ` (${analysis.critical_violations} critical)`;
-                    }
-                    description += '. ';
+                // Enhanced WAVE-specific description
+                if (toolsUsed.includes('wave')) {
+                    description += this.generateWaveEvidenceDescription(analysis);
                 } else {
-                    description += 'No violations detected. ';
+                    // Standard description for other tools
+                    if (analysis.total_violations > 0) {
+                        description += `Found ${analysis.total_violations} violation(s)`;
+                        if (analysis.critical_violations > 0) {
+                            description += ` (${analysis.critical_violations} critical)`;
+                        }
+                        description += '. ';
+                    } else {
+                        description += 'No violations detected. ';
+                    }
                 }
                 
                 if (analysis.tool_results && analysis.tool_results.passes) {
                     description += `${analysis.tool_results.passes} rule(s) passed. `;
                 }
                 
-                description += `Evidence includes: violation details, DOM selectors, and remediation guidance.`;
+                // Enhanced evidence description with WAVE specifics
+                let evidenceTypes = ['violation details', 'DOM selectors', 'remediation guidance'];
+                if (toolsUsed.includes('wave')) {
+                    evidenceTypes.push('WCAG mapping', 'Section 508 cross-references', 'WAVE-unique patterns');
+                }
+                description += `Evidence includes: ${evidenceTypes.join(', ')}.`;
                 
                 return description;
             }
@@ -1739,6 +1755,529 @@ class TestAutomationService {
         }
         
         return data.notes || `Automated test result: ${data.status}`;
+    }
+
+    /**
+     * Generate WAVE-specific evidence description
+     */
+    generateWaveEvidenceDescription(analysis) {
+        let description = '';
+        
+        if (analysis.total_violations > 0) {
+            description += `WAVE detected ${analysis.total_violations} accessibility issue(s)`;
+            if (analysis.critical_violations > 0) {
+                description += ` (${analysis.critical_violations} critical)`;
+            }
+            description += '. ';
+            
+            // Add WAVE-specific insights
+            const waveResults = analysis.tool_results?.wave || analysis.tool_results;
+            if (waveResults) {
+                const uniqueViolations = this.countWaveUniqueViolations(waveResults);
+                if (uniqueViolations > 0) {
+                    description += `${uniqueViolations} WAVE-unique pattern(s) identified that other tools typically miss. `;
+                }
+                
+                const wcagCriteria = this.extractWcagCriteria(waveResults);
+                if (wcagCriteria.length > 0) {
+                    description += `Affects WCAG criteria: ${wcagCriteria.slice(0, 5).join(', ')}${wcagCriteria.length > 5 ? ` and ${wcagCriteria.length - 5} more` : ''}. `;
+                }
+                
+                const highImpactViolations = this.countHighImpactViolations(waveResults);
+                if (highImpactViolations > 0) {
+                    description += `${highImpactViolations} high-impact violation(s) requiring immediate attention. `;
+                }
+            }
+        } else {
+            description += 'WAVE analysis found no accessibility violations. ';
+        }
+        
+        return description;
+    }
+
+    /**
+     * Count WAVE-unique violations not typically found by other tools
+     */
+    countWaveUniqueViolations(waveResults) {
+        if (!waveResults.violations) return 0;
+        
+        return waveResults.violations.filter(violation => 
+            violation.is_wave_unique === true
+        ).length;
+    }
+
+    /**
+     * Extract WCAG criteria from WAVE results
+     */
+    extractWcagCriteria(waveResults) {
+        const wcagSet = new Set();
+        
+        if (waveResults.violations) {
+            waveResults.violations.forEach(violation => {
+                if (violation.wcagReference && Array.isArray(violation.wcagReference)) {
+                    violation.wcagReference.forEach(criterion => wcagSet.add(criterion));
+                }
+            });
+        }
+        
+        return Array.from(wcagSet).sort();
+    }
+
+    /**
+     * Count high-impact violations from WAVE results
+     */
+    countHighImpactViolations(waveResults) {
+        if (!waveResults.violations) return 0;
+        
+        return waveResults.violations.filter(violation => 
+            violation.impact === 'high' || violation.severity === 'critical'
+        ).length;
+    }
+
+    /**
+     * Generate comprehensive WAVE-specific evidence metadata
+     */
+    generateWaveEvidenceMetadata(analysis) {
+        const waveResults = analysis.tool_results?.wave || analysis.tool_results;
+        if (!waveResults) return null;
+
+        const metadata = {
+            wave_analysis: {
+                unique_violations: this.countWaveUniqueViolations(waveResults),
+                wcag_criteria_affected: this.extractWcagCriteria(waveResults),
+                high_impact_violations: this.countHighImpactViolations(waveResults),
+                violation_categories: this.categorizeWaveViolations(waveResults),
+                remediation_priority: this.calculateRemediationPriority(waveResults)
+            },
+            compliance_mapping: {
+                wcag_level_a: this.getWcagLevelViolations(waveResults, 'A'),
+                wcag_level_aa: this.getWcagLevelViolations(waveResults, 'AA'),
+                wcag_level_aaa: this.getWcagLevelViolations(waveResults, 'AAA'),
+                section_508_references: this.extractSection508References(waveResults)
+            },
+            detection_insights: {
+                wave_unique_patterns: this.getWaveUniquePatterns(waveResults),
+                overlapping_violations: this.identifyOverlapWithOtherTools(waveResults),
+                coverage_enhancement: this.calculateCoverageEnhancement(waveResults)
+            },
+            actionable_guidance: {
+                immediate_actions: this.getImmediateActions(waveResults),
+                remediation_steps: this.getWaveRemediationSteps(waveResults),
+                testing_recommendations: this.getFollowUpTestingRecommendations(waveResults)
+            }
+        };
+
+        return metadata;
+    }
+
+    /**
+     * Categorize WAVE violations by type
+     */
+    categorizeWaveViolations(waveResults) {
+        const categories = {};
+        if (!waveResults.violations) return categories;
+
+        waveResults.violations.forEach(violation => {
+            const category = violation.wave_type || violation.category || 'uncategorized';
+            if (!categories[category]) {
+                categories[category] = { count: 0, severity_breakdown: {} };
+            }
+            categories[category].count++;
+            
+            const severity = violation.severity || 'unknown';
+            if (!categories[category].severity_breakdown[severity]) {
+                categories[category].severity_breakdown[severity] = 0;
+            }
+            categories[category].severity_breakdown[severity]++;
+        });
+
+        return categories;
+    }
+
+    /**
+     * Calculate remediation priority based on WAVE results
+     */
+    calculateRemediationPriority(waveResults) {
+        if (!waveResults.violations) return 'low';
+
+        const criticalCount = waveResults.violations.filter(v => v.severity === 'critical').length;
+        const highCount = waveResults.violations.filter(v => v.severity === 'high').length;
+        const uniqueCount = this.countWaveUniqueViolations(waveResults);
+
+        if (criticalCount > 0) return 'critical';
+        if (highCount > 2 || uniqueCount > 1) return 'high';
+        if (highCount > 0 || uniqueCount > 0) return 'medium';
+        return 'low';
+    }
+
+    /**
+     * Get WCAG violations by level
+     */
+    getWcagLevelViolations(waveResults, level) {
+        if (!waveResults.violations) return [];
+
+        const levelMapping = {
+            'A': ['1.1.1', '1.3.1', '2.1.1', '2.4.4', '3.1.1', '4.1.1', '4.1.2'],
+            'AA': ['1.4.3', '1.4.6', '2.4.6', '2.4.7', '3.3.2'],
+            'AAA': ['1.4.6', '2.4.9', '3.1.2']
+        };
+
+        const levelCriteria = levelMapping[level] || [];
+        return waveResults.violations.filter(violation => 
+            violation.wcagReference?.some(criterion => levelCriteria.includes(criterion))
+        );
+    }
+
+    /**
+     * Extract Section 508 references from WAVE violations
+     */
+    extractSection508References(waveResults) {
+        const section508Refs = new Set();
+        if (!waveResults.violations) return [];
+
+        waveResults.violations.forEach(violation => {
+            if (violation.help && violation.help.includes('Section 508')) {
+                // Extract section references from help text
+                const matches = violation.help.match(/1194\.22\([a-z]\)/g);
+                if (matches) {
+                    matches.forEach(match => section508Refs.add(match));
+                }
+            }
+        });
+
+        return Array.from(section508Refs);
+    }
+
+    /**
+     * Get WAVE-unique patterns not detected by other tools
+     */
+    getWaveUniquePatterns(waveResults) {
+        if (!waveResults.violations) return [];
+
+        return waveResults.violations
+            .filter(violation => violation.is_wave_unique === true)
+            .map(violation => ({
+                pattern: violation.id,
+                description: violation.description,
+                wcag_criteria: violation.wcagReference,
+                remediation: violation.remediation
+            }));
+    }
+
+    /**
+     * Identify violations that would overlap with other tools
+     */
+    identifyOverlapWithOtherTools(waveResults) {
+        if (!waveResults.violations) return { likely_overlap: [], wave_exclusive: [] };
+
+        const commonPatterns = ['alt_missing', 'contrast', 'heading_skipped', 'label_missing'];
+        
+        return {
+            likely_overlap: waveResults.violations.filter(v => commonPatterns.includes(v.id)),
+            wave_exclusive: waveResults.violations.filter(v => v.is_wave_unique === true)
+        };
+    }
+
+    /**
+     * Calculate how WAVE enhances overall testing coverage
+     */
+    calculateCoverageEnhancement(waveResults) {
+        const totalViolations = waveResults.violations?.length || 0;
+        const uniqueViolations = this.countWaveUniqueViolations(waveResults);
+        
+        return {
+            total_violations: totalViolations,
+            unique_violations: uniqueViolations,
+            coverage_enhancement_percentage: totalViolations > 0 ? Math.round((uniqueViolations / totalViolations) * 100) : 0,
+            estimated_additional_coverage: `${uniqueViolations} additional violation patterns`
+        };
+    }
+
+    /**
+     * Get immediate action items from WAVE results
+     */
+    getImmediateActions(waveResults) {
+        if (!waveResults.violations) return [];
+
+        return waveResults.violations
+            .filter(violation => violation.severity === 'critical' || violation.impact === 'high')
+            .slice(0, 5) // Top 5 most critical
+            .map(violation => ({
+                violation_id: violation.id,
+                action: `Fix ${violation.description}`,
+                wcag_criteria: violation.wcagReference,
+                estimated_effort: this.estimateFixEffort(violation)
+            }));
+    }
+
+    /**
+     * Get WAVE-specific remediation steps
+     */
+    getWaveRemediationSteps(waveResults) {
+        if (!waveResults.violations) return [];
+
+        return waveResults.violations.map(violation => ({
+            violation_id: violation.id,
+            remediation: violation.remediation,
+            wcag_reference: violation.wcagReference,
+            selectors: violation.selectors,
+            priority: violation.severity
+        }));
+    }
+
+    /**
+     * Get follow-up testing recommendations
+     */
+    getFollowUpTestingRecommendations(waveResults) {
+        const recommendations = [];
+        
+        if (this.countWaveUniqueViolations(waveResults) > 0) {
+            recommendations.push({
+                type: 'manual_verification',
+                description: 'Manual verification recommended for WAVE-unique violations',
+                priority: 'high'
+            });
+        }
+
+        const wcagCriteria = this.extractWcagCriteria(waveResults);
+        if (wcagCriteria.length > 0) {
+            recommendations.push({
+                type: 'focused_testing',
+                description: `Focus additional testing on WCAG criteria: ${wcagCriteria.join(', ')}`,
+                priority: 'medium'
+            });
+        }
+
+        return recommendations;
+    }
+
+    /**
+     * Estimate fix effort for a violation
+     */
+    estimateFixEffort(violation) {
+        const easyFixes = ['alt_missing', 'language_missing', 'title_invalid'];
+        const moderateFixes = ['label_missing', 'heading_skipped', 'contrast'];
+        const complexFixes = ['aria_reference_broken', 'landmark_missing'];
+
+        if (easyFixes.includes(violation.id)) return 'low';
+        if (moderateFixes.includes(violation.id)) return 'medium';
+        if (complexFixes.includes(violation.id)) return 'high';
+        return 'medium';
+    }
+
+    /**
+     * Deduplicate automation results to prevent overlapping violations between tools
+     */
+    deduplicateAutomationResults(allResults) {
+        const deduplicatedResults = {};
+        const violationFingerprints = new Map();
+        const deduplicationStats = {
+            total_input_results: 0,
+            duplicates_removed: 0,
+            wave_unique_preserved: 0,
+            tool_specific_retained: {}
+        };
+
+        // Process results from each tool
+        Object.keys(allResults).forEach(toolKey => {
+            const toolResults = allResults[toolKey];
+            if (!toolResults || !toolResults.violations) return;
+
+            deduplicationStats.total_input_results += toolResults.violations.length;
+            deduplicationStats.tool_specific_retained[toolKey] = 0;
+
+            const processedViolations = [];
+
+            toolResults.violations.forEach(violation => {
+                const fingerprint = this.generateViolationFingerprint(violation, toolKey);
+                
+                if (violationFingerprints.has(fingerprint)) {
+                    // Duplicate found - decide which to keep
+                    const existingViolation = violationFingerprints.get(fingerprint);
+                    const enhanced = this.mergeViolationData(existingViolation.violation, violation, toolKey);
+                    
+                    // Update the stored violation with enhanced data
+                    violationFingerprints.set(fingerprint, {
+                        ...existingViolation,
+                        violation: enhanced,
+                        detected_by: [...existingViolation.detected_by, toolKey]
+                    });
+                    
+                    deduplicationStats.duplicates_removed++;
+                } else {
+                    // New violation
+                    violationFingerprints.set(fingerprint, {
+                        violation: violation,
+                        detected_by: [toolKey],
+                        primary_tool: toolKey
+                    });
+                    
+                    processedViolations.push(violation);
+                    deduplicationStats.tool_specific_retained[toolKey]++;
+                    
+                    // Track WAVE-unique violations
+                    if (toolKey === 'wave' && violation.is_wave_unique) {
+                        deduplicationStats.wave_unique_preserved++;
+                    }
+                }
+            });
+
+            // Store processed results
+            deduplicatedResults[toolKey] = {
+                ...toolResults,
+                violations: processedViolations,
+                deduplication_applied: true
+            };
+        });
+
+        // Create consolidated violation list with cross-tool references
+        const consolidatedViolations = Array.from(violationFingerprints.values()).map(entry => ({
+            ...entry.violation,
+            detected_by_tools: entry.detected_by,
+            primary_detection_tool: entry.primary_tool,
+            cross_tool_validation: entry.detected_by.length > 1
+        }));
+
+        return {
+            deduplicated_results: deduplicatedResults,
+            consolidated_violations: consolidatedViolations,
+            deduplication_stats: deduplicationStats
+        };
+    }
+
+    /**
+     * Generate a unique fingerprint for a violation to identify duplicates
+     */
+    generateViolationFingerprint(violation, toolKey) {
+        // Create fingerprint based on violation characteristics
+        const components = [
+            violation.wcagReference ? violation.wcagReference.sort().join(',') : '',
+            violation.description ? violation.description.toLowerCase().replace(/[^a-z0-9]/g, '') : '',
+            violation.selectors ? violation.selectors.slice(0, 2).join(',') : '', // First 2 selectors
+            violation.severity || '',
+            violation.impact || ''
+        ];
+
+        // Special handling for WAVE-unique violations
+        if (toolKey === 'wave' && violation.is_wave_unique) {
+            components.push('wave_unique_' + violation.id);
+        }
+
+        return components.filter(c => c).join('|');
+    }
+
+    /**
+     * Merge violation data from multiple tools
+     */
+    mergeViolationData(existingViolation, newViolation, newToolKey) {
+        const merged = { ...existingViolation };
+
+        // Merge WCAG references
+        if (newViolation.wcagReference && Array.isArray(newViolation.wcagReference)) {
+            const combinedWcag = new Set([
+                ...(merged.wcagReference || []),
+                ...newViolation.wcagReference
+            ]);
+            merged.wcagReference = Array.from(combinedWcag).sort();
+        }
+
+        // Enhance description with tool-specific insights
+        if (newViolation.description && newViolation.description !== merged.description) {
+            if (!merged.tool_specific_descriptions) {
+                merged.tool_specific_descriptions = {};
+            }
+            merged.tool_specific_descriptions[newToolKey] = newViolation.description;
+        }
+
+        // Merge selectors
+        if (newViolation.selectors && Array.isArray(newViolation.selectors)) {
+            const combinedSelectors = new Set([
+                ...(merged.selectors || []),
+                ...newViolation.selectors
+            ]);
+            merged.selectors = Array.from(combinedSelectors);
+        }
+
+        // Take the highest severity
+        if (newViolation.severity) {
+            const severityOrder = { 'critical': 4, 'high': 3, 'moderate': 2, 'minor': 1 };
+            const currentSeverity = severityOrder[merged.severity] || 0;
+            const newSeverity = severityOrder[newViolation.severity] || 0;
+            
+            if (newSeverity > currentSeverity) {
+                merged.severity = newViolation.severity;
+            }
+        }
+
+        // Preserve WAVE-specific data if this is a WAVE violation
+        if (newToolKey === 'wave') {
+            merged.wave_specific_data = {
+                is_wave_unique: newViolation.is_wave_unique,
+                wave_type: newViolation.wave_type,
+                remediation: newViolation.remediation,
+                impact: newViolation.impact
+            };
+        }
+
+        // Add cross-tool validation confidence
+        merged.cross_tool_confidence = 'high'; // Multiple tools detected same issue
+
+        return merged;
+    }
+
+    /**
+     * Apply result deduplication during automation execution
+     */
+    async processResultsWithDeduplication(sessionId, results, userId) {
+        console.log('🔍 Starting result deduplication process...');
+        
+        // Group results by tool
+        const resultsByTool = {};
+        results.forEach(result => {
+            const toolKey = result.tool || 'unknown';
+            if (!resultsByTool[toolKey]) {
+                resultsByTool[toolKey] = { violations: [], passes: [] };
+            }
+            
+            if (result.violations) {
+                resultsByTool[toolKey].violations.push(...result.violations);
+            }
+            if (result.passes) {
+                resultsByTool[toolKey].passes.push(...result.passes);
+            }
+        });
+
+        // Apply deduplication
+        const deduplicationResult = this.deduplicateAutomationResults(resultsByTool);
+        
+        // Log deduplication statistics
+        console.log('📊 Deduplication Statistics:', {
+            total_input_violations: deduplicationResult.deduplication_stats.total_input_results,
+            duplicates_removed: deduplicationResult.deduplication_stats.duplicates_removed,
+            wave_unique_preserved: deduplicationResult.deduplication_stats.wave_unique_preserved,
+            final_violation_count: deduplicationResult.consolidated_violations.length
+        });
+
+        // Create audit log entry for deduplication process
+        await this.createSessionAuditLogEntry(
+            sessionId,
+            'result_deduplication',
+            userId,
+            `Result deduplication completed: ${deduplicationResult.deduplication_stats.duplicates_removed} duplicates removed`,
+            {
+                deduplication_stats: deduplicationResult.deduplication_stats,
+                tools_analyzed: Object.keys(resultsByTool),
+                final_violation_count: deduplicationResult.consolidated_violations.length,
+                cross_tool_validations: deduplicationResult.consolidated_violations.filter(v => v.cross_tool_validation).length
+            }
+        );
+
+        return {
+            original_results: results,
+            deduplicated_results: deduplicationResult.deduplicated_results,
+            consolidated_violations: deduplicationResult.consolidated_violations,
+            deduplication_applied: true
+        };
     }
 
     /**
