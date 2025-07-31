@@ -985,5 +985,61 @@ router.get('/performance/recommendations/:sessionId?', authenticateToken, async 
     }
 });
 
+/**
+ * Trigger PER-INSTANCE automated tests for a testing session
+ * This is the CORRECT approach that tests each page × WCAG criterion combination individually
+ * POST /api/automated-testing/run-per-instance/:sessionId
+ */
+router.post('/run-per-instance/:sessionId', authenticateToken, async (req, res) => {
+    try {
+        const { sessionId } = req.params;
+        const { 
+            tools = ['axe-core', 'pa11y'], // Default tools (updated names)
+            run_async = true,
+            specific_instances = null, // Specific test instance IDs to run, null = all instances
+            batch_size = 10 // Number of instances to run simultaneously
+        } = req.body;
+
+        console.log(`🎯 Starting PER-INSTANCE automated tests for session ${sessionId} with tools: ${tools.join(', ')}`);
+
+        // Validate tools
+        const validTools = ['axe-core', 'pa11y', 'lighthouse', 'contrast-analyzer', 'mobile-accessibility', 'wave', 'form-accessibility', 'heading-structure', 'aria-testing', 'playwright', 'cypress'];
+        const invalidTools = tools.filter(tool => !validTools.includes(tool));
+        if (invalidTools.length > 0) {
+            return res.status(400).json({
+                success: false,
+                error: `Invalid tools: ${invalidTools.join(', ')}. Valid tools: ${validTools.join(', ')}`
+            });
+        }
+
+        // Start per-instance automation run
+        const result = await automationService.runPerInstanceAutomatedTests(sessionId, {
+            tools,
+            runAsync: run_async,
+            specificInstances: specific_instances,
+            batchSize: batch_size,
+            userId: req.user.id,
+            clientMetadata: req.body.clientMetadata || {}
+        });
+
+        res.json({
+            success: true,
+            message: 'Per-instance automated tests started successfully',
+            runId: result.runId,
+            totalInstances: result.totalInstances,
+            batchCount: result.batchCount,
+            tools,
+            sessionId
+        });
+
+    } catch (error) {
+        console.error('❌ Error starting per-instance automated tests:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message || 'Failed to start per-instance automated tests'
+        });
+    }
+});
+
 return router;
 }; 

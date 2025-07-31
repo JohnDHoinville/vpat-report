@@ -1791,7 +1791,7 @@ ${requirement.failure_examples}
                     setTimeout(() => {
                         this.preventAutoUserManagement = false;
                         console.log('✅ User management modal auto-open protection disabled');
-                    }, 10000); // Wait 10 seconds after auth check
+                    }, 30000); // Wait 30 seconds after auth check (extended from 10s)
                 } else if (response.status === 401 && refreshToken) {
                     // Try to refresh token
                     await this.refreshToken();
@@ -8560,13 +8560,11 @@ ${requirement.failure_examples}
             try {
                 console.log('🤖 Triggering automated tests for session:', sessionId);
                 
-                const response = await this.apiCall(`/automated-testing/run/${sessionId}`, {
+                const response = await this.apiCall(`/automated-testing/run-per-instance/${sessionId}`, {
                     method: 'POST',
                     body: JSON.stringify({
-                    tools: ['axe', 'pa11y'],
-                    run_async: true,
-                    update_test_instances: true,
-                    create_evidence: true
+                        tools: ['axe-core', 'pa11y'], // Updated parameter name and tool names
+                        run_async: true
                     })
                 });
                 
@@ -9708,15 +9706,18 @@ ${requirement.failure_examples}
                 this.showNotification('info', 'Automated Test Starting',
                     `Running automated test for requirement ${testInstance.criterion_number}...`);
                 
-                // Call the session-level automation API with specific pages and requirements
-                const response = await this.apiCall(`/automated-testing/run/${sessionId}`, {
+                // Call the PER-INSTANCE automation API (CORRECT APPROACH)
+                const response = await this.apiCall(`/automated-testing/run-per-instance/${sessionId}`, {
                     method: 'POST',
                     body: JSON.stringify({
-                        tools: ['axe', 'pa11y'],
-                        pages: [testInstance.page_id],
-                        requirements: [testInstance.requirement_id],
-                        update_test_instances: true,
-                        create_evidence: true
+                        tools: ['axe-core', 'pa11y'], // Updated tool names
+                        run_async: true,
+                        specific_instances: [testInstance.id], // Target specific test instance
+                        clientMetadata: {
+                            trigger: 'individual_test_instance',
+                            testInstanceId: testInstance.id,
+                            criterionNumber: testInstance.criterion_number
+                        }
                     })
                 });
                 
@@ -12552,16 +12553,17 @@ ${requirement.failure_examples}
 
                 this.loading = true;
                 
-                // Run automated test for this specific requirement
-                const response = await this.apiCall(`/automated-testing/run/${this.selectedSessionDetails.id}`, {
+                // Run PER-INSTANCE automated test (CORRECT APPROACH)
+                const response = await this.apiCall(`/automated-testing/run-per-instance/${this.selectedSessionDetails.id}`, {
                     method: 'POST',
                     body: JSON.stringify({
-                        testTypes: ['axe', 'pa11y'],
-                        specificRequirements: [requirement.criterion_number],
+                        tools: ['axe-core', 'pa11y'], // Updated to use new parameter name
+                        run_async: true,
                         clientMetadata: {
                             ip: 'dashboard',
                             userAgent: navigator.userAgent,
-                            timestamp: new Date().toISOString()
+                            timestamp: new Date().toISOString(),
+                            trigger: 'individual_requirement_test'
                         }
                     })
                 });

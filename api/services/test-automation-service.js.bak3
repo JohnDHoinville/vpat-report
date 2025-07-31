@@ -1290,7 +1290,7 @@ class TestAutomationService {
         try {
             // Get test instances for this session
             const instancesQuery = `
-                SELECT ti.*, tr.requirement_id
+                SELECT ti.*, tr.criterion_number
                 FROM test_instances ti
                 JOIN test_requirements tr ON ti.requirement_id = tr.id
                 WHERE ti.session_id = $1
@@ -1398,7 +1398,7 @@ class TestAutomationService {
      * Map automation result to specific requirement
      */
     mapResultToRequirement(testInstance, results) {
-        const { requirement_id } = testInstance;
+        const { criterion_number } = testInstance;
         
         // Get the actual tools that were run from the results object
         const toolsRun = Object.keys(results).filter(key => results[key] && typeof results[key] === 'object');
@@ -4276,7 +4276,7 @@ class TestAutomationService {
             });
 
             // Run Axe with specific rules based on WCAG criteria in pageInstances
-            const wcagCriteria = pageInstances.map(instance => instance.requirement_id);
+            const wcagCriteria = pageInstances.map(instance => instance.criterion_number);
             const axeRules = this.mapWcagCriteriaToAxeRules(wcagCriteria);
 
             const results = await page.evaluate((rules) => {
@@ -4325,7 +4325,7 @@ class TestAutomationService {
             console.log(`🔧 Running Pa11y against: ${pageUrl}`);
             
             // Configure Pa11y for specific WCAG criteria
-            const wcagCriteria = pageInstances.map(instance => instance.requirement_id);
+            const wcagCriteria = pageInstances.map(instance => instance.criterion_number);
             const pa11yRules = this.mapWcagCriteriaToPa11yRules(wcagCriteria);
 
             const options = {
@@ -4477,7 +4477,7 @@ class TestAutomationService {
                 
                 // Find matching test instances for this page and WCAG criteria
                 const matchingInstances = pageInstances.filter(instance => 
-                    wcagCriteria.includes(instance.requirement_id)
+                    wcagCriteria.includes(instance.criterion_number)
                 );
 
                 // Update each matching test instance
@@ -4493,7 +4493,7 @@ class TestAutomationService {
                     await this.updateTestInstanceWithResult(instance.test_instance_id, result);
                     updated++;
                     
-                    console.log(`📊 Updated test instance ${instance.test_instance_id} (${instance.requirement_id}) with ${tool} violation`);
+                    console.log(`📊 Updated test instance ${instance.test_instance_id} (${instance.criterion_number}) with ${tool} violation`);
                 }
             }
 
