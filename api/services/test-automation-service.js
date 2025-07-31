@@ -285,7 +285,7 @@ class TestAutomationService {
             let testInstancesUpdated = 0;
             if (updateTestInstances) {
                 testInstancesUpdated = await this.mapResultsToTestInstances(sessionId, results, userId);
-                console.log(`📝 Updated ${testInstancesUpdated} test instances with automated results`);
+                console.log(`📊 Updated ${testInstancesUpdated} test instances with automated results`);
                 
                 // Emit completion progress via WebSocket
                 this.emitProgress(sessionId, {
@@ -1098,6 +1098,7 @@ class TestAutomationService {
 
     /**
      * Get pages to test for a session
+     * Gets pages from test instances that were created during session setup
      */
     async getPagesToTest(sessionId, specificPages = null, maxPages = 100) {
         try {
@@ -1105,36 +1106,44 @@ class TestAutomationService {
                 return specificPages;
             }
 
-            // Get pages from the project's web crawler
+            // Get pages from test instances - this is the correct approach
+            // The session wizard creates test instances with page_id references
             const query = `
-                SELECT DISTINCT cdp.url, cdp.title, cdp.id
-                FROM test_sessions ts
-                JOIN projects p ON ts.project_id = p.id
-                JOIN web_crawlers wc ON wc.project_id = p.id
-                JOIN crawler_discovered_pages cdp ON cdp.crawler_id = wc.id
-                WHERE ts.id = $1
-                AND (cdp.selected_for_manual_testing = true OR cdp.selected_for_automated_testing = true)
+                SELECT DISTINCT 
+                    dp.id as page_id,
+                    dp.url,
+                    dp.title,
+                    COUNT(ti.id) as test_count
+                FROM test_instances ti
+                JOIN discovered_pages dp ON ti.page_id = dp.id
+                WHERE ti.session_id = $1
+                AND dp.url IS NOT NULL
+                GROUP BY dp.id, dp.url, dp.title
+                ORDER BY dp.url
                 LIMIT $2
             `;
 
             const result = await pool.query(query, [sessionId, maxPages]);
             
-            if (result.rows.length === 0) {
-                // Fallback: get project's base URL
-                const fallbackQuery = `
-                    SELECT p.primary_url as url, p.name as title
-                    FROM test_sessions ts
-                    JOIN projects p ON ts.project_id = p.id
-                    WHERE ts.id = $1
-                `;
-                const fallbackResult = await pool.query(fallbackQuery, [sessionId]);
-                return fallbackResult.rows;
+            if (result.rows.length > 0) {
+                console.log(`📄 Found ${result.rows.length} pages from test instances for session ${sessionId}`);
+                console.log(`📊 Total test instances across pages: ${result.rows.reduce((sum, page) => sum + parseInt(page.test_count), 0)}`);
+                return result.rows;
             }
 
-            return result.rows;
+            // Fallback: if no test instances exist yet, fall back to project base URL
+            console.log('🔍 No test instances found, using project base URL as fallback');
+            const fallbackQuery = `
+                SELECT p.primary_url as url, p.name as title, NULL as page_id
+                FROM test_sessions ts
+                JOIN projects p ON ts.project_id = p.id
+                WHERE ts.id = $1
+            `;
+            const fallbackResult = await pool.query(fallbackQuery, [sessionId]);
+            return fallbackResult.rows;
 
         } catch (error) {
-            console.error('Error getting pages to test:', error);
+            console.error('Error getting pages to test from test instances:', error);
             return [];
         }
     }
@@ -2292,14 +2301,27 @@ class TestAutomationService {
     }
 
     /**
-     * Create session-level audit log entry
+     * Create session-level audit log entry for automation events
      */
     async createSessionAuditLogEntry(sessionId, actionType, userId, reason, metadata = {}) {
+        // Validate and sanitize userId - ensure it's a proper UUID or null
+        let validatedUserId = null;
+        if (userId) {
+            // Check if userId is a valid UUID format
+            const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+            if (uuidRegex.test(userId)) {
+                validatedUserId = userId;
+            } else {
+                console.warn('Invalid userId format for audit log, using null:', userId);
+                validatedUserId = null;
+            }
+        }
+
         // Get user information for better tracking
         let userInfo = null;
-        if (userId) {
+        if (validatedUserId) {
             try {
-                const userQuery = await pool.query('SELECT username, email FROM users WHERE id = $1', [userId]);
+                const userQuery = await pool.query('SELECT username, email FROM users WHERE id = $1', [validatedUserId]);
                 userInfo = userQuery.rows[0] || null;
             } catch (error) {
                 console.warn('Could not fetch user info for audit log:', error.message);
@@ -2324,7 +2346,7 @@ class TestAutomationService {
         await pool.query(query, [
             sessionId,
             actionType,
-            userId,
+            validatedUserId, // Use validated UUID or null
             new Date(),
             reason,
             JSON.stringify(enhancedMetadata)

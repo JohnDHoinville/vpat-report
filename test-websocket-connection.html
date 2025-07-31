@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WebSocket Connection Test</title>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+</head>
+<body>
+    <h1>WebSocket Connection Test</h1>
+    <div id="status">Connecting...</div>
+    <div id="messages"></div>
+
+    <script>
+        const statusDiv = document.getElementById('status');
+        const messagesDiv = document.getElementById('messages');
+        
+        function addMessage(msg) {
+            const p = document.createElement('p');
+            p.textContent = `${new Date().toLocaleTimeString()} - ${msg}`;
+            messagesDiv.appendChild(p);
+            console.log(msg);
+        }
+
+        // Get auth token from localStorage (same as dashboard)
+        const token = localStorage.getItem('authToken');
+        
+        if (!token) {
+            statusDiv.textContent = 'No auth token found in localStorage';
+            addMessage('ERROR: No auth token found. Please login to dashboard first.');
+        } else {
+            addMessage(`Using auth token: ${token.substring(0, 20)}...`);
+            
+            // Connect to WebSocket
+            const socket = io('http://localhost:3001', {
+                auth: { token: token },
+                transports: ['websocket', 'polling']
+            });
+
+            socket.on('connect', () => {
+                statusDiv.textContent = 'Connected!';
+                statusDiv.style.color = 'green';
+                addMessage('✅ WebSocket connected successfully!');
+                
+                // Test joining a project room
+                socket.emit('join_project', 'test-project-id');
+                addMessage('📡 Sent join_project event');
+            });
+
+            socket.on('disconnect', (reason) => {
+                statusDiv.textContent = 'Disconnected: ' + reason;
+                statusDiv.style.color = 'red';
+                addMessage('❌ WebSocket disconnected: ' + reason);
+            });
+
+            socket.on('connect_error', (error) => {
+                statusDiv.textContent = 'Connection Error: ' + error.message;
+                statusDiv.style.color = 'red';
+                addMessage('❌ WebSocket connection error: ' + error.message);
+            });
+
+            socket.onAny((eventName, ...args) => {
+                addMessage(`📡 Event received: ${eventName} - ${JSON.stringify(args)}`);
+            });
+        }
+    </script>
+</body>
+</html> 
