@@ -3020,7 +3020,10 @@ class TestAutomationService {
                     forms_with_issues: formResults.summary.formsWithIssues,
                     inputs_analyzed: formResults.summary.totalInputs,
                     inputs_with_issues: formResults.summary.inputsWithIssues,
-                    wcag_violations: formResults.violations || []
+                    workflows_tested: formResults.summary.workflowsTested,
+                    workflow_issues: formResults.summary.workflowIssues,
+                    wcag_violations: formResults.violations || [],
+                    workflow_results: formResults.workflows || {}
                 });
                 
                 results.total_violations += formResults.summary.totalIssues;

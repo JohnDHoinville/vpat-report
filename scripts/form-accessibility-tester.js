@@ -88,7 +88,14 @@ class FormAccessibilityTester {
                 return window.analyzeFormAccessibility();
             });
 
-            const processedResults = this.processFormResults(analysis, url);
+            // Test form submission workflows if forms are found
+            let workflowResults = {};
+            if (analysis.statistics.totalForms > 0) {
+                console.log(`📝 Testing form submission workflows for ${analysis.statistics.totalForms} forms`);
+                workflowResults = await this.testFormWorkflows(page, analysis.forms);
+            }
+
+            const processedResults = this.processFormResults(analysis, url, workflowResults);
             
             console.log(`✅ Form analysis completed for ${url}: ${processedResults.summary.totalIssues} issues found`);
             return processedResults;
@@ -600,9 +607,438 @@ class FormAccessibilityTester {
     }
 
     /**
+     * Test form submission workflows for accessibility
+     */
+    async testFormWorkflows(page, forms) {
+        const workflowResults = {
+            workflows_tested: 0,
+            validation_tests: [],
+            submission_tests: [],
+            error_handling_tests: [],
+            workflow_issues: []
+        };
+
+        for (let formIndex = 0; formIndex < forms.length; formIndex++) {
+            const form = forms[formIndex];
+            try {
+                console.log(`🔄 Testing workflow for form ${form.id}`);
+                
+                // Test form validation workflow
+                const validationResults = await this.testFormValidation(page, form, formIndex);
+                workflowResults.validation_tests.push(validationResults);
+                workflowResults.workflow_issues.push(...validationResults.issues);
+
+                // Test form submission workflow
+                const submissionResults = await this.testFormSubmission(page, form, formIndex);
+                workflowResults.submission_tests.push(submissionResults);
+                workflowResults.workflow_issues.push(...submissionResults.issues);
+
+                // Test error handling workflow
+                const errorResults = await this.testErrorHandling(page, form, formIndex);
+                workflowResults.error_handling_tests.push(errorResults);
+                workflowResults.workflow_issues.push(...errorResults.issues);
+
+                workflowResults.workflows_tested++;
+
+            } catch (error) {
+                console.error(`❌ Workflow testing failed for form ${form.id}:`, error.message);
+                workflowResults.workflow_issues.push({
+                    type: 'workflow-test-error',
+                    severity: 'medium',
+                    wcag: ['3.3.1'],
+                    message: `Failed to test form workflow: ${error.message}`,
+                    formId: form.id,
+                    context: { error: error.message }
+                });
+            }
+        }
+
+        return workflowResults;
+    }
+
+    /**
+     * Test form validation accessibility
+     */
+    async testFormValidation(page, form, formIndex) {
+        const results = {
+            formId: form.id,
+            formIndex: formIndex,
+            validation_type: 'client_side',
+            issues: [],
+            tests_performed: []
+        };
+
+        try {
+            // Test required field validation
+            const requiredFields = await page.evaluate((formId) => {
+                const form = document.getElementById(formId) || document.querySelectorAll('form')[parseInt(formId.split('-')[1]) || 0];
+                if (!form) return [];
+                
+                return Array.from(form.querySelectorAll('[required], [aria-required="true"]')).map(field => ({
+                    id: field.id || field.name || field.tagName.toLowerCase(),
+                    tagName: field.tagName.toLowerCase(),
+                    type: field.type || '',
+                    name: field.name || '',
+                    selector: field.id ? `#${field.id}` : `${field.tagName.toLowerCase()}[name="${field.name}"]`
+                }));
+            }, form.id);
+
+            if (requiredFields.length > 0) {
+                results.tests_performed.push('required_field_validation');
+                
+                for (const field of requiredFields) {
+                    // Try to submit form with empty required field
+                    await page.evaluate((selector) => {
+                        const element = document.querySelector(selector);
+                        if (element) {
+                            element.value = '';
+                            element.focus();
+                            element.blur();
+                        }
+                    }, field.selector);
+
+                    // Wait a moment for validation to trigger
+                    await page.waitForTimeout(500);
+
+                    // Check for validation messages
+                    const validationCheck = await page.evaluate((selector, fieldData) => {
+                        const element = document.querySelector(selector);
+                        if (!element) return { hasValidation: false };
+
+                        const form = element.closest('form');
+                        const issues = [];
+
+                        // Check for HTML5 validation
+                        const isInvalid = !element.checkValidity();
+                        const validationMessage = element.validationMessage;
+
+                        // Check for ARIA validation
+                        const ariaInvalid = element.getAttribute('aria-invalid');
+                        const ariaDescribedby = element.getAttribute('aria-describedby');
+
+                        // Check for associated error messages
+                        let errorElements = [];
+                        if (ariaDescribedby) {
+                            const ids = ariaDescribedby.split(/\s+/);
+                            errorElements = ids.map(id => document.getElementById(id)).filter(Boolean);
+                        }
+
+                        // Look for nearby error messages
+                        const nearbyErrors = form.querySelectorAll('.error, .invalid, [role="alert"]');
+
+                        return {
+                            hasValidation: isInvalid || ariaInvalid === 'true' || errorElements.length > 0,
+                            validationMessage: validationMessage,
+                            ariaInvalid: ariaInvalid,
+                            errorElements: errorElements.length,
+                            nearbyErrors: nearbyErrors.length,
+                            fieldData: fieldData
+                        };
+                    }, field.selector, field);
+
+                    if (!validationCheck.hasValidation) {
+                        results.issues.push({
+                            type: 'missing-validation-feedback',
+                            severity: 'medium',
+                            wcag: ['3.3.1', '3.3.3'],
+                            message: `Required field lacks accessible validation feedback`,
+                            element: field.selector,
+                            formId: form.id,
+                            context: {
+                                fieldName: field.name,
+                                fieldType: field.type
+                            }
+                        });
+                    }
+
+                    // Check if validation message is accessible
+                    if (validationCheck.hasValidation && validationCheck.errorElements === 0 && validationCheck.ariaInvalid !== 'true') {
+                        results.issues.push({
+                            type: 'inaccessible-validation-message',
+                            severity: 'high',
+                            wcag: ['3.3.1', '4.1.3'],
+                            message: `Validation message exists but is not programmatically associated with the field`,
+                            element: field.selector,
+                            formId: form.id,
+                            context: {
+                                validationMessage: validationCheck.validationMessage,
+                                hasAriaInvalid: validationCheck.ariaInvalid === 'true'
+                            }
+                        });
+                    }
+                }
+            }
+
+            // Test custom validation patterns
+            results.tests_performed.push('custom_validation_patterns');
+            const customValidationCheck = await page.evaluate((formId) => {
+                const form = document.getElementById(formId) || document.querySelectorAll('form')[parseInt(formId.split('-')[1]) || 0];
+                if (!form) return { issues: [] };
+
+                const issues = [];
+                const inputs = form.querySelectorAll('input[pattern], input[type="email"], input[type="url"], input[type="tel"]');
+
+                inputs.forEach(input => {
+                    // Check if pattern validation has accessible description
+                    if (input.hasAttribute('pattern')) {
+                        const title = input.getAttribute('title');
+                        const ariaDescribedby = input.getAttribute('aria-describedby');
+                        
+                        if (!title && !ariaDescribedby) {
+                            issues.push({
+                                type: 'missing-pattern-description',
+                                element: input.id || input.name || input.tagName.toLowerCase(),
+                                pattern: input.getAttribute('pattern')
+                            });
+                        }
+                    }
+
+                    // Check for input format guidance
+                    if (['email', 'url', 'tel'].includes(input.type)) {
+                        const hasGuidance = input.getAttribute('placeholder') || 
+                                          input.getAttribute('aria-describedby') ||
+                                          input.getAttribute('title');
+                        
+                        if (!hasGuidance) {
+                            issues.push({
+                                type: 'missing-format-guidance',
+                                element: input.id || input.name || input.tagName.toLowerCase(),
+                                inputType: input.type
+                            });
+                        }
+                    }
+                });
+
+                return { issues };
+            }, form.id);
+
+            customValidationCheck.issues.forEach(issue => {
+                results.issues.push({
+                    type: issue.type,
+                    severity: 'medium',
+                    wcag: ['3.3.2', '3.3.5'],
+                    message: issue.type === 'missing-pattern-description' 
+                        ? 'Input with pattern validation lacks accessible description of expected format'
+                        : 'Input field lacks guidance about expected format',
+                    element: issue.element,
+                    formId: form.id,
+                    context: issue
+                });
+            });
+
+        } catch (error) {
+            console.error(`Error testing form validation for ${form.id}:`, error.message);
+        }
+
+        return results;
+    }
+
+    /**
+     * Test form submission accessibility
+     */
+    async testFormSubmission(page, form, formIndex) {
+        const results = {
+            formId: form.id,
+            formIndex: formIndex,
+            submission_method: 'unknown',
+            issues: [],
+            tests_performed: []
+        };
+
+        try {
+            // Analyze submission method and accessibility
+            const submissionAnalysis = await page.evaluate((formId) => {
+                const form = document.getElementById(formId) || document.querySelectorAll('form')[parseInt(formId.split('-')[1]) || 0];
+                if (!form) return { issues: [] };
+
+                const issues = [];
+                const submitButtons = form.querySelectorAll('input[type="submit"], button[type="submit"], button:not([type])');
+                
+                // Check submit button accessibility
+                submitButtons.forEach(button => {
+                    const accessibleName = button.getAttribute('aria-label') ||
+                                         button.getAttribute('aria-labelledby') ||
+                                         button.textContent.trim() ||
+                                         button.value ||
+                                         button.getAttribute('title');
+
+                    if (!accessibleName) {
+                        issues.push({
+                            type: 'submit-button-no-accessible-name',
+                            element: button.id || button.className || button.tagName.toLowerCase()
+                        });
+                    }
+
+                    // Check if button is disabled without proper indication
+                    if (button.disabled && !button.getAttribute('aria-describedby')) {
+                        issues.push({
+                            type: 'disabled-submit-no-reason',
+                            element: button.id || button.className || button.tagName.toLowerCase()
+                        });
+                    }
+                });
+
+                // Check for form submission feedback mechanisms
+                const hasLoadingIndicator = form.querySelector('[role="status"], [aria-live], .loading, .spinner');
+                const hasSuccessMessage = document.querySelector('[role="alert"], .success, .confirmation');
+
+                return {
+                    issues,
+                    submitButtons: submitButtons.length,
+                    hasLoadingIndicator: !!hasLoadingIndicator,
+                    hasSuccessMessage: !!hasSuccessMessage,
+                    formAction: form.action,
+                    formMethod: form.method || 'GET'
+                };
+            }, form.id);
+
+            results.submission_method = submissionAnalysis.formMethod;
+            results.tests_performed.push('submit_button_analysis');
+
+            submissionAnalysis.issues.forEach(issue => {
+                results.issues.push({
+                    type: issue.type,
+                    severity: issue.type.includes('no-accessible-name') ? 'high' : 'medium',
+                    wcag: issue.type.includes('no-accessible-name') ? ['4.1.2'] : ['3.3.4'],
+                    message: issue.type === 'submit-button-no-accessible-name' 
+                        ? 'Submit button lacks accessible name'
+                        : 'Disabled submit button lacks explanation',
+                    element: issue.element,
+                    formId: form.id
+                });
+            });
+
+            // Check for submission feedback
+            if (!submissionAnalysis.hasLoadingIndicator) {
+                results.issues.push({
+                    type: 'missing-submission-feedback',
+                    severity: 'low',
+                    wcag: ['4.1.3'],
+                    message: 'Form lacks loading indicator or status feedback during submission',
+                    formId: form.id,
+                    context: { 
+                        recommendation: 'Add aria-live region or role="status" element for submission feedback' 
+                    }
+                });
+            }
+
+            results.tests_performed.push('submission_feedback_analysis');
+
+        } catch (error) {
+            console.error(`Error testing form submission for ${form.id}:`, error.message);
+        }
+
+        return results;
+    }
+
+    /**
+     * Test error handling accessibility
+     */
+    async testErrorHandling(page, form, formIndex) {
+        const results = {
+            formId: form.id,
+            formIndex: formIndex,
+            error_scenarios_tested: 0,
+            issues: [],
+            tests_performed: []
+        };
+
+        try {
+            // Test error message accessibility
+            const errorAnalysis = await page.evaluate((formId) => {
+                const form = document.getElementById(formId) || document.querySelectorAll('form')[parseInt(formId.split('-')[1]) || 0];
+                if (!form) return { issues: [] };
+
+                const issues = [];
+                
+                // Check for existing error messages and their accessibility
+                const errorElements = form.querySelectorAll('.error, .invalid, [role="alert"], [aria-invalid="true"]');
+                
+                errorElements.forEach(errorEl => {
+                    // Check if error is properly associated with a form control
+                    const associatedControl = errorEl.id ? 
+                        form.querySelector(`[aria-describedby*="${errorEl.id}"]`) : null;
+                    
+                    if (!associatedControl && errorEl.textContent.trim()) {
+                        issues.push({
+                            type: 'unassociated-error-message',
+                            element: errorEl.id || errorEl.className || errorEl.tagName.toLowerCase(),
+                            errorText: errorEl.textContent.trim().substring(0, 100)
+                        });
+                    }
+
+                    // Check if error message is announced to screen readers
+                    const hasProperRole = errorEl.getAttribute('role') === 'alert' ||
+                                         errorEl.getAttribute('aria-live') ||
+                                         errorEl.closest('[aria-live]');
+                    
+                    if (!hasProperRole) {
+                        issues.push({
+                            type: 'error-not-announced',
+                            element: errorEl.id || errorEl.className || errorEl.tagName.toLowerCase(),
+                            errorText: errorEl.textContent.trim().substring(0, 100)
+                        });
+                    }
+                });
+
+                // Check for form-level error summary
+                const errorSummary = form.querySelector('.error-summary, [role="alert"][class*="summary"]') ||
+                                   document.querySelector('.error-summary, [role="alert"][class*="summary"]');
+                
+                return {
+                    issues,
+                    hasErrorSummary: !!errorSummary,
+                    errorCount: errorElements.length
+                };
+            }, form.id);
+
+            results.tests_performed.push('error_message_analysis');
+
+            errorAnalysis.issues.forEach(issue => {
+                results.issues.push({
+                    type: issue.type,
+                    severity: 'high',
+                    wcag: issue.type === 'unassociated-error-message' ? ['3.3.1', '3.3.2'] : ['4.1.3'],
+                    message: issue.type === 'unassociated-error-message' 
+                        ? 'Error message is not programmatically associated with form control'
+                        : 'Error message may not be announced to assistive technologies',
+                    element: issue.element,
+                    formId: form.id,
+                    context: {
+                        errorText: issue.errorText
+                    }
+                });
+            });
+
+            // Check for error summary when multiple errors exist
+            if (errorAnalysis.errorCount > 1 && !errorAnalysis.hasErrorSummary) {
+                results.issues.push({
+                    type: 'missing-error-summary',
+                    severity: 'medium',
+                    wcag: ['3.3.1', '3.3.4'],
+                    message: 'Form with multiple errors lacks error summary',
+                    formId: form.id,
+                    context: {
+                        errorCount: errorAnalysis.errorCount,
+                        recommendation: 'Add error summary at top of form listing all validation issues'
+                    }
+                });
+            }
+
+            results.tests_performed.push('error_summary_analysis');
+            results.error_scenarios_tested = 1;
+
+        } catch (error) {
+            console.error(`Error testing error handling for ${form.id}:`, error.message);
+        }
+
+        return results;
+    }
+
+    /**
      * Process and normalize form analysis results
      */
-    processFormResults(analysis, url) {
+    processFormResults(analysis, url, workflowResults = {}) {
         const processedResults = {
             url: url,
             tool: 'form-accessibility-tester',
@@ -616,11 +1052,14 @@ class FormAccessibilityTester {
                 criticalIssues: 0,
                 highIssues: 0,
                 mediumIssues: 0,
-                lowIssues: 0
+                lowIssues: 0,
+                workflowsTested: workflowResults.workflows_tested || 0,
+                workflowIssues: workflowResults.workflow_issues?.length || 0
             },
             forms: analysis.forms,
             violations: [],
             passes: [],
+            workflows: workflowResults,
             coverage: {
                 wcagCriteria: [],
                 automatedTests: 0,
@@ -628,8 +1067,11 @@ class FormAccessibilityTester {
             }
         };
 
+        // Combine form analysis issues with workflow issues
+        const allIssues = [...analysis.issues, ...(workflowResults.workflow_issues || [])];
+
         // Process each issue
-        analysis.issues.forEach(issue => {
+        allIssues.forEach(issue => {
             // Categorize by severity
             switch (issue.severity) {
                 case 'critical':
@@ -699,7 +1141,20 @@ class FormAccessibilityTester {
             'missing-legend': 'Add a legend element as the first child of the fieldset to provide a descriptive heading for the group of related form controls.',
             'empty-legend': 'Provide meaningful text content within the legend element that describes the group of form controls.',
             'ungrouped-radio-buttons': 'Wrap related radio buttons in a fieldset element with an appropriate legend to indicate they are part of the same group.',
-            'missing-form-instructions': 'Provide clear instructions at the beginning of the form explaining how required fields are indicated and any other important information.'
+            'missing-form-instructions': 'Provide clear instructions at the beginning of the form explaining how required fields are indicated and any other important information.',
+            
+            // Workflow-specific remediation advice
+            'missing-validation-feedback': 'Implement accessible validation feedback that appears when required fields are left empty. Use aria-invalid="true" and aria-describedby to associate error messages with form controls.',
+            'inaccessible-validation-message': 'Ensure validation messages are programmatically associated with form controls using aria-describedby and aria-invalid attributes.',
+            'missing-pattern-description': 'Provide accessible descriptions for input pattern requirements using title attribute or aria-describedby pointing to help text.',
+            'missing-format-guidance': 'Add format guidance for specialized input types (email, phone, URL) using placeholder text, help text, or examples.',
+            'submit-button-no-accessible-name': 'Provide an accessible name for submit buttons using button text content, value attribute, aria-label, or aria-labelledby.',
+            'disabled-submit-no-reason': 'When submit buttons are disabled, provide an explanation using aria-describedby pointing to text explaining why submission is disabled.',
+            'missing-submission-feedback': 'Add loading indicators or status messages during form submission using aria-live regions or role="status" elements.',
+            'unassociated-error-message': 'Associate error messages with form controls using aria-describedby and ensure form controls have aria-invalid="true" when errors are present.',
+            'error-not-announced': 'Ensure error messages are announced to screen readers by using role="alert" or aria-live="assertive" on error containers.',
+            'missing-error-summary': 'For forms with multiple validation errors, provide an error summary at the top of the form listing all issues and linking to the problematic fields.',
+            'workflow-test-error': 'Form workflow testing encountered an error. Ensure the form is functional and accessible for comprehensive analysis.'
         };
 
         return remediationMap[issueType] || 'Review the form accessibility requirements and ensure compliance with WCAG guidelines.';
