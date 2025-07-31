@@ -18,6 +18,7 @@
 - **api/routes/automated-testing.js**: Added 'wave' to validTools array
 - **Enhanced WAVE Rate Limiting**: Implemented comprehensive rate limiting strategy with WebSocket notifications, minute-by-minute countdown updates, audit trail logging, and automation pause/resume functionality
 - **Form Accessibility Analysis**: Created scripts/form-accessibility-tester.js with comprehensive form accessibility detection including label association checking (explicit via 'for' attribute, implicit via nesting, ARIA labelling), error message association validation (aria-invalid + aria-describedby), fieldset/legend usage for grouped controls, radio button/checkbox grouping, required field indication, autocomplete attributes, and form instruction validation. Enhanced with workflow testing capabilities including form validation accessibility testing (required field validation, custom pattern validation, format guidance), form submission flow analysis (submit button accessibility, submission feedback, loading indicators), and error handling workflow testing (error message association, announcement verification, error summaries). Integrated into automation pipeline via api/services/test-automation-service.js with 22+ violation types mapped to WCAG 1.3.1, 3.3.1, 3.3.2, 3.3.3, 3.3.4, 3.3.5, 4.1.2, 4.1.3, and other relevant criteria. Added to validTools array in api/routes/automated-testing.js and updated dashboard/js/dashboard.js with form icon support.
+- **Heading Structure Analysis**: Created scripts/heading-structure-analyzer.js with comprehensive heading hierarchy validation including H1 uniqueness checking, heading level sequence validation, missing level detection, hierarchy violation analysis, empty and hidden heading detection, duplicate heading text analysis, landmark structure validation, and heading accessibility compliance (aria-level consistency, role validation). Enhanced with comprehensive landmark and document structure analysis including landmark accessible name validation, redundant role attribute detection, document outline creation with hierarchical analysis, skip link validation and positioning analysis, section/article structure validation, and document nesting validation. Implements 30+ violation types covering heading structure issues, landmark structure problems, navigation aids, document organization, and accessibility violations mapped to WCAG 1.3.1, 2.4.1, 2.4.6, 2.4.10, and 4.1.2. Features categorized violation reporting (heading-structure, landmark-structure, navigation-aids, document-structure, accessibility-compliance) with enhanced statistics including landmark analysis, outline depth tracking, skip link detection, and structural violation counts. Integrated into automation pipeline via api/services/test-automation-service.js with comprehensive reporting. Added to validTools array in api/routes/automated-testing.js and updated dashboard/js/dashboard.js with heading icon support.
 - **WAVE Violation Detection**: Enhanced scripts/wave-api-tester.js with comprehensive WCAG mapping (60+ error types), violation severity calculation, impact assessment, remediation advice, and detection of 15+ WAVE-unique violation patterns not found by other tools
 - **WAVE Audit Trail Integration**: Enhanced api/services/test-automation-service.js with comprehensive evidence generation including WAVE-specific descriptions, WCAG/Section 508 cross-references, violation categorization, remediation priority assessment, and intelligent result deduplication system preventing overlap between tools while preserving WAVE-unique insights
 - **scripts/mobile-accessibility-tester.js**: Existing comprehensive mobile testing tool integrated into automation pipeline
@@ -245,16 +246,29 @@
 ### 2.3 Comprehensive Heading Structure Analysis
 **Priority: P2 | Estimate: 3 days**
 
-- [ ] **Task 2.3.1**: Advanced heading hierarchy analysis
-  - Implement comprehensive heading structure validation
-  - Check for proper nesting and logical flow
-  - Detect missing or redundant heading levels
+- [x] **Task 2.3.1**: Advanced heading hierarchy analysis
+  - [x] Implement comprehensive heading structure validation with detailed hierarchy checking
+  - [x] Check for proper nesting and logical flow including H1 uniqueness and sequence validation
+  - [x] Detect missing or redundant heading levels with gap analysis and structure validation
+  - [x] Created comprehensive HeadingStructureAnalyzer with 15+ violation types
+  - [x] Added document structure analysis including landmark integration
+  - [x] Implemented heading accessibility validation (aria-level, role consistency)
+  - [x] Added empty heading, hidden heading, and duplicate text detection
+  - [x] Enhanced automation pipeline with heading structure analysis capability
+  - [x] Integrated into valid tools with comprehensive reporting and statistics
   - **Acceptance**: Complex heading structure issues automatically flagged
 
-- [ ] **Task 2.3.2**: Add landmark and document structure analysis
-  - Verify proper use of landmark roles
-  - Check document outline and structure
-  - Ensure logical reading order
+- [x] **Task 2.3.2**: Add landmark and document structure analysis
+  - [x] Verify proper use of landmark roles with enhanced validation
+  - [x] Check document outline and structure with hierarchical analysis
+  - [x] Ensure logical reading order with skip link validation
+  - [x] Enhanced landmark detection including region, form, and semantic HTML elements
+  - [x] Added redundant role attribute detection and semantic HTML validation
+  - [x] Implemented document structure nesting validation (section, article, nav elements)
+  - [x] Added skip link target validation and positioning analysis
+  - [x] Created comprehensive document outline with depth analysis and orphaned subsection detection
+  - [x] Enhanced violation categorization (heading-structure, landmark-structure, navigation-aids, document-structure)
+  - [x] Added 15+ new violation types for comprehensive document structure analysis
   - **Acceptance**: Document structure accessibility automated
 
 **Coverage Impact**: +1-2% automated coverage  

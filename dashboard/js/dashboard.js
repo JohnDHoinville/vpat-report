@@ -12160,6 +12160,7 @@ ${requirement.failure_examples}
                     'mobile-accessibility': 'mobile-alt',
                     'wave': 'water',
                     'form-accessibility': 'form',
+                    'heading-structure': 'heading',
                     'playwright': 'theater-masks',
                     'cypress': 'tree'
                 };

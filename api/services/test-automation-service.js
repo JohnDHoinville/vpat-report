@@ -196,6 +196,10 @@ class TestAutomationService {
                         toolResults = await this.runFormAccessibilityTester(pages, sessionId);
                         results['formaccessibility'] = toolResults;
                         break;
+                    case 'heading-structure':
+                        toolResults = await this.runHeadingStructureAnalyzer(pages, sessionId);
+                        results['heading-structure'] = toolResults;
+                        break;
                 }
 
                 // Emit tool completion milestone
@@ -2819,10 +2823,11 @@ class TestAutomationService {
             'pa11y': 'universal-access',
             'lighthouse': 'lighthouse',
             'contrast-analyzer': 'palette',
-            'mobile-accessibility': 'mobile-alt',
-            'wave': 'water',
-            'form-accessibility': 'form',
-            'playwright': 'theater-masks',
+                                'mobile-accessibility': 'mobile-alt',
+                    'wave': 'water',
+                    'form-accessibility': 'form',
+                    'heading-structure': 'heading',
+                    'playwright': 'theater-masks',
             'cypress': 'tree'
         };
         return icons[tool] || 'tools';
@@ -3051,6 +3056,87 @@ class TestAutomationService {
         console.log(`📝 Form accessibility analysis completed: ${results.pages_tested.length} pages processed`);
         console.log(`📊 Total issues found: ${results.total_violations} (${results.critical_violations} critical)`);
         console.log(`📊 Form statistics: ${results.form_statistics.total_forms_analyzed} forms analyzed, ${results.form_statistics.forms_with_issues} with issues`);
+
+        return results;
+    }
+
+    /**
+     * Run heading structure analysis using specialized heading analyzer
+     */
+    async runHeadingStructureAnalyzer(pages, sessionId = null) {
+        const HeadingStructureAnalyzer = require('../../scripts/heading-structure-analyzer.js');
+        const headingAnalyzer = new HeadingStructureAnalyzer();
+        
+        const results = {
+            tool: 'heading-structure',
+            pages_tested: [],
+            total_violations: 0,
+            critical_violations: 0,
+            violations_by_page: {},
+            heading_statistics: {
+                total_headings_analyzed: 0,
+                pages_with_h1: 0,
+                pages_with_hierarchy_issues: 0,
+                total_hierarchy_violations: 0,
+                total_missing_levels: 0
+            }
+        };
+
+        for (const page of pages) {
+            try {
+                console.log(`📋 Running heading structure analysis for ${page.url}`);
+                
+                const headingResults = await headingAnalyzer.analyzeUrl(page.url, {
+                    userId: 'vpat-automation'
+                });
+                
+                results.pages_tested.push({
+                    url: page.url,
+                    violations: headingResults.summary.totalIssues,
+                    critical: headingResults.summary.criticalIssues,
+                    high: headingResults.summary.highIssues,
+                    medium: headingResults.summary.mediumIssues,
+                    low: headingResults.summary.lowIssues,
+                    headings_analyzed: headingResults.summary.totalHeadings,
+                    has_main_heading: headingResults.summary.hasMainHeading,
+                    hierarchy_violations: headingResults.summary.hierarchyViolations,
+                    missing_levels: headingResults.summary.missingLevels,
+                    landmarks_count: headingResults.landmarks?.length || 0,
+                    wcag_violations: headingResults.violations || []
+                });
+                
+                results.total_violations += headingResults.summary.totalIssues;
+                results.critical_violations += headingResults.summary.criticalIssues;
+                results.violations_by_page[page.url] = headingResults.summary.totalIssues;
+                results.heading_statistics.total_headings_analyzed += headingResults.summary.totalHeadings;
+                results.heading_statistics.total_hierarchy_violations += headingResults.summary.hierarchyViolations;
+                results.heading_statistics.total_missing_levels += headingResults.summary.missingLevels;
+                
+                if (headingResults.summary.hasMainHeading) {
+                    results.heading_statistics.pages_with_h1++;
+                }
+                
+                if (headingResults.summary.hierarchyViolations > 0) {
+                    results.heading_statistics.pages_with_hierarchy_issues++;
+                }
+
+                console.log(`✅ Heading structure analysis completed for ${page.url}: ${headingResults.summary.totalIssues} issues found (${headingResults.summary.totalHeadings} headings)`);
+
+            } catch (error) {
+                console.error(`❌ Heading structure analysis error for ${page.url}:`, error.message);
+                
+                results.pages_tested.push({
+                    url: page.url,
+                    error: error.message,
+                    violations: 0,
+                    critical: 0
+                });
+            }
+        }
+
+        console.log(`📋 Heading structure analysis completed: ${results.pages_tested.length} pages processed`);
+        console.log(`📊 Total issues found: ${results.total_violations} (${results.critical_violations} critical)`);
+        console.log(`📊 Heading statistics: ${results.heading_statistics.total_headings_analyzed} headings analyzed, ${results.heading_statistics.pages_with_h1} pages with H1`);
 
         return results;
     }
