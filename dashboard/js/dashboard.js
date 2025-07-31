@@ -12158,11 +12158,12 @@ ${requirement.failure_examples}
                     'lighthouse': 'lighthouse',
                     'contrast-analyzer': 'palette',
                     'mobile-accessibility': 'mobile-alt',
-                    'wave': 'water',
-                    'form-accessibility': 'form',
-                    'heading-structure': 'heading',
-                    'playwright': 'theater-masks',
-                    'cypress': 'tree'
+                                'wave': 'water',
+            'form-accessibility': 'form',
+            'heading-structure': 'heading',
+            'aria-testing': 'universal-access',
+            'playwright': 'theater-masks',
+            'cypress': 'tree'
                 };
                 return icons[tool] || 'tools';
             };

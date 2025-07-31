@@ -200,6 +200,10 @@ class TestAutomationService {
                         toolResults = await this.runHeadingStructureAnalyzer(pages, sessionId);
                         results['heading-structure'] = toolResults;
                         break;
+                    case 'aria-testing':
+                        toolResults = await this.runAriaTestingAnalyzer(pages, sessionId);
+                        results['aria-testing'] = toolResults;
+                        break;
                 }
 
                 // Emit tool completion milestone
@@ -2824,11 +2828,12 @@ class TestAutomationService {
             'lighthouse': 'lighthouse',
             'contrast-analyzer': 'palette',
                                 'mobile-accessibility': 'mobile-alt',
-                    'wave': 'water',
-                    'form-accessibility': 'form',
-                    'heading-structure': 'heading',
-                    'playwright': 'theater-masks',
-            'cypress': 'tree'
+                                    'wave': 'water',
+                'form-accessibility': 'form',
+                'heading-structure': 'heading',
+                'aria-testing': 'universal-access',
+                'playwright': 'theater-masks',
+        'cypress': 'tree'
         };
         return icons[tool] || 'tools';
     }
@@ -3137,6 +3142,90 @@ class TestAutomationService {
         console.log(`📋 Heading structure analysis completed: ${results.pages_tested.length} pages processed`);
         console.log(`📊 Total issues found: ${results.total_violations} (${results.critical_violations} critical)`);
         console.log(`📊 Heading statistics: ${results.heading_statistics.total_headings_analyzed} headings analyzed, ${results.heading_statistics.pages_with_h1} pages with H1`);
+
+        return results;
+    }
+
+    /**
+     * Run ARIA testing analysis using specialized ARIA analyzer
+     */
+    async runAriaTestingAnalyzer(pages, sessionId = null) {
+        const AriaTestingAnalyzer = require('../../scripts/aria-testing-analyzer.js');
+        const ariaAnalyzer = new AriaTestingAnalyzer();
+        
+        const results = {
+            tool: 'aria-testing',
+            pages_tested: [],
+            total_violations: 0,
+            critical_violations: 0,
+            violations_by_page: {},
+            aria_statistics: {
+                total_aria_elements: 0,
+                total_widgets: 0,
+                total_live_regions: 0,
+                total_relationships: 0,
+                widget_pattern_violations: 0,
+                live_region_issues: 0,
+                relationship_issues: 0,
+                accessible_name_issues: 0
+            }
+        };
+
+        for (const page of pages) {
+            try {
+                console.log(`🎭 Running ARIA testing analysis for ${page.url}`);
+                
+                const ariaResults = await ariaAnalyzer.analyzeUrl(page.url, {
+                    userId: 'vpat-automation'
+                });
+                
+                results.pages_tested.push({
+                    url: page.url,
+                    violations: ariaResults.summary.totalIssues,
+                    critical: ariaResults.summary.criticalIssues,
+                    high: ariaResults.summary.highIssues,
+                    medium: ariaResults.summary.mediumIssues,
+                    low: ariaResults.summary.lowIssues,
+                    aria_elements: ariaResults.summary.totalAriaElements,
+                    widgets: ariaResults.summary.totalWidgets,
+                    live_regions: ariaResults.summary.totalLiveRegions,
+                    relationships: ariaResults.summary.totalRelationships,
+                    widget_violations: ariaResults.summary.widgetPatternViolations,
+                    live_region_issues: ariaResults.summary.liveRegionIssues,
+                    relationship_issues: ariaResults.summary.relationshipIssues,
+                    accessible_name_issues: ariaResults.summary.accessibleNameIssues,
+                    wcag_violations: ariaResults.violations || []
+                });
+                
+                results.total_violations += ariaResults.summary.totalIssues;
+                results.critical_violations += ariaResults.summary.criticalIssues;
+                results.violations_by_page[page.url] = ariaResults.summary.totalIssues;
+                results.aria_statistics.total_aria_elements += ariaResults.summary.totalAriaElements;
+                results.aria_statistics.total_widgets += ariaResults.summary.totalWidgets;
+                results.aria_statistics.total_live_regions += ariaResults.summary.totalLiveRegions;
+                results.aria_statistics.total_relationships += ariaResults.summary.totalRelationships;
+                results.aria_statistics.widget_pattern_violations += ariaResults.summary.widgetPatternViolations;
+                results.aria_statistics.live_region_issues += ariaResults.summary.liveRegionIssues;
+                results.aria_statistics.relationship_issues += ariaResults.summary.relationshipIssues;
+                results.aria_statistics.accessible_name_issues += ariaResults.summary.accessibleNameIssues;
+
+                console.log(`✅ ARIA testing analysis completed for ${page.url}: ${ariaResults.summary.totalIssues} issues found (${ariaResults.summary.totalAriaElements} ARIA elements, ${ariaResults.summary.totalWidgets} widgets)`);
+
+            } catch (error) {
+                console.error(`❌ ARIA testing analysis error for ${page.url}:`, error.message);
+                
+                results.pages_tested.push({
+                    url: page.url,
+                    error: error.message,
+                    violations: 0,
+                    critical: 0
+                });
+            }
+        }
+
+        console.log(`🎭 ARIA testing analysis completed: ${results.pages_tested.length} pages processed`);
+        console.log(`📊 Total issues found: ${results.total_violations} (${results.critical_violations} critical)`);
+        console.log(`📊 ARIA statistics: ${results.aria_statistics.total_aria_elements} ARIA elements, ${results.aria_statistics.total_widgets} widgets, ${results.aria_statistics.total_live_regions} live regions`);
 
         return results;
     }

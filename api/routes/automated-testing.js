@@ -29,7 +29,7 @@ router.post('/run/:sessionId', authenticateToken, async (req, res) => {
         console.log(`🤖 Starting automated tests for session ${sessionId} with tools: ${tools.join(', ')}`);
 
         // Validate tools
-        const validTools = ['axe', 'pa11y', 'lighthouse', 'contrast-analyzer', 'mobile-accessibility', 'wave', 'form-accessibility', 'heading-structure', 'migrated_data', 'playwright', 'playwright-axe', 'playwright-lighthouse', 'cypress', 'selenium', 'webdriver'];
+        const validTools = ['axe', 'pa11y', 'lighthouse', 'contrast-analyzer', 'mobile-accessibility', 'wave', 'form-accessibility', 'heading-structure', 'aria-testing', 'migrated_data', 'playwright', 'playwright-axe', 'playwright-lighthouse', 'cypress', 'selenium', 'webdriver'];
         const invalidTools = tools.filter(tool => !validTools.includes(tool));
         if (invalidTools.length > 0) {
             return res.status(400).json({
