@@ -2304,28 +2304,29 @@ class TestAutomationService {
      * Create session-level audit log entry for automation events
      */
     async createSessionAuditLogEntry(sessionId, actionType, userId, reason, metadata = {}) {
-        // Validate and sanitize userId - ensure it's a proper UUID or null
-        let validatedUserId = null;
+        // Validate userId - must be a proper UUID, no fallbacks
         if (userId) {
-            // Check if userId is a valid UUID format
             const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-            if (uuidRegex.test(userId)) {
-                validatedUserId = userId;
-            } else {
-                console.warn('Invalid userId format for audit log, using null:', userId);
-                validatedUserId = null;
+            if (!uuidRegex.test(userId)) {
+                throw new Error(`Authentication required: Invalid user ID format. Please ensure you are properly logged in.`);
             }
+        } else {
+            throw new Error(`Authentication required: User ID is required for audit logging. Please ensure you are properly logged in.`);
         }
 
         // Get user information for better tracking
         let userInfo = null;
-        if (validatedUserId) {
-            try {
-                const userQuery = await pool.query('SELECT username, email FROM users WHERE id = $1', [validatedUserId]);
-                userInfo = userQuery.rows[0] || null;
-            } catch (error) {
-                console.warn('Could not fetch user info for audit log:', error.message);
+        try {
+            const userQuery = await pool.query('SELECT username, email FROM users WHERE id = $1', [userId]);
+            if (userQuery.rows.length === 0) {
+                throw new Error(`Authentication required: User not found in database. Please log in again.`);
             }
+            userInfo = userQuery.rows[0];
+        } catch (error) {
+            if (error.message.includes('Authentication required')) {
+                throw error; // Re-throw auth errors
+            }
+            throw new Error(`Authentication required: Could not validate user. Please log in again. (${error.message})`);
         }
 
         const enhancedMetadata = {
@@ -2346,13 +2347,13 @@ class TestAutomationService {
         await pool.query(query, [
             sessionId,
             actionType,
-            validatedUserId, // Use validated UUID or null
+            userId,
             new Date(),
             reason,
             JSON.stringify(enhancedMetadata)
         ]);
 
-        console.log(`📋 Session audit logged: ${actionType} by ${userInfo?.username || 'system'} for session ${sessionId}`);
+        console.log(`📋 Session audit logged: ${actionType} by ${userInfo.username} for session ${sessionId}`);
     }
 
     /**
