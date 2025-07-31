@@ -686,5 +686,304 @@ router.get('/remediation-guidance/:sessionId', authenticateToken, async (req, re
     }
 });
 
-    return router;
+// Coverage Analysis Routes
+router.get('/coverage/analysis/:sessionId?', authenticateToken, async (req, res) => {
+    try {
+        const { sessionId } = req.params;
+        const sessionIds = sessionId ? [sessionId] : [];
+        const options = {
+            include_gaps: req.query.include_gaps !== 'false',
+            include_recommendations: req.query.include_recommendations !== 'false',
+            format: req.query.format || 'json'
+        };
+
+        const analysis = await automationService.runCoverageAnalysis(sessionIds, options);
+        
+        res.json({
+            success: true,
+            analysis: analysis,
+            metadata: {
+                generated_at: new Date().toISOString(),
+                session_scope: sessionId ? 'single' : 'system-wide',
+                total_criteria_analyzed: Object.keys(analysis.wcag_criteria_analysis || {}).length
+            }
+        });
+    } catch (error) {
+        console.error('Coverage analysis error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Coverage analysis failed',
+            details: error.message
+        });
+    }
+});
+
+router.get('/optimization/recommendations/:sessionId?', authenticateToken, async (req, res) => {
+    try {
+        const { sessionId } = req.params;
+        const sessionData = sessionId ? { session_id: sessionId } : {};
+        
+        const recommendations = await automationService.generateOptimizationRecommendations(sessionData);
+        
+        res.json({
+            success: true,
+            recommendations: recommendations,
+            metadata: {
+                generated_at: new Date().toISOString(),
+                scope: sessionId ? 'session-specific' : 'system-wide'
+            }
+        });
+    } catch (error) {
+        console.error('Optimization recommendations error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Optimization analysis failed',
+            details: error.message
+        });
+    }
+});
+
+router.post('/results/deduplicate', authenticateToken, async (req, res) => {
+    try {
+        const { results, options = {} } = req.body;
+        
+        if (!results || typeof results !== 'object') {
+            return res.status(400).json({
+                success: false,
+                error: 'Results object is required'
+            });
+        }
+
+        const deduplicated = await automationService.deduplicateResults(results, options);
+        
+        res.json({
+            success: true,
+            deduplicated: deduplicated,
+            metadata: {
+                processed_at: new Date().toISOString(),
+                original_violations: Object.values(results).reduce((sum, tool) => 
+                    sum + (tool.violations?.length || 0), 0),
+                unique_violations: deduplicated.unique_violations.length,
+                efficiency: deduplicated.duplicate_count > 0 ? 
+                    ((deduplicated.duplicate_count / (deduplicated.unique_violations.length + deduplicated.duplicate_count)) * 100).toFixed(1) + '%' : '0%'
+            }
+        });
+    } catch (error) {
+        console.error('Result deduplication error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Result deduplication failed',
+            details: error.message
+        });
+    }
+});
+
+// Coverage Metrics Collection Routes
+router.post('/coverage/metrics/start', authenticateToken, async (req, res) => {
+    try {
+        const { interval_minutes = 15 } = req.body;
+        
+        const CoverageMetricsCollector = require('../../scripts/coverage-metrics-collector.js');
+        
+        if (!global.coverageCollector) {
+            global.coverageCollector = new CoverageMetricsCollector();
+            
+            // Set up event listeners
+            global.coverageCollector.on('metrics_collected', (metrics) => {
+                console.log(`📊 Coverage metrics collected: ${metrics.overall_coverage.total_sessions} sessions analyzed`);
+            });
+            
+            global.coverageCollector.on('coverage_alert', (alert) => {
+                console.log(`🚨 Coverage Alert [${alert.severity.toUpperCase()}]: ${alert.message}`);
+            });
+        }
+        
+        await global.coverageCollector.startCollection(interval_minutes);
+        
+        res.json({
+            success: true,
+            message: 'Coverage metrics collection started',
+            data: {
+                interval_minutes: interval_minutes,
+                status: 'running'
+            }
+        });
+    } catch (error) {
+        console.error('Error starting coverage metrics collection:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to start coverage metrics collection',
+            details: error.message
+        });
+    }
+});
+
+router.post('/coverage/metrics/stop', authenticateToken, async (req, res) => {
+    try {
+        if (global.coverageCollector && global.coverageCollector.isRunning) {
+            global.coverageCollector.stopCollection();
+            
+            res.json({
+                success: true,
+                message: 'Coverage metrics collection stopped',
+                data: {
+                    status: 'stopped'
+                }
+            });
+        } else {
+            res.json({
+                success: true,
+                message: 'Coverage metrics collection was not running',
+                data: {
+                    status: 'not_running'
+                }
+            });
+        }
+    } catch (error) {
+        console.error('Error stopping coverage metrics collection:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to stop coverage metrics collection',
+            details: error.message
+        });
+    }
+});
+
+router.get('/coverage/metrics/status', authenticateToken, async (req, res) => {
+    try {
+        const status = {
+            is_running: global.coverageCollector ? global.coverageCollector.isRunning : false,
+            last_collection: null,
+            next_collection: null
+        };
+        
+        if (global.coverageCollector && global.coverageCollector.metricsCache.has('latest')) {
+            const latestMetrics = global.coverageCollector.metricsCache.get('latest');
+            status.last_collection = latestMetrics.timestamp;
+        }
+        
+        res.json({
+            success: true,
+            data: status
+        });
+    } catch (error) {
+        console.error('Error getting coverage metrics status:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to get coverage metrics status',
+            details: error.message
+        });
+    }
+});
+
+router.get('/coverage/metrics/current', authenticateToken, async (req, res) => {
+    try {
+        const CoverageMetricsCollector = require('../../scripts/coverage-metrics-collector.js');
+        const collector = new CoverageMetricsCollector();
+        
+        const currentMetrics = await collector.collectCurrentMetrics();
+        
+        res.json({
+            success: true,
+            data: currentMetrics,
+            metadata: {
+                collected_at: new Date().toISOString(),
+                type: 'on_demand'
+            }
+        });
+    } catch (error) {
+        console.error('Error collecting current metrics:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to collect current metrics',
+            details: error.message
+        });
+    }
+});
+
+router.get('/coverage/metrics/history', authenticateToken, async (req, res) => {
+    try {
+        const { days = 30 } = req.query;
+        
+        const CoverageMetricsCollector = require('../../scripts/coverage-metrics-collector.js');
+        const collector = new CoverageMetricsCollector();
+        
+        const historicalMetrics = await collector.getHistoricalMetrics(parseInt(days));
+        
+        res.json({
+            success: true,
+            data: {
+                metrics: historicalMetrics,
+                period_days: parseInt(days),
+                total_data_points: historicalMetrics.length
+            },
+            metadata: {
+                retrieved_at: new Date().toISOString(),
+                period_start: historicalMetrics.length > 0 ? historicalMetrics[0].timestamp : null,
+                period_end: historicalMetrics.length > 0 ? historicalMetrics[historicalMetrics.length - 1].timestamp : null
+            }
+        });
+    } catch (error) {
+        console.error('Error getting historical metrics:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to get historical metrics',
+            details: error.message
+        });
+    }
+});
+
+// Optimized Testing Routes
+router.post('/run-optimized/:sessionId', authenticateToken, async (req, res) => {
+    try {
+        const { sessionId } = req.params;
+        const { tools = ['axe', 'pa11y'], optimize_pipeline = true } = req.body;
+        
+        const result = await automationService.runOptimizedAutomatedTests(sessionId, {
+            tools,
+            optimize_pipeline,
+            userId: req.user.userId
+        });
+        
+        res.json({
+            success: true,
+            message: 'Optimized automated testing completed',
+            data: result
+        });
+    } catch (error) {
+        console.error('Error running optimized automated tests:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Optimized automated testing failed',
+            details: error.message
+        });
+    }
+});
+
+router.get('/performance/recommendations/:sessionId?', authenticateToken, async (req, res) => {
+    try {
+        const { sessionId } = req.params;
+        const sessionData = sessionId ? { session_id: sessionId } : {};
+        
+        const recommendations = await automationService.generatePerformanceRecommendations(sessionData);
+        
+        res.json({
+            success: true,
+            data: recommendations,
+            metadata: {
+                generated_at: new Date().toISOString(),
+                scope: sessionId ? 'session-specific' : 'system-wide'
+            }
+        });
+    } catch (error) {
+        console.error('Error generating performance recommendations:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Performance recommendations failed',
+            details: error.message
+        });
+    }
+});
+
+return router;
 }; 
