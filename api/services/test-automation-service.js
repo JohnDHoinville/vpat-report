@@ -1431,7 +1431,7 @@ class TestAutomationService {
                 criticalViolations += toolResult.critical_violations || 0;
 
                 // Handle specialized tool results
-                if (tool === 'color-contrast-analyzer' && toolResult.contrast_analysis) {
+                if (toolKey === 'color-contrast-analyzer' && toolResult.contrast_analysis) {
                     specializedAnalysis.contrast = {
                         total_elements_tested: toolResult.total_elements_tested || 0,
                         aa_violations: toolResult.aa_violations || 0,
@@ -1463,7 +1463,7 @@ class TestAutomationService {
                     }
                 }
 
-                if (tool === 'luma' && toolResult.flash_analysis) {
+                if (toolKey === 'luma' && toolResult.flash_analysis) {
                     specializedAnalysis.flash = {
                         total_flashes_detected: toolResult.total_flashes_detected || 0,
                         critical_flashes: toolResult.critical_flashes || 0,

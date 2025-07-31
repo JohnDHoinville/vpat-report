@@ -1,0 +1,144 @@
+# Tasks: Dashboard Component Migration
+
+Based on PRD: `prd-dashboard-component-migration.md`
+
+## Relevant Files
+
+- `dashboard/js/dashboard.js` - Main monolithic dashboard file (12,923 lines) - PRIMARY MIGRATION TARGET
+- `dashboard/js/utils/` - Extracted utility functions directory (to be created)
+- `dashboard/js/helpers/` - Data transformation helpers directory (to be created)
+- `dashboard/js/constants/` - Configuration constants directory (to be created)
+- `dashboard/js/services/` - API service layer directory (to be created)
+- `dashboard/js/components/` - React components directory (✅ CREATED)
+- `dashboard/js/components/utils/alpineIntegration.js` - Alpine-React bridge system (✅ CREATED)
+- `dashboard/js/components/TestComponent.jsx` - Test React component for portal system (✅ CREATED)
+- `dashboard/js/components/index.js` - Components entry point with bridge initialization (✅ UPDATED)
+- `dashboard/js/stores/` - State management directory (to be created)
+- `package.json` - Dependencies file (✅ UPDATED - Added React, webpack, babel)
+- `webpack.config.js` - Build configuration for React-Alpine coexistence (✅ CREATED)
+- `babel.config.js` - JSX compilation configuration (✅ CREATED)
+- `DEVELOPMENT_WORKFLOW.md` - Development workflow documentation (✅ CREATED)
+- `scripts/dev-server-test.js` - Development server testing script (✅ CREATED)
+- `test-react-alpine-bridge.html` - Test page for portal system demonstration (✅ CREATED)
+- `.gitignore` - Updated to include build artifacts
+- `dashboard.html` - Main HTML file (may need script tag modifications)
+
+### Notes
+
+- All existing Alpine.js functionality must remain working during migration
+- React components will be rendered via portals to coexist with Alpine.js
+- Visual regression testing required for each migrated component
+- Each phase requires user approval before proceeding to next
+
+## Tasks
+
+- [x] 1.0 Set Up React-Alpine.js Coexistence Infrastructure
+  - [x] 1.1 Install React and build dependencies in package.json
+  - [x] 1.2 Create webpack configuration for React-Alpine coexistence
+  - [x] 1.3 Create Babel configuration for JSX compilation
+  - [x] 1.4 Set up development build scripts and hot reloading
+  - [x] 1.5 Create React portal system for Alpine.js coexistence
+  - [x] 1.6 Test basic React component rendering alongside Alpine.js
+- [ ] 2.0 Extract Utilities and Constants (Phase 1)
+  - [ ] 2.1 Create dashboard/js/utils/ directory structure
+  - [ ] 2.2 Extract date formatting functions to utils/dateHelpers.js
+  - [ ] 2.3 Extract validation functions to utils/validators.js
+  - [ ] 2.4 Extract string manipulation functions to utils/stringHelpers.js
+  - [ ] 2.5 Create constants/apiEndpoints.js with all API URLs
+  - [ ] 2.6 Create constants/uiConstants.js with magic strings and values
+  - [ ] 2.7 Create helpers/dataTransformers.js for status mapping and data conversion
+  - [ ] 2.8 Update dashboard.js to import and use extracted utilities
+  - [ ] 2.9 Test that all existing functionality still works
+- [ ] 3.0 Extract API Services Layer (Phase 2)
+  - [ ] 3.1 Create dashboard/js/services/ directory structure
+  - [ ] 3.2 Extract authentication API calls to services/AuthService.js
+  - [ ] 3.3 Extract project management API calls to services/ProjectService.js
+  - [ ] 3.4 Extract web crawler API calls to services/CrawlerService.js
+  - [ ] 3.5 Extract testing session API calls to services/TestingService.js
+  - [ ] 3.6 Extract automation API calls to services/AutomationService.js
+  - [ ] 3.7 Extract manual testing API calls to services/ManualTestingService.js
+  - [ ] 3.8 Extract reporting API calls to services/ReportingService.js
+  - [ ] 3.9 Create base ApiService.js with common HTTP functionality
+  - [ ] 3.10 Update dashboard.js to use service layer instead of direct API calls
+  - [ ] 3.11 Test all API functionality still works through service layer
+- [ ] 4.0 Migrate Authentication Component to React (Phase 3A)
+  - [ ] 4.1 Analyze authentication UI sections in dashboard.js
+  - [ ] 4.2 Create components/auth/ directory structure
+  - [ ] 4.3 Create LoginForm.jsx component with exact styling
+  - [ ] 4.4 Create PasswordChange.jsx component
+  - [ ] 4.5 Create UserProfile.jsx component
+  - [ ] 4.6 Create AuthModals.jsx container component
+  - [ ] 4.7 Implement React portal rendering in Alpine.js context
+  - [ ] 4.8 Test authentication flow functionality
+  - [ ] 4.9 Run visual regression tests for authentication UI
+  - [ ] 4.10 Remove authentication code from dashboard.js
+- [ ] 5.0 Migrate Web Crawler Interface to React (Phase 3B)
+  - [ ] 5.1 Analyze web crawler UI sections in dashboard.js
+  - [ ] 5.2 Create components/crawler/ directory structure
+  - [ ] 5.3 Create CrawlerList.jsx component
+  - [ ] 5.4 Create CreateCrawler.jsx modal component
+  - [ ] 5.5 Create CrawlerStatus.jsx component
+  - [ ] 5.6 Create DiscoveredPages.jsx component
+  - [ ] 5.7 Implement crawler state management
+  - [ ] 5.8 Test web crawler functionality
+  - [ ] 5.9 Run visual regression tests for crawler UI
+  - [ ] 5.10 Remove crawler code from dashboard.js
+- [ ] 6.0 Migrate Project/Session Management to React (Phase 3C)
+  - [ ] 6.1 Analyze project/session UI sections in dashboard.js
+  - [ ] 6.2 Create components/projects/ directory structure
+  - [ ] 6.3 Create ProjectList.jsx component
+  - [ ] 6.4 Create CreateProject.jsx modal component
+  - [ ] 6.5 Create SessionList.jsx component
+  - [ ] 6.6 Create CreateSession.jsx modal component
+  - [ ] 6.7 Create ProjectSessionManager.jsx container
+  - [ ] 6.8 Test project/session management functionality
+  - [ ] 6.9 Run visual regression tests for project/session UI
+  - [ ] 6.10 Remove project/session code from dashboard.js
+- [ ] 7.0 Migrate Automated Testing Interface to React (Phase 3D)
+  - [ ] 7.1 Analyze automated testing UI sections in dashboard.js
+  - [ ] 7.2 Create components/testing/automated/ directory
+  - [ ] 7.3 Create AutomationControls.jsx component
+  - [ ] 7.4 Create TestProgress.jsx component
+  - [ ] 7.5 Create AutomationResults.jsx component
+  - [ ] 7.6 Create TestConfiguration.jsx modal
+  - [ ] 7.7 Implement WebSocket integration for real-time updates
+  - [ ] 7.8 Test automated testing functionality
+  - [ ] 7.9 Run visual regression tests for automation UI
+  - [ ] 7.10 Remove automation code from dashboard.js
+- [ ] 8.0 Migrate Manual Testing Interface to React (Phase 3E)
+  - [ ] 8.1 Analyze manual testing UI sections in dashboard.js
+  - [ ] 8.2 Create components/testing/manual/ directory
+  - [ ] 8.3 Create TestInstanceList.jsx component
+  - [ ] 8.4 Create TestReview.jsx component
+  - [ ] 8.5 Create EvidenceUpload.jsx component
+  - [ ] 8.6 Create TestStatusManager.jsx component
+  - [ ] 8.7 Test manual testing workflow
+  - [ ] 8.8 Run visual regression tests for manual testing UI
+  - [ ] 8.9 Remove manual testing code from dashboard.js
+- [ ] 9.0 Migrate Reporting Interface to React (Phase 3F)
+  - [ ] 9.1 Analyze reporting UI sections in dashboard.js
+  - [ ] 9.2 Create components/reporting/ directory
+  - [ ] 9.3 Create ReportViewer.jsx component
+  - [ ] 9.4 Create VPATGenerator.jsx component
+  - [ ] 9.5 Create AuditTrail.jsx component
+  - [ ] 9.6 Create ReportExporter.jsx component
+  - [ ] 9.7 Test reporting functionality
+  - [ ] 9.8 Run visual regression tests for reporting UI
+  - [ ] 9.9 Remove reporting code from dashboard.js
+- [ ] 10.0 Implement Global State Management (Phase 4)
+  - [ ] 10.1 Set up React Context for global state
+  - [ ] 10.2 Create stores/AuthStore.js for authentication state
+  - [ ] 10.3 Create stores/ProjectStore.js for project/session state
+  - [ ] 10.4 Create stores/TestingStore.js for testing state
+  - [ ] 10.5 Create stores/UIStore.js for modal and UI state
+  - [ ] 10.6 Implement state bridge between React and remaining Alpine.js
+  - [ ] 10.7 Migrate all components to use global state
+  - [ ] 10.8 Test state synchronization across components
+- [ ] 11.0 Final Integration and Cleanup
+  - [ ] 11.1 Remove all extracted code from dashboard.js
+  - [ ] 11.2 Verify dashboard.js is now minimal (<200 lines)
+  - [ ] 11.3 Remove Alpine.js dependencies where no longer needed
+  - [ ] 11.4 Run complete end-to-end testing
+  - [ ] 11.5 Run performance benchmarks
+  - [ ] 11.6 Update documentation and README
+  - [ ] 11.7 Create migration completion report 

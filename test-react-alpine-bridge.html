@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alpine-React Bridge Test</title>
+    
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Alpine.js -->
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    
+    <style>
+        .alpine-section {
+            border-left: 4px solid #10b981;
+        }
+        
+        .react-section {
+            border-left: 4px solid #3b82f6;
+        }
+        
+        .bridge-section {
+            border-left: 4px solid #8b5cf6;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 p-6">
+    <div class="max-w-6xl mx-auto space-y-6">
+        <!-- Header -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h1 class="text-3xl font-bold text-gray-800 mb-2">
+                🌉 Alpine-React Bridge Test
+            </h1>
+            <p class="text-gray-600">
+                Testing React component portals within Alpine.js contexts during dashboard migration.
+            </p>
+        </div>
+
+        <!-- Alpine.js Section -->
+        <div class="bg-white rounded-lg shadow-md p-6 alpine-section">
+            <h2 class="text-xl font-semibold text-green-700 mb-4">
+                🏔️ Alpine.js Section
+            </h2>
+            
+            <div x-data="alpineTestData()" class="space-y-4">
+                <!-- Alpine Controls -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                            Alpine Counter
+                        </label>
+                        <div class="flex items-center space-x-2">
+                            <span x-text="counter" class="text-lg font-mono"></span>
+                            <button 
+                                @click="increment()" 
+                                class="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 transition-colors"
+                            >
+                                +1
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                            Test Message
+                        </label>
+                        <input 
+                            x-model="testMessage" 
+                            type="text" 
+                            class="w-full px-3 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-green-500"
+                            placeholder="Type a message..."
+                        >
+                    </div>
+                    
+                    <div class="flex flex-col justify-end">
+                        <button 
+                            @click="sendToBridge()" 
+                            class="px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600 transition-colors"
+                        >
+                            Send to Bridge
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Bridge State Display -->
+                <div class="bg-green-50 p-4 rounded border">
+                    <h3 class="font-medium text-green-800 mb-2">Bridge State (from Alpine)</h3>
+                    <div class="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <strong>React Counter:</strong> 
+                            <span x-text="bridgeState.reactCounter || 0"></span>
+                        </div>
+                        <div>
+                            <strong>React Message:</strong> 
+                            <span x-text="bridgeState.reactMessage || 'None'"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- React Component Containers -->
+                <div class="space-y-4">
+                    <h3 class="font-medium text-green-800">React Component Portals</h3>
+                    
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        <!-- Portal 1 -->
+                        <div>
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-sm font-medium">Portal 1</span>
+                                <button 
+                                    @click="toggleReactComponent1()" 
+                                    class="px-3 py-1 text-sm rounded transition-colors"
+                                    :class="reactComponent1 ? 'bg-red-500 text-white hover:bg-red-600' : 'bg-blue-500 text-white hover:bg-blue-600'"
+                                    x-text="reactComponent1 ? 'Unmount' : 'Mount'"
+                                ></button>
+                            </div>
+                            <div 
+                                id="react-portal-1" 
+                                class="min-h-[100px] border-2 border-dashed border-gray-300 rounded p-2"
+                                x-show="reactComponent1"
+                            ></div>
+                        </div>
+
+                        <!-- Portal 2 -->
+                        <div>
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-sm font-medium">Portal 2</span>
+                                <button 
+                                    @click="toggleReactComponent2()" 
+                                    class="px-3 py-1 text-sm rounded transition-colors"
+                                    :class="reactComponent2 ? 'bg-red-500 text-white hover:bg-red-600' : 'bg-blue-500 text-white hover:bg-blue-600'"
+                                    x-text="reactComponent2 ? 'Unmount' : 'Mount'"
+                                ></button>
+                            </div>
+                            <div 
+                                id="react-portal-2" 
+                                class="min-h-[100px] border-2 border-dashed border-gray-300 rounded p-2"
+                                x-show="reactComponent2"
+                            ></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Static React Component Test -->
+        <div class="bg-white rounded-lg shadow-md p-6 react-section">
+            <h2 class="text-xl font-semibold text-blue-700 mb-4">
+                ⚛️ Static React Component Test
+            </h2>
+            
+            <div class="space-y-4">
+                <p class="text-gray-600">
+                    This React component is rendered immediately when the bridge initializes.
+                </p>
+                
+                <div id="static-react-component" class="border-2 border-dashed border-blue-300 rounded p-2 min-h-[100px]">
+                    <!-- React component will be rendered here -->
+                </div>
+                
+                <button 
+                    onclick="window.ReactComponents.render('TestComponent', {message: 'Static Component Reload!'}, 'static-react-component')"
+                    class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+                >
+                    Reload Static Component
+                </button>
+            </div>
+        </div>
+
+        <!-- Bridge Debug Section -->
+        <div class="bg-white rounded-lg shadow-md p-6 bridge-section">
+            <h2 class="text-xl font-semibold text-purple-700 mb-4">
+                🔍 Bridge Debug Information
+            </h2>
+            
+            <div x-data="bridgeDebugData()" class="space-y-4">
+                <div class="flex space-x-2">
+                    <button 
+                        @click="refreshDebugInfo()" 
+                        class="px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600 transition-colors"
+                    >
+                        Refresh Debug Info
+                    </button>
+                    
+                    <button 
+                        @click="clearBridgeState()" 
+                        class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
+                    >
+                        Clear Bridge State
+                    </button>
+                </div>
+                
+                <div class="bg-purple-50 p-4 rounded border">
+                    <h3 class="font-medium text-purple-800 mb-2">Bridge Status</h3>
+                    <pre x-text="JSON.stringify(debugInfo, null, 2)" class="text-xs text-purple-700 whitespace-pre-wrap"></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- React Components Bundle -->
+    <script src="dashboard/dist/runtime.js"></script>
+    <script src="dashboard/dist/vendors.js"></script>
+    <script src="dashboard/dist/react-components.js"></script>
+
+    <script>
+        // Alpine.js data functions
+        function alpineTestData() {
+            return {
+                counter: 0,
+                testMessage: 'Hello from Alpine!',
+                reactComponent1: false,
+                reactComponent2: false,
+                reactInstance1: null,
+                reactInstance2: null,
+                bridgeState: {},
+                
+                init() {
+                    console.log('🏔️ Alpine component initialized');
+                    
+                    // Subscribe to bridge state changes
+                    this.subscribeToBridge();
+                    
+                    // Initial bridge state
+                    this.updateBridgeState();
+                },
+                
+                increment() {
+                    this.counter++;
+                    window.bridgeState.set('alpineCounter', this.counter);
+                },
+                
+                sendToBridge() {
+                    window.bridgeState.set('testMessage', this.testMessage);
+                    window.bridgeState.set('alpineTestValue', this.testMessage);
+                },
+                
+                toggleReactComponent1() {
+                    if (this.reactComponent1) {
+                        // Unmount
+                        if (this.reactInstance1) {
+                            window.ReactComponents.unmount(this.reactInstance1);
+                            this.reactInstance1 = null;
+                        }
+                        this.reactComponent1 = false;
+                    } else {
+                        // Mount
+                        this.reactInstance1 = window.ReactComponents.render(
+                            'TestComponent', 
+                            { 
+                                message: `Portal 1 - Alpine Counter: ${this.counter}`,
+                                alpineData: { testValue: this.testMessage }
+                            }, 
+                            'react-portal-1',
+                            {
+                                onMount: (id) => console.log('🚀 Portal 1 mounted:', id),
+                                onUnmount: (id) => console.log('🗑️ Portal 1 unmounted:', id)
+                            }
+                        );
+                        this.reactComponent1 = true;
+                    }
+                },
+                
+                toggleReactComponent2() {
+                    if (this.reactComponent2) {
+                        // Unmount
+                        if (this.reactInstance2) {
+                            window.ReactComponents.unmount(this.reactInstance2);
+                            this.reactInstance2 = null;
+                        }
+                        this.reactComponent2 = false;
+                    } else {
+                        // Mount
+                        this.reactInstance2 = window.ReactComponents.render(
+                            'TestComponent', 
+                            { 
+                                message: `Portal 2 - Message: ${this.testMessage}`,
+                                alpineData: { testValue: this.counter.toString() }
+                            }, 
+                            'react-portal-2',
+                            {
+                                onMount: (id) => console.log('🚀 Portal 2 mounted:', id),
+                                onUnmount: (id) => console.log('🗑️ Portal 2 unmounted:', id)
+                            }
+                        );
+                        this.reactComponent2 = true;
+                    }
+                },
+                
+                subscribeToBridge() {
+                    // Subscribe to React state changes
+                    window.bridgeState.subscribe('reactCounter', (value) => {
+                        this.bridgeState.reactCounter = value;
+                    });
+                    
+                    window.bridgeState.subscribe('reactMessage', (value) => {
+                        this.bridgeState.reactMessage = value;
+                    });
+                },
+                
+                updateBridgeState() {
+                    this.bridgeState = {
+                        reactCounter: window.bridgeState.get('reactCounter', 0),
+                        reactMessage: window.bridgeState.get('reactMessage', '')
+                    };
+                }
+            }
+        }
+        
+        function bridgeDebugData() {
+            return {
+                debugInfo: {},
+                
+                init() {
+                    this.refreshDebugInfo();
+                },
+                
+                refreshDebugInfo() {
+                    if (window.ReactComponents && window.ReactComponents.debug) {
+                        this.debugInfo = window.ReactComponents.debug();
+                    } else {
+                        this.debugInfo = { error: 'Bridge not available' };
+                    }
+                },
+                
+                clearBridgeState() {
+                    if (window.ReactComponents && window.ReactComponents.bridge) {
+                        window.ReactComponents.bridge.stateStore.clear();
+                        this.refreshDebugInfo();
+                        console.log('🧹 Bridge state cleared');
+                    }
+                }
+            }
+        }
+        
+        // Initialize static React component when bridge is ready
+        document.addEventListener('DOMContentLoaded', () => {
+            // Wait for React components to be available
+            const initializeStatic = () => {
+                if (window.ReactComponents && typeof window.ReactComponents.render === 'function') {
+                    try {
+                        window.ReactComponents.render(
+                            'TestComponent', 
+                            { message: 'Static Test Component - Bridge Ready!' }, 
+                            'static-react-component'
+                        );
+                        console.log('✅ Static React component initialized');
+                    } catch (error) {
+                        console.error('❌ Failed to initialize static React component:', error);
+                    }
+                } else {
+                    console.log('⏳ Waiting for React components...', {
+                        ReactComponents: !!window.ReactComponents,
+                        render: window.ReactComponents ? typeof window.ReactComponents.render : 'undefined'
+                    });
+                    setTimeout(initializeStatic, 100);
+                }
+            };
+            
+            // Give more time for webpack bundles to load
+            setTimeout(initializeStatic, 1000);
+        });
+        
+        // Add error handling for script loading
+        window.addEventListener('error', (event) => {
+            if (event.filename && event.filename.includes('react-components')) {
+                console.error('❌ Failed to load React components bundle:', event.error);
+            }
+        });
+        
+        // Debug function to check bundle loading status
+        window.checkBundleStatus = () => {
+            console.log('📊 Bundle Status:', {
+                ReactComponents: !!window.ReactComponents,
+                alpineReactBridge: !!window.alpineReactBridge,
+                bridgeState: !!window.bridgeState,
+                renderFunction: window.ReactComponents ? typeof window.ReactComponents.render : 'undefined',
+                Alpine: !!window.Alpine
+            });
+        };
+        
+        // Auto-check bundle status after 2 seconds
+        setTimeout(() => {
+            window.checkBundleStatus();
+        }, 2000);
+    </script>
+</body>
+</html> 

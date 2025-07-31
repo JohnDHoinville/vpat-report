@@ -1,0 +1,289 @@
+<!-- Admin Database Backup Management -->
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <h2 class="text-2xl font-bold text-gray-900">
+                    <i class="fas fa-database mr-3 text-blue-600"></i>Database Backup Management
+                </h2>
+                <p class="text-gray-600 mt-1">Create, manage, and restore database backups</p>
+            </div>
+            <div class="flex items-center space-x-2 text-sm text-gray-500">
+                <i class="fas fa-shield-alt text-yellow-600"></i>
+                <span>Admin Only</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Current Database Status -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">
+            <i class="fas fa-info-circle mr-2"></i>Database Status
+        </h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="bg-gray-50 rounded-lg p-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-600">Database Size</p>
+                        <p class="text-2xl font-bold text-gray-900" x-text="databaseStatus.size || 'Loading...'"></p>
+                    </div>
+                    <i class="fas fa-hdd text-blue-500 text-2xl"></i>
+                </div>
+            </div>
+            <div class="bg-gray-50 rounded-lg p-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-600">Total Tables</p>
+                        <p class="text-2xl font-bold text-gray-900" x-text="databaseStatus.tables || 'Loading...'"></p>
+                    </div>
+                    <i class="fas fa-table text-green-500 text-2xl"></i>
+                </div>
+            </div>
+            <div class="bg-gray-50 rounded-lg p-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-600">Last Backup</p>
+                        <p class="text-sm font-bold text-gray-900" x-text="databaseStatus.lastBackup || 'Never'"></p>
+                    </div>
+                    <i class="fas fa-clock text-yellow-500 text-2xl"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create New Backup -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">
+            <i class="fas fa-plus-circle mr-2"></i>Create New Backup
+        </h3>
+        
+        <div class="space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Backup Description</label>
+                <input x-model="newBackupDescription" 
+                       type="text" 
+                       placeholder="e.g., Before major update, Weekly backup, etc."
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            
+            <div class="flex items-center space-x-4">
+                <label class="flex items-center">
+                    <input x-model="includeSchema" type="checkbox" checked class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                    <span class="ml-2 text-sm text-gray-700">Include Schema</span>
+                </label>
+                <label class="flex items-center">
+                    <input x-model="includeData" type="checkbox" checked class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                    <span class="ml-2 text-sm text-gray-700">Include Data</span>
+                </label>
+                <label class="flex items-center">
+                    <input x-model="compressBackup" type="checkbox" checked class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                    <span class="ml-2 text-sm text-gray-700">Compress</span>
+                </label>
+            </div>
+            
+            <button @click="createBackup()" 
+                    :disabled="creatingBackup || !newBackupDescription.trim()"
+                    class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed transition-colors">
+                <i class="fas fa-save mr-2" :class="creatingBackup ? 'fa-spin' : ''"></i>
+                <span x-text="creatingBackup ? 'Creating Backup...' : 'Create Backup'"></span>
+            </button>
+        </div>
+        
+        <!-- Backup Progress -->
+        <div x-show="creatingBackup" 
+             x-transition:enter="transition ease-out duration-300"
+             x-transition:enter-start="opacity-0 transform -translate-y-2"
+             x-transition:enter-end="opacity-100 transform translate-y-0"
+             class="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div class="flex items-center space-x-3">
+                <i class="fas fa-spinner fa-spin text-blue-600"></i>
+                <div class="flex-1">
+                    <p class="text-sm font-medium text-blue-800">Creating Database Backup</p>
+                    <p class="text-xs text-blue-600" x-text="backupProgress.message || 'Initializing...'"></p>
+                </div>
+            </div>
+            <div x-show="backupProgress.percentage" class="mt-3">
+                <div class="w-full bg-blue-200 rounded-full h-2">
+                    <div class="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+                         :style="`width: ${backupProgress.percentage || 0}%`"></div>
+                </div>
+                <p class="text-xs text-blue-600 mt-1" x-text="`${Math.round(backupProgress.percentage || 0)}% complete`"></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Backup List -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold text-gray-900">
+                <i class="fas fa-list mr-2"></i>Available Backups
+            </h3>
+            <button @click="loadBackups()" 
+                    :disabled="loadingBackups"
+                    class="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200 disabled:opacity-50">
+                <i class="fas fa-refresh mr-1" :class="loadingBackups ? 'fa-spin' : ''"></i>Refresh
+            </button>
+        </div>
+        
+        <!-- Loading State -->
+        <div x-show="loadingBackups" class="text-center py-8">
+            <i class="fas fa-spinner fa-spin text-gray-400 text-2xl mb-2"></i>
+            <p class="text-gray-600">Loading backups...</p>
+        </div>
+        
+        <!-- Backups Table -->
+        <div x-show="!loadingBackups && backups.length > 0" class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Backup Info</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Size</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    <template x-for="backup in backups" :key="backup.id">
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div>
+                                    <div class="text-sm font-medium text-gray-900" x-text="backup.description"></div>
+                                    <div class="text-sm text-gray-500" x-text="backup.filename"></div>
+                                    <div class="flex items-center space-x-2 mt-1">
+                                        <span x-show="backup.includes_schema" class="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded">Schema</span>
+                                        <span x-show="backup.includes_data" class="px-2 py-1 text-xs bg-green-100 text-green-800 rounded">Data</span>
+                                        <span x-show="backup.compressed" class="px-2 py-1 text-xs bg-purple-100 text-purple-800 rounded">Compressed</span>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" x-text="backup.size_formatted"></td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="text-sm text-gray-900" x-text="formatDate(backup.created_at)"></div>
+                                <div class="text-xs text-gray-500" x-text="getRelativeTime(backup.created_at)"></div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm space-x-2">
+                                <button @click="downloadBackup(backup)" 
+                                        class="text-blue-600 hover:text-blue-900">
+                                    <i class="fas fa-download mr-1"></i>Download
+                                </button>
+                                <button @click="confirmRestore(backup)" 
+                                        class="text-green-600 hover:text-green-900">
+                                    <i class="fas fa-undo mr-1"></i>Restore
+                                </button>
+                                <button @click="confirmDelete(backup)" 
+                                        class="text-red-600 hover:text-red-900">
+                                    <i class="fas fa-trash mr-1"></i>Delete
+                                </button>
+                            </td>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- No Backups State -->
+        <div x-show="!loadingBackups && backups.length === 0" class="text-center py-8 text-gray-500">
+            <i class="fas fa-database text-4xl mb-4"></i>
+            <p class="text-lg">No backups found</p>
+            <p class="text-sm">Create your first backup to get started</p>
+        </div>
+    </div>
+
+    <!-- Restore Confirmation Modal -->
+    <div x-show="showRestoreModal" 
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-semibold text-gray-900">
+                    <i class="fas fa-exclamation-triangle mr-2 text-yellow-600"></i>Confirm Database Restore
+                </h3>
+            </div>
+            <div class="px-6 py-4">
+                <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+                    <div class="flex">
+                        <i class="fas fa-exclamation-triangle text-yellow-400 mr-2"></i>
+                        <div>
+                            <h4 class="text-sm font-medium text-yellow-800">Warning: This action cannot be undone</h4>
+                            <p class="text-sm text-yellow-700 mt-1">
+                                Restoring this backup will completely replace the current database. 
+                                All current data will be lost.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div x-show="selectedBackup">
+                    <p class="text-sm text-gray-700 mb-2">You are about to restore:</p>
+                    <div class="bg-gray-50 rounded-lg p-3">
+                        <p class="text-sm font-medium" x-text="selectedBackup?.description"></p>
+                        <p class="text-xs text-gray-500" x-text="selectedBackup?.filename"></p>
+                        <p class="text-xs text-gray-500" x-text="selectedBackup ? formatDate(selectedBackup.created_at) : ''"></p>
+                    </div>
+                </div>
+                
+                <div class="mt-4">
+                    <label class="flex items-center">
+                        <input x-model="confirmRestore" type="checkbox" class="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded">
+                        <span class="ml-2 text-sm text-gray-700">I understand this will replace all current data</span>
+                    </label>
+                </div>
+            </div>
+            <div class="px-6 py-4 border-t border-gray-200 flex justify-end space-x-3">
+                <button @click="showRestoreModal = false; selectedBackup = null; confirmRestore = false" 
+                        class="px-4 py-2 text-sm text-gray-700 bg-gray-100 rounded hover:bg-gray-200">
+                    Cancel
+                </button>
+                <button @click="restoreBackup()" 
+                        :disabled="!confirmRestore || restoringBackup"
+                        class="px-4 py-2 text-sm bg-red-600 text-white rounded hover:bg-red-700 disabled:bg-red-400 disabled:cursor-not-allowed">
+                    <i class="fas fa-undo mr-1" :class="restoringBackup ? 'fa-spin' : ''"></i>
+                    <span x-text="restoringBackup ? 'Restoring...' : 'Restore Database'"></span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div x-show="showDeleteModal" 
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-semibold text-gray-900">
+                    <i class="fas fa-trash mr-2 text-red-600"></i>Delete Backup
+                </h3>
+            </div>
+            <div class="px-6 py-4">
+                <p class="text-sm text-gray-700 mb-4">Are you sure you want to delete this backup?</p>
+                <div x-show="selectedBackup" class="bg-gray-50 rounded-lg p-3">
+                    <p class="text-sm font-medium" x-text="selectedBackup?.description"></p>
+                    <p class="text-xs text-gray-500" x-text="selectedBackup?.filename"></p>
+                </div>
+            </div>
+            <div class="px-6 py-4 border-t border-gray-200 flex justify-end space-x-3">
+                <button @click="showDeleteModal = false; selectedBackup = null" 
+                        class="px-4 py-2 text-sm text-gray-700 bg-gray-100 rounded hover:bg-gray-200">
+                    Cancel
+                </button>
+                <button @click="deleteBackup()" 
+                        :disabled="deletingBackup"
+                        class="px-4 py-2 text-sm bg-red-600 text-white rounded hover:bg-red-700 disabled:bg-red-400">
+                    <i class="fas fa-trash mr-1" :class="deletingBackup ? 'fa-spin' : ''"></i>
+                    <span x-text="deletingBackup ? 'Deleting...' : 'Delete'"></span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div> 

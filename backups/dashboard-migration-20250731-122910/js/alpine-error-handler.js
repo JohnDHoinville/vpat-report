@@ -31,9 +31,8 @@ class AlpineErrorHandler {
             const message = args.join(' ');
             if (message.includes('Alpine')) {
                 this.handleAlpineWarning(message, args);
-                // TEMPORARILY DISABLED: Don't escalate warnings to errors in development
-                // console.error('🚨 ESCALATED ALPINE WARNING:', message);
-                console.log('🔍 ALPINE WARNING (not escalated):', message);
+                // Escalate warnings to errors in development
+                console.error('🚨 ESCALATED ALPINE WARNING:', message);
             }
             return originalWarn.apply(console, args);
         };
@@ -66,39 +65,30 @@ class AlpineErrorHandler {
 
         this.criticalErrors.push(errorReport);
 
-        // TEMPORARILY DISABLED: console.error('🚨 ALPINE ERROR DETECTED:', {
-        //     error: error.message,
-        //     expression,
-        //     context: context ? this.sanitizeContext(context) : null,
-        //     stack: error.stack,
-        //     count: count + 1,
-        //     suggestion: this.getErrorSuggestion(error.message, expression)
-        // });
-        
-        console.log('🔍 ALPINE ERROR (not escalated):', {
+        console.error('🚨 ALPINE ERROR DETECTED:', {
             error: error.message,
             expression,
-            count: count + 1
+            context: context ? this.sanitizeContext(context) : null,
+            stack: error.stack,
+            count: count + 1,
+            suggestion: this.getErrorSuggestion(error.message, expression)
         });
 
-        // TEMPORARILY DISABLED: Show visible error in UI
-        // this.showVisibleError(errorReport);
+        // Show visible error in UI
+        this.showVisibleError(errorReport);
     }
 
     handleAlpineWarning(message, args) {
-        // Provide specific solutions for common Alpine warnings (ESCALATION TEMPORARILY DISABLED)
+        // Provide specific solutions for common Alpine warnings
         if (message.includes('Duplicate key on x-for')) {
-            // console.error('🚨 DUPLICATE KEY ERROR: This will cause rendering issues!');
-            // console.error('💡 SOLUTION: Use unique keys like item.id or combine properties: `${item.id}-${index}`');
-            console.log('🔍 DUPLICATE KEY (not escalated):', message);
+            console.error('🚨 DUPLICATE KEY ERROR: This will cause rendering issues!');
+            console.error('💡 SOLUTION: Use unique keys like item.id or combine properties: `${item.id}-${index}`');
         } else if (message.includes('x-for ":key" is undefined')) {
-            // console.error('🚨 UNDEFINED KEY ERROR: x-for key expression is invalid!');
-            // console.error('💡 SOLUTION: Check that your key expression returns a valid value');
-            console.log('🔍 UNDEFINED KEY (not escalated):', message);
+            console.error('🚨 UNDEFINED KEY ERROR: x-for key expression is invalid!');
+            console.error('💡 SOLUTION: Check that your key expression returns a valid value');
         } else if (message.includes('is not defined')) {
-            // console.error('🚨 UNDEFINED VARIABLE ERROR: Referenced property does not exist!');
-            // console.error('💡 SOLUTION: Check that all referenced properties exist in your x-data');
-            console.log('🔍 UNDEFINED VARIABLE (not escalated):', message);
+            console.error('🚨 UNDEFINED VARIABLE ERROR: Referenced property does not exist!');
+            console.error('💡 SOLUTION: Check that all referenced properties exist in your x-data');
         }
     }
 
@@ -285,16 +275,14 @@ document.addEventListener('alpine:init', () => {
     });
 });
 
-// TEMPORARILY DISABLED: Initialize error handler
-// const alpineErrorHandler = new AlpineErrorHandler();
-
-console.log('🔧 Alpine error handler temporarily disabled for development');
+// Initialize error handler
+const alpineErrorHandler = new AlpineErrorHandler();
 
 // Export for global access
-// window.alpineErrorHandler = alpineErrorHandler;
+window.alpineErrorHandler = alpineErrorHandler;
 
 // Development helper: expose error summary to console
 if (typeof window !== 'undefined') {
-    // window.getAlpineErrors = () => alpineErrorHandler.getErrorSummary();
+    window.getAlpineErrors = () => alpineErrorHandler.getErrorSummary();
     console.log('🔍 Alpine Error Tracking Active. Use getAlpineErrors() to see error summary.');
 } 

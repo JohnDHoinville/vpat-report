@@ -1479,63 +1479,45 @@ ${requirement.failure_examples}
         },
 
         syncLegacyState() {
-            try {
-                // Skip sync if component not fully initialized
-                if (!this._initialized) {
-                    console.warn('⚠️ syncLegacyState called before dashboard initialization');
-                    return;
-                }
-
-                // Keep legacy flat properties in sync with organized state
-                // This ensures all Alpine.js template bindings work correctly
-                Object.keys(this).forEach(key => {
-                    try {
-                        if (this.ui && key in this.ui) this[key] = this.ui[key];
-                        if (this.auth && key in this.auth) this[key] = this.auth[key];
-                        if (this.data && key in this.data) this[key] = this.data[key];
-                        if (this.forms && key in this.forms) this[key] = this.forms[key];
-                        if (this.ws && key in this.ws && key === 'connected') this.apiConnected = this.ws[key];
-                    } catch (error) {
-                        console.warn(`⚠️ syncLegacyState: Error syncing key '${key}':`, error.message);
-                    }
-                });
-                
-                // Explicitly sync WebSocket state for templates with null checks
-                this.wsConnected = (this.ws && this.ws.connected) || false;
-                this.wsConnecting = (this.ws && this.ws.connecting) || false;
-                
-                // Explicitly sync critical auth properties for template compatibility
-                this.isAuthenticated = (this.auth && this.auth.isAuthenticated) || false;
-                this.user = (this.auth && this.auth.user) || null;
-                this.token = (this.auth && this.auth.token) || null;
-                
-                // Sync UI modal states with safe navigation
-                const modals = this.ui && this.ui.modals;
-                this.showLogin = (modals && modals.showLogin) || false;
-                this.showProfile = (modals && modals.showProfile) || false;
-                this.showChangePassword = (modals && modals.showChangePassword) || false;
-                this.showSessions = (modals && modals.showSessions) || false;
-                this.showAddAuthConfigModal = (modals && modals.showAddAuthConfigModal) || false;
-                this.showEditAuthConfigModal = (modals && modals.showEditAuthConfigModal) || false;
-                this.showCreateCrawler = (modals && modals.showCreateCrawler) || false;
-                this.showCrawlerPagesModal = (modals && modals.showCrawlerPagesModal) || false;
-                
-                // Sync authentication data arrays with safe defaults
-                this.authConfigs = (this.data && this.data.authConfigs) || [];
-                this.projectAuthConfigs = (this.data && this.data.projectAuthConfigs) || [];
-                this.selectedAuthProject = (this.data && this.data.selectedAuthProject) || null;
-                
-                // Sync project selection for application-wide access
-                this.selectedProject = (this.data && this.data.selectedProject) || null;
-                this.currentProject = this.getSelectedProject ? this.getSelectedProject() : null; // Safe method call
-                this.projects = (this.data && this.data.projects) || [];
-                
-                // Sync project-specific data arrays
-                this.discoveries = (this.data && this.data.discoveries) || [];
-            } catch (error) {
-                console.error('❌ syncLegacyState error:', error.message);
-                // Don't rethrow - just log and continue
-            }
+            // Keep legacy flat properties in sync with organized state
+            // This ensures all Alpine.js template bindings work correctly
+            Object.keys(this).forEach(key => {
+                if (key in this.ui) this[key] = this.ui[key];
+                if (key in this.auth) this[key] = this.auth[key];
+                if (key in this.data) this[key] = this.data[key];
+                if (key in this.forms) this[key] = this.forms[key];
+                if (key in this.ws && key === 'connected') this.apiConnected = this.ws[key];
+            });
+            
+            // Explicitly sync WebSocket state for templates
+            this.wsConnected = this.ws.connected || false;
+            this.wsConnecting = this.ws.connecting || false;
+            
+            // Explicitly sync critical auth properties for template compatibility
+            this.isAuthenticated = this.auth.isAuthenticated || false;
+            this.user = this.auth.user || null;
+            this.token = this.auth.token || null;
+            this.showLogin = this.ui.modals.showLogin || false;
+            this.showProfile = this.ui.modals.showProfile || false;
+            this.showChangePassword = this.ui.modals.showChangePassword || false;
+            this.showSessions = this.ui.modals.showSessions || false;
+            this.showAddAuthConfigModal = this.ui.modals.showAddAuthConfigModal || false;
+            this.showEditAuthConfigModal = this.ui.modals.showEditAuthConfigModal || false;
+            this.showCreateCrawler = this.ui.modals.showCreateCrawler || false;
+            this.showCrawlerPagesModal = this.ui.modals.showCrawlerPagesModal || false;
+            
+            // Sync authentication data arrays
+            this.authConfigs = this.data.authConfigs || [];
+            this.projectAuthConfigs = this.data.projectAuthConfigs || [];
+            this.selectedAuthProject = this.data.selectedAuthProject || null;
+            
+            // Sync project selection for application-wide access
+            this.selectedProject = this.data.selectedProject || null;
+            this.currentProject = this.getSelectedProject(); // Always keep object reference updated
+            this.projects = this.data.projects || [];
+            
+            // Sync project-specific data arrays
+            this.discoveries = this.data.discoveries || [];
             this.testSessions = this.data.testSessions || [];
             this.webCrawlers = this.data.webCrawlers || [];
             
@@ -12929,21 +12911,14 @@ ${requirement.failure_examples}
     return componentInstance;
 }
 
-// Immediately register dashboard function globally
-console.log('✅ Registering dashboard function globally');
-window.dashboard = dashboard;
-
-// Fallback: Additional safety check
+// Fallback: Ensure dashboard function is available globally
 if (typeof window.dashboard === 'undefined') {
-    console.warn('⚠️ Dashboard function registration failed, creating emergency fallback...');
+    console.warn('⚠️ Dashboard function not found, creating fallback...');
     window.dashboard = function() {
         console.error('❌ Dashboard function called but not properly initialized');
         return {
             init: () => console.error('Dashboard not initialized'),
-            syncLegacyState: () => console.error('Dashboard not initialized'),
-            automationProgress: null,
-            wsConnected: false,
-            isAuthenticated: false
+            syncLegacyState: () => console.error('Dashboard not initialized')
         };
     };
 }
