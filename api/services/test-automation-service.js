@@ -192,6 +192,10 @@ class TestAutomationService {
                         toolResults = await this.runWaveApi(pages, sessionId);
                         results.wave = toolResults;
                         break;
+                    case 'form-accessibility':
+                        toolResults = await this.runFormAccessibilityTester(pages, sessionId);
+                        results['formaccessibility'] = toolResults;
+                        break;
                 }
 
                 // Emit tool completion milestone
@@ -2809,14 +2813,15 @@ class TestAutomationService {
     /**
      * Get tool icon identifier for UI display
      */
-    getToolIcon(tool) {
+        getToolIcon(tool) {
         const icons = {
             'axe': 'shield-alt',
-            'pa11y': 'universal-access', 
+            'pa11y': 'universal-access',
             'lighthouse': 'lighthouse',
             'contrast-analyzer': 'palette',
             'mobile-accessibility': 'mobile-alt',
             'wave': 'water',
+            'form-accessibility': 'form',
             'playwright': 'theater-masks',
             'cypress': 'tree'
         };
@@ -2971,8 +2976,80 @@ class TestAutomationService {
      */
     emitTestResults(sessionId, pageId, testData) {
         if (this.wsService) {
-            this.wsService.emitTestResults(sessionId, null, pageId, testData);
+                      this.wsService.emitTestResults(sessionId, null, pageId, testData);
+      }
+  }
+
+  /**
+   * Run form accessibility analysis using specialized form tester
+   */
+    async runFormAccessibilityTester(pages, sessionId = null) {
+        const FormAccessibilityTester = require('../../scripts/form-accessibility-tester.js');
+        const formTester = new FormAccessibilityTester();
+        
+        const results = {
+            tool: 'form-accessibility',
+            pages_tested: [],
+            total_violations: 0,
+            critical_violations: 0,
+            violations_by_page: {},
+            form_statistics: {
+                total_forms_analyzed: 0,
+                forms_with_issues: 0,
+                total_inputs_analyzed: 0,
+                inputs_with_issues: 0
+            }
+        };
+
+        for (const page of pages) {
+            try {
+                console.log(`📝 Running form accessibility analysis for ${page.url}`);
+                
+                const formResults = await formTester.analyzeUrl(page.url, {
+                    userId: 'vpat-automation'
+                });
+                
+                results.pages_tested.push({
+                    url: page.url,
+                    violations: formResults.summary.totalIssues,
+                    critical: formResults.summary.criticalIssues,
+                    high: formResults.summary.highIssues,
+                    medium: formResults.summary.mediumIssues,
+                    low: formResults.summary.lowIssues,
+                    forms_analyzed: formResults.summary.totalForms,
+                    forms_with_issues: formResults.summary.formsWithIssues,
+                    inputs_analyzed: formResults.summary.totalInputs,
+                    inputs_with_issues: formResults.summary.inputsWithIssues,
+                    wcag_violations: formResults.violations || []
+                });
+                
+                results.total_violations += formResults.summary.totalIssues;
+                results.critical_violations += formResults.summary.criticalIssues;
+                results.violations_by_page[page.url] = formResults.summary.totalIssues;
+                results.form_statistics.total_forms_analyzed += formResults.summary.totalForms;
+                results.form_statistics.forms_with_issues += formResults.summary.formsWithIssues;
+                results.form_statistics.total_inputs_analyzed += formResults.summary.totalInputs;
+                results.form_statistics.inputs_with_issues += formResults.summary.inputsWithIssues;
+
+                console.log(`✅ Form accessibility analysis completed for ${page.url}: ${formResults.summary.totalIssues} issues found (${formResults.summary.totalForms} forms, ${formResults.summary.totalInputs} inputs)`);
+
+            } catch (error) {
+                console.error(`❌ Form accessibility analysis error for ${page.url}:`, error.message);
+                
+                results.pages_tested.push({
+                    url: page.url,
+                    error: error.message,
+                    violations: 0,
+                    critical: 0
+                });
+            }
         }
+
+        console.log(`📝 Form accessibility analysis completed: ${results.pages_tested.length} pages processed`);
+        console.log(`📊 Total issues found: ${results.total_violations} (${results.critical_violations} critical)`);
+        console.log(`📊 Form statistics: ${results.form_statistics.total_forms_analyzed} forms analyzed, ${results.form_statistics.forms_with_issues} with issues`);
+
+        return results;
     }
 }
 

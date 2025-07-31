@@ -12151,19 +12151,20 @@ ${requirement.failure_examples}
     };
 
     // Add helper functions for enhanced evidence display
-    componentInstance.getToolIcon = function(tool) {
-        const icons = {
-            'axe': 'shield-alt',
-            'pa11y': 'universal-access',
-            'lighthouse': 'lighthouse',
-            'contrast-analyzer': 'palette',
-            'mobile-accessibility': 'mobile-alt',
-            'wave': 'water',
-            'playwright': 'theater-masks',
-            'cypress': 'tree'
-        };
-        return icons[tool] || 'tools';
-    };
+                componentInstance.getToolIcon = function(tool) {
+                const icons = {
+                    'axe': 'shield-alt',
+                    'pa11y': 'universal-access',
+                    'lighthouse': 'lighthouse',
+                    'contrast-analyzer': 'palette',
+                    'mobile-accessibility': 'mobile-alt',
+                    'wave': 'water',
+                    'form-accessibility': 'form',
+                    'playwright': 'theater-masks',
+                    'cypress': 'tree'
+                };
+                return icons[tool] || 'tools';
+            };
 
     componentInstance.getConfidenceColor = function(confidenceLevel) {
         switch(confidenceLevel?.toLowerCase()) {

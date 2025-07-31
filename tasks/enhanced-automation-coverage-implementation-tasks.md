@@ -17,6 +17,9 @@
 - **api/services/websocket-service.js**: Added emitRateLimitNotification() method for real-time rate limit updates
 - **api/routes/automated-testing.js**: Added 'wave' to validTools array
 - **Enhanced WAVE Rate Limiting**: Implemented comprehensive rate limiting strategy with WebSocket notifications, minute-by-minute countdown updates, audit trail logging, and automation pause/resume functionality
+- **Form Accessibility Analysis**: Created scripts/form-accessibility-tester.js with comprehensive form accessibility detection including label association checking (explicit via 'for' attribute, implicit via nesting, ARIA labelling), error message association validation (aria-invalid + aria-describedby), fieldset/legend usage for grouped controls, radio button/checkbox grouping, required field indication, autocomplete attributes, and form instruction validation. Integrated into automation pipeline via api/services/test-automation-service.js with 12+ violation types mapped to WCAG 1.3.1, 3.3.2, 4.1.2, and other relevant criteria. Added to validTools array in api/routes/automated-testing.js and updated dashboard/js/dashboard.js with form icon support.
+- **WAVE Violation Detection**: Enhanced scripts/wave-api-tester.js with comprehensive WCAG mapping (60+ error types), violation severity calculation, impact assessment, remediation advice, and detection of 15+ WAVE-unique violation patterns not found by other tools
+- **WAVE Audit Trail Integration**: Enhanced api/services/test-automation-service.js with comprehensive evidence generation including WAVE-specific descriptions, WCAG/Section 508 cross-references, violation categorization, remediation priority assessment, and intelligent result deduplication system preventing overlap between tools while preserving WAVE-unique insights
 - **scripts/mobile-accessibility-tester.js**: Existing comprehensive mobile testing tool integrated into automation pipeline
 - **Database**: Removed NOT NULL constraint from test_audit_log.test_instance_id to allow session-level audit entries
 - **Server Management**: Resolved multiple Node.js server processes issue that was causing old code to persist
@@ -182,10 +185,13 @@
   - Implement pause/resume functionality for rate limits
   - **Acceptance**: WAVE API successfully called and returns results
 
-- [ ] **Task 2.1.2**: Add WAVE-specific violation detection
-  - Map WAVE error types to WCAG criteria
-  - Implement WAVE result parsing and normalization
-  - Add WAVE-unique violation types to evidence system
+- [x] **Task 2.1.2**: Add WAVE-specific violation detection
+  - [x] Map WAVE error types to WCAG criteria with comprehensive 60+ error mappings
+  - [x] Implement WAVE result parsing and normalization with enhanced severity detection
+  - [x] Add WAVE-unique violation types to evidence system with 15+ unique detection patterns
+  - [x] Enhanced WCAG mapping including Section 508 cross-references
+  - [x] Added violation severity calculation and impact assessment
+  - [x] Implemented WAVE-specific remediation advice system
   - **Acceptance**: WAVE detects violations not found by other tools
 
 - [x] **Task 2.1.3**: Implement WAVE rate limiting with user notifications
@@ -196,10 +202,13 @@
   - [x] Comprehensive rate limit handling with automation pause/resume
   - **Acceptance**: Users are properly notified when WAVE API limits are reached
 
-- [ ] **Task 2.1.4**: Integrate WAVE results into audit trail
-  - Add WAVE evidence descriptions
-  - Include WAVE-specific remediation guidance
-  - Ensure proper result deduplication with existing tools
+- [x] **Task 2.1.4**: Integrate WAVE results into audit trail
+  - [x] Add WAVE evidence descriptions with comprehensive WCAG mapping and cross-references
+  - [x] Include WAVE-specific remediation guidance with actionable steps and priority assessment
+  - [x] Ensure proper result deduplication with existing tools using fingerprint-based matching
+  - [x] Enhanced audit trail with WAVE-specific metadata including compliance mapping
+  - [x] Implemented comprehensive violation categorization and impact assessment
+  - [x] Added cross-tool validation confidence scoring for overlapping violations
   - **Acceptance**: WAVE results appear in comprehensive audit evidence
 
 **Coverage Impact**: +5-8% automated coverage  
@@ -208,10 +217,15 @@
 ### 2.2 Advanced Form Analysis
 **Priority: P2 | Estimate: 4 days**
 
-- [ ] **Task 2.2.1**: Implement comprehensive form accessibility analysis
-  - Add advanced label association detection
-  - Check for proper error message association
-  - Verify fieldset and legend usage
+- [x] **Task 2.2.1**: Implement comprehensive form accessibility analysis
+  - [x] Add advanced label association detection with explicit/implicit label checking
+  - [x] Check for proper error message association using aria-invalid and aria-describedby
+  - [x] Verify fieldset and legend usage for related form controls
+  - [x] Implement radio button and checkbox grouping validation
+  - [x] Add form instructions and required field indication checking
+  - [x] Integrate form accessibility tester into automation pipeline
+  - [x] Created comprehensive FormAccessibilityTester with 12+ violation types
+  - [x] Added WCAG criteria mapping for form-specific accessibility requirements
   - **Acceptance**: Complex form accessibility issues automatically detected
 
 - [ ] **Task 2.2.2**: Add form submission flow analysis

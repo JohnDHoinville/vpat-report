@@ -5,881 +5,735 @@
  * Tests error handling, label association, and error message announcements
  */
 
-const { chromium, firefox, webkit } = require('playwright');
-const fs = require('fs');
-const path = require('path');
+const puppeteer = require('puppeteer');
 
-/**
- * Main form accessibility testing function
- * Tests comprehensive form accessibility including error handling and announcements
- */
-async function testFormAccessibility(page, browserName, url = 'http://localhost:3000') {
-  console.log(`📝 Testing form accessibility on ${browserName} for ${url}`);
-  
-  const results = {
-    url: url,
-    browser: browserName,
-    timestamp: new Date().toISOString(),
-    formElements: [],
-    labels: [],
-    errorHandling: [],
-    fieldsets: [],
-    validationMessages: [],
-    accessibilityFeatures: [],
-    formGroups: [],
-    violations: [],
-    passed: true,
-    summary: {
-      totalFormElements: 0,
-      labeledElements: 0,
-      unlabeledElements: 0,
-      requiredFields: 0,
-      fieldsWithErrorHandling: 0,
-      fieldsetCount: 0,
-      liveRegionCount: 0,
-      violationCount: 0,
-      passedChecks: 0,
-      totalChecks: 0
-    }
-  };
-
-  try {
-    // Inject helper functions before navigation
-    await injectFormHelpers(page);
-    
-    // Navigate to page
-    await page.goto(url, { waitUntil: 'networkidle' });
-    
-    // Test form element identification and labeling
-    console.log('  🏷️ Testing form labels...');
-    await testFormLabels(page, results);
-    
-    // Test required field handling
-    console.log('  ⚠️ Testing required fields...');
-    await testRequiredFields(page, results);
-    
-    // Test error message association
-    console.log('  🔗 Testing error message association...');
-    await testErrorMessageAssociation(page, results);
-    
-    // Test fieldset and legend usage
-    console.log('  📦 Testing fieldsets and legends...');
-    await testFieldsetsAndLegends(page, results);
-    
-    // Test form validation and announcements
-    console.log('  📢 Testing validation announcements...');
-    await testValidationAnnouncements(page, results);
-    
-    // Test keyboard navigation within forms
-    console.log('  ⌨️ Testing form keyboard navigation...');
-    await testFormKeyboardNavigation(page, results);
-    
-    // Test autocomplete attributes
-    console.log('  🔄 Testing autocomplete attributes...');
-    await testAutocompleteAttributes(page, results);
-    
-    // Test form grouping and organization
-    console.log('  📋 Testing form organization...');
-    await testFormOrganization(page, results);
-
-  } catch (error) {
-    results.violations.push({
-      type: 'form-test-error',
-      message: `Form accessibility testing failed: ${error.message}`,
-      severity: 'critical',
-      stack: error.stack
-    });
-    results.passed = false;
-  }
-
-  // Update summary
-  results.summary.violationCount = results.violations.length;
-  results.summary.totalFormElements = results.formElements.length;
-  results.summary.totalChecks = 8; // Number of main test categories
-  results.summary.passedChecks = results.summary.totalChecks - (results.violations.length > 0 ? 1 : 0);
-  results.passed = results.violations.filter(v => v.severity === 'critical').length === 0;
-
-  return results;
-}
-
-/**
- * Inject helper functions for form accessibility testing
- */
-async function injectFormHelpers(page) {
-  await page.addInitScript(() => {
-    // Form element analyzer
-    window.analyzeFormElement = function(element) {
-      const tagName = element.tagName.toLowerCase();
-      const type = element.type || '';
-      const id = element.id || '';
-      const name = element.name || '';
-      
-      // Find associated labels
-      const labels = [];
-      
-      // Method 1: Labels with 'for' attribute pointing to this element's id
-      if (id) {
-        const forLabels = Array.from(document.querySelectorAll(`label[for="${id}"]`));
-        labels.push(...forLabels.map(l => ({ 
-          method: 'for', 
-          element: l, 
-          text: l.textContent?.trim(),
-          id: l.id || ''
-        })));
-      }
-      
-      // Method 2: Labels wrapping this element
-      let parent = element.parentElement;
-      while (parent) {
-        if (parent.tagName.toLowerCase() === 'label') {
-          labels.push({ 
-            method: 'wrapping', 
-            element: parent, 
-            text: parent.textContent?.trim(),
-            id: parent.id || ''
-          });
-          break;
-        }
-        parent = parent.parentElement;
-      }
-      
-      // Method 3: aria-labelledby
-      const ariaLabelledBy = element.getAttribute('aria-labelledby');
-      if (ariaLabelledBy) {
-        const ids = ariaLabelledBy.split(/\s+/);
-        ids.forEach(labelId => {
-          const labelElement = document.getElementById(labelId);
-          if (labelElement) {
-            labels.push({ 
-              method: 'aria-labelledby', 
-              element: labelElement, 
-              text: labelElement.textContent?.trim(),
-              id: labelId
-            });
-          } else {
-            labels.push({ 
-              method: 'aria-labelledby', 
-              element: null, 
-              text: null,
-              id: labelId,
-              missing: true
-            });
-          }
-        });
-      }
-      
-      // Method 4: aria-label
-      const ariaLabel = element.getAttribute('aria-label');
-      if (ariaLabel) {
-        labels.push({ method: 'aria-label', text: ariaLabel });
-      }
-      
-      // Check for error associations
-      const ariaDescribedBy = element.getAttribute('aria-describedby');
-      const errorElements = [];
-      if (ariaDescribedBy) {
-        const ids = ariaDescribedBy.split(/\s+/);
-        ids.forEach(errorId => {
-          const errorElement = document.getElementById(errorId);
-          if (errorElement) {
-            errorElements.push({
-              id: errorId,
-              element: errorElement,
-              text: errorElement.textContent?.trim(),
-              isError: errorElement.className.includes('error') || 
-                      errorElement.getAttribute('role') === 'alert' ||
-                      errorElement.textContent?.toLowerCase().includes('error') ||
-                      errorElement.textContent?.toLowerCase().includes('invalid'),
-              role: errorElement.getAttribute('role') || '',
-              className: errorElement.className || ''
-            });
-          } else {
-            errorElements.push({
-              id: errorId,
-              element: null,
-              text: null,
-              missing: true
-            });
-          }
-        });
-      }
-      
-      // Get computed styles for additional analysis
-      const computedStyle = window.getComputedStyle(element);
-      
-      return {
-        tagName: tagName,
-        type: type,
-        id: id,
-        name: name,
-        labels: labels,
-        hasAccessibleName: labels.some(l => !l.missing && l.text && l.text.length > 0),
-        isRequired: element.hasAttribute('required') || element.getAttribute('aria-required') === 'true',
-        isDisabled: element.disabled || element.getAttribute('aria-disabled') === 'true',
-        isReadonly: element.readOnly || element.getAttribute('aria-readonly') === 'true',
-        placeholder: element.placeholder || '',
-        value: element.value || '',
-        autocomplete: element.getAttribute('autocomplete') || '',
-        pattern: element.pattern || '',
-        minLength: element.minLength || null,
-        maxLength: element.maxLength || null,
-        min: element.min || '',
-        max: element.max || '',
-        step: element.step || '',
-        errorElements: errorElements,
-        hasErrorHandling: errorElements.length > 0,
-        tabIndex: element.tabIndex,
-        isVisible: element.offsetWidth > 0 && element.offsetHeight > 0,
-        className: element.className || '',
-        ariaInvalid: element.getAttribute('aria-invalid') || '',
-        role: element.getAttribute('role') || '',
-        title: element.title || '',
-        form: element.form?.id || '',
-        position: {
-          x: element.getBoundingClientRect().left,
-          y: element.getBoundingClientRect().top
-        }
-      };
-    };
-
-    // Fieldset analyzer
-    window.analyzeFieldset = function(fieldset) {
-      const legend = fieldset.querySelector('legend');
-      const formElements = Array.from(fieldset.querySelectorAll('input, select, textarea, button'));
-      
-      return {
-        hasLegend: !!legend,
-        legendText: legend?.textContent?.trim() || '',
-        legendId: legend?.id || '',
-        formElementCount: formElements.length,
-        formElements: formElements.map(el => ({
-          tagName: el.tagName,
-          type: el.type || '',
-          id: el.id || '',
-          name: el.name || ''
-        })),
-        id: fieldset.id || '',
-        className: fieldset.className || '',
-        isVisible: fieldset.offsetWidth > 0 && fieldset.offsetHeight > 0,
-        isDisabled: fieldset.disabled,
-        ariaDescribedBy: fieldset.getAttribute('aria-describedby') || ''
-      };
-    };
-
-    // Validation message checker
-    window.checkValidationMessages = function() {
-      const liveRegions = Array.from(document.querySelectorAll('[aria-live], [role="alert"], [role="status"]'));
-      const errorMessages = Array.from(document.querySelectorAll('.error, .validation-error, [class*="error"], [class*="invalid"]'));
-      const successMessages = Array.from(document.querySelectorAll('.success, .valid, [class*="success"], [class*="valid"]'));
-      
-      return {
-        liveRegions: liveRegions.map(region => ({
-          tagName: region.tagName,
-          ariaLive: region.getAttribute('aria-live'),
-          ariaAtomic: region.getAttribute('aria-atomic'),
-          ariaRelevant: region.getAttribute('aria-relevant'),
-          role: region.getAttribute('role'),
-          text: region.textContent?.trim(),
-          id: region.id || '',
-          className: region.className || '',
-          isVisible: region.offsetWidth > 0 && region.offsetHeight > 0
-        })),
-        errorMessages: errorMessages.map(msg => ({
-          tagName: msg.tagName,
-          text: msg.textContent?.trim(),
-          id: msg.id || '',
-          className: msg.className || '',
-          role: msg.getAttribute('role') || '',
-          isVisible: msg.offsetWidth > 0 && msg.offsetHeight > 0,
-          ariaLive: msg.getAttribute('aria-live') || ''
-        })),
-        successMessages: successMessages.map(msg => ({
-          tagName: msg.tagName,
-          text: msg.textContent?.trim(),
-          id: msg.id || '',
-          className: msg.className || '',
-          isVisible: msg.offsetWidth > 0 && msg.offsetHeight > 0
-        }))
-      };
-    };
-
-    // Form navigation tester
-    window.testFormNavigation = function() {
-      const formElements = Array.from(document.querySelectorAll('input, select, textarea, button'))
-        .filter(el => !el.disabled && el.offsetWidth > 0 && el.offsetHeight > 0);
-      
-      return formElements.map((el, index) => ({
-        index: index,
-        tagName: el.tagName,
-        type: el.type || '',
-        id: el.id || '',
-        name: el.name || '',
-        tabIndex: el.tabIndex,
-        canReceiveFocus: el.tabIndex >= 0 || ['INPUT', 'SELECT', 'TEXTAREA', 'BUTTON'].includes(el.tagName),
-        isInTabOrder: el.tabIndex !== -1,
-        form: el.form?.id || '',
-        position: {
-          x: el.getBoundingClientRect().left,
-          y: el.getBoundingClientRect().top
-        }
-      }));
-    };
-
-    // Form organization analyzer
-    window.analyzeFormOrganization = function() {
-      const forms = Array.from(document.querySelectorAll('form'));
-      
-      return forms.map(form => {
-        const formElements = Array.from(form.querySelectorAll('input, select, textarea, button'));
-        const fieldsets = Array.from(form.querySelectorAll('fieldset'));
-        const labels = Array.from(form.querySelectorAll('label'));
+class FormAccessibilityTester {
+    constructor() {
+        this.name = 'form-accessibility-tester';
+        this.version = '1.0.0';
+        this.description = 'Comprehensive form accessibility analysis tool';
         
-        return {
-          id: form.id || '',
-          name: form.name || '',
-          action: form.action || '',
-          method: form.method || '',
-          autocomplete: form.autocomplete || '',
-          novalidate: form.noValidate,
-          elementCount: formElements.length,
-          fieldsetCount: fieldsets.length,
-          labelCount: labels.length,
-          isVisible: form.offsetWidth > 0 && form.offsetHeight > 0,
-          className: form.className || ''
+        // Form accessibility patterns and rules
+        this.formRules = {
+            // Label association patterns
+            labelAssociation: {
+                explicitFor: /^[a-zA-Z][\w-]*$/,
+                implicitNesting: true,
+                ariaLabelling: ['aria-label', 'aria-labelledby', 'aria-describedby']
+            },
+            
+            // Error message patterns
+            errorMessages: {
+                ariaInvalid: ['true', 'false'],
+                ariaDescribedby: true,
+                roleAlert: true,
+                errorPatterns: [
+                    /error/i, /invalid/i, /required/i, /must/i, 
+                    /cannot/i, /failed/i, /wrong/i
+                ]
+            },
+            
+            // Fieldset and grouping rules
+            fieldsetRules: {
+                radioGroups: true,
+                checkboxGroups: true,
+                relatedFields: true,
+                legendRequired: true
+            }
         };
-      });
-    };
-  });
-}
+        
+        // WCAG criteria mapping for form accessibility
+        this.wcagMapping = {
+            'missing-label': ['1.3.1', '3.3.2', '4.1.2'],
+            'invalid-label-association': ['1.3.1', '3.3.2'],
+            'missing-error-identification': ['3.3.1', '3.3.3'],
+            'improper-error-association': ['3.3.1', '3.3.2'],
+            'missing-fieldset': ['1.3.1', '3.3.2'],
+            'missing-legend': ['1.3.1', '3.3.2'],
+            'improper-grouping': ['1.3.1'],
+            'missing-required-indication': ['3.3.2'],
+            'inaccessible-form-validation': ['3.3.1', '3.3.3', '3.3.4'],
+            'missing-input-purpose': ['1.3.5'],
+            'improper-autocomplete': ['1.3.5'],
+            'missing-form-instructions': ['3.3.2', '3.3.5']
+        };
+    }
 
-/**
- * Test form labels and accessible names
- */
-async function testFormLabels(page, results) {
-  const formData = await page.evaluate(() => {
-    const formElements = Array.from(document.querySelectorAll('input, select, textarea'));
-    return formElements.map(element => window.analyzeFormElement(element));
-  });
-  
-  results.formElements = formData;
-  results.summary.labeledElements = formData.filter(el => el.hasAccessibleName).length;
-  results.summary.unlabeledElements = formData.filter(el => !el.hasAccessibleName && el.isVisible).length;
-  results.summary.requiredFields = formData.filter(el => el.isRequired).length;
-  
-  // Validate form labels
-  formData.forEach(element => {
-    if (element.isVisible && !element.hasAccessibleName && !element.placeholder && element.type !== 'hidden') {
-      results.violations.push({
-        type: 'form-missing-accessible-name',
-        message: `Form ${element.tagName}${element.type ? `[type="${element.type}"]` : ''} missing accessible name`,
-        element: element,
-        severity: 'critical'
-      });
-    }
-    
-    // Check for placeholder-only labeling (WCAG violation)
-    if (element.isVisible && !element.hasAccessibleName && element.placeholder) {
-      results.violations.push({
-        type: 'placeholder-only-label',
-        message: `Form field relies only on placeholder for labeling (WCAG 2.2 violation)`,
-        element: element,
-        severity: 'serious'
-      });
-    }
-    
-    // Check for empty or missing label text
-    element.labels.forEach(label => {
-      if (label.missing) {
-        results.violations.push({
-          type: 'broken-label-reference',
-          message: `aria-labelledby references missing element: ${label.id}`,
-          element: element,
-          severity: 'serious'
+    /**
+     * Analyze a single URL for form accessibility issues
+     */
+    async analyzeUrl(url, options = {}) {
+        const browser = await puppeteer.launch({ 
+            headless: true,
+            args: ['--no-sandbox', '--disable-setuid-sandbox']
         });
-      } else if (!label.text || label.text.length === 0) {
-        results.violations.push({
-          type: 'empty-form-label',
-          message: `Form label is empty`,
-          element: element,
-          severity: 'serious'
-        });
-      }
-    });
-    
-    // Check for duplicate IDs
-    if (element.id) {
-      const duplicates = formData.filter(el => el.id === element.id && el !== element);
-      if (duplicates.length > 0) {
-        results.violations.push({
-          type: 'duplicate-form-id',
-          message: `Duplicate form element ID: ${element.id}`,
-          element: element,
-          severity: 'serious'
-        });
-      }
-    }
+        
+        try {
+            const page = await browser.newPage();
+            await page.setViewport({ width: 1280, height: 720 });
+            
+            console.log(`🔍 Analyzing form accessibility for: ${url}`);
+            await page.goto(url, { 
+                waitUntil: 'networkidle0',
+                timeout: 30000 
+            });
 
-    // Check for appropriate input types
-    if (element.type === 'text' && (element.name.toLowerCase().includes('email') || element.id.toLowerCase().includes('email'))) {
-      results.violations.push({
-        type: 'inappropriate-input-type',
-        message: `Email field should use type="email" instead of type="text"`,
-        element: element,
-        severity: 'minor'
-      });
-    }
+            // Inject form analysis script
+            await page.addScriptTag({ 
+                content: this.getFormAnalysisScript() 
+            });
 
-    if (element.type === 'text' && (element.name.toLowerCase().includes('phone') || element.id.toLowerCase().includes('phone'))) {
-      results.violations.push({
-        type: 'inappropriate-input-type',
-        message: `Phone field should use type="tel" instead of type="text"`,
-        element: element,
-        severity: 'minor'
-      });
-    }
-  });
-}
+            // Execute comprehensive form analysis
+            const analysis = await page.evaluate(() => {
+                return window.analyzeFormAccessibility();
+            });
 
-/**
- * Test required field handling
- */
-async function testRequiredFields(page, results) {
-  const requiredFields = results.formElements.filter(el => el.isRequired);
-  
-  requiredFields.forEach(field => {
-    // Check if required fields have proper indication
-    const hasRequiredIndication = 
-      field.labels.some(label => label.text?.includes('*') || 
-                               label.text?.toLowerCase().includes('required') ||
-                               label.text?.toLowerCase().includes('mandatory')) ||
-      field.className.includes('required') ||
-      field.title.toLowerCase().includes('required') ||
-      field.hasErrorHandling;
-    
-    if (!hasRequiredIndication) {
-      results.violations.push({
-        type: 'required-field-not-indicated',
-        message: `Required field not clearly indicated to users`,
-        element: field,
-        severity: 'moderate'
-      });
-    }
-    
-    // Check if required fields have error handling setup
-    if (!field.hasErrorHandling && field.isVisible) {
-      results.violations.push({
-        type: 'required-field-no-error-handling',
-        message: `Required field missing error handling (aria-describedby recommended)`,
-        element: field,
-        severity: 'moderate'
-      });
-    }
+            const processedResults = this.processFormResults(analysis, url);
+            
+            console.log(`✅ Form analysis completed for ${url}: ${processedResults.summary.totalIssues} issues found`);
+            return processedResults;
 
-    // Check for aria-invalid attribute on required fields
-    if (field.ariaInvalid && !['true', 'false', 'grammar', 'spelling'].includes(field.ariaInvalid)) {
-      results.violations.push({
-        type: 'invalid-aria-invalid-value',
-        message: `Invalid aria-invalid value: "${field.ariaInvalid}"`,
-        element: field,
-        severity: 'moderate'
-      });
-    }
-  });
-}
-
-/**
- * Test error message association
- */
-async function testErrorMessageAssociation(page, results) {
-  const fieldsWithErrors = results.formElements.filter(el => el.hasErrorHandling);
-  results.summary.fieldsWithErrorHandling = fieldsWithErrors.length;
-  
-  fieldsWithErrors.forEach(field => {
-    field.errorElements.forEach(errorEl => {
-      // Check if error element exists
-      if (errorEl.missing) {
-        results.violations.push({
-          type: 'broken-error-association',
-          message: `aria-describedby references missing element: ${errorEl.id}`,
-          element: field,
-          severity: 'serious'
-        });
-      } else {
-        // Check if error message is meaningful
-        if (!errorEl.text || errorEl.text.length < 3) {
-          results.violations.push({
-            type: 'meaningless-error-message',
-            message: `Error message too short or empty: "${errorEl.text || ''}"`,
-            element: field,
-            severity: 'moderate'
-          });
+        } catch (error) {
+            console.error(`❌ Form analysis failed for ${url}:`, error.message);
+            throw error;
+        } finally {
+            await browser.close();
         }
-
-        // Check if error message has appropriate role or live region
-        if (errorEl.isError && !errorEl.role && !errorEl.className.includes('live')) {
-          results.violations.push({
-            type: 'error-message-no-announcement',
-            message: `Error message may not be announced to screen readers (missing role="alert" or aria-live)`,
-            element: field,
-            severity: 'moderate'
-          });
-        }
-      }
-    });
-  });
-}
-
-/**
- * Test fieldsets and legends
- */
-async function testFieldsetsAndLegends(page, results) {
-  const fieldsets = await page.evaluate(() => {
-    const fieldsetElements = Array.from(document.querySelectorAll('fieldset'));
-    return fieldsetElements.map(fieldset => window.analyzeFieldset(fieldset));
-  });
-  
-  results.fieldsets = fieldsets;
-  results.summary.fieldsetCount = fieldsets.length;
-  
-  fieldsets.forEach(fieldset => {
-    if (fieldset.isVisible && !fieldset.hasLegend) {
-      results.violations.push({
-        type: 'fieldset-missing-legend',
-        message: `Fieldset missing legend element`,
-        element: fieldset,
-        severity: 'moderate'
-      });
-    }
-    
-    if (fieldset.hasLegend && (!fieldset.legendText || fieldset.legendText.length === 0)) {
-      results.violations.push({
-        type: 'empty-fieldset-legend',
-        message: `Fieldset legend is empty`,
-        element: fieldset,
-        severity: 'moderate'
-      });
     }
 
-    // Check for single-element fieldsets (usually unnecessary)
-    if (fieldset.formElementCount === 1 && fieldset.isVisible) {
-      results.violations.push({
-        type: 'single-element-fieldset',
-        message: `Fieldset contains only one form element (may be unnecessary grouping)`,
-        element: fieldset,
-        severity: 'minor'
-      });
+    /**
+     * Get the form analysis script to inject into the page
+     */
+    getFormAnalysisScript() {
+        return `
+            window.analyzeFormAccessibility = function() {
+                const results = {
+                    forms: [],
+                    issues: [],
+                    statistics: {
+                        totalForms: 0,
+                        formsWithIssues: 0,
+                        totalInputs: 0,
+                        inputsWithIssues: 0,
+                        totalIssues: 0
+                    }
+                };
+
+                // Find all forms on the page
+                const forms = document.querySelectorAll('form, [role="form"]');
+                results.statistics.totalForms = forms.length;
+
+                forms.forEach((form, formIndex) => {
+                    const formAnalysis = analyzeForm(form, formIndex);
+                    results.forms.push(formAnalysis);
+                    results.issues.push(...formAnalysis.issues);
+                    
+                    if (formAnalysis.issues.length > 0) {
+                        results.statistics.formsWithIssues++;
+                    }
+                });
+
+                // Analyze standalone form controls (not in forms)
+                const standaloneInputs = document.querySelectorAll(
+                    'input:not(form input), select:not(form select), textarea:not(form textarea)'
+                );
+                
+                standaloneInputs.forEach((input, index) => {
+                    const inputAnalysis = analyzeFormControl(input, \`standalone-\${index}\`);
+                    results.issues.push(...inputAnalysis.issues);
+                });
+
+                results.statistics.totalIssues = results.issues.length;
+                results.statistics.totalInputs = document.querySelectorAll('input, select, textarea').length;
+                results.statistics.inputsWithIssues = results.issues.filter(issue => 
+                    issue.type.includes('input') || issue.type.includes('control')
+                ).length;
+
+                return results;
+            };
+
+            function analyzeForm(form, formIndex) {
+                const formData = {
+                    index: formIndex,
+                    id: form.id || \`form-\${formIndex}\`,
+                    action: form.action || '',
+                    method: form.method || 'GET',
+                    controls: [],
+                    issues: [],
+                    fieldsets: [],
+                    hasRequiredFields: false,
+                    hasErrorHandling: false
+                };
+
+                // Analyze form controls
+                const controls = form.querySelectorAll('input, select, textarea');
+                controls.forEach((control, controlIndex) => {
+                    const controlAnalysis = analyzeFormControl(control, \`\${formData.id}-control-\${controlIndex}\`);
+                    formData.controls.push(controlAnalysis);
+                    formData.issues.push(...controlAnalysis.issues);
+                    
+                    if (control.required || control.getAttribute('aria-required') === 'true') {
+                        formData.hasRequiredFields = true;
+                    }
+                });
+
+                // Analyze fieldsets and grouping
+                const fieldsets = form.querySelectorAll('fieldset');
+                fieldsets.forEach((fieldset, fieldsetIndex) => {
+                    const fieldsetAnalysis = analyzeFieldset(fieldset, \`\${formData.id}-fieldset-\${fieldsetIndex}\`);
+                    formData.fieldsets.push(fieldsetAnalysis);
+                    formData.issues.push(...fieldsetAnalysis.issues);
+                });
+
+                // Check for radio button and checkbox grouping
+                formData.issues.push(...checkRadioGrouping(form, formData.id));
+                formData.issues.push(...checkCheckboxGrouping(form, formData.id));
+
+                // Check for form-level error handling
+                const errorElements = form.querySelectorAll('[role="alert"], .error, .invalid, [aria-invalid="true"]');
+                formData.hasErrorHandling = errorElements.length > 0;
+
+                // Check for form instructions
+                formData.issues.push(...checkFormInstructions(form, formData.id));
+
+                return formData;
+            }
+
+            function analyzeFormControl(control, controlId) {
+                const controlData = {
+                    id: controlId,
+                    tagName: control.tagName.toLowerCase(),
+                    type: control.type || '',
+                    name: control.name || '',
+                    required: control.required || control.getAttribute('aria-required') === 'true',
+                    labels: [],
+                    issues: []
+                };
+
+                // Check label association
+                controlData.issues.push(...checkLabelAssociation(control, controlId));
+                
+                // Check error message association
+                controlData.issues.push(...checkErrorAssociation(control, controlId));
+                
+                // Check required field indication
+                if (controlData.required) {
+                    controlData.issues.push(...checkRequiredIndication(control, controlId));
+                }
+                
+                // Check autocomplete attributes
+                controlData.issues.push(...checkAutocomplete(control, controlId));
+                
+                // Check input purpose and accessibility names
+                controlData.issues.push(...checkInputPurpose(control, controlId));
+
+                return controlData;
+            }
+
+            function checkLabelAssociation(control, controlId) {
+                const issues = [];
+                const labels = [];
+
+                // Check for explicit label association (for attribute)
+                const explicitLabels = document.querySelectorAll(\`label[for="\${control.id}"]\`);
+                labels.push(...Array.from(explicitLabels));
+
+                // Check for implicit label association (nested)
+                const parentLabel = control.closest('label');
+                if (parentLabel) {
+                    labels.push(parentLabel);
+                }
+
+                // Check for ARIA labelling
+                const ariaLabel = control.getAttribute('aria-label');
+                const ariaLabelledby = control.getAttribute('aria-labelledby');
+                const title = control.getAttribute('title');
+
+                // Determine if control has proper labelling
+                const hasProperLabel = labels.length > 0 || ariaLabel || ariaLabelledby;
+
+                if (!hasProperLabel && control.type !== 'hidden' && control.type !== 'submit' && control.type !== 'button') {
+                    issues.push({
+                        type: 'missing-label',
+                        severity: 'high',
+                        wcag: ['1.3.1', '3.3.2', '4.1.2'],
+                        message: \`Form control lacks proper label association\`,
+                        element: getElementSelector(control),
+                        controlId: controlId,
+                        context: {
+                            tagName: control.tagName,
+                            type: control.type,
+                            name: control.name,
+                            id: control.id
+                        }
+                    });
+                }
+
+                // Check for label quality
+                labels.forEach(label => {
+                    const labelText = label.textContent.trim();
+                    if (labelText.length === 0) {
+                        issues.push({
+                            type: 'empty-label',
+                            severity: 'high',
+                            wcag: ['1.3.1', '3.3.2'],
+                            message: \`Label element is empty or contains no text\`,
+                            element: getElementSelector(label),
+                            controlId: controlId
+                        });
+                    } else if (labelText.length < 2) {
+                        issues.push({
+                            type: 'inadequate-label',
+                            severity: 'medium',
+                            wcag: ['3.3.2'],
+                            message: \`Label text is too short to be meaningful\`,
+                            element: getElementSelector(label),
+                            controlId: controlId,
+                            context: { labelText: labelText }
+                        });
+                    }
+                });
+
+                return issues;
+            }
+
+            function checkErrorAssociation(control, controlId) {
+                const issues = [];
+                const ariaInvalid = control.getAttribute('aria-invalid');
+                const ariaDescribedby = control.getAttribute('aria-describedby');
+
+                // Check if control is marked as invalid
+                if (ariaInvalid === 'true') {
+                    // Check for proper error message association
+                    if (!ariaDescribedby) {
+                        issues.push({
+                            type: 'missing-error-association',
+                            severity: 'high',
+                            wcag: ['3.3.1', '3.3.2'],
+                            message: \`Invalid control lacks aria-describedby reference to error message\`,
+                            element: getElementSelector(control),
+                            controlId: controlId
+                        });
+                    } else {
+                        // Verify the referenced error message exists
+                        const errorIds = ariaDescribedby.split(/\\s+/);
+                        errorIds.forEach(errorId => {
+                            const errorElement = document.getElementById(errorId);
+                            if (!errorElement) {
+                                issues.push({
+                                    type: 'broken-error-reference',
+                                    severity: 'high',
+                                    wcag: ['3.3.1'],
+                                    message: \`aria-describedby references non-existent error element\`,
+                                    element: getElementSelector(control),
+                                    controlId: controlId,
+                                    context: { missingId: errorId }
+                                });
+                            }
+                        });
+                    }
+                }
+
+                return issues;
+            }
+
+            function checkRequiredIndication(control, controlId) {
+                const issues = [];
+                const hasVisualIndicator = checkVisualRequiredIndicator(control);
+                const hasAriaRequired = control.getAttribute('aria-required') === 'true';
+                const hasRequiredAttribute = control.required;
+
+                if (!hasVisualIndicator && (hasAriaRequired || hasRequiredAttribute)) {
+                    issues.push({
+                        type: 'missing-required-indication',
+                        severity: 'medium',
+                        wcag: ['3.3.2'],
+                        message: \`Required field lacks visual indication for users\`,
+                        element: getElementSelector(control),
+                        controlId: controlId
+                    });
+                }
+
+                return issues;
+            }
+
+            function checkVisualRequiredIndicator(control) {
+                // Check for common visual required indicators
+                const label = control.closest('label') || document.querySelector(\`label[for="\${control.id}"]\`);
+                if (label) {
+                    const labelText = label.textContent;
+                    if (labelText.includes('*') || labelText.toLowerCase().includes('required')) {
+                        return true;
+                    }
+                }
+
+                // Check for required class or styling
+                const hasRequiredClass = control.classList.contains('required') || 
+                                       (label && label.classList.contains('required'));
+                
+                return hasRequiredClass;
+            }
+
+            function checkAutocomplete(control, controlId) {
+                const issues = [];
+                const autocomplete = control.getAttribute('autocomplete');
+                const inputPurposeTypes = [
+                    'name', 'email', 'username', 'tel', 'url', 'street-address',
+                    'address-line1', 'address-line2', 'postal-code', 'country',
+                    'cc-name', 'cc-number', 'cc-exp', 'cc-csc'
+                ];
+
+                // Check if input should have autocomplete
+                const inputType = control.type || '';
+                const inputName = control.name || '';
+                const shouldHaveAutocomplete = inputPurposeTypes.some(purpose => 
+                    inputType.includes(purpose) || inputName.toLowerCase().includes(purpose)
+                );
+
+                if (shouldHaveAutocomplete && !autocomplete) {
+                    issues.push({
+                        type: 'missing-autocomplete',
+                        severity: 'low',
+                        wcag: ['1.3.5'],
+                        message: \`Input appears to collect personal data but lacks autocomplete attribute\`,
+                        element: getElementSelector(control),
+                        controlId: controlId,
+                        context: {
+                            suggestedAutocomplete: getSuggestedAutocomplete(inputType, inputName)
+                        }
+                    });
+                }
+
+                return issues;
+            }
+
+            function getSuggestedAutocomplete(inputType, inputName) {
+                const name = inputName.toLowerCase();
+                if (name.includes('email')) return 'email';
+                if (name.includes('phone') || name.includes('tel')) return 'tel';
+                if (name.includes('address')) return 'street-address';
+                if (name.includes('postal') || name.includes('zip')) return 'postal-code';
+                if (name.includes('country')) return 'country';
+                if (name.includes('name')) return 'name';
+                return inputType === 'email' ? 'email' : 'on';
+            }
+
+            function checkInputPurpose(control, controlId) {
+                const issues = [];
+                const accessibleName = getAccessibleName(control);
+
+                if (!accessibleName && control.type !== 'hidden') {
+                    issues.push({
+                        type: 'missing-accessible-name',
+                        severity: 'high',
+                        wcag: ['4.1.2'],
+                        message: \`Form control lacks accessible name\`,
+                        element: getElementSelector(control),
+                        controlId: controlId
+                    });
+                }
+
+                return issues;
+            }
+
+            function getAccessibleName(element) {
+                // Check aria-label
+                const ariaLabel = element.getAttribute('aria-label');
+                if (ariaLabel && ariaLabel.trim()) return ariaLabel.trim();
+
+                // Check aria-labelledby
+                const ariaLabelledby = element.getAttribute('aria-labelledby');
+                if (ariaLabelledby) {
+                    const labelIds = ariaLabelledby.split(/\\s+/);
+                    const labelTexts = labelIds.map(id => {
+                        const el = document.getElementById(id);
+                        return el ? el.textContent.trim() : '';
+                    }).filter(text => text);
+                    if (labelTexts.length > 0) return labelTexts.join(' ');
+                }
+
+                // Check explicit label
+                const explicitLabel = document.querySelector(\`label[for="\${element.id}"]\`);
+                if (explicitLabel && explicitLabel.textContent.trim()) {
+                    return explicitLabel.textContent.trim();
+                }
+
+                // Check implicit label
+                const implicitLabel = element.closest('label');
+                if (implicitLabel && implicitLabel.textContent.trim()) {
+                    return implicitLabel.textContent.trim();
+                }
+
+                // Check title attribute
+                const title = element.getAttribute('title');
+                if (title && title.trim()) return title.trim();
+
+                return null;
+            }
+
+            function analyzeFieldset(fieldset, fieldsetId) {
+                const fieldsetData = {
+                    id: fieldsetId,
+                    legend: null,
+                    controls: [],
+                    issues: []
+                };
+
+                // Check for legend
+                const legend = fieldset.querySelector('legend');
+                if (!legend) {
+                    fieldsetData.issues.push({
+                        type: 'missing-legend',
+                        severity: 'high',
+                        wcag: ['1.3.1', '3.3.2'],
+                        message: \`Fieldset lacks required legend element\`,
+                        element: getElementSelector(fieldset),
+                        fieldsetId: fieldsetId
+                    });
+                } else {
+                    fieldsetData.legend = legend.textContent.trim();
+                    if (!fieldsetData.legend) {
+                        fieldsetData.issues.push({
+                            type: 'empty-legend',
+                            severity: 'high',
+                            wcag: ['1.3.1'],
+                            message: \`Legend element is empty\`,
+                            element: getElementSelector(legend),
+                            fieldsetId: fieldsetId
+                        });
+                    }
+                }
+
+                return fieldsetData;
+            }
+
+            function checkRadioGrouping(form, formId) {
+                const issues = [];
+                const radioGroups = {};
+
+                // Group radio buttons by name
+                const radios = form.querySelectorAll('input[type="radio"]');
+                radios.forEach(radio => {
+                    const name = radio.name;
+                    if (name) {
+                        if (!radioGroups[name]) {
+                            radioGroups[name] = [];
+                        }
+                        radioGroups[name].push(radio);
+                    }
+                });
+
+                // Check each radio group
+                Object.keys(radioGroups).forEach(groupName => {
+                    const group = radioGroups[groupName];
+                    if (group.length > 1) {
+                        // Check if radio group is properly contained in fieldset
+                        const fieldsets = group.map(radio => radio.closest('fieldset')).filter(Boolean);
+                        const uniqueFieldsets = [...new Set(fieldsets)];
+                        
+                        if (uniqueFieldsets.length === 0) {
+                            issues.push({
+                                type: 'ungrouped-radio-buttons',
+                                severity: 'medium',
+                                wcag: ['1.3.1', '3.3.2'],
+                                message: \`Radio button group lacks fieldset grouping\`,
+                                element: getElementSelector(group[0]),
+                                formId: formId,
+                                context: {
+                                    groupName: groupName,
+                                    radioCount: group.length
+                                }
+                            });
+                        }
+                    }
+                });
+
+                return issues;
+            }
+
+            function checkCheckboxGrouping(form, formId) {
+                const issues = [];
+                // Similar logic for checkbox groups when they represent related options
+                return issues;
+            }
+
+            function checkFormInstructions(form, formId) {
+                const issues = [];
+                const hasRequiredFields = form.querySelectorAll('[required], [aria-required="true"]').length > 0;
+                
+                if (hasRequiredFields) {
+                    // Check for form-level instructions about required fields
+                    const instructionElements = form.querySelectorAll(
+                        '.instructions, .form-instructions, [role="region"][aria-label*="instruction"]'
+                    );
+                    
+                    if (instructionElements.length === 0) {
+                        // Check if there's any mention of required field indicators
+                        const formText = form.textContent.toLowerCase();
+                        const hasRequiredMention = formText.includes('required') || 
+                                                 formText.includes('mandatory') ||
+                                                 formText.includes('asterisk') ||
+                                                 formText.includes('*');
+                        
+                        if (!hasRequiredMention) {
+                            issues.push({
+                                type: 'missing-form-instructions',
+                                severity: 'medium',
+                                wcag: ['3.3.2'],
+                                message: \`Form with required fields lacks instructions about required field indicators\`,
+                                element: getElementSelector(form),
+                                formId: formId
+                            });
+                        }
+                    }
+                }
+
+                return issues;
+            }
+
+            function getElementSelector(element) {
+                if (element.id) return \`#\${element.id}\`;
+                if (element.className) return \`\${element.tagName.toLowerCase()}.\${element.className.split(' ')[0]}\`;
+                return element.tagName.toLowerCase();
+            }
+        `;
     }
-  });
-}
 
-/**
- * Test validation announcements
- */
-async function testValidationAnnouncements(page, results) {
-  const validationData = await page.evaluate(() => {
-    return window.checkValidationMessages();
-  });
-  
-  results.validationMessages = validationData;
-  results.summary.liveRegionCount = validationData.liveRegions.length;
-  
-  // Check for live regions for announcements
-  if (validationData.liveRegions.length === 0 && results.summary.requiredFields > 0) {
-    results.violations.push({
-      type: 'missing-live-regions',
-      message: `No live regions found for form validation announcements (consider adding aria-live regions)`,
-      severity: 'moderate'
-    });
-  }
-  
-  // Check for visible error messages without proper IDs
-  validationData.errorMessages.forEach(errorMsg => {
-    if (errorMsg.isVisible && !errorMsg.id) {
-      results.violations.push({
-        type: 'error-message-no-id',
-        message: `Visible error message missing ID for aria-describedby association`,
-        element: errorMsg,
-        severity: 'moderate'
-      });
-    }
-  });
+    /**
+     * Process and normalize form analysis results
+     */
+    processFormResults(analysis, url) {
+        const processedResults = {
+            url: url,
+            tool: 'form-accessibility-tester',
+            timestamp: new Date().toISOString(),
+            summary: {
+                totalForms: analysis.statistics.totalForms,
+                formsWithIssues: analysis.statistics.formsWithIssues,
+                totalInputs: analysis.statistics.totalInputs,
+                inputsWithIssues: analysis.statistics.inputsWithIssues,
+                totalIssues: analysis.statistics.totalIssues,
+                criticalIssues: 0,
+                highIssues: 0,
+                mediumIssues: 0,
+                lowIssues: 0
+            },
+            forms: analysis.forms,
+            violations: [],
+            passes: [],
+            coverage: {
+                wcagCriteria: [],
+                automatedTests: 0,
+                manualReviewRequired: 0
+            }
+        };
 
-  // Check live region configurations
-  validationData.liveRegions.forEach(region => {
-    if (region.ariaLive === 'off') {
-      results.violations.push({
-        type: 'disabled-live-region',
-        message: `Live region has aria-live="off" which disables announcements`,
-        element: region,
-        severity: 'moderate'
-      });
-    }
-  });
-}
+        // Process each issue
+        analysis.issues.forEach(issue => {
+            // Categorize by severity
+            switch (issue.severity) {
+                case 'critical':
+                    processedResults.summary.criticalIssues++;
+                    break;
+                case 'high':
+                    processedResults.summary.highIssues++;
+                    break;
+                case 'medium':
+                    processedResults.summary.mediumIssues++;
+                    break;
+                case 'low':
+                    processedResults.summary.lowIssues++;
+                    break;
+            }
 
-/**
- * Test form keyboard navigation
- */
-async function testFormKeyboardNavigation(page, results) {
-  const navigationData = await page.evaluate(() => {
-    return window.testFormNavigation();
-  });
-  
-  // Check for logical tab order
-  const tabbableElements = navigationData.filter(el => el.isInTabOrder);
-  
-  tabbableElements.forEach((element, index) => {
-    // Check for positive tabindex (anti-pattern)
-    if (element.tabIndex > 0) {
-      results.violations.push({
-        type: 'positive-tabindex',
-        message: `Form element has positive tabindex (${element.tabIndex}), which can break natural tab order`,
-        element: element,
-        severity: 'moderate'
-      });
-    }
+            // Create violation entry
+            const violation = {
+                id: issue.type,
+                description: issue.message,
+                impact: issue.severity,
+                tags: issue.wcag.map(criterion => `wcag${criterion.replace('.', '')}`),
+                wcag: issue.wcag,
+                nodes: [{
+                    target: [issue.element],
+                    html: issue.element,
+                    impact: issue.severity
+                }],
+                help: this.getRemediationAdvice(issue.type),
+                helpUrl: this.getHelpUrl(issue.type),
+                metadata: {
+                    formTester: true,
+                    controlId: issue.controlId,
+                    formId: issue.formId,
+                    context: issue.context || {}
+                }
+            };
 
-    // Check for elements that should be in tab order but aren't
-    if (!element.canReceiveFocus && ['INPUT', 'SELECT', 'TEXTAREA', 'BUTTON'].includes(element.tagName)) {
-      results.violations.push({
-        type: 'form-element-not-focusable',
-        message: `Form element cannot receive focus`,
-        element: element,
-        severity: 'serious'
-      });
-    }
-  });
+            processedResults.violations.push(violation);
 
-  // Check for logical spatial order (basic check)
-  const sortedByPosition = [...tabbableElements].sort((a, b) => {
-    if (Math.abs(a.position.y - b.position.y) > 50) {
-      return a.position.y - b.position.y; // Sort by row first
-    }
-    return a.position.x - b.position.x; // Then by column
-  });
-
-  // Simple check: if order is very different from DOM order, flag it
-  let orderMismatches = 0;
-  sortedByPosition.forEach((element, spatialIndex) => {
-    const domIndex = tabbableElements.findIndex(el => el.id === element.id && el.tagName === element.tagName);
-    if (Math.abs(spatialIndex - domIndex) > 2) {
-      orderMismatches++;
-    }
-  });
-
-  if (orderMismatches > tabbableElements.length * 0.3) {
-    results.violations.push({
-      type: 'illogical-tab-order',
-      message: `Tab order may not follow logical reading order (${orderMismatches} mismatches)`,
-      severity: 'moderate'
-    });
-  }
-}
-
-/**
- * Test autocomplete attributes
- */
-async function testAutocompleteAttributes(page, results) {
-  const personalDataFields = results.formElements.filter(el => {
-    const id = el.id.toLowerCase();
-    const name = el.name.toLowerCase();
-    const type = el.type.toLowerCase();
-    
-    return type === 'email' || 
-           type === 'tel' || 
-           type === 'password' ||
-           id.includes('email') || 
-           id.includes('phone') || 
-           id.includes('name') || 
-           id.includes('address') ||
-           id.includes('password') ||
-           name.includes('email') || 
-           name.includes('phone') || 
-           name.includes('name') ||
-           name.includes('address') ||
-           name.includes('password');
-  });
-  
-  personalDataFields.forEach(field => {
-    if (!field.autocomplete && field.isVisible) {
-      results.violations.push({
-        type: 'missing-autocomplete',
-        message: `Personal data field missing autocomplete attribute (WCAG 2.2 AA requirement)`,
-        element: field,
-        severity: 'moderate'
-      });
-    }
-
-    // Check for invalid autocomplete values
-    if (field.autocomplete && field.autocomplete !== 'on' && field.autocomplete !== 'off') {
-      const validTokens = [
-        'name', 'given-name', 'family-name', 'email', 'username', 
-        'new-password', 'current-password', 'tel', 'address-line1', 
-        'address-line2', 'address-level1', 'address-level2', 'country',
-        'postal-code', 'cc-name', 'cc-number', 'cc-exp', 'cc-csc'
-      ];
-      
-      const tokens = field.autocomplete.split(' ');
-      const invalidTokens = tokens.filter(token => 
-        !validTokens.includes(token) && 
-        !token.startsWith('section-') &&
-        token !== 'billing' &&
-        token !== 'shipping'
-      );
-
-      if (invalidTokens.length > 0) {
-        results.violations.push({
-          type: 'invalid-autocomplete-value',
-          message: `Invalid autocomplete tokens: ${invalidTokens.join(', ')}`,
-          element: field,
-          severity: 'minor'
+            // Track WCAG criteria coverage
+            issue.wcag.forEach(criterion => {
+                if (!processedResults.coverage.wcagCriteria.includes(criterion)) {
+                    processedResults.coverage.wcagCriteria.push(criterion);
+                }
+            });
         });
-      }
+
+        processedResults.coverage.automatedTests = processedResults.violations.length;
+
+        return processedResults;
     }
-  });
+
+    /**
+     * Get remediation advice for specific form accessibility issues
+     */
+    getRemediationAdvice(issueType) {
+        const remediationMap = {
+            'missing-label': 'Add a proper label element associated with the form control using the "for" attribute or nest the control within a label element. Alternatively, use aria-label or aria-labelledby.',
+            'empty-label': 'Provide meaningful text content within the label element that clearly describes the purpose of the form control.',
+            'inadequate-label': 'Expand the label text to provide a clear, descriptive name for the form control that users can understand.',
+            'missing-error-association': 'When a form control has aria-invalid="true", use aria-describedby to reference the error message element.',
+            'broken-error-reference': 'Ensure all IDs referenced in aria-describedby attributes exist in the DOM and point to error message elements.',
+            'missing-required-indication': 'Provide a visual indication (such as asterisk or "required" text) for required form fields that is available to all users.',
+            'missing-autocomplete': 'Add appropriate autocomplete attributes to help users fill forms more efficiently and accurately.',
+            'missing-accessible-name': 'Ensure the form control has an accessible name through label, aria-label, aria-labelledby, or title attribute.',
+            'missing-legend': 'Add a legend element as the first child of the fieldset to provide a descriptive heading for the group of related form controls.',
+            'empty-legend': 'Provide meaningful text content within the legend element that describes the group of form controls.',
+            'ungrouped-radio-buttons': 'Wrap related radio buttons in a fieldset element with an appropriate legend to indicate they are part of the same group.',
+            'missing-form-instructions': 'Provide clear instructions at the beginning of the form explaining how required fields are indicated and any other important information.'
+        };
+
+        return remediationMap[issueType] || 'Review the form accessibility requirements and ensure compliance with WCAG guidelines.';
+    }
+
+    /**
+     * Get help URL for specific issue types
+     */
+    getHelpUrl(issueType) {
+        const baseUrl = 'https://www.w3.org/WAI/WCAG21/Understanding/';
+        const urlMap = {
+            'missing-label': `${baseUrl}labels-or-instructions.html`,
+            'missing-error-association': `${baseUrl}error-identification.html`,
+            'missing-required-indication': `${baseUrl}labels-or-instructions.html`,
+            'missing-fieldset': `${baseUrl}info-and-relationships.html`,
+            'missing-form-instructions': `${baseUrl}help.html`
+        };
+
+        return urlMap[issueType] || `${baseUrl}conformance.html`;
+    }
+
+    /**
+     * Get confidence level for form accessibility analysis
+     */
+    getConfidenceLevel() {
+        return 'high'; // Form analysis is highly reliable for automated detection
+    }
+
+    /**
+     * Get tool icon identifier
+     */
+    getToolIcon() {
+        return 'form';
+    }
 }
 
-/**
- * Test form organization
- */
-async function testFormOrganization(page, results) {
-  const organizationData = await page.evaluate(() => {
-    return window.analyzeFormOrganization();
-  });
-  
-  results.formGroups = organizationData;
-  
-  organizationData.forEach(form => {
-    // Check for forms without proper identification
-    if (!form.id && !form.name && form.isVisible) {
-      results.violations.push({
-        type: 'form-missing-identification',
-        message: `Form missing id or name attribute`,
-        element: form,
-        severity: 'minor'
-      });
-    }
-
-    // Check for very large forms without fieldsets
-    if (form.elementCount > 10 && form.fieldsetCount === 0) {
-      results.violations.push({
-        type: 'large-form-no-fieldsets',
-        message: `Large form (${form.elementCount} elements) should use fieldsets for organization`,
-        element: form,
-        severity: 'moderate'
-      });
-    }
-
-    // Check for forms with more labels than form elements (may indicate nested forms issue)
-    if (form.labelCount > form.elementCount * 1.5) {
-      results.violations.push({
-        type: 'excess-labels',
-        message: `Form has more labels (${form.labelCount}) than expected for form elements (${form.elementCount})`,
-        element: form,
-        severity: 'minor'
-      });
-    }
-  });
-}
-
-/**
- * Run form accessibility testing across browsers
- */
-async function runFormAccessibilityTests(url = 'http://localhost:3000') {
-  console.log('🚀 Starting Form Accessibility Testing...\n');
-  
-  const browsers = ['chromium', 'firefox', 'webkit'];
-  const allResults = [];
-  
-  for (const browserName of browsers) {
-    console.log(`📝 Testing ${browserName}...`);
-    
-    let browser, page;
-    try {
-      // Launch browser
-      switch (browserName) {
-        case 'chromium':
-          browser = await chromium.launch({ headless: true });
-          break;
-        case 'firefox':
-          browser = await firefox.launch({ headless: true });
-          break;
-        case 'webkit':
-          browser = await webkit.launch({ headless: true });
-          break;
-      }
-      
-      page = await browser.newPage();
-      
-      // Run tests
-      const results = await testFormAccessibility(page, browserName, url);
-      allResults.push(results);
-      
-      // Save individual results
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const resultsPath = path.join('reports', `form-accessibility-${browserName}-${timestamp}.json`);
-      fs.writeFileSync(resultsPath, JSON.stringify(results, null, 2));
-      
-      console.log(`  ✅ ${browserName} complete - ${results.summary.violationCount} violations found`);
-      console.log(`  💾 Results saved to: ${resultsPath}`);
-      
-    } catch (error) {
-      console.error(`  ❌ Error testing ${browserName}:`, error.message);
-    } finally {
-      if (page) await page.close();
-      if (browser) await browser.close();
-    }
-  }
-  
-  // Generate consolidated report
-  const consolidatedResults = {
-    testType: 'form-accessibility',
-    timestamp: new Date().toISOString(),
-    url: url,
-    browsers: allResults.map(r => r.browser),
-    summary: {
-      totalBrowsers: allResults.length,
-      totalViolations: allResults.reduce((sum, r) => sum + r.summary.violationCount, 0),
-      totalFormElements: allResults.reduce((sum, r) => sum + r.summary.totalFormElements, 0),
-      totalLabeledElements: allResults.reduce((sum, r) => sum + r.summary.labeledElements, 0),
-      totalUnlabeledElements: allResults.reduce((sum, r) => sum + r.summary.unlabeledElements, 0),
-      totalRequiredFields: allResults.reduce((sum, r) => sum + r.summary.requiredFields, 0),
-      totalFieldsWithErrorHandling: allResults.reduce((sum, r) => sum + r.summary.fieldsWithErrorHandling, 0),
-      overallPassed: allResults.every(r => r.passed)
-    },
-    results: allResults
-  };
-  
-  const consolidatedPath = path.join('reports', `form-accessibility-consolidated-${new Date().toISOString().replace(/[:.]/g, '-')}.json`);
-  fs.writeFileSync(consolidatedPath, JSON.stringify(consolidatedResults, null, 2));
-  
-  console.log('\n📊 Form Accessibility Testing Summary:');
-  console.log(`  🌐 Browsers tested: ${consolidatedResults.summary.totalBrowsers}`);
-  console.log(`  📝 Total form elements: ${consolidatedResults.summary.totalFormElements}`);
-  console.log(`  🏷️ Labeled elements: ${consolidatedResults.summary.totalLabeledElements}`);
-  console.log(`  ❌ Unlabeled elements: ${consolidatedResults.summary.totalUnlabeledElements}`);
-  console.log(`  ⚠️ Required fields: ${consolidatedResults.summary.totalRequiredFields}`);
-  console.log(`  🔗 Fields with error handling: ${consolidatedResults.summary.totalFieldsWithErrorHandling}`);
-  console.log(`  📝 Total violations: ${consolidatedResults.summary.totalViolations}`);
-  console.log(`  ✅ Overall passed: ${consolidatedResults.summary.overallPassed ? 'Yes' : 'No'}`);
-  console.log(`  💾 Consolidated report: ${consolidatedPath}`);
-  
-  return consolidatedResults;
-}
-
-// CLI execution
-if (require.main === module) {
-  const url = process.argv[2] || 'http://localhost:3000';
-  
-  runFormAccessibilityTests(url)
-    .then(() => {
-      console.log('\n🎉 Form accessibility testing completed!');
-      process.exit(0);
-    })
-    .catch(error => {
-      console.error('❌ Form accessibility testing failed:', error);
-      process.exit(1);
-    });
-}
-
-module.exports = { testFormAccessibility, runFormAccessibilityTests }; 
+module.exports = FormAccessibilityTester; 
