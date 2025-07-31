@@ -8560,12 +8560,15 @@ ${requirement.failure_examples}
                     setTimeout(() => {
                         this.loadAutomationSummary(sessionId);
                     }, 5000);
+                    
+                    return response;
                 } else {
                     throw new Error(response.error || 'Failed to start automated tests');
                 }
             } catch (error) {
                 console.error('Error triggering automated tests:', error);
                 this.showNotification('error', 'Automation Failed', error.message);
+                throw error;
             }
         },
         

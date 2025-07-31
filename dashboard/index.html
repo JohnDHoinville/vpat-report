@@ -80,7 +80,7 @@
         
         <!-- Real-time Automation Progress Indicator -->
         <div x-show="automationProgress" 
-                     x-transition:enter="transition ease-out duration-300"
+             x-transition:enter="transition ease-out duration-300"
              x-transition:enter-start="transform -translate-y-full opacity-0"
              x-transition:enter-end="transform translate-y-0 opacity-100"
              x-transition:leave="transition ease-in duration-200"
@@ -88,10 +88,10 @@
              x-transition:leave-end="transform -translate-y-full opacity-0"
              class="bg-gradient-to-r from-purple-500 to-blue-500 text-white px-6 py-3 border-b border-purple-300">
             <div class="max-w-7xl mx-auto">
-                            <div class="flex items-center justify-between">
+                <div class="flex items-center justify-between">
                     <div class="flex items-center space-x-4">
                         <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                                    <div>
+                        <div>
                             <div class="font-medium" x-text="automationProgress?.message || 'Processing...'"></div>
                             <div class="text-xs text-purple-100">
                                 <span x-text="automationProgress?.currentTool || ''"></span>
@@ -113,9 +113,9 @@
                                 <span x-show="automationProgress?.lastError" class="text-red-200">
                                     - Error: <span x-text="automationProgress?.lastError?.error"></span>
                                 </span>
-                                    </div>
-                                </div>
                             </div>
+                        </div>
+                    </div>
                     <div class="flex items-center space-x-4">
                         <div class="w-32 bg-white bg-opacity-20 rounded-full h-2">
                             <div class="bg-white rounded-full h-2 transition-all duration-300" 
@@ -126,12 +126,12 @@
                                 class="p-1 hover:bg-white hover:bg-opacity-20 rounded"
                                 :title="realtimeUpdates ? 'Disable notifications' : 'Enable notifications'">
                             <i class="fas" :class="realtimeUpdates ? 'fa-bell' : 'fa-bell-slash'"></i>
-                                    </button>
-                                </div>
-                            </div>
-                            </div>
-                        </div>
-
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
         <!-- Large Detailed Automation Progress Panel -->
         <div x-show="automationProgress" 
              x-transition:enter="transition ease-out duration-500"
@@ -141,61 +141,61 @@
              x-transition:leave-start="opacity-100 transform scale-100"
              x-transition:leave-end="opacity-0 transform scale-95"
              class="bg-purple-50 border border-purple-200 rounded-lg p-6 mx-4 my-4 shadow-lg">
-                    <div class="flex items-center justify-between mb-4">
-                        <div class="flex items-center space-x-3">
-                            <div class="animate-pulse rounded-full h-6 w-6 bg-purple-600"></div>
-                            <div>
-                                <h3 class="text-lg font-semibold text-purple-900">Automated Testing in Progress</h3>
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center space-x-3">
+                    <div class="animate-pulse rounded-full h-6 w-6 bg-purple-600"></div>
+                    <div>
+                        <h3 class="text-lg font-semibold text-purple-900">Automated Testing in Progress</h3>
                         <p class="text-purple-700" x-text="automationProgress?.message || 'Processing...'"></p>
-                            </div>
-                        </div>
-                        <div class="text-right">
+                    </div>
+                </div>
+                <div class="text-right">
                     <div class="text-2xl font-bold text-purple-600" x-text="`${automationProgress?.percentage || 0}%`"></div>
                     <div class="text-sm text-purple-500" x-text="`${automationProgress?.completedTests || 0}/${automationProgress?.totalTests || 0} tests`"></div>
-                        </div>
-                    </div>
-                    <div class="w-full bg-purple-200 rounded-full h-3 mb-4">
-                        <div class="bg-purple-600 h-3 rounded-full transition-all duration-300" 
+                </div>
+            </div>
+            <div class="w-full bg-purple-200 rounded-full h-3 mb-4">
+                <div class="bg-purple-600 h-3 rounded-full transition-all duration-300" 
                      :style="`width: ${automationProgress?.percentage || 0}%`"></div>
-                    </div>
+            </div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-purple-600">
-                                <div class="flex justify-between">
+                <div class="flex justify-between">
                     <span>Current Page:</span>
                     <span class="font-mono text-xs" x-text="automationProgress?.currentPage || 'Initializing...'"></span>
-                                </div>
-                                <div class="flex justify-between">
+                </div>
+                <div class="flex justify-between">
                     <span>Tool:</span>
                     <span x-text="automationProgress?.currentTool || 'Initializing...'"></span>
-                                </div>
-                                <div class="flex justify-between">
+                </div>
+                <div class="flex justify-between">
                     <span>Page Progress:</span>
                     <span x-text="`${automationProgress?.currentPageIndex || 0}/${automationProgress?.totalPages || 0}`"></span>
-                                </div>
-                                <div class="flex justify-between">
+                </div>
+                <div class="flex justify-between">
                     <span>Violations Found:</span>
                     <span x-text="automationProgress?.violationsFound || 0"></span>
-                                </div>
+                </div>
                 <div x-show="automationProgress?.lastResult" class="flex justify-between">
                     <span>Last Result:</span>
                     <span x-text="`${automationProgress?.lastResult?.violations || 0} violations`"></span>
-                            </div>
+                </div>
                 <div x-show="automationProgress?.lastError" class="flex justify-between text-red-600">
                     <span>Error:</span>
                     <span class="text-xs" x-text="automationProgress?.lastError?.error"></span>
-                                </div>
-                                </div>
-                            </div>
-
+                </div>
+            </div>
+        </div>
+        
         <!-- Main Content Area -->
         <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1">
             
             <!-- Notification Area -->
             <div x-show="notification.show" 
-         x-transition:enter="transition ease-out duration-300"
+                 x-transition:enter="transition ease-out duration-300"
                  x-transition:enter-start="opacity-0 transform translate-y-2"
-         x-transition:enter-end="opacity-100 transform translate-y-0"
-         x-transition:leave="transition ease-in duration-200"
-         x-transition:leave-start="opacity-100 transform translate-y-0"
+                 x-transition:enter-end="opacity-100 transform translate-y-0"
+                 x-transition:leave="transition ease-in duration-200"
+                 x-transition:leave-start="opacity-100 transform translate-y-0"
                  x-transition:leave-end="opacity-0 transform translate-y-2"
                  class="fixed top-4 right-4 z-50 max-w-sm w-full">
                 <div :class="notification.type === 'error' ? 'bg-red-50 border-red-200 text-red-800' : 
@@ -209,70 +209,70 @@
                                       notification.type === 'success' ? 'fas fa-check-circle text-green-400' : 
                                       notification.type === 'warning' ? 'fas fa-exclamation-triangle text-yellow-400' : 
                                       'fas fa-info-circle text-blue-400'"></i>
-            </div>
+                        </div>
                         <div class="ml-3 flex-1">
                             <p class="text-sm font-medium" x-text="notification.title"></p>
                             <p class="mt-1 text-sm" x-text="notification.message"></p>
-        </div>
+                        </div>
                         <div class="ml-4 flex-shrink-0">
                             <button @click="hideNotification()" class="inline-flex rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2">
                                 <i class="fas fa-times text-gray-400 hover:text-gray-600"></i>
                             </button>
-                                </div>
-                            </div>
                         </div>
                     </div>
-                    
+                </div>
+            </div>
+            
             <!-- Dynamic Content Views -->
             <div id="view-content">
                 <!-- Views will be loaded here dynamically -->
                 <div x-show="activeTab === 'projects'" x-transition>
                     <div id="projects-view-content">
                         <!-- Projects content will be dynamically loaded here -->
+                    </div>
                 </div>
-            </div>
-
+                
                 <div x-show="activeTab === 'authentication'" x-transition>
                     <div id="authentication-view-content">
                         <!-- Authentication content will be dynamically loaded here -->
-        </div>
-    </div>
-
+                    </div>
+                </div>
+                
 
                 <div x-show="activeTab === 'testing-sessions'" x-transition>
                     <div id="testing-sessions-view-content">
                         <!-- Testing Sessions content will be dynamically loaded here -->
-        </div>
-    </div>
-
+                    </div>
+                </div>
+                
                 <div x-show="activeTab === 'testing'" x-transition>
                     <div id="testing-view-content">
                         <!-- Automated Testing content will be dynamically loaded here -->
-    </div>
-</div>
-
+                    </div>
+                </div>
+                
                 <div x-show="activeTab === 'web-crawler'" x-transition>
                     <div id="web-crawler-view-content">
                         <!-- Web Crawler content will be dynamically loaded here -->
                     </div>
                 </div>
-
+                
                 <div x-show="activeTab === 'manual-testing'" x-transition>
                     <div id="manual-testing-view-content">
                         <!-- Manual Testing content will be dynamically loaded here -->
                     </div>
                 </div>
-
+                
                 <div x-show="activeTab === 'results'" x-transition>
                     <div id="results-view-content">
                         <!-- Results content will be dynamically loaded here -->
-                                    </div>
-                                </div>
-                                
+                    </div>
+                </div>
+                
                 <div x-show="activeTab === 'analytics'" x-transition>
                     <div id="analytics-view-content">
                         <!-- Analytics content will be dynamically loaded here -->
-                                    </div>
+                    </div>
                 </div>
             </div>
         </main>
@@ -299,37 +299,37 @@
              x-transition:leave-start="opacity-100 transform translate-y-0"
              x-transition:leave-end="opacity-0 transform translate-y-4"
              class="fixed bottom-6 right-6 bg-white rounded-lg shadow-lg border border-gray-200 p-4 min-w-72 z-50">
-                            <div class="flex items-center space-x-3">
-                        <div class="flex-shrink-0">
+            <div class="flex items-center space-x-3">
+                <div class="flex-shrink-0">
                     <i class="fas fa-spinner fa-spin text-blue-600"></i>
-                        </div>
+                </div>
                 <div class="flex-1">
                     <div class="text-sm font-medium text-gray-900" x-text="crawlerProgress.message"></div>
                     <div class="mt-1">
-                <div class="w-full bg-gray-200 rounded-full h-2">
+                        <div class="w-full bg-gray-200 rounded-full h-2">
                             <div class="bg-blue-600 h-2 rounded-full transition-all duration-300" 
                                  :style="`width: ${crawlerProgress.percentage || 0}%`"></div>
-                </div>
+                        </div>
                         <div class="flex justify-between text-xs text-gray-500 mt-1">
                             <span x-text="`${crawlerProgress.pagesFound || 0} pages found`"></span>
                             <span x-text="`${Math.round(crawlerProgress.percentage || 0)}%`"></span>
-                    </div>
+                        </div>
                     </div>
                     <div x-show="crawlerProgress.currentUrl" class="text-xs text-gray-500 mt-1 truncate">
                         <span>Current: </span>
                         <span x-text="crawlerProgress.currentUrl" class="font-mono"></span>
-                </div>
                     </div>
                 </div>
             </div>
-            
+        </div>
+
         <!-- Footer -->
         <footer class="bg-white border-t mt-auto">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
                 <div class="flex justify-between items-center text-sm text-gray-600">
-                            <div>
+                    <div>
                         <span>© 2025 Accessibility Testing Platform</span>
-                            </div>
+                    </div>
                     <div class="flex items-center space-x-4">
                         <span>Version 1.0.0</span>
                         <span>•</span>
@@ -340,7 +340,7 @@
                 </div>
             </div>
         </footer>
-        </div>
+    </div>
 
     <!-- Scripts -->
     <script src="js/dashboard.js"></script>
@@ -353,7 +353,7 @@
                     const response = await fetch('dashboard/views/authentication.html');
                     const html = await response.text();
                     document.getElementById('authentication-view-content').innerHTML = html;
-                                            } catch (error) {
+                } catch (error) {
                     console.error('Failed to load authentication view:', error);
                 }
             }
@@ -427,7 +427,7 @@
             if (window.Alpine) {
                 window.Alpine.initTree(document.body);
             }
-});
-</script>
+        });
+    </script>
 </body>
 </html> 

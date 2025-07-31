@@ -47,7 +47,7 @@ router.post('/run/:sessionId', authenticateToken, async (req, res) => {
             updateTestInstances: update_test_instances,
             createEvidence: create_evidence,
             maxPages: max_pages,
-            userId: req.user.userId,
+            userId: req.user.id, // Fixed: use req.user.id instead of req.user.userId
             clientMetadata: {
                 client_ip: req.ip || req.connection.remoteAddress || 'unknown',
                 user_agent: req.get('User-Agent') || 'unknown',

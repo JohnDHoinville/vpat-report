@@ -250,7 +250,7 @@ class TestAutomationService {
                 // Create session-level audit entry for tool completion
                 await this.createSessionAuditLogEntry(
                     sessionId, 
-                    'automation_tool_completed', 
+                    'automated_test_result', 
                     userId, 
                     `${tool} testing completed - ${totalIssues} total issues found`,
                     {

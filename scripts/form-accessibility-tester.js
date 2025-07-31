@@ -114,7 +114,7 @@ class FormAccessibilityTester {
     getFormAnalysisScript() {
         return `
             window.analyzeFormAccessibility = function() {
-                const results = {
+  const results = {
                     forms: [],
                     issues: [],
                     statistics: {
@@ -239,8 +239,8 @@ class FormAccessibilityTester {
 
             function checkLabelAssociation(control, controlId) {
                 const issues = [];
-                const labels = [];
-
+      const labels = [];
+      
                 // Check for explicit label association (for attribute)
                 const explicitLabels = document.querySelectorAll(\`label[for="\${control.id}"]\`);
                 labels.push(...Array.from(explicitLabels));
@@ -297,9 +297,9 @@ class FormAccessibilityTester {
                             element: getElementSelector(label),
                             controlId: controlId,
                             context: { labelText: labelText }
-                        });
-                    }
-                });
+            });
+          }
+        });
 
                 return issues;
             }
@@ -320,8 +320,8 @@ class FormAccessibilityTester {
                             message: \`Invalid control lacks aria-describedby reference to error message\`,
                             element: getElementSelector(control),
                             controlId: controlId
-                        });
-                    } else {
+            });
+          } else {
                         // Verify the referenced error message exists
                         const errorIds = ariaDescribedby.split(/\\s+/);
                         errorIds.forEach(errorId => {
@@ -335,9 +335,9 @@ class FormAccessibilityTester {
                                     element: getElementSelector(control),
                                     controlId: controlId,
                                     context: { missingId: errorId }
-                                });
-                            }
-                        });
+            });
+          }
+        });
                     }
                 }
 
@@ -549,9 +549,9 @@ class FormAccessibilityTester {
                                 context: {
                                     groupName: groupName,
                                     radioCount: group.length
-                                }
-                            });
-                        }
+    }
+  });
+}
                     }
                 });
 
@@ -649,9 +649,9 @@ class FormAccessibilityTester {
                     message: `Failed to test form workflow: ${error.message}`,
                     formId: form.id,
                     context: { error: error.message }
-                });
-            }
+          });
         }
+      }
 
         return workflowResults;
     }
@@ -747,9 +747,9 @@ class FormAccessibilityTester {
                             context: {
                                 fieldName: field.name,
                                 fieldType: field.type
-                            }
-                        });
-                    }
+    }
+  });
+}
 
                     // Check if validation message is accessible
                     if (validationCheck.hasValidation && validationCheck.errorElements === 0 && validationCheck.ariaInvalid !== 'true') {
@@ -874,9 +874,9 @@ class FormAccessibilityTester {
                         issues.push({
                             type: 'disabled-submit-no-reason',
                             element: button.id || button.className || button.tagName.toLowerCase()
-                        });
-                    }
-                });
+      });
+    }
+  });
 
                 // Check for form submission feedback mechanisms
                 const hasLoadingIndicator = form.querySelector('[role="status"], [aria-live], .loading, .spinner');
@@ -1076,18 +1076,18 @@ class FormAccessibilityTester {
             switch (issue.severity) {
                 case 'critical':
                     processedResults.summary.criticalIssues++;
-                    break;
+          break;
                 case 'high':
                     processedResults.summary.highIssues++;
-                    break;
+          break;
                 case 'medium':
                     processedResults.summary.mediumIssues++;
                     break;
                 case 'low':
                     processedResults.summary.lowIssues++;
-                    break;
-            }
-
+          break;
+      }
+      
             // Create violation entry
             const violation = {
                 id: issue.type,
