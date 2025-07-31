@@ -1212,13 +1212,12 @@ class TestAutomationService {
         for (const tool of tools) {
             const query = `
                 INSERT INTO automated_test_results (
-                    id, test_session_id, page_id, tool_name, tool_version, raw_results, 
+                    test_session_id, page_id, tool_name, tool_version, raw_results, 
                     violations_count, warnings_count, passes_count, test_duration_ms, 
                     executed_at, browser_name, test_environment, test_suite
-                ) VALUES ($1, $2, $3, $4, '1.0', '{}', 0, 0, 0, 0, $5, 'chrome', 'desktop', 'default')
+                ) VALUES ($1, $2, $3, '1.0', '{}', 0, 0, 0, 0, $4, 'chrome', 'desktop', 'default')
                 ON CONFLICT (test_session_id, page_id, tool_name) 
                 DO UPDATE SET 
-                    id = EXCLUDED.id,
                     executed_at = EXCLUDED.executed_at,
                     tool_version = EXCLUDED.tool_version,
                     raw_results = EXCLUDED.raw_results,
@@ -1233,7 +1232,7 @@ class TestAutomationService {
             `;
 
             const result = await pool.query(query, [
-                `${runId}-${tool}`, sessionId, pageId, tool, new Date()
+                sessionId, pageId, tool, new Date()
             ]);
             results.push(result.rows[0]);
         }
