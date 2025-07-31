@@ -189,7 +189,7 @@ class TestAutomationService {
                         results['mobile-accessibility'] = toolResults;
                         break;
                     case 'wave':
-                        toolResults = await this.runWaveApi(pages);
+                        toolResults = await this.runWaveApi(pages, sessionId);
                         results.wave = toolResults;
                         break;
                 }
@@ -2321,7 +2321,7 @@ class TestAutomationService {
     /**
      * Run WAVE API analysis on pages
      */
-    async runWaveApi(pages) {
+    async runWaveApi(pages, sessionId = null) {
         const WaveApiTester = require('../../scripts/wave-api-tester.js');
         const waveApi = new WaveApiTester();
         
@@ -2342,12 +2342,8 @@ class TestAutomationService {
             try {
                 console.log(`🌊 Running WAVE API analysis for ${page.url}`);
                 
-                // Check rate limit before each request
-                if (waveApi.getRemainingCredits() <= 0) {
-                    console.warn(`⚠️ WAVE API monthly limit reached, skipping ${page.url}`);
-                    results.rate_limit_status.rate_limited = true;
-                    break;
-                }
+                // Enhanced rate limiting with WebSocket notifications
+                await waveApi.enforceRateLimit(this.wsService);
                 
                 const waveResults = await waveApi.analyzeUrl(page.url, {
                     reporttype: '4', // Full detailed report
@@ -2360,35 +2356,47 @@ class TestAutomationService {
                     critical: waveResults.summary.criticalIssues,
                     moderate: waveResults.summary.moderateIssues,
                     minor: waveResults.summary.minorIssues,
-                    page_title: waveResults.statistics.pageTitle
+                    page_title: waveResults.statistics.pageTitle,
+                    wcag_violations: waveResults.violations || []
                 });
                 
                 results.total_violations += waveResults.summary.totalIssues;
                 results.critical_violations += waveResults.summary.criticalIssues;
                 results.violations_by_page[page.url] = waveResults.summary.totalIssues;
-                results.rate_limit_status.requests_made++;
-                
-                // Update credits remaining if provided by API
-                if (waveResults.statistics.creditsRemaining !== null) {
-                    results.rate_limit_status.credits_remaining = waveResults.statistics.creditsRemaining;
-                }
+                results.rate_limit_status.requests_made = waveApi.requestCount;
+                results.rate_limit_status.credits_remaining = waveApi.getRemainingCredits();
 
                 console.log(`✅ WAVE analysis completed for ${page.url}: ${waveResults.summary.totalIssues} issues found`);
 
             } catch (error) {
                 console.error(`❌ WAVE API error for ${page.url}:`, error.message);
                 
-                // Handle rate limiting
-                if (error.message.includes('WAVE_RATE_LIMIT_EXCEEDED')) {
+                // Handle rate limiting with enhanced audit trail
+                if (error.message.includes('WAVE_RATE_LIMIT_EXCEEDED') || 
+                    error.message.includes('WAVE_MONTHLY_LIMIT_EXCEEDED')) {
                     console.warn('🚫 WAVE API rate limit exceeded, stopping analysis');
                     results.rate_limit_status.rate_limited = true;
                     
-                    // Emit WebSocket notification about rate limiting
+                    // Create audit log entry for rate limit event
+                    try {
+                        await this.createSessionAuditLogEntry(sessionId, 'automation_paused', null, {
+                            message: `WAVE API rate limit reached - automation paused`,
+                            tool: 'wave',
+                            credits_remaining: waveApi.getRemainingCredits(),
+                            requests_made: waveApi.requestCount,
+                            pages_processed: results.pages_tested.length
+                        });
+                    } catch (auditError) {
+                        console.error('Failed to create audit log entry:', auditError.message);
+                    }
+                    
+                    // Enhanced WebSocket notification
                     if (this.wsService) {
                         this.wsService.emitRateLimitNotification('wave', {
-                            message: 'WAVE API rate limit exceeded. Analysis paused.',
-                            creditsRemaining: results.rate_limit_status.credits_remaining,
-                            requestsMade: results.rate_limit_status.requests_made
+                            message: 'WAVE API rate limit exceeded. Automation paused indefinitely.',
+                            creditsRemaining: waveApi.getRemainingCredits(),
+                            requestsMade: waveApi.requestCount,
+                            action: 'automation_paused'
                         });
                     }
                     break;

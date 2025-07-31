@@ -16,6 +16,7 @@
 - **api/services/test-automation-service.js**: Added runWaveApi() method with rate limiting, WebSocket notifications, and WAVE tool integration
 - **api/services/websocket-service.js**: Added emitRateLimitNotification() method for real-time rate limit updates
 - **api/routes/automated-testing.js**: Added 'wave' to validTools array
+- **Enhanced WAVE Rate Limiting**: Implemented comprehensive rate limiting strategy with WebSocket notifications, minute-by-minute countdown updates, audit trail logging, and automation pause/resume functionality
 - **scripts/mobile-accessibility-tester.js**: Existing comprehensive mobile testing tool integrated into automation pipeline
 - **Database**: Removed NOT NULL constraint from test_audit_log.test_instance_id to allow session-level audit entries
 - **Server Management**: Resolved multiple Node.js server processes issue that was causing old code to persist
@@ -187,11 +188,12 @@
   - Add WAVE-unique violation types to evidence system
   - **Acceptance**: WAVE detects violations not found by other tools
 
-- [ ] **Task 2.1.3**: Implement WAVE rate limiting with user notifications
-  - Create WebSocket pause/resume notifications
-  - Add audit trail logging for rate limit events
-  - Implement minute-by-minute progress updates during pauses
-  - Add fallback messaging when API unavailable
+- [x] **Task 2.1.3**: Implement WAVE rate limiting with user notifications
+  - [x] Create WebSocket pause/resume notifications via emitRateLimitNotification()
+  - [x] Add audit trail logging for rate limit events in runWaveApi()
+  - [x] Implement minute-by-minute progress updates during pauses via sendCountdownNotifications()
+  - [x] Enhanced enforceRateLimit() method with WebSocket integration
+  - [x] Comprehensive rate limit handling with automation pause/resume
   - **Acceptance**: Users are properly notified when WAVE API limits are reached
 
 - [ ] **Task 2.1.4**: Integrate WAVE results into audit trail

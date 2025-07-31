@@ -204,15 +204,33 @@ class WaveApiTester {
     }
 
     /**
-     * Enforce rate limiting (2 seconds between requests)
+     * Enforce rate limiting (2 seconds between requests) with WebSocket notifications
      */
-    async enforceRateLimit() {
+    async enforceRateLimit(websocketService = null) {
         const now = Date.now();
         const timeSinceLastRequest = now - this.lastRequestTime;
         
         if (timeSinceLastRequest < this.rateLimitDelay) {
             const waitTime = this.rateLimitDelay - timeSinceLastRequest;
+            const waitSeconds = Math.ceil(waitTime / 1000);
+            
             console.log(`⏱️ Rate limiting: waiting ${waitTime}ms before next WAVE request`);
+            
+            // Send WebSocket notification for rate limit delay
+            if (websocketService && websocketService.emitRateLimitNotification) {
+                websocketService.emitRateLimitNotification('wave', {
+                    message: `Rate limiting: waiting ${waitSeconds}s between requests`,
+                    creditsRemaining: this.getRemainingCredits(),
+                    requestsMade: this.requestCount,
+                    waitTime: waitTime
+                });
+                
+                // Send minute-by-minute countdown for longer waits
+                if (waitTime > 5000) {
+                    await this.sendCountdownNotifications(websocketService, waitTime);
+                }
+            }
+            
             await new Promise(resolve => setTimeout(resolve, waitTime));
         }
         
@@ -221,7 +239,38 @@ class WaveApiTester {
         
         // Check monthly limit
         if (this.requestCount >= this.monthlyLimit) {
+            if (websocketService && websocketService.emitRateLimitNotification) {
+                websocketService.emitRateLimitNotification('wave', {
+                    message: `WAVE API monthly limit exceeded (${this.monthlyLimit} requests)`,
+                    creditsRemaining: 0,
+                    requestsMade: this.requestCount,
+                    action: 'automation_paused'
+                });
+            }
             throw new Error('WAVE_MONTHLY_LIMIT_EXCEEDED');
+        }
+    }
+
+    /**
+     * Send countdown notifications via WebSocket
+     */
+    async sendCountdownNotifications(websocketService, totalWaitTime) {
+        const intervals = Math.floor(totalWaitTime / 60000); // Number of minutes
+        
+        for (let i = intervals; i > 0; i--) {
+            await new Promise(resolve => setTimeout(resolve, 60000)); // Wait 1 minute
+            
+            const remainingMinutes = i - 1;
+            const message = remainingMinutes > 0 
+                ? `Rate limit: ${remainingMinutes} minute(s) remaining`
+                : 'Rate limit: resuming automation soon';
+                
+            websocketService.emitRateLimitNotification('wave', {
+                message: message,
+                creditsRemaining: this.getRemainingCredits(),
+                requestsMade: this.requestCount,
+                countdown: remainingMinutes
+            });
         }
     }
 
