@@ -12511,12 +12511,14 @@ ${requirement.failure_examples}
             
             console.log(`🚀 Starting automated testing for session: ${this.selectedSessionDetails.name}`);
             
-            // Start automated testing for the session
-            const response = await this.apiCall(`/automated-testing/run/${sessionId}`, {
+            // Start PER-INSTANCE automated testing for the session (UPDATED APPROACH)
+            const response = await this.apiCall(`/automated-testing/run-per-instance/${sessionId}`, {
                 method: 'POST',
                 body: JSON.stringify({
-                    testTypes: ['axe', 'pa11y', 'lighthouse', 'wave'],
+                    tools: ['axe-core', 'pa11y'], // Updated tool names for per-instance testing
+                    run_async: true,
                     clientMetadata: {
+                        trigger: 'session_automation',
                         ip: 'dashboard',
                         userAgent: navigator.userAgent,
                         timestamp: new Date().toISOString()

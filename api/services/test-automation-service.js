@@ -4143,7 +4143,7 @@ class TestAutomationService {
                 return result.rows;
             }
 
-            // Get ALL test instances for this session (SIMPLIFIED APPROACH FOR DEMO)
+            // Get test instances with REAL WCAG criteria for proper mapping
             const query = `
                 SELECT 
                     ti.id as test_instance_id,
@@ -4153,18 +4153,19 @@ class TestAutomationService {
                     ti.status,
                     dp.url,
                     dp.title as page_title,
-                    'demo_criterion' as criterion_number,
-                    'Demo Requirement' as requirement_title,
-                    'Demo accessibility requirement for testing' as description,
-                    '{"axe-core": true, "pa11y": true}' as tool_mappings,
-                    'automated' as automation_coverage
+                    ur.requirement_id as criterion_number,
+                    ur.title as requirement_title,
+                    ur.description,
+                    COALESCE(ur.tool_mappings, '{"axe-core": true, "pa11y": true}') as tool_mappings,
+                    COALESCE(ur.automation_coverage, 'automated') as automation_coverage
                 FROM test_instances ti
                 JOIN discovered_pages dp ON ti.page_id = dp.id
+                LEFT JOIN unified_requirements ur ON ti.requirement_id = ur.id
                 WHERE ti.session_id = $1
                 AND dp.url IS NOT NULL
                 AND ti.test_method_used = 'automated'
                 ORDER BY dp.url
-                LIMIT 20
+                LIMIT 50
             `;
 
             const result = await pool.query(query, [sessionId]);
@@ -4471,14 +4472,26 @@ class TestAutomationService {
         let updated = 0;
 
         try {
+            console.log(`🔍 DEBUG: Mapping ${violations.length} violations to ${pageInstances.length} test instances`);
+            console.log(`🔍 DEBUG: Page instances preview:`, pageInstances.slice(0, 2).map(inst => ({
+                test_instance_id: inst.test_instance_id,
+                requirement_id: inst.requirement_id || inst.criterion_number,
+                page_id: inst.page_id,
+                url: inst.url
+            })));
+
             for (const violation of violations) {
                 // Determine which WCAG criteria this violation maps to
                 const wcagCriteria = this.mapViolationToWcagCriteria(violation, tool);
+                console.log(`🔍 DEBUG: Violation "${violation.id || violation.code}" mapped to WCAG:`, wcagCriteria);
                 
                 // Find matching test instances for this page and WCAG criteria
-                const matchingInstances = pageInstances.filter(instance => 
-                    wcagCriteria.includes(instance.requirement_id)
-                );
+                const matchingInstances = pageInstances.filter(instance => {
+                    const instanceCriterion = instance.requirement_id || instance.criterion_number;
+                    return wcagCriteria.includes(instanceCriterion);
+                });
+
+                console.log(`🔍 DEBUG: Found ${matchingInstances.length} matching instances for WCAG criteria:`, wcagCriteria);
 
                 // Update each matching test instance
                 for (const instance of matchingInstances) {
@@ -4493,7 +4506,7 @@ class TestAutomationService {
                     await this.updateTestInstanceWithResult(instance.test_instance_id, result);
                     updated++;
                     
-                    console.log(`📊 Updated test instance ${instance.test_instance_id} (${instance.requirement_id}) with ${tool} violation`);
+                    console.log(`📊 Updated test instance ${instance.test_instance_id} (${instance.requirement_id || instance.criterion_number}) with ${tool} violation`);
                 }
             }
 
