@@ -4128,7 +4128,7 @@ class TestAutomationService {
                         ti.test_method_used,
                         dp.url,
                         dp.title as page_title,
-                        ur.requirement_id as criterion_number,
+                        ur.requirement_id,
                         ur.title as requirement_title,
                         ur.description
                     FROM test_instances ti
@@ -4143,7 +4143,7 @@ class TestAutomationService {
                 return result.rows;
             }
 
-            // Get ALL test instances for this session (SIMPLIFIED APPROACH FOR DEMO)
+            // Get ALL test instances for this session
             const query = `
                 SELECT 
                     ti.id as test_instance_id,
@@ -4153,18 +4153,18 @@ class TestAutomationService {
                     ti.status,
                     dp.url,
                     dp.title as page_title,
-                    'demo_criterion' as criterion_number,
-                    'Demo Requirement' as requirement_title,
-                    'Demo accessibility requirement for testing' as description,
-                    '{"axe-core": true, "pa11y": true}' as tool_mappings,
-                    'automated' as automation_coverage
+                    ur.requirement_id,
+                    ur.title as requirement_title,
+                    ur.description,
+                    ur.tool_mappings,
+                    ur.automation_coverage
                 FROM test_instances ti
                 JOIN discovered_pages dp ON ti.page_id = dp.id
+                JOIN unified_requirements ur ON ti.requirement_id = ur.id
                 WHERE ti.session_id = $1
                 AND dp.url IS NOT NULL
-                AND ti.test_method_used = 'automated'
-                ORDER BY dp.url
-                LIMIT 20
+                AND (ur.tool_mappings IS NOT NULL OR ur.automation_coverage > 0)
+                ORDER BY dp.url, ur.requirement_id
             `;
 
             const result = await pool.query(query, [sessionId]);
