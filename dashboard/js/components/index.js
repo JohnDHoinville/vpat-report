@@ -12,6 +12,7 @@ import WebCrawlerInterface from './crawler/WebCrawlerInterface.jsx';
 import ProjectSessionInterface from './project/ProjectSessionInterface.jsx';
 import AutomatedTestingInterface from './testing/AutomatedTestingInterface.jsx';
 import ManualTestingInterface from './testing/manual/ManualTestingInterface.jsx';
+import ReportingInterface from './reporting/ReportingInterface.jsx';
 
 console.log('🚀 Initializing React Components for Alpine.js Dashboard...');
 
@@ -22,6 +23,7 @@ alpineReactBridge.registerComponent('WebCrawlerInterface', WebCrawlerInterface);
 alpineReactBridge.registerComponent('ProjectSessionInterface', ProjectSessionInterface);
 alpineReactBridge.registerComponent('AutomatedTestingInterface', AutomatedTestingInterface);
 alpineReactBridge.registerComponent('ManualTestingInterface', ManualTestingInterface);
+alpineReactBridge.registerComponent('ReportingInterface', ReportingInterface);
 
 // Register Alpine.js directive (x-react)
 document.addEventListener('alpine:init', () => {
@@ -48,80 +50,101 @@ alpineReactBridge.setState('authState', {
 alpineReactBridge.setState('crawlerState', {
   showCreateCrawler: false,
   webCrawlers: [],
-  crawlerInProgress: false,
+  selectedCrawler: null,
+  discoveredPages: [],
+  loading: false,
   sessionCapturing: false,
   sessionAwaitingLogin: false,
-  sessionInfo: {},
-  selectedProject: null,
-  loading: false
+  sessionInfo: {
+    isActive: false,
+    authenticationType: null,
+    capturedCredentials: false,
+    capturedSession: false
+  }
 });
 
-// Initialize project state bridge
-alpineReactBridge.setState('projectState', {
+// Initialize project/session management state bridge
+alpineReactBridge.setState('projectSessionState', {
+  showCreateProject: false,
+  showSessionWizard: false,
   projects: [],
   selectedProject: null,
-  currentProject: null,
-  showCreateProject: false,
+  sessions: [],
+  selectedSession: null,
   loading: false,
-  activeTab: 'projects'
-});
-
-// Initialize session state bridge
-alpineReactBridge.setState('sessionState', {
-  testingSessions: [],
-  selectedProject: null,
-  currentProject: null,
-  showSessionWizard: false,
-  showCreateTestingSession: false,
-  loading: false,
-  activeTab: 'testing-sessions'
+  wizardStep: 1,
+  wizardData: {}
 });
 
 // Initialize automated testing state bridge
-alpineReactBridge.setState('testingState', {
-  selectedProject: null,
-  currentProject: null,
-  automatedTestingInProgress: false,
-  testingConfig: {
-    useAxe: true,
-    usePa11y: true,
-    useLighthouse: false,
-    wcagLevel: 'AA',
-    browser: 'chromium'
-  },
-  testingProgress: null,
-  automationProgress: null,
-  automatedTestResults: [],
-  showTestGrid: false,
+alpineReactBridge.setState('automatedTestingState', {
+  showTestConfiguration: false,
+  testSessions: [],
   selectedTestSession: null,
-  testGridInstances: [],
-  loadingTestInstances: false,
-  showAdvancedConfig: false
+  automationProgress: null,
+  testResults: [],
+  loading: false,
+  running: false,
+  configuration: {
+    tools: ['axe-core', 'pa11y'],
+    conformanceLevel: 'AA',
+    includeWarnings: false,
+    runAsync: true
+  }
 });
 
 // Initialize manual testing state bridge
 alpineReactBridge.setState('manualTestingState', {
-  manualTestingSession: null,
-  manualTestingAssignments: [],
-  manualTestingProgress: null,
-  showManualTestingModal: false,
-  currentManualTest: null,
-  manualTestingProcedure: null,
-  manualTestingContext: null,
-  selectedManualTestingSession: null,
-  manualTestingFilters: {
-    status: '',
-    wcag_level: '',
-    page_id: '',
-    search: ''
+  sessions: [],
+  selectedSession: null,
+  assignments: [],
+  filteredAssignments: [],
+  currentTest: null,
+  showTestReview: false,
+  showStatusManager: false,
+  showEvidenceUpload: false,
+  filters: {
+    status: 'all',
+    wcagLevel: 'all',
+    pageId: 'all',
+    assignedTo: 'all'
   },
-  filteredManualTestingAssignments: [],
-  manualTestingPageGroups: [],
   manualTestingSortBy: 'criterion_number',
   manualTestingSortDirection: 'asc',
   manualTestingViewMode: 'list', // 'list', 'grid', 'kanban'
   loading: false,
   error: null
+});
+
+// Initialize reporting state bridge
+alpineReactBridge.setState('reportingState', {
+  activeTab: 'overview',
+  selectedSession: null,
+  sessions: [],
+  vpatConfig: {
+    format: 'html',
+    includeEvidence: true,
+    organizationName: '',
+    productName: '',
+    productVersion: '1.0',
+    evaluationDate: new Date().toISOString().split('T')[0],
+    conformanceLevel: 'AA'
+  },
+  exportConfig: {
+    format: 'json',
+    includeEvidence: true,
+    includeAuditTrail: false,
+    includeMetadata: true,
+    status: 'all',
+    testMethod: 'all',
+    wcagLevel: 'all'
+  },
+  exportHistory: [],
+  reportData: null,
+  analyticsData: null,
+  loading: false,
+  generating: false,
+  exporting: false
 });
 
 // Setup global helpers for easy access from Alpine.js

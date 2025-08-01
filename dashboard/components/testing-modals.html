@@ -360,183 +360,95 @@
     </div>
 </div>
 
-<!-- Manual Testing Modal -->
-<div x-show="showManualTestingModal" 
-     x-transition:enter="transition ease-out duration-300"
-     x-transition:enter-start="opacity-0"
-     x-transition:enter-end="opacity-100"
-     x-transition:leave="transition ease-in duration-200"
-     x-transition:leave-start="opacity-100"
-     x-transition:leave-end="opacity-0"
-     class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
-     @click.self="showManualTestingModal = false">
-    <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-        <div class="px-6 py-4 border-b border-gray-200 sticky top-0 bg-white">
-            <div class="flex justify-between items-center">
-                <div>
-                    <h3 class="text-xl font-semibold text-gray-900">
-                        Manual Test: <span x-text="currentManualTest?.assignment?.criterion_number || 'Unknown'"></span>
-                    </h3>
-                    <p class="text-sm text-gray-600 mt-1" x-text="manualTestingProcedure?.title || 'Loading test procedure...'"></p>
-                </div>
-                <button @click="showManualTestingModal = false" 
-                        class="text-gray-400 hover:text-gray-600">
-                    <i class="fas fa-times text-xl"></i>
-                </button>
-            </div>
-        </div>
+<!-- Manual Testing Modal - MIGRATED TO REACT -->
+<!-- 
+    MIGRATION NOTICE: Manual Testing Modal
+    =====================================
+    This modal has been migrated to React components for better functionality and maintainability.
+    
+    The manual testing workflow is now handled by:
+    - ManualTestingInterface.jsx (main container)
+    - TestInstanceList.jsx (test assignment listing)
+    - TestReview.jsx (test execution modal)
+    - TestStatusManager.jsx (status management)
+    - EvidenceUpload.jsx (evidence handling)
+    
+    To access manual testing functionality:
+    1. Use the Manual Testing tab in the dashboard
+    2. Or programmatically: window.ReactComponents.render('ManualTestingInterface', {}, container)
+    3. For testing: window.manualTestingTest.runDemo()
+    
+    Legacy Alpine.js state variables (showManualTestingModal, currentManualTest, etc.) 
+    have been removed and replaced with React component state management.
+-->
 
-        <div x-show="manualTestingProcedure" class="p-6">
-            <!-- Test Information -->
-            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-                <h4 class="font-semibold text-blue-900 mb-2">Test Requirements</h4>
-                <p class="text-sm text-blue-800 mb-3" x-text="manualTestingProcedure?.description || ''"></p>
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                    <div>
-                        <strong>WCAG Level:</strong> 
-                        <span x-text="manualTestingProcedure?.level || 'AA'"></span>
-                    </div>
-                    <div>
-                        <strong>Type:</strong>
-                        <span x-text="manualTestingProcedure?.requirement_type || 'WCAG'"></span>
-                    </div>
-                    <div>
-                        <strong>Page:</strong>
-                        <span x-text="currentManualTest?.pageGroup?.page_title || 'Unknown'"></span>
-                    </div>
-                    <div>
-                        <strong>URL:</strong>
-                        <a :href="currentManualTest?.pageGroup?.page_url" target="_blank" 
-                           class="text-blue-600 hover:text-blue-800 text-xs"
-                           x-text="currentManualTest?.pageGroup?.page_url || ''"></a>
-                    </div>
-                </div>
+<!-- Placeholder for legacy references - displays migration notice if triggered -->
+<div x-show="false" 
+     x-data="{ 
+        showLegacyWarning: false,
+        checkLegacyAccess() {
+            if (typeof showManualTestingModal !== 'undefined') {
+                this.showLegacyWarning = true;
+                console.warn('⚠️ Manual Testing Modal Migration: Legacy state accessed. Use React components instead.');
+                console.log('💡 Access via: window.ReactComponents.render(\"ManualTestingInterface\", {}, container)');
+                console.log('🧪 Test via: window.manualTestingTest.runDemo()');
+            }
+        }
+     }"
+     x-init="setTimeout(() => checkLegacyAccess(), 1000)"
+     class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+    
+    <!-- Migration Notice Modal -->
+    <div x-show="showLegacyWarning" 
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="opacity-0 scale-95"
+         x-transition:enter-end="opacity-100 scale-100"
+         class="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6">
+        
+        <div class="flex items-start space-x-4">
+            <div class="flex-shrink-0">
+                <svg class="h-8 w-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
             </div>
-
-            <!-- Testing Procedure -->
-            <div class="mb-6">
-                <h4 class="font-semibold text-gray-900 mb-3">Testing Procedure</h4>
-                <div class="bg-gray-50 border rounded-lg p-4">
-                    <div x-show="manualTestingProcedure?.manual_test_procedure" 
-                         x-html="manualTestingProcedure?.manual_test_procedure || ''"
-                         class="prose prose-sm max-w-none"></div>
-                    <div x-show="!manualTestingProcedure?.manual_test_procedure" 
-                         class="text-gray-500 italic">
-                        No specific testing procedure available. Follow general accessibility testing guidelines.
-                    </div>
-                </div>
-            </div>
-
-            <!-- Test Context (if available) -->
-            <div x-show="manualTestingContext?.violations?.length > 0" class="mb-6">
-                <h4 class="font-semibold text-gray-900 mb-3">Related Automated Findings</h4>
-                <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                    <p class="text-sm text-yellow-800 mb-3">
-                        Automated testing found potential issues in this area. Please verify manually:
-                    </p>
-                    <div class="space-y-2">
-                        <template x-for="violation in manualTestingContext.violations" :key="violation.id">
-                            <div class="text-sm">
-                                <strong x-text="violation.description"></strong>
-                                <p class="text-gray-600" x-text="violation.help_text"></p>
-                            </div>
-                        </template>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Test Result Form -->
-            <div class="border-t pt-6">
-                <h4 class="font-semibold text-gray-900 mb-4">Test Result</h4>
-                <form @submit.prevent="submitManualTestResult(testResult, confidenceLevel, testNotes, testEvidence)" 
-                      x-data="{ testResult: '', confidenceLevel: 'medium', testNotes: '', testEvidence: {} }">
+            <div class="flex-1">
+                <h3 class="text-lg font-medium text-gray-900 mb-2">Manual Testing Migration Complete</h3>
+                <div class="text-sm text-gray-600 space-y-3">
+                    <p>The manual testing modal has been successfully migrated to modern React components with enhanced functionality:</p>
                     
-                    <!-- Result Selection -->
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Test Result</label>
-                        <div class="space-y-2">
-                            <label class="flex items-center">
-                                <input type="radio" x-model="testResult" value="passed" 
-                                       class="text-green-600 focus:ring-green-500 mr-2">
-                                <span class="text-green-700">✅ Passed - No accessibility issues found</span>
-                            </label>
-                            <label class="flex items-center">
-                                <input type="radio" x-model="testResult" value="failed" 
-                                       class="text-red-600 focus:ring-red-500 mr-2">
-                                <span class="text-red-700">❌ Failed - Accessibility issues found</span>
-                            </label>
-                            <label class="flex items-center">
-                                <input type="radio" x-model="testResult" value="not_applicable" 
-                                       class="text-gray-600 focus:ring-gray-500 mr-2">
-                                <span class="text-gray-700">➖ Not Applicable - Criterion does not apply to this page</span>
-                            </label>
-                            <label class="flex items-center">
-                                <input type="radio" x-model="testResult" value="needs_review" 
-                                       class="text-yellow-600 focus:ring-yellow-500 mr-2">
-                                <span class="text-yellow-700">⚠️ Needs Review - Uncertain or requires expert evaluation</span>
-                            </label>
+                    <div class="bg-blue-50 border border-blue-200 rounded p-3">
+                        <h4 class="font-medium text-blue-900 mb-2">New Features Available:</h4>
+                        <ul class="list-disc list-inside text-sm space-y-1">
+                            <li>Enhanced test assignment management</li>
+                            <li>Real-time progress tracking</li>
+                            <li>Improved evidence upload interface</li>
+                            <li>Advanced filtering and search capabilities</li>
+                            <li>Better state management and performance</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="bg-gray-50 border border-gray-200 rounded p-3">
+                        <h4 class="font-medium text-gray-900 mb-2">How to Access:</h4>
+                        <div class="text-xs font-mono bg-gray-100 p-2 rounded">
+                            // Navigate to Manual Testing tab in dashboard<br>
+                            // Or programmatically render:<br>
+                            window.ReactComponents.render('ManualTestingInterface', {}, container)<br><br>
+                            // For development/testing:<br>
+                            window.manualTestingTest.runDemo()
                         </div>
                     </div>
-
-                    <!-- Confidence Level -->
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Confidence Level</label>
-                        <select x-model="confidenceLevel" 
-                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500">
-                            <option value="high">High - Very confident in the result</option>
-                            <option value="medium">Medium - Reasonably confident</option>
-                            <option value="low">Low - Uncertain, may need further review</option>
-                        </select>
-                    </div>
-
-                    <!-- Notes -->
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Notes & Observations</label>
-                        <textarea x-model="testNotes" rows="4" 
-                                  placeholder="Describe what you tested, any issues found, steps taken, etc."
-                                  class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"></textarea>
-                    </div>
-
-                    <!-- Evidence -->
-                    <div class="mb-6">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Evidence (Optional)</label>
-                        <div class="space-y-3">
-                            <div>
-                                <label class="block text-xs text-gray-600 mb-1">Screenshot URL or Description</label>
-                                <input type="text" x-model="testEvidence.screenshot" 
-                                       placeholder="URL to screenshot or description of visual evidence"
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500">
-                            </div>
-                            <div>
-                                <label class="block text-xs text-gray-600 mb-1">Element Selector (if applicable)</label>
-                                <input type="text" x-model="testEvidence.element_selector" 
-                                       placeholder="CSS selector for the problematic element"
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500">
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Submit Buttons -->
-                    <div class="flex justify-end space-x-3">
-                        <button type="button" @click="showManualTestingModal = false" 
-                                class="px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors">
-                            Cancel
-                        </button>
-                        <button type="submit" :disabled="!testResult || loading"
-                                class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:bg-purple-400">
-                            <span x-show="!loading">Save Test Result</span>
-                            <span x-show="loading">Saving...</span>
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-
-        <!-- Loading State -->
-        <div x-show="!manualTestingProcedure" class="p-6">
-            <div class="text-center py-8">
-                <i class="fas fa-spinner fa-spin text-gray-400 text-3xl mb-4"></i>
-                <p class="text-gray-600">Loading test procedure...</p>
+                </div>
+                
+                <div class="flex justify-end space-x-3 mt-6">
+                    <button @click="showLegacyWarning = false" 
+                            class="px-4 py-2 text-gray-700 bg-gray-200 rounded hover:bg-gray-300 transition-colors">
+                        Close
+                    </button>
+                    <button onclick="window.manualTestingTest?.runDemo(); Alpine.store('dashboard').showLegacyWarning = false" 
+                            class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors">
+                        Try React Components
+                    </button>
+                </div>
             </div>
         </div>
     </div>

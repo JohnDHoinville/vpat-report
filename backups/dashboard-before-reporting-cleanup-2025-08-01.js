@@ -10219,19 +10219,7 @@ ${requirement.failure_examples}
             }
         },
 
-        // ===== REPORTING MIGRATION NOTICE =====
-        // The following reporting functions have been migrated to React components:
-        // - VPAT generation: VPATGenerator.jsx (replaces generateVPATReport)
-        // - Report viewing: ReportViewer.jsx (replaces downloadTestReport, viewTestResults)
-        // - Export management: ExportManager.jsx (replaces exportResults, exportSessionResults, exportTestGrid)
-        // - Progress analytics: ProgressCharts.jsx (replaces progress calculations)
-        // - Report interface: ReportingInterface.jsx (main container for all reporting)
-        //
-        // Access via: window.ReactComponents.render('ReportingInterface', {}, container)
-        // Test functions: window.reportingTest.runDemo()
-        // ===== END MIGRATION NOTICE =====
-
-        // Generate VPAT report (DEPRECATED - Use VPATGenerator.jsx React component)
+        // Generate VPAT report
         async generateVPATReport() {
             try {
                 if (!this.selectedTestSession) {

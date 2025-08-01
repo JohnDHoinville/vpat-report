@@ -1,285 +1,169 @@
-<!-- Manual Testing View -->
+<!-- Manual Testing Tab Content -->
 <div class="space-y-6">
-    <!-- Header -->
-    <div class="bg-white rounded-lg shadow p-6">
-        <div class="flex justify-between items-center">
-            <div>
-                <h2 class="text-2xl font-bold text-gray-900">Manual Testing</h2>
-                <p class="mt-2 text-gray-600">Conduct manual accessibility tests for WCAG compliance</p>
+    <!-- Migration Notice -->
+    <div class="bg-blue-50 border border-blue-200 rounded-lg p-6">
+        <div class="flex items-start space-x-3">
+            <div class="flex-shrink-0">
+                <svg class="h-6 w-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
             </div>
-            <button @click="startManualTesting()" 
-                    :disabled="!selectedProject"
-                    :class="!selectedProject ? 'bg-gray-400 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-700'"
-                    class="px-4 py-2 text-white rounded-lg font-medium transition-colors">
-                <i class="fas fa-hand-paper mr-2"></i>Start Manual Test
-            </button>
-        </div>
-    </div>
-
-    <!-- Project Selection -->
-    <div x-show="!selectedProject" class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-        <div class="flex">
-            <i class="fas fa-exclamation-triangle text-yellow-400 mr-3 mt-1"></i>
-            <div>
-                <h3 class="text-sm font-medium text-yellow-800">Select a Project</h3>
-                <p class="text-sm text-yellow-700 mt-1">Please select a project from the Projects tab to start manual testing.</p>
-            </div>
-        </div>
-    </div>
-
-    <!-- Manual Testing Guidelines -->
-    <div x-show="selectedProject" class="bg-white rounded-lg shadow p-6">
-        <h3 class="text-lg font-semibold text-gray-900 mb-4">Manual Testing Guidelines</h3>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div class="space-y-4">
-                <h4 class="font-medium text-gray-900">Keyboard Navigation</h4>
-                <ul class="text-sm text-gray-600 space-y-2">
-                    <li>• Test all interactive elements with Tab key</li>
-                    <li>• Verify focus indicators are visible</li>
-                    <li>• Check logical tab order</li>
-                    <li>• Test keyboard shortcuts and access keys</li>
-                </ul>
-            </div>
-            
-            <div class="space-y-4">
-                <h4 class="font-medium text-gray-900">Screen Reader</h4>
-                <ul class="text-sm text-gray-600 space-y-2">
-                    <li>• Test with NVDA, JAWS, or VoiceOver</li>
-                    <li>• Verify all content is announced</li>
-                    <li>• Check heading structure</li>
-                    <li>• Test landmark navigation</li>
-                </ul>
-            </div>
-            
-            <div class="space-y-4">
-                <h4 class="font-medium text-gray-900">Visual Design</h4>
-                <ul class="text-sm text-gray-600 space-y-2">
-                    <li>• Check color contrast ratios</li>
-                    <li>• Test with 200% zoom</li>
-                    <li>• Verify readability without color</li>
-                    <li>• Test responsive design</li>
-                </ul>
-            </div>
-            
-            <div class="space-y-4">
-                <h4 class="font-medium text-gray-900">Forms & Controls</h4>
-                <ul class="text-sm text-gray-600 space-y-2">
-                    <li>• Verify all form labels</li>
-                    <li>• Test error messages</li>
-                    <li>• Check required field indicators</li>
-                    <li>• Test form validation</li>
-                </ul>
-            </div>
-        </div>
-    </div>
-
-    <!-- WCAG Criteria Checklist -->
-    <div x-show="selectedProject" class="bg-white rounded-lg shadow">
-        <div class="p-6 border-b border-gray-200">
-                            <h3 class="text-lg font-semibold text-gray-900">WCAG 2.2 Manual Test Criteria</h3>
-        </div>
-        <div class="p-6">
-            <div class="space-y-6">
-                <!-- Level A Criteria -->
-                <div>
-                    <h4 class="font-medium text-gray-900 mb-3">Level A Criteria</h4>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <label class="flex items-start space-x-3">
-                            <input type="checkbox" class="mt-1 rounded text-green-600 focus:ring-green-500">
-                            <div>
-                                <div class="font-medium text-gray-900">1.1.1 Non-text Content</div>
-                                <div class="text-sm text-gray-600">All images have appropriate alternative text</div>
-                            </div>
-                        </label>
-                        
-                        <label class="flex items-start space-x-3">
-                            <input type="checkbox" class="mt-1 rounded text-green-600 focus:ring-green-500">
-                            <div>
-                                <div class="font-medium text-gray-900">2.1.1 Keyboard</div>
-                                <div class="text-sm text-gray-600">All functionality available via keyboard</div>
-                            </div>
-                        </label>
-                        
-                        <label class="flex items-start space-x-3">
-                            <input type="checkbox" class="mt-1 rounded text-green-600 focus:ring-green-500">
-                            <div>
-                                <div class="font-medium text-gray-900">2.1.2 No Keyboard Trap</div>
-                                <div class="text-sm text-gray-600">No keyboard focus traps present</div>
-                            </div>
-                        </label>
-                        
-                        <label class="flex items-start space-x-3">
-                            <input type="checkbox" class="mt-1 rounded text-green-600 focus:ring-green-500">
-                            <div>
-                                <div class="font-medium text-gray-900">3.1.1 Language of Page</div>
-                                <div class="text-sm text-gray-600">Page language is properly identified</div>
-                            </div>
-                        </label>
-                    </div>
-                </div>
-
-                <!-- Level AA Criteria -->
-                <div>
-                    <h4 class="font-medium text-gray-900 mb-3">Level AA Criteria</h4>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <label class="flex items-start space-x-3">
-                            <input type="checkbox" class="mt-1 rounded text-blue-600 focus:ring-blue-500">
-                            <div>
-                                <div class="font-medium text-gray-900">1.4.3 Contrast (Minimum)</div>
-                                <div class="text-sm text-gray-600">Text has sufficient contrast ratio (4.5:1)</div>
-                            </div>
-                        </label>
-                        
-                        <label class="flex items-start space-x-3">
-                            <input type="checkbox" class="mt-1 rounded text-blue-600 focus:ring-blue-500">
-                            <div>
-                                <div class="font-medium text-gray-900">1.4.10 Reflow</div>
-                                <div class="text-sm text-gray-600">Content reflows to 320px without horizontal scrolling</div>
-                            </div>
-                        </label>
-                        
-                        <label class="flex items-start space-x-3">
-                            <input type="checkbox" class="mt-1 rounded text-blue-600 focus:ring-blue-500">
-                            <div>
-                                <div class="font-medium text-gray-900">2.4.3 Focus Order</div>
-                                <div class="text-sm text-gray-600">Focus order is logical and meaningful</div>
-                            </div>
-                        </label>
-                        
-                        <label class="flex items-start space-x-3">
-                            <input type="checkbox" class="mt-1 rounded text-blue-600 focus:ring-blue-500">
-                            <div>
-                                <div class="font-medium text-gray-900">3.2.3 Consistent Navigation</div>
-                                <div class="text-sm text-gray-600">Navigation is consistent across pages</div>
-                            </div>
-                        </label>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Manual Testing Session Status -->
-    <div x-show="selectedProject && manualTestingSession" class="bg-white rounded-lg shadow p-6">
-        <div class="flex items-center justify-between mb-4">
-            <h3 class="text-lg font-semibold text-gray-900">Current Testing Session</h3>
-            <button @click="closeManualTestingSession()" 
-                    class="px-3 py-1 text-sm bg-red-100 text-red-700 rounded hover:bg-red-200">
-                <i class="fas fa-times mr-1"></i>Close Session
-            </button>
-        </div>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div class="text-center">
-                <div class="text-2xl font-bold text-blue-600" x-text="manualTestingProgress?.total_tests || 0"></div>
-                <div class="text-sm text-gray-600">Total Tests</div>
-            </div>
-            <div class="text-center">
-                <div class="text-2xl font-bold text-green-600" x-text="manualTestingProgress?.completed_tests || 0"></div>
-                <div class="text-sm text-gray-600">Completed</div>
-            </div>
-            <div class="text-center">
-                <div class="text-2xl font-bold text-purple-600" x-text="manualTestingProgress?.progress_percentage || 0"></div>
-                <div class="text-sm text-gray-600">Progress %</div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Manual Testing Assignments -->
-    <div x-show="selectedProject && manualTestingSession && filteredManualTestingAssignments.length > 0" class="bg-white rounded-lg shadow">
-        <div class="p-6 border-b border-gray-200">
-            <div class="flex justify-between items-center">
-                <h3 class="text-lg font-semibold text-gray-900">Testing Assignments</h3>
-                <div class="flex space-x-2">
-                    <select x-model="manualTestingFilters.status" @change="applyManualTestingFilters()"
-                            class="px-3 py-1 text-sm border border-gray-300 rounded">
-                        <option value="">All Status</option>
-                        <option value="pending">Pending</option>
-                        <option value="in_progress">In Progress</option>
-                        <option value="completed">Completed</option>
-                    </select>
-                    <select x-model="manualTestingFilters.wcag_level" @change="applyManualTestingFilters()"
-                            class="px-3 py-1 text-sm border border-gray-300 rounded">
-                        <option value="">All Levels</option>
-                        <option value="A">Level A</option>
-                        <option value="AA">Level AA</option>
-                        <option value="AAA">Level AAA</option>
-                    </select>
-                </div>
-            </div>
-        </div>
-        <div class="divide-y divide-gray-200">
-            <template x-for="pageGroup in filteredManualTestingAssignments" :key="pageGroup.page_id">
-                <div class="p-6">
-                    <h4 class="font-medium text-gray-900 mb-3" x-text="pageGroup.page_title"></h4>
-                    <p class="text-sm text-gray-600 mb-4" x-text="pageGroup.page_url"></p>
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                        <template x-for="assignment in pageGroup.assignments" :key="assignment.id">
-                            <div class="border rounded-lg p-3 hover:bg-gray-50">
-                                <div class="flex items-center justify-between mb-2">
-                                    <span class="font-medium text-sm" x-text="assignment.criterion_number"></span>
-                                    <span class="px-2 py-1 text-xs font-medium rounded-full"
-                                          :class="assignment.status === 'completed' ? 'bg-green-100 text-green-800' :
-                                                 assignment.status === 'in_progress' ? 'bg-yellow-100 text-yellow-800' :
-                                                 'bg-gray-100 text-gray-800'"
-                                          x-text="assignment.status.replace('_', ' ').toUpperCase()"></span>
-                                </div>
-                                <p class="text-xs text-gray-600 mb-3" x-text="assignment.title"></p>
-                                <button @click="startManualTest(pageGroup, assignment)" 
-                                        class="w-full px-3 py-1 text-sm bg-purple-600 text-white rounded hover:bg-purple-700">
-                                    <i class="fas fa-play mr-1"></i>Test
-                                </button>
-                            </div>
-                        </template>
-                    </div>
-                </div>
-            </template>
-        </div>
-    </div>
-
-    <!-- Manual Test Results -->
-    <div x-show="selectedProject && manualTestResults.length > 0" class="bg-white rounded-lg shadow">
-        <div class="p-6 border-b border-gray-200">
-            <h3 class="text-lg font-semibold text-gray-900">Manual Test Results</h3>
-        </div>
-        <div class="divide-y divide-gray-200">
-            <template x-for="result in manualTestResults" :key="result.id">
-                <div class="p-4">
-                    <div class="flex items-center justify-between">
-                        <div class="flex-1">
-                            <div class="flex items-center space-x-3">
-                                <span class="px-2 py-1 text-xs font-medium rounded-full"
-                                      :class="result.status === 'pass' ? 'bg-green-100 text-green-800' :
-                                             result.status === 'fail' ? 'bg-red-100 text-red-800' :
-                                             'bg-yellow-100 text-yellow-800'"
-                                      x-text="result.status.toUpperCase()"></span>
-                                <h4 class="font-medium text-gray-900" x-text="result.criterion"></h4>
-                            </div>
-                            <p class="text-sm text-gray-600 mt-1" x-text="result.notes"></p>
-                            <div class="text-xs text-gray-500 mt-2">
-                                <span>Tested: </span>
-                                <span x-text="formatDate(result.tested_at)"></span>
+            <div class="flex-1">
+                <h3 class="text-lg font-medium text-blue-900 mb-2">Manual Testing Migration Complete</h3>
+                <div class="text-sm text-blue-800 space-y-2">
+                    <p>The manual testing interface has been successfully migrated to modern React components for improved performance and maintainability.</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                        <div>
+                            <h4 class="font-medium text-blue-900">New Features:</h4>
+                            <ul class="list-disc list-inside text-sm space-y-1 mt-1">
+                                <li>Enhanced test assignment management</li>
+                                <li>Real-time progress tracking</li>
+                                <li>Improved evidence upload interface</li>
+                                <li>Status management workflow</li>
+                                <li>Advanced filtering and search</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h4 class="font-medium text-blue-900">Developer Access:</h4>
+                            <div class="text-xs font-mono bg-blue-100 p-2 rounded mt-1">
+                                window.ReactComponents.render(<br>
+                                &nbsp;&nbsp;'ManualTestingInterface',<br>
+                                &nbsp;&nbsp;{ sessionId: 'session-id' },<br>
+                                &nbsp;&nbsp;document.getElementById('container')<br>
+                                )
                             </div>
                         </div>
-                        <button @click="editManualTestResult(result)" 
-                                class="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200">
-                            <i class="fas fa-edit mr-1"></i>Edit
-                        </button>
                     </div>
                 </div>
-            </template>
+            </div>
         </div>
     </div>
 
-    <!-- Empty State -->
-    <div x-show="selectedProject && manualTestResults.length === 0" class="bg-white rounded-lg shadow p-6">
-        <div class="text-center py-12">
-            <i class="fas fa-hand-paper text-gray-400 text-6xl mb-4"></i>
-            <h3 class="text-lg font-medium text-gray-900 mb-2">No Manual Tests Completed</h3>
-            <p class="text-gray-500 mb-6">Start conducting manual accessibility tests using the checklist above.</p>
-            <button @click="startManualTesting()" 
-                    class="px-4 py-2 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 transition-colors">
-                <i class="fas fa-hand-paper mr-2"></i>Begin Manual Testing
+    <!-- React Component Container -->
+    <div class="bg-white rounded-lg shadow">
+        <div class="p-6 border-b border-gray-200">
+            <div class="flex items-center justify-between">
+                <h2 class="text-xl font-semibold text-gray-900">Manual Testing Interface</h2>
+                <button 
+                    onclick="window.manualTestingTest?.runDemo()"
+                    class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                    title="Test the manual testing React components">
+                    Test Components
+                </button>
+            </div>
+            <p class="text-sm text-gray-600 mt-2">
+                Modern React-based interface for managing manual accessibility testing workflows.
+            </p>
+        </div>
+        
+        <!-- React Manual Testing Interface will be rendered here -->
+        <div id="manual-testing-react-container" class="min-h-96">
+            <div class="p-8 text-center">
+                <div class="text-gray-500 mb-4">
+                    <svg class="h-12 w-12 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                </div>
+                <h3 class="text-lg font-medium text-gray-900 mb-2">React Components Available</h3>
+                <p class="text-sm text-gray-600 mb-4">
+                    Manual testing functionality is now powered by React components.
+                </p>
+                <button 
+                    onclick="window.manualTestingTest?.runDemo()"
+                    class="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors">
+                    <svg class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1m4 0h1m-6 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    Launch Manual Testing Demo
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Legacy Alpine.js Integration Notice -->
+    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+        <div class="flex items-start space-x-3">
+            <div class="flex-shrink-0">
+                <svg class="h-5 w-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                </svg>
+            </div>
+            <div class="flex-1">
+                <h4 class="text-sm font-medium text-yellow-800">Alpine.js State Migration</h4>
+                <p class="text-xs text-yellow-700 mt-1">
+                    Legacy Alpine.js manual testing state variables have been removed and replaced with React component state management. 
+                    If you need to access manual testing functionality programmatically, use the React component API instead.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Development Tools -->
+    <div x-show="user?.role === 'admin'" class="bg-gray-50 border border-gray-200 rounded-lg p-4">
+        <h4 class="text-sm font-medium text-gray-900 mb-3">Development Tools</h4>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <button 
+                onclick="window.manualTestingTest?.runDemo()"
+                class="px-3 py-2 bg-gray-100 text-gray-700 text-sm rounded hover:bg-gray-200 transition-colors">
+                Demo Workflow
+            </button>
+            <button 
+                onclick="console.log('Manual Testing State:', window.ReactComponents?.getState('manualTestingState'))"
+                class="px-3 py-2 bg-gray-100 text-gray-700 text-sm rounded hover:bg-gray-200 transition-colors">
+                View State
+            </button>
+            <button 
+                onclick="window.manualTestingTest?.help()"
+                class="px-3 py-2 bg-gray-100 text-gray-700 text-sm rounded hover:bg-gray-200 transition-colors">
+                Show Help
             </button>
         </div>
     </div>
-</div> 
+</div>
+
+<!-- Automatically initialize React component when this view loads -->
+<script>
+(function() {
+    // Initialize manual testing React interface when view becomes visible
+    const initializeManualTesting = () => {
+        const container = document.getElementById('manual-testing-react-container');
+        if (container && window.ReactComponents) {
+            try {
+                console.log('🧪 Initializing Manual Testing React Interface...');
+                
+                // Clear any existing content
+                const existingContent = container.querySelector('.react-component-content');
+                if (!existingContent) {
+                    // Get current session from Alpine.js state if available
+                    const currentSession = window.Alpine?.store?.('dashboard')?.selectedTestSession;
+                    
+                    // Render the React interface
+                    window.ReactComponents.render('ManualTestingInterface', {
+                        sessionId: currentSession?.id || null,
+                        onNotification: (type, title, message) => {
+                            console.log(`📢 Manual Testing ${type.toUpperCase()}: ${title} - ${message}`);
+                            // Integrate with Alpine.js notifications if available
+                            if (window.Alpine?.store?.('dashboard')?.showNotification) {
+                                window.Alpine.store('dashboard').showNotification(type, title, message);
+                            }
+                        }
+                    }, container);
+                    
+                    console.log('✅ Manual Testing React Interface initialized');
+                }
+            } catch (error) {
+                console.error('❌ Failed to initialize Manual Testing React Interface:', error);
+            }
+        }
+    };
+    
+    // Initialize when DOM is ready and components are loaded
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(initializeManualTesting, 1000);
+        });
+    } else {
+        setTimeout(initializeManualTesting, 1000);
+    }
+})();
+</script> 
