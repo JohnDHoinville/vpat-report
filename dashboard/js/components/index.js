@@ -8,12 +8,16 @@
 import alpineReactBridge from './utils/alpineIntegration.js';
 import TestComponent from './TestComponent.jsx';
 import AuthModals from './auth/AuthModals.jsx';
+import WebCrawlerInterface from './crawler/WebCrawlerInterface.jsx';
+import ProjectSessionInterface from './project/ProjectSessionInterface.jsx';
 
 console.log('🚀 Initializing React Components for Alpine.js Dashboard...');
 
 // Register React components with the bridge
 alpineReactBridge.registerComponent('TestComponent', TestComponent);
 alpineReactBridge.registerComponent('AuthModals', AuthModals);
+alpineReactBridge.registerComponent('WebCrawlerInterface', WebCrawlerInterface);
+alpineReactBridge.registerComponent('ProjectSessionInterface', ProjectSessionInterface);
 
 // Register Alpine.js directive (x-react)
 document.addEventListener('alpine:init', () => {
@@ -34,6 +38,39 @@ alpineReactBridge.setState('authState', {
   showChangePassword: false,
   user: null,
   loading: false
+});
+
+// Initialize web crawler state bridge
+alpineReactBridge.setState('crawlerState', {
+  showCreateCrawler: false,
+  webCrawlers: [],
+  crawlerInProgress: false,
+  sessionCapturing: false,
+  sessionAwaitingLogin: false,
+  sessionInfo: {},
+  selectedProject: null,
+  loading: false
+});
+
+// Initialize project state bridge
+alpineReactBridge.setState('projectState', {
+  projects: [],
+  selectedProject: null,
+  currentProject: null,
+  showCreateProject: false,
+  loading: false,
+  activeTab: 'projects'
+});
+
+// Initialize session state bridge
+alpineReactBridge.setState('sessionState', {
+  testingSessions: [],
+  selectedProject: null,
+  currentProject: null,
+  showSessionWizard: false,
+  showCreateTestingSession: false,
+  loading: false,
+  activeTab: 'testing-sessions'
 });
 
 // Setup global helpers for easy access from Alpine.js

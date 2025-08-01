@@ -410,6 +410,41 @@ class AlpineReactBridge {
   }
 }
 
+/**
+ * React Hook for Alpine State Integration
+ * 
+ * Provides a simple React hook interface for interacting with Alpine-React bridge state
+ * @param {string} stateKey - The key for the bridge state
+ * @returns {Object} State interface with getState, setState, and subscribe functions
+ */
+export const useAlpineState = (stateKey) => {
+  const bridge = window.alpineReactBridge;
+  
+  if (!bridge) {
+    console.warn('⚠️ Alpine-React Bridge not found. Make sure it is initialized.');
+    return {
+      getState: () => ({}),
+      setState: () => {},
+      subscribe: () => () => {}
+    };
+  }
+
+  return {
+    getState: () => bridge.getState(stateKey, {}),
+    setState: (value) => {
+      // If value is an object, merge with existing state
+      if (typeof value === 'object' && value !== null) {
+        const currentState = bridge.getState(stateKey, {});
+        const mergedState = { ...currentState, ...value };
+        bridge.setState(stateKey, mergedState);
+      } else {
+        bridge.setState(stateKey, value);
+      }
+    },
+    subscribe: (callback) => bridge.subscribe(stateKey, callback)
+  };
+};
+
 // Create and export the global bridge instance
 const alpineReactBridge = new AlpineReactBridge();
 
