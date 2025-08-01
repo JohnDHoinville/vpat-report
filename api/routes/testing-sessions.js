@@ -800,39 +800,44 @@ async function getRequirementsForWizardLevels(conformanceLevels, smartFiltering 
             'wcag_22_aaa': { type: 'wcag', level: 'AAA' },
             'section_508_base': { type: 'section_508', level: 'base' },
             'section_508_enhanced': { type: 'section_508', level: 'enhanced' },
-            // Database format (backward compatibility)
+            
+            // Legacy format (for compatibility)
             'wcag_a': { type: 'wcag', level: 'A' },
-            'wcag_aa': { type: 'wcag', level: 'AA' }, // FIXED: Only AA level
+            'wcag_aa': { type: 'wcag', level: 'AA' }, // FIXED: Only AA level, not A+AA
             'wcag_aaa': { type: 'wcag', level: 'AAA' },
-            'section_508': { type: 'section_508', level: 'base' } // Default to base for section_508
+            'section508_base': { type: 'section_508', level: 'base' }
         };
         
         const whereConditions = [];
         const queryParams = [];
         let paramIndex = 1;
         
-        for (const conformanceLevel of conformanceLevels) {
-            const mapping = levelMapping[conformanceLevel];
+        // Build WHERE conditions for selected conformance levels
+        for (const level of conformanceLevels) {
+            const mapping = levelMapping[level];
             if (mapping) {
-                console.log(`✅ Mapped ${conformanceLevel} -> ${mapping.type}:${mapping.level}`);
-                whereConditions.push(`(standard_type = $${paramIndex} AND level = $${paramIndex + 1})`);
-                queryParams.push(mapping.type, mapping.level);
+                console.log(`✅ Mapped ${level} -> ${mapping.type}:${mapping.level}`);
+                
+                // Use lowercase to match database values
+                whereConditions.push(`(requirement_type = $${paramIndex} AND level = $${paramIndex + 1})`);
+                queryParams.push(mapping.type, mapping.level.toLowerCase());
                 paramIndex += 2;
             } else {
-                console.log(`❌ No mapping found for conformance level: ${conformanceLevel}`);
+                console.log(`⚠️ Unknown conformance level: ${level}`);
             }
         }
         
         if (whereConditions.length === 0) {
-            console.log('⚠️ No valid conformance levels provided');
+            console.log('❌ No valid conformance levels provided');
             return [];
         }
         
-        // FIXED: Use unified_requirements table with correct column names
+        // FIXED: Query test_requirements table instead of unified_requirements to match foreign key constraint
         const query = `
-            SELECT * FROM unified_requirements 
+            SELECT * FROM test_requirements 
             WHERE (${whereConditions.join(' OR ')})
-            ORDER BY standard_type, level, requirement_id
+            AND is_active = true
+            ORDER BY requirement_type, level, criterion_number
         `;
         
         const result = await pool.query(query, queryParams);
@@ -853,7 +858,7 @@ async function getRequirementsForWizardLevels(conformanceLevels, smartFiltering 
         
     } catch (error) {
         console.error('Error getting requirements for wizard levels:', error);
-        return [];
+        throw error;
     }
 }
 
