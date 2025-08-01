@@ -1,0 +1,148 @@
+{
+  "config": {
+    "configFile": "/Users/johnhoinville/Desktop/vpat-report/playwright.visual.config.js",
+    "rootDir": "/Users/johnhoinville/Desktop/vpat-report/tests/visual-regression",
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": "/Users/johnhoinville/Desktop/vpat-report/tests/visual-regression/global-setup.js",
+    "globalTeardown": "/Users/johnhoinville/Desktop/vpat-report/tests/visual-regression/global-teardown.js",
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {},
+    "preserveOutput": "always",
+    "reporter": [
+      [
+        "html",
+        {
+          "outputFolder": "tests/visual-regression/results"
+        }
+      ],
+      [
+        "json",
+        {
+          "outputFile": "tests/visual-regression/results/results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "quiet": false,
+    "projects": [
+      {
+        "outputDir": "/Users/johnhoinville/Desktop/vpat-report/test-results",
+        "repeatEach": 1,
+        "retries": 1,
+        "metadata": {},
+        "id": "chromium-desktop",
+        "name": "chromium-desktop",
+        "testDir": "/Users/johnhoinville/Desktop/vpat-report/tests/visual-regression",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 120000
+      },
+      {
+        "outputDir": "/Users/johnhoinville/Desktop/vpat-report/test-results",
+        "repeatEach": 1,
+        "retries": 1,
+        "metadata": {},
+        "id": "chromium-mobile",
+        "name": "chromium-mobile",
+        "testDir": "/Users/johnhoinville/Desktop/vpat-report/tests/visual-regression",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 120000
+      },
+      {
+        "outputDir": "/Users/johnhoinville/Desktop/vpat-report/test-results",
+        "repeatEach": 1,
+        "retries": 1,
+        "metadata": {},
+        "id": "firefox-desktop",
+        "name": "firefox-desktop",
+        "testDir": "/Users/johnhoinville/Desktop/vpat-report/tests/visual-regression",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 120000
+      },
+      {
+        "outputDir": "/Users/johnhoinville/Desktop/vpat-report/test-results",
+        "repeatEach": 1,
+        "retries": 1,
+        "metadata": {},
+        "id": "webkit-desktop",
+        "name": "webkit-desktop",
+        "testDir": "/Users/johnhoinville/Desktop/vpat-report/tests/visual-regression",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 120000
+      },
+      {
+        "outputDir": "/Users/johnhoinville/Desktop/vpat-report/test-results",
+        "repeatEach": 1,
+        "retries": 1,
+        "metadata": {},
+        "id": "tablet-landscape",
+        "name": "tablet-landscape",
+        "testDir": "/Users/johnhoinville/Desktop/vpat-report/tests/visual-regression",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 120000
+      },
+      {
+        "outputDir": "/Users/johnhoinville/Desktop/vpat-report/test-results",
+        "repeatEach": 1,
+        "retries": 1,
+        "metadata": {},
+        "id": "tablet-portrait",
+        "name": "tablet-portrait",
+        "testDir": "/Users/johnhoinville/Desktop/vpat-report/tests/visual-regression",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 120000
+      }
+    ],
+    "shard": null,
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.54.0",
+    "workers": 2,
+    "webServer": null
+  },
+  "suites": [],
+  "errors": [
+    {
+      "message": "TimeoutError: page.waitForFunction: Timeout 30000ms exceeded.",
+      "stack": "TimeoutError: page.waitForFunction: Timeout 30000ms exceeded.\n    at globalSetup (/Users/johnhoinville/Desktop/vpat-report/tests/visual-regression/global-setup.js:35:16)",
+      "location": {
+        "file": "/Users/johnhoinville/Desktop/vpat-report/tests/visual-regression/global-setup.js",
+        "column": 16,
+        "line": 35
+      },
+      "snippet": "\u001b[90m   at \u001b[39mglobal-setup.js:35\n\n\u001b[0m \u001b[90m 33 |\u001b[39m     \n \u001b[90m 34 |\u001b[39m     \u001b[90m// Wait for all scripts to load\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 35 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mwaitForFunction(() \u001b[33m=>\u001b[39m {\n \u001b[90m    |\u001b[39m                \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 36 |\u001b[39m       \u001b[36mreturn\u001b[39m window\u001b[33m.\u001b[39m\u001b[33mReactComponents\u001b[39m \u001b[33m&&\u001b[39m \n \u001b[90m 37 |\u001b[39m              window\u001b[33m.\u001b[39mmanualTestingTest \u001b[33m&&\u001b[39m \n \u001b[90m 38 |\u001b[39m              window\u001b[33m.\u001b[39malpineReactBridge \u001b[33m&&\u001b[39m\u001b[0m"
+    }
+  ],
+  "stats": {
+    "startTime": "2025-08-01T02:02:08.103Z",
+    "duration": 32957.451,
+    "expected": 0,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

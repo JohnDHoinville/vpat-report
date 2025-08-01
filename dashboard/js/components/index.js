@@ -11,6 +11,7 @@ import AuthModals from './auth/AuthModals.jsx';
 import WebCrawlerInterface from './crawler/WebCrawlerInterface.jsx';
 import ProjectSessionInterface from './project/ProjectSessionInterface.jsx';
 import AutomatedTestingInterface from './testing/AutomatedTestingInterface.jsx';
+import ManualTestingInterface from './testing/manual/ManualTestingInterface.jsx';
 
 console.log('🚀 Initializing React Components for Alpine.js Dashboard...');
 
@@ -20,6 +21,7 @@ alpineReactBridge.registerComponent('AuthModals', AuthModals);
 alpineReactBridge.registerComponent('WebCrawlerInterface', WebCrawlerInterface);
 alpineReactBridge.registerComponent('ProjectSessionInterface', ProjectSessionInterface);
 alpineReactBridge.registerComponent('AutomatedTestingInterface', AutomatedTestingInterface);
+alpineReactBridge.registerComponent('ManualTestingInterface', ManualTestingInterface);
 
 // Register Alpine.js directive (x-react)
 document.addEventListener('alpine:init', () => {
@@ -95,6 +97,31 @@ alpineReactBridge.setState('testingState', {
   testGridInstances: [],
   loadingTestInstances: false,
   showAdvancedConfig: false
+});
+
+// Initialize manual testing state bridge
+alpineReactBridge.setState('manualTestingState', {
+  manualTestingSession: null,
+  manualTestingAssignments: [],
+  manualTestingProgress: null,
+  showManualTestingModal: false,
+  currentManualTest: null,
+  manualTestingProcedure: null,
+  manualTestingContext: null,
+  selectedManualTestingSession: null,
+  manualTestingFilters: {
+    status: '',
+    wcag_level: '',
+    page_id: '',
+    search: ''
+  },
+  filteredManualTestingAssignments: [],
+  manualTestingPageGroups: [],
+  manualTestingSortBy: 'criterion_number',
+  manualTestingSortDirection: 'asc',
+  manualTestingViewMode: 'list', // 'list', 'grid', 'kanban'
+  loading: false,
+  error: null
 });
 
 // Setup global helpers for easy access from Alpine.js

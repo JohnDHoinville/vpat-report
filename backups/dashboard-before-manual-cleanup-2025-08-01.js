@@ -804,6 +804,23 @@ ${requirement.failure_examples}
             recentLogins: 0
         },
         
+        // ===== MANUAL TESTING STATE =====
+        manualTestingSession: null,
+        manualTestingProgress: null,
+        manualTestingAssignments: [],
+        filteredManualTestingAssignments: [],
+        manualTestingFilters: {
+            status: '',
+            wcag_level: '',
+            page_id: '',
+            coverage_type: 'all'
+        },
+        manualTestingCoverageAnalysis: { recommendations: [] },
+        showManualTestingModal: false,
+        currentManualTest: null,
+        manualTestingProcedure: null,
+        manualTestingContext: { violations: [], recommended_tools: [] },
+        
         // ===== TESTING STATE FLAGS =====
         automatedTestingInProgress: false,
         
@@ -939,7 +956,8 @@ ${requirement.failure_examples}
         sessions: [],
         testSessions: [],
         
-            };
+        // ===== MANUAL TESTING STATE =====
+    };
 
     // ===== MERGE WITH ORGANIZED STATE STRUCTURE =====
     return {
@@ -4411,20 +4429,7 @@ ${requirement.failure_examples}
         },
 
         // ===== AUTOMATED TESTING METHODS =====
-
-        // ===== MANUAL TESTING MIGRATION NOTICE =====
-        // The following functions have been migrated to React components:
-        // - Manual testing UI: ManualTestingInterface.jsx
-        // - Test assignments: TestInstanceList.jsx  
-        // - Test execution: TestReview.jsx
-        // - Status management: TestStatusManager.jsx
-        // - Evidence upload: EvidenceUpload.jsx
-        //
-        // Access via: window.ReactComponents.render('ManualTestingInterface', {}, container)
-        // Test functions: window.manualTestingTest.runDemo()
-        // ===== END MIGRATION NOTICE =====
         
-                
         async startAutomatedTesting() {
             if (!this.data.selectedProject) {
                 this.showNotification('warning', 'No Project Selected', 'Please select a project first');
@@ -4732,6 +4737,280 @@ ${requirement.failure_examples}
         // Show advanced test configuration modal
         showAdvancedTestConfiguration() {
             this.showTestConfigurationModal = true;
+        },
+
+        // ===== MANUAL TESTING METHODS =====
+        
+        async startManualTesting() {
+            if (!this.data.selectedProject) {
+                this.showNotification('warning', 'No Project Selected', 'Please select a project first');
+                return;
+            }
+            
+            try {
+                // Create or load a manual testing session for the project
+                const response = await this.apiCall(`/sessions`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        project_id: this.data.selectedProject,
+                        name: `Manual Testing - ${new Date().toLocaleDateString()}`,
+                        description: 'Manual accessibility testing session',
+                        conformance_level: 'AA',
+                        testing_approach: 'manual'
+                    })
+                });
+                
+                if (response.success) {
+                    this.showNotification('success', 'Manual Testing Started', 'Manual testing session created');
+                    await this.selectManualTestingSession(response.data);
+                } else {
+                    throw new Error(response.error || 'Failed to create manual testing session');
+                }
+            } catch (error) {
+                console.error('Error starting manual testing:', error);
+                this.showNotification('error', 'Failed to Start', error.message || 'Failed to start manual testing');
+            }
+        },
+
+        async editManualTestResult(result) {
+            this.currentManualTest = {
+                assignment: { requirement_id: result.requirement_id },
+                pageGroup: { page_id: result.page_id },
+                sessionId: result.session_id,
+                existingResult: result
+            };
+            this.showManualTestingModal = true;
+        },
+
+        async loadManualTestingAssignments() {
+            if (!this.manualTestingSession) return;
+            
+            try {
+                console.log('📋 Loading manual testing assignments...');
+                
+                const params = new URLSearchParams({
+                    coverage_type: this.manualTestingFilters.coverage_type
+                });
+                
+                if (this.manualTestingFilters.status) {
+                    params.append('status', this.manualTestingFilters.status);
+                }
+                if (this.manualTestingFilters.wcag_level) {
+                    params.append('wcag_level', this.manualTestingFilters.wcag_level);
+                }
+                if (this.manualTestingFilters.page_id) {
+                    params.append('page_id', this.manualTestingFilters.page_id);
+                }
+                
+                const response = await this.apiCall(`/manual-testing/session/${this.manualTestingSession.id}/assignments?${params}`);
+                
+                if (response.success) {
+                    this.manualTestingAssignments = response.data.assignments || [];
+                    this.applyManualTestingFilters();
+                    
+                    console.log(`✅ Loaded ${response.data.total_assignments} manual testing assignments`);
+                } else {
+                    throw new Error(response.error || 'Failed to load manual testing assignments');
+                }
+            } catch (error) {
+                console.error('❌ Error loading manual testing assignments:', error);
+                this.showNotification('error', 'Loading Failed', 'Failed to load manual testing assignments');
+            }
+        },
+
+        async loadManualTestingCoverageAnalysis() {
+            if (!this.manualTestingSession) return;
+            
+            try {
+                const response = await this.apiCall(`/manual-testing/session/${this.manualTestingSession.id}/coverage-analysis`);
+                
+                if (response.success) {
+                    this.manualTestingCoverageAnalysis = response.data;
+                } else {
+                    throw new Error(response.error || 'Failed to load coverage analysis');
+                }
+            } catch (error) {
+                console.error('❌ Error loading manual testing coverage analysis:', error);
+                this.showNotification('error', 'Analysis Failed', 'Failed to load coverage analysis');
+            }
+        },
+
+        async refreshManualTestingTabData() {
+            try {
+                console.log('🔄 Refreshing manual testing tab data...');
+                
+                const promises = [];
+                
+                if (this.manualTestingSession) {
+                    promises.push(this.loadManualTestingAssignments());
+                }
+                
+                promises.push(this.loadManualTestingCoverageAnalysis());
+                
+                await Promise.all(promises);
+                
+                console.log('✅ Manual testing tab data refreshed');
+            } catch (error) {
+                console.error('❌ Error refreshing manual testing tab data:', error);
+                this.showNotification('error', 'Refresh Failed', 'Failed to refresh manual testing data');
+            }
+        },
+
+        async selectManualTestingSession(session) {
+            try {
+                console.log('🎯 Selecting manual testing session:', session.name);
+                
+                this.manualTestingSession = session;
+                
+                await Promise.all([
+                    this.loadManualTestingAssignments(session.id),
+                    this.loadManualTestingProgress(session.id)
+                ]);
+                
+                console.log('✅ Manual testing session selected successfully');
+            } catch (error) {
+                console.error('❌ Error selecting manual testing session:', error);
+                this.showNotification('error', 'Selection Failed', 'Failed to load manual testing session');
+            }
+        },
+
+        async loadManualTestingProgress(sessionId) {
+            try {
+                console.log('📊 Loading manual testing progress...');
+                
+                const response = await this.apiCall(`/manual-testing/session/${sessionId}/progress`);
+                
+                if (response.success) {
+                    this.manualTestingProgress = response.data.progress || null;
+                    console.log('✅ Manual testing progress loaded');
+                } else {
+                    throw new Error(response.error || 'Failed to load progress');
+                }
+            } catch (error) {
+                console.error('❌ Error loading manual testing progress:', error);
+            }
+        },
+
+        applyManualTestingFilters() {
+            this.filterManualTestingAssignments();
+        },
+
+        filterManualTestingAssignments() {
+            const filters = this.manualTestingFilters;
+            
+            this.filteredManualTestingAssignments = this.manualTestingAssignments.filter(pageGroup => {
+                // Apply status filter
+                if (filters.status && !pageGroup.assignments.some(a => a.status === filters.status)) {
+                    return false;
+                }
+                
+                // Apply WCAG level filter
+                if (filters.wcag_level && !pageGroup.assignments.some(a => a.wcag_level === filters.wcag_level)) {
+                    return false;
+                }
+                
+                // Apply page filter
+                if (filters.page_id && pageGroup.page_id !== filters.page_id) {
+                    return false;
+                }
+                
+                return true;
+            });
+            
+            console.log('🔍 Filtered manual testing assignments:', this.filteredManualTestingAssignments.length, 'page groups');
+        },
+
+        async startManualTest(pageGroup, assignment) {
+            try {
+                console.log('🎯 Starting manual test:', assignment.criterion_number);
+                
+                this.currentManualTest = {
+                    pageGroup: pageGroup,
+                    assignment: assignment,
+                    sessionId: this.manualTestingSession.id
+                };
+                
+                await this.loadManualTestingProcedure(assignment.requirement_id, pageGroup.page_type);
+                
+                this.showManualTestingModal = true;
+            } catch (error) {
+                console.error('❌ Error starting manual test:', error);
+                this.showNotification('error', 'Test Failed', 'Failed to start manual test');
+            }
+        },
+
+        async loadManualTestingProcedure(requirementId, pageType) {
+            try {
+                const params = new URLSearchParams({ page_type: pageType });
+                
+                if (this.currentManualTest) {
+                    params.append('page_id', this.currentManualTest.pageGroup.page_id);
+                    params.append('session_id', this.currentManualTest.sessionId);
+                }
+                
+                const response = await this.apiCall(`/manual-testing/requirement/${requirementId}/procedure?${params}`);
+                
+                if (response.success) {
+                    this.manualTestingProcedure = response.data.requirement || null;
+                    this.manualTestingContext = response.data.test_context || null;
+                } else {
+                    throw new Error(response.error || 'Failed to load procedure');
+                }
+            } catch (error) {
+                console.error('❌ Error loading manual testing procedure:', error);
+                this.showNotification('error', 'Loading Failed', 'Failed to load testing procedure');
+            }
+        },
+
+        async submitManualTestResult(result, confidence = 'medium', notes = '', evidence = {}) {
+            try {
+                console.log('💾 Submitting manual test result:', result);
+                
+                const response = await this.apiCall(`/manual-testing/session/${this.currentManualTest.sessionId}/result`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        page_id: this.currentManualTest.pageGroup.page_id,
+                        requirement_id: this.currentManualTest.assignment.requirement_id,
+                        result: result,
+                        confidence_level: confidence,
+                        notes: notes,
+                        evidence: evidence,
+                        test_method_used: 'manual'
+                    })
+                });
+                
+                if (response.success) {
+                    // Refresh data after successful submission
+                    await Promise.all([
+                        this.loadManualTestingAssignments(this.currentManualTest.sessionId),
+                        this.loadManualTestingProgress(this.currentManualTest.sessionId)
+                    ]);
+                    
+                    // Close modal and reset state
+                    this.showManualTestingModal = false;
+                    this.currentManualTest = null;
+                    this.manualTestingProcedure = null;
+                    this.manualTestingContext = null;
+                    
+                    console.log('✅ Manual test result submitted successfully');
+                    this.showNotification('success', 'Result Saved', 'Manual test result saved successfully');
+                } else {
+                    throw new Error(response.error || 'Failed to submit result');
+                }
+            } catch (error) {
+                console.error('❌ Error submitting manual test result:', error);
+                this.showNotification('error', 'Submit Failed', 'Failed to submit test result');
+            }
+        },
+
+        closeManualTestingSession() {
+            this.manualTestingSession = null;
+            this.manualTestingProgress = null;
+            this.manualTestingAssignments = [];
+            this.filteredManualTestingAssignments = [];
+            this.currentManualTest = null;
+            this.manualTestingProcedure = null;
+            this.manualTestingContext = null;
         },
 
         // ===== RESULTS METHODS =====
