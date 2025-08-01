@@ -8151,37 +8151,38 @@ ${requirement.failure_examples}
             }
         },
         
-        // Load project pages for URL information
+        // Load session-specific pages (only pages selected for testing)
         async loadSessionPages() {
             try {
-                if (!this.selectedProject) return;
+                if (!this.currentSession?.id) return;
                 
-                // First get the crawlers for this project
-                const crawlersResponse = await this.apiCall(`/web-crawlers/projects/${this.selectedProject}/crawlers`);
+                // Get only the pages that have test instances in this session
+                const response = await this.apiCall(`/test-instances?session_id=${this.currentSession.id}`);
                 
-                if (crawlersResponse.success && crawlersResponse.data?.length > 0) {
-                    // Use the first available crawler (or we could enhance this to use all crawlers)
-                    const crawler = crawlersResponse.data[0];
+                if (response.success && response.data?.length > 0) {
+                    // Extract unique pages from test instances
+                    const uniquePages = new Map();
                     
-                    // Get pages for this crawler (all pages, not just selected for testing)
-                    const pagesResponse = await this.apiCall(`/web-crawlers/crawlers/${crawler.id}/pages?limit=100`);
+                    response.data.forEach(instance => {
+                        if (instance.page_id && instance.page_url) {
+                            uniquePages.set(instance.page_id, {
+                                id: instance.page_id,
+                                url: instance.page_url,
+                                title: instance.page_title || 'Untitled Page',
+                                depth: instance.page_depth,
+                                requires_auth: instance.requires_auth,
+                                has_forms: instance.has_forms,
+                                selected_for_testing: true, // These pages are definitely selected for testing
+                                content_type: instance.page_type || instance.content_type,
+                                status_code: instance.status_code
+                            });
+                        }
+                    });
                     
-                    if (pagesResponse.success) {
-                        const pages = pagesResponse.data || pagesResponse.pages || [];
-                        this.sessionDetailsPages = pages.map(page => ({
-                            id: page.id,
-                            url: page.url,
-                            title: page.title || 'Untitled Page',
-                            depth: page.depth,
-                            requires_auth: page.requires_auth,
-                            has_forms: page.has_forms,
-                            selected_for_testing: page.selected_for_testing,
-                            content_type: page.content_type,
-                            status_code: page.status_code
-                        }));
-                        
-                        console.log('🌐 Session pages loaded:', this.sessionDetailsPages.length);
-                    }
+                    this.sessionDetailsPages = Array.from(uniquePages.values());
+                    console.log('🌐 Session pages loaded (selected for testing only):', this.sessionDetailsPages.length);
+                } else {
+                    this.sessionDetailsPages = [];
                 }
             } catch (error) {
                 console.error('Error loading session pages:', error);
