@@ -4487,7 +4487,7 @@ class TestAutomationService {
                 
                 // Find matching test instances for this page and WCAG criteria
                 const matchingInstances = pageInstances.filter(instance => {
-                    const instanceCriterion = instance.requirement_id || instance.criterion_number;
+                    const instanceCriterion = instance.criterion_number; // Use the WCAG string, not UUID
                     return wcagCriteria.includes(instanceCriterion);
                 });
 

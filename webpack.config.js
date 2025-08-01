@@ -228,8 +228,11 @@ module.exports = (env, argv) => {
     },
     
     // Cache configuration for faster rebuilds
-    cache: {
-      type: 'filesystem'
-    }
+    cache: isDevelopment ? {
+      type: 'filesystem',
+      buildDependencies: {
+        config: [__filename]
+      }
+    } : false
   };
 }; 
