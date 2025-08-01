@@ -7,11 +7,13 @@
 
 import alpineReactBridge from './utils/alpineIntegration.js';
 import TestComponent from './TestComponent.jsx';
+import AuthModals from './auth/AuthModals.jsx';
 
 console.log('🚀 Initializing React Components for Alpine.js Dashboard...');
 
 // Register React components with the bridge
 alpineReactBridge.registerComponent('TestComponent', TestComponent);
+alpineReactBridge.registerComponent('AuthModals', AuthModals);
 
 // Register Alpine.js directive (x-react)
 document.addEventListener('alpine:init', () => {
@@ -24,6 +26,15 @@ alpineReactBridge.setState('reactCounter', 0);
 alpineReactBridge.setState('reactMessage', '');
 alpineReactBridge.setState('testMessage', 'Welcome to Alpine-React Bridge!');
 alpineReactBridge.setState('alpineTestValue', '');
+
+// Initialize authentication state bridge
+alpineReactBridge.setState('authState', {
+  showLogin: false,
+  showProfile: false,
+  showChangePassword: false,
+  user: null,
+  loading: false
+});
 
 // Setup global helpers for easy access from Alpine.js
 window.ReactComponents = {

@@ -30,6 +30,14 @@
     <!-- Dashboard Utilities - Load before dashboard.js -->
     <script src="dashboard/js/utils/dashboardUtils.js"></script>
     
+    <!-- Dashboard API Service - Load before dashboard.js -->
+    <script src="dashboard/js/services/apiService.js"></script>
+    
+    <!-- React Components Bundle - Load after utilities and services -->
+    <script src="dashboard/dist/runtime.js"></script>
+    <script src="dashboard/dist/vendors.js"></script>
+    <script src="dashboard/dist/react-components.js"></script>
+    
     <script src="dashboard/js/dashboard.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
@@ -74,6 +82,9 @@
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen" x-data="dashboard()">
+    <!-- React Portal Containers -->
+    <div id="react-auth-portals"></div>
+    
     <div class="min-h-screen flex flex-col">
         
         <!-- Include Header Component -->
