@@ -2049,7 +2049,7 @@ ${requirement.failure_examples}
         
         async checkApiConnection() {
             try {
-                const response = await fetch(`${this.config.apiBaseUrl}/health`);
+                const response = await fetch(`${this.config.apiBaseUrl}/api/health`);
                 if (response.ok) {
                     this.apiConnected = true;
                     console.log('API connection successful');
