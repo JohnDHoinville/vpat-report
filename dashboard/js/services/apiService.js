@@ -99,6 +99,12 @@ window.DashboardAPI.auth = {
         });
     },
 
+    async logout() {
+        return window.DashboardAPI.client.apiCall('/auth/logout', {
+            method: 'POST'
+        });
+    },
+
     async getProfile() {
         return window.DashboardAPI.client.apiCall('/auth/profile');
     },
