@@ -10,6 +10,7 @@ import TestComponent from './TestComponent.jsx';
 import AuthModals from './auth/AuthModals.jsx';
 import WebCrawlerInterface from './crawler/WebCrawlerInterface.jsx';
 import ProjectSessionInterface from './project/ProjectSessionInterface.jsx';
+import AutomatedTestingInterface from './testing/AutomatedTestingInterface.jsx';
 
 console.log('🚀 Initializing React Components for Alpine.js Dashboard...');
 
@@ -18,6 +19,7 @@ alpineReactBridge.registerComponent('TestComponent', TestComponent);
 alpineReactBridge.registerComponent('AuthModals', AuthModals);
 alpineReactBridge.registerComponent('WebCrawlerInterface', WebCrawlerInterface);
 alpineReactBridge.registerComponent('ProjectSessionInterface', ProjectSessionInterface);
+alpineReactBridge.registerComponent('AutomatedTestingInterface', AutomatedTestingInterface);
 
 // Register Alpine.js directive (x-react)
 document.addEventListener('alpine:init', () => {
@@ -71,6 +73,28 @@ alpineReactBridge.setState('sessionState', {
   showCreateTestingSession: false,
   loading: false,
   activeTab: 'testing-sessions'
+});
+
+// Initialize automated testing state bridge
+alpineReactBridge.setState('testingState', {
+  selectedProject: null,
+  currentProject: null,
+  automatedTestingInProgress: false,
+  testingConfig: {
+    useAxe: true,
+    usePa11y: true,
+    useLighthouse: false,
+    wcagLevel: 'AA',
+    browser: 'chromium'
+  },
+  testingProgress: null,
+  automationProgress: null,
+  automatedTestResults: [],
+  showTestGrid: false,
+  selectedTestSession: null,
+  testGridInstances: [],
+  loadingTestInstances: false,
+  showAdvancedConfig: false
 });
 
 // Setup global helpers for easy access from Alpine.js
