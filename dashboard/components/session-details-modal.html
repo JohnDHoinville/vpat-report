@@ -395,7 +395,19 @@
                                                             </div>
                                                         </div>
                                                         <div x-show="$strictArray(reqGroup.pages, 'session-pages').length === 0" class="text-xs text-blue-600 bg-blue-50 p-2 rounded">
-                                                            <i class="fas fa-globe mr-1"></i>Testing across all applicable pages
+                                                            <div x-show="sessionDetailsPages?.length > 0" class="space-y-1">
+                                                                <div class="font-medium">
+                                                                    <i class="fas fa-link mr-1"></i>Testing specific pages:
+                                                                </div>
+                                                                <template x-for="page in sessionDetailsPages">
+                                                                    <div class="text-xs text-blue-700 pl-4">
+                                                                        • <span x-text="page.url"></span>
+                                                                    </div>
+                                                                </template>
+                                                            </div>
+                                                            <div x-show="!sessionDetailsPages?.length" class="text-xs text-blue-600">
+                                                                <i class="fas fa-globe mr-1"></i>Testing across all applicable pages
+                                                            </div>
                                                         </div>
                                                     </td>
                                                     
@@ -504,7 +516,18 @@
                                             
                                             <!-- Show when testing all pages or no specific page -->
                                             <div x-show="!testInstance.page_url" class="mt-2 p-2 bg-blue-50 rounded-md border border-blue-200">
-                                                <div class="flex items-center space-x-2">
+                                                <div x-show="sessionDetailsPages?.length > 0" class="space-y-1">
+                                                    <div class="flex items-center space-x-2 font-medium">
+                                                        <i class="fas fa-link text-blue-500 text-xs"></i>
+                                                        <span class="text-xs text-blue-700 font-medium">Testing specific pages:</span>
+                                                    </div>
+                                                    <template x-for="page in sessionDetailsPages">
+                                                        <div class="text-xs text-blue-600 pl-4">
+                                                            • <span x-text="page.url"></span>
+                                                        </div>
+                                                    </template>
+                                                </div>
+                                                <div x-show="!sessionDetailsPages?.length" class="flex items-center space-x-2">
                                                     <i class="fas fa-globe text-blue-500 text-xs"></i>
                                                     <span class="text-xs text-blue-700 font-medium">Testing across all applicable pages</span>
                                                 </div>
