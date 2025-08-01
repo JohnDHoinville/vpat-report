@@ -164,12 +164,12 @@ router.get('/', authenticateToken, async (req, res) => {
             SELECT ti.*,
                    tr.criterion_number, tr.title as requirement_title, tr.level as requirement_level,
                    tr.test_method as requirement_test_method,
-                   cdp.url as page_url, cdp.title as page_title,
+                   dp.url as page_url, dp.title as page_title,
                    tester.username as assigned_tester_username,
                    reviewer.username as reviewer_username
             FROM test_instances ti
             LEFT JOIN test_requirements tr ON ti.requirement_id = tr.id
-            LEFT JOIN crawler_discovered_pages cdp ON ti.page_id = cdp.id
+            LEFT JOIN discovered_pages dp ON ti.page_id = dp.id
             LEFT JOIN users tester ON ti.assigned_tester = tester.id
             LEFT JOIN users reviewer ON ti.reviewer = reviewer.id
             WHERE 1=1
@@ -220,8 +220,8 @@ router.get('/', authenticateToken, async (req, res) => {
             query += ` AND (
                 LOWER(tr.criterion_number) LIKE LOWER($${paramCount}) OR
                 LOWER(tr.title) LIKE LOWER($${paramCount}) OR
-                LOWER(cdp.url) LIKE LOWER($${paramCount}) OR
-                LOWER(cdp.title) LIKE LOWER($${paramCount}) OR
+                LOWER(dp.url) LIKE LOWER($${paramCount}) OR
+                LOWER(dp.title) LIKE LOWER($${paramCount}) OR
                 LOWER(ti.notes) LIKE LOWER($${paramCount})
             )`;
             params.push(`%${search}%`);
@@ -244,7 +244,7 @@ router.get('/', authenticateToken, async (req, res) => {
             SELECT COUNT(*) as total
             FROM test_instances ti
             LEFT JOIN test_requirements tr ON ti.requirement_id = tr.id
-            LEFT JOIN crawler_discovered_pages cdp ON ti.page_id = cdp.id
+            LEFT JOIN discovered_pages dp ON ti.page_id = dp.id
             WHERE 1=1
         `;
         
@@ -292,8 +292,8 @@ router.get('/', authenticateToken, async (req, res) => {
             countQuery += ` AND (
                 LOWER(tr.criterion_number) LIKE LOWER($${countParamCount}) OR
                 LOWER(tr.title) LIKE LOWER($${countParamCount}) OR
-                LOWER(cdp.url) LIKE LOWER($${countParamCount}) OR
-                LOWER(cdp.title) LIKE LOWER($${countParamCount}) OR
+                LOWER(dp.url) LIKE LOWER($${countParamCount}) OR
+                LOWER(dp.title) LIKE LOWER($${countParamCount}) OR
                 LOWER(ti.notes) LIKE LOWER($${countParamCount})
             )`;
             countParams.push(`%${search}%`);
@@ -361,14 +361,14 @@ router.get('/:id', authenticateToken, async (req, res) => {
                    tr.level as requirement_level, tr.test_method as requirement_test_method,
                    tr.testing_instructions, tr.acceptance_criteria, tr.failure_examples,
                    tr.wcag_url, tr.section_508_url,
-                   cdp.url as page_url, cdp.title as page_title, cdp.description as page_description,
-                   cdp.has_forms, cdp.requires_auth, cdp.status_code,
+                   dp.url as page_url, dp.title as page_title, dp.description as page_description,
+                   dp.has_forms, dp.requires_auth, dp.status_code,
                    ts.name as session_name, ts.conformance_level,
                    tester.username as assigned_tester_username, tester.email as assigned_tester_email,
                    reviewer.username as reviewer_username, reviewer.email as reviewer_email
             FROM test_instances ti
             LEFT JOIN test_requirements tr ON ti.requirement_id = tr.id
-            LEFT JOIN crawler_discovered_pages cdp ON ti.page_id = cdp.id
+            LEFT JOIN discovered_pages dp ON ti.page_id = dp.id
             LEFT JOIN test_sessions ts ON ti.session_id = ts.id
             LEFT JOIN users tester ON ti.assigned_tester = tester.id
             LEFT JOIN users reviewer ON ti.reviewer = reviewer.id
@@ -890,23 +890,23 @@ router.get('/session/:sessionId/matrix', authenticateToken, async (req, res) => 
                 tr.title as requirement_title,
                 tr.level,
                 tr.test_method,
-                cdp.id as page_id,
-                cdp.url as page_url,
-                cdp.title as page_title,
+                dp.id as page_id,
+                dp.url as page_url,
+                dp.title as page_title,
                 ti.id as test_instance_id,
                 ti.status,
                 ti.confidence_level,
                 ti.assigned_tester,
                 u.username as assigned_tester_username
             FROM test_requirements tr
-            CROSS JOIN crawler_discovered_pages cdp
+            CROSS JOIN discovered_pages dp
             LEFT JOIN test_instances ti ON (
                 tr.id = ti.requirement_id 
-                AND cdp.id = ti.page_id 
+                AND dp.id = ti.page_id 
                 AND ti.session_id = $1
             )
             LEFT JOIN users u ON ti.assigned_tester = u.id
-            WHERE cdp.id IN (
+            WHERE dp.id IN (
                 SELECT DISTINCT page_id 
                 FROM test_instances 
                 WHERE session_id = $1 AND page_id IS NOT NULL
@@ -916,7 +916,7 @@ router.get('/session/:sessionId/matrix', authenticateToken, async (req, res) => 
                 FROM test_instances 
                 WHERE session_id = $1
             )
-            ORDER BY tr.criterion_number, cdp.url
+            ORDER BY tr.criterion_number, dp.url
         `;
         
         const matrixResult = await pool.query(matrixQuery, [sessionId]);
@@ -978,5 +978,4 @@ router.get('/session/:sessionId/matrix', authenticateToken, async (req, res) => 
     }
 });
 
-module.exports = router; 
 module.exports = router; 

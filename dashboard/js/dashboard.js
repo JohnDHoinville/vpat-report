@@ -8154,10 +8154,24 @@ ${requirement.failure_examples}
         // Load session-specific pages (only pages selected for testing)
         async loadSessionPages() {
             try {
-                if (!this.currentSession?.id) return;
+                const sessionId = this.sessionDetailsModal?.sessionId || this.currentSession?.id;
+                console.log('🔍 DEBUG: loadSessionPages called for session:', sessionId);
+                if (!sessionId) {
+                    console.log('🔍 DEBUG: No current session, returning early');
+                    return;
+                }
                 
                 // Get only the pages that have test instances in this session
-                const response = await this.apiCall(`/test-instances?session_id=${this.currentSession.id}`);
+                const response = await this.apiCall(`/test-instances?session_id=${sessionId}`);
+                console.log('🔍 DEBUG: Test instances API response:', {
+                    success: response.success,
+                    dataLength: response.data?.length,
+                    firstInstance: response.data?.[0] ? {
+                        page_id: response.data[0].page_id,
+                        page_url: response.data[0].page_url,
+                        page_title: response.data[0].page_title
+                    } : null
+                });
                 
                 if (response.success && response.data?.length > 0) {
                     // Extract unique pages from test instances

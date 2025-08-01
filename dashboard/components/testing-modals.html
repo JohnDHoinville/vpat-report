@@ -389,9 +389,7 @@
         checkLegacyAccess() {
             if (typeof showManualTestingModal !== 'undefined') {
                 this.showLegacyWarning = true;
-                console.warn('⚠️ Manual Testing Modal Migration: Legacy state accessed. Use React components instead.');
-                console.log('💡 Access via: window.ReactComponents.render(\"ManualTestingInterface\", {}, container)');
-                console.log('🧪 Test via: window.manualTestingTest.runDemo()');
+                console.warn('Manual Testing Modal Migration: Legacy state accessed. Use React components instead.');
             }
         }
      }"

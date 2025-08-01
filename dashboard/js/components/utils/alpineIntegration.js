@@ -376,6 +376,31 @@ class AlpineReactBridge {
   }
 
   /**
+   * Helper: Sync session data between Alpine and React
+   */
+  syncSessionData(sessionData) {
+    try {
+      // Update React state
+      this.setState('sessionState', {
+        currentSession: sessionData,
+        sessionDetailsPages: sessionData.pages || [],
+        sessionTestInstances: sessionData.testInstances || []
+      });
+      
+      // Update Alpine state if available
+      if (window.dashboardInstance) {
+        window.dashboardInstance.currentSession = sessionData;
+        window.dashboardInstance.sessionDetailsPages = sessionData.pages || [];
+        window.dashboardInstance.sessionDetailsTestInstances = sessionData.testInstances || [];
+      }
+      
+      console.log('🔄 Session data synced between Alpine and React:', sessionData.id);
+    } catch (error) {
+      console.error('❌ Error syncing session data:', error);
+    }
+  }
+
+  /**
    * Cleanup all React components and listeners
    */
   cleanup() {
