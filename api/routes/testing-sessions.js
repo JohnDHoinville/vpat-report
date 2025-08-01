@@ -25,42 +25,42 @@ async function getRequirementsForConformanceLevel(conformanceLevel) {
     switch (conformanceLevel) {
         case 'wcag_a':
             query = `
-                SELECT * FROM test_requirements 
-                WHERE requirement_type = 'wcag' AND level = 'a' AND is_active = true
-                ORDER BY criterion_number
+                SELECT * FROM unified_requirements 
+                WHERE standard_type = 'wcag' AND level = 'A'
+                ORDER BY requirement_id
             `;
             break;
             
         case 'wcag_aa':
+            // FIXED: Only AA level, not A+AA
             query = `
-                SELECT * FROM test_requirements 
-                WHERE requirement_type = 'wcag' AND level IN ('a', 'aa') AND is_active = true
-                ORDER BY criterion_number
+                SELECT * FROM unified_requirements 
+                WHERE standard_type = 'wcag' AND level = 'AA'
+                ORDER BY requirement_id
             `;
             break;
             
         case 'wcag_aaa':
             query = `
-                SELECT * FROM test_requirements 
-                WHERE requirement_type = 'wcag' AND is_active = true
-                ORDER BY criterion_number
+                SELECT * FROM unified_requirements 
+                WHERE standard_type = 'wcag' AND level IN ('A', 'AA', 'AAA')
+                ORDER BY requirement_id
             `;
             break;
             
         case 'section_508':
             query = `
-                SELECT * FROM test_requirements 
-                WHERE requirement_type = 'section_508' AND is_active = true
-                ORDER BY criterion_number
+                SELECT * FROM unified_requirements 
+                WHERE standard_type = 'section_508'
+                ORDER BY requirement_id
             `;
             break;
             
         case 'combined':
             query = `
-                SELECT * FROM test_requirements 
-                WHERE requirement_type IN ('wcag', 'section_508') 
-                AND is_active = true
-                ORDER BY requirement_type, criterion_number
+                SELECT * FROM unified_requirements 
+                WHERE standard_type IN ('wcag', 'section_508')
+                ORDER BY standard_type, requirement_id
             `;
             break;
             
@@ -794,16 +794,16 @@ async function getRequirementsForWizardLevels(conformanceLevels, smartFiltering 
         
         // Map both wizard and database conformance levels to database values (use lowercase to match DB)
         const levelMapping = {
-            // Wizard format (preferred)
-            'wcag_22_a': { type: 'wcag', level: 'a' },
-            'wcag_22_aa': { type: 'wcag', level: 'aa' },
-            'wcag_22_aaa': { type: 'wcag', level: 'aaa' },
+            // Wizard format (preferred) - FIXED: AA only includes AA level, not A+AA
+            'wcag_22_a': { type: 'wcag', level: 'A' },
+            'wcag_22_aa': { type: 'wcag', level: 'AA' }, // FIXED: Only AA level, not A+AA
+            'wcag_22_aaa': { type: 'wcag', level: 'AAA' },
             'section_508_base': { type: 'section_508', level: 'base' },
             'section_508_enhanced': { type: 'section_508', level: 'enhanced' },
             // Database format (backward compatibility)
-            'wcag_a': { type: 'wcag', level: 'a' },
-            'wcag_aa': { type: 'wcag', level: 'aa' },
-            'wcag_aaa': { type: 'wcag', level: 'aaa' },
+            'wcag_a': { type: 'wcag', level: 'A' },
+            'wcag_aa': { type: 'wcag', level: 'AA' }, // FIXED: Only AA level
+            'wcag_aaa': { type: 'wcag', level: 'AAA' },
             'section_508': { type: 'section_508', level: 'base' } // Default to base for section_508
         };
         
@@ -815,7 +815,7 @@ async function getRequirementsForWizardLevels(conformanceLevels, smartFiltering 
             const mapping = levelMapping[conformanceLevel];
             if (mapping) {
                 console.log(`✅ Mapped ${conformanceLevel} -> ${mapping.type}:${mapping.level}`);
-                whereConditions.push(`(requirement_type = $${paramIndex} AND level = $${paramIndex + 1})`);
+                whereConditions.push(`(standard_type = $${paramIndex} AND level = $${paramIndex + 1})`);
                 queryParams.push(mapping.type, mapping.level);
                 paramIndex += 2;
             } else {
@@ -828,11 +828,11 @@ async function getRequirementsForWizardLevels(conformanceLevels, smartFiltering 
             return [];
         }
         
+        // FIXED: Use unified_requirements table with correct column names
         const query = `
-            SELECT * FROM test_requirements 
-            WHERE is_active = true 
-            AND (${whereConditions.join(' OR ')})
-            ORDER BY requirement_type, level, criterion_number
+            SELECT * FROM unified_requirements 
+            WHERE (${whereConditions.join(' OR ')})
+            ORDER BY standard_type, level, requirement_id
         `;
         
         const result = await pool.query(query, queryParams);

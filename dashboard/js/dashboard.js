@@ -8181,6 +8181,7 @@ ${requirement.failure_examples}
                     
                     this.sessionDetailsPages = Array.from(uniquePages.values());
                     console.log('🌐 Session pages loaded (selected for testing only):', this.sessionDetailsPages.length);
+                    console.log('📝 Session page URLs:', this.sessionDetailsPages.map(p => p.url));
                 } else {
                     this.sessionDetailsPages = [];
                 }
