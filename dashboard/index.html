@@ -24,8 +24,10 @@
     <script src="alpine-block-autostart.js"></script>
     
     <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+    
+    <!-- Chart.js - Only loaded if React components need it (most charts are now in React) -->
+    <!-- <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> -->
+    <!-- <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script> -->
     
     <!-- Dashboard Utilities - Load before dashboard.js -->
     <script src="dashboard/js/utils/dashboardUtils.js"></script>
@@ -38,20 +40,12 @@
     <script src="dashboard/dist/vendors.js"></script>
     <script src="dashboard/dist/react-components.js"></script>
     
-    <!-- Authentication Test Suite (Development) -->
-    <script src="dashboard/js/components/auth/authTest.js"></script>
-    
-    <!-- Project/Session Test Suite (Development) -->
-    <script src="dashboard/js/components/project/projectSessionTest.js"></script>
-    
-    <!-- Automated Testing Test Suite (Development) -->
-    <script src="dashboard/js/components/testing/automatedTestingTest.js"></script>
-    
-    <!-- Manual Testing Test Suite (Development) -->
-    <script src="dashboard/js/components/testing/manual/manualTestingTest.js"></script>
-    
-    <!-- Reporting Components Test Suite (Development) -->
-    <script src="dashboard/js/components/reporting/reportingTest.js"></script>
+    <!-- Development Test Suites (can be removed in production) -->
+    <!-- <script src="dashboard/js/components/auth/authTest.js"></script> -->
+    <!-- <script src="dashboard/js/components/project/projectSessionTest.js"></script> -->
+    <!-- <script src="dashboard/js/components/testing/automatedTestingTest.js"></script> -->
+    <!-- <script src="dashboard/js/components/testing/manual/manualTestingTest.js"></script> -->
+    <!-- <script src="dashboard/js/components/reporting/reportingTest.js"></script> -->
     
     <script src="dashboard/js/dashboard.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -461,8 +455,7 @@
 });
 </script>
 
-<!-- Session Fix Patch -->
-<script src="dashboard/js/quick-session-fix.js"></script>
+<!-- Session data loading is now integrated into dashboard.js -->
 
 </body>
 </html> 
