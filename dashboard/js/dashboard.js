@@ -6880,6 +6880,13 @@ ${requirement.failure_examples}
                 return [];
             }
             
+            console.log('🔍 DEBUG getProposedTools for:', requirement.criterion_number, {
+                automated_tools: requirement.automated_tools,
+                tool_used: requirement.tool_used,
+                test_method: requirement.test_method,
+                result: requirement.result ? 'has result' : 'no result'
+            });
+            
             let tools = [];
             
             // First, try to get tools from the requirement's automated_tools (shows all available tools)
@@ -6916,7 +6923,49 @@ ${requirement.failure_examples}
 
             // If still no tools but requirement can be automated, determine appropriate tools based on criterion
             if (tools.length === 0 && (requirement.test_method === 'automated' || requirement.test_method === 'both')) {
-                tools = this.getRecommendedToolsForCriterion(requirement.criterion_number, requirement.test_method);
+                console.log('🔧 Calling getRecommendedToolsForCriterion for:', requirement.criterion_number, requirement.test_method);
+                try {
+                    // Try calling via this context first
+                    if (this.getRecommendedToolsForCriterion) {
+                        tools = this.getRecommendedToolsForCriterion(requirement.criterion_number, requirement.test_method);
+                        console.log('🔧 Recommended tools via this:', tools);
+                    } else {
+                        console.warn('⚠️ getRecommendedToolsForCriterion not found in this context');
+                        throw new Error('Method not found in context');
+                    }
+                } catch (error) {
+                    console.error('❌ Error calling getRecommendedToolsForCriterion:', error);
+                    // Comprehensive inline fallback (mirrors main mapping)
+                    const defaultToolMap = {
+                        // WCAG 2.2 - Perceivable
+                        '1.1.1': ['axe-core', 'pa11y'],
+                        '1.2.1': ['axe-core'], '1.2.2': ['axe-core'], '1.2.3': ['axe-core'], '1.2.4': ['axe-core'], '1.2.5': ['axe-core'],
+                        '1.3.1': ['axe-core', 'pa11y', 'wave'], '1.3.2': ['axe-core', 'pa11y'], '1.3.3': ['axe-core', 'pa11y'],
+                        '1.3.4': ['axe-core', 'mobile-accessibility'], '1.3.5': ['axe-core', 'pa11y'],
+                        '1.4.1': ['axe-core', 'contrast-analyzer'], '1.4.2': ['axe-core', 'pa11y'], '1.4.3': ['axe-core', 'contrast-analyzer'],
+                        '1.4.4': ['axe-core', 'mobile-accessibility'], '1.4.5': ['axe-core', 'pa11y'], '1.4.10': ['axe-core', 'mobile-accessibility'],
+                        '1.4.11': ['axe-core', 'contrast-analyzer'], '1.4.12': ['axe-core', 'mobile-accessibility'], '1.4.13': ['axe-core', 'mobile-accessibility'],
+                        
+                        // WCAG 2.2 - Operable
+                        '2.1.1': ['axe-core', 'pa11y'], '2.1.2': ['axe-core', 'pa11y'], '2.1.4': ['axe-core', 'pa11y'],
+                        '2.2.1': ['axe-core'], '2.2.2': ['axe-core'], '2.3.1': ['axe-core'],
+                        '2.4.1': ['axe-core', 'pa11y'], '2.4.2': ['axe-core', 'pa11y'], '2.4.3': ['axe-core', 'pa11y'],
+                        '2.4.4': ['axe-core', 'pa11y'], '2.4.5': ['axe-core', 'pa11y'], '2.4.6': ['axe-core', 'pa11y'], '2.4.7': ['axe-core', 'pa11y'],
+                        '2.5.1': ['mobile-accessibility'],
+                        
+                        // WCAG 2.2 - Robust
+                        '4.1.1': ['axe-core', 'pa11y'], '4.1.2': ['axe-core', 'pa11y'], '4.1.3': ['axe-core', 'pa11y'],
+                        
+                        // Section 508 - All 16 criteria
+                        '1194.22(a)': ['axe-core', 'pa11y'], '1194.22(b)': ['axe-core', 'pa11y'], '1194.22(c)': ['axe-core', 'pa11y'],
+                        '1194.22(d)': ['axe-core', 'pa11y'], '1194.22(e)': ['axe-core', 'pa11y'], '1194.22(f)': ['axe-core', 'pa11y'],
+                        '1194.22(g)': ['axe-core', 'pa11y'], '1194.22(h)': ['axe-core', 'pa11y'], '1194.22(i)': ['axe-core', 'pa11y'],
+                        '1194.22(j)': ['axe-core'], '1194.22(k)': ['axe-core'], '1194.22(l)': ['axe-core', 'pa11y'],
+                        '1194.22(m)': ['axe-core'], '1194.22(n)': ['axe-core', 'pa11y'], '1194.22(o)': ['axe-core', 'pa11y'], '1194.22(p)': ['axe-core']
+                    };
+                    tools = defaultToolMap[requirement.criterion_number] || ['axe-core', 'pa11y'];
+                    console.log('🔧 Using inline fallback tools:', tools);
+                }
             }
             
             // Map tool names to display names
@@ -6928,74 +6977,108 @@ ${requirement.failure_examples}
                 'WAVE': 'WAVE',
                 'wave': 'WAVE',
                 'contrast-analyzer': 'Color Contrast Analyzer',
-                'mobile-accessibility': 'Mobile Accessibility',
+                'mobile-accessibility': 'Mobile Accessibility Scanner',
                 'CCA': 'Color Contrast',
                 'luma': 'Luma',
                 'ANDI': 'ANDI',
                 'htmlcs': 'HTML CodeSniffer'
             };
             
-            return tools.map(tool => toolDisplayNames[tool] || tool);
+            const finalTools = tools.map(tool => toolDisplayNames[tool] || tool);
+            console.log('🎯 Final tools for', requirement.criterion_number, ':', finalTools);
+            return finalTools;
         },
 
         // Get recommended tools for a specific WCAG criterion
         getRecommendedToolsForCriterion(criterionNumber, testMethod) {
+            console.log('🔍 DEBUG getRecommendedToolsForCriterion called with:', criterionNumber, testMethod);
+            
             if (testMethod === 'manual') {
                 return []; // Manual testing doesn't use automated tools
             }
 
-            // Define tool recommendations based on WCAG criteria
+            // COMPREHENSIVE tool recommendations for ALL WCAG 2.2 and Section 508 criteria
             const toolRecommendations = {
-                // Color/Contrast related
-                '1.4.3': ['axe-core', 'contrast-analyzer'], // Contrast (Minimum)
-                '1.4.6': ['axe-core', 'contrast-analyzer'], // Contrast (Enhanced)
-                '1.4.11': ['axe-core', 'contrast-analyzer'], // Non-text Contrast
+                // ===== WCAG 2.2 SUCCESS CRITERIA =====
                 
-                // Keyboard/Focus related
+                // Principle 1: Perceivable
+                '1.1.1': ['axe-core', 'pa11y'], // Non-text Content
+                
+                // Time-based Media (1.2.x)
+                '1.2.1': ['axe-core'], // Audio-only and Video-only (Prerecorded)
+                '1.2.2': ['axe-core'], // Captions (Prerecorded)
+                '1.2.3': ['axe-core'], // Audio Description or Media Alternative (Prerecorded)
+                '1.2.4': ['axe-core'], // Captions (Live)
+                '1.2.5': ['axe-core'], // Audio Description (Prerecorded)
+                
+                // Adaptable (1.3.x)
+                '1.3.1': ['axe-core', 'pa11y', 'wave'], // Info and Relationships
+                '1.3.2': ['axe-core', 'pa11y'], // Meaningful Sequence
+                '1.3.3': ['axe-core', 'pa11y'], // Sensory Characteristics
+                '1.3.4': ['axe-core', 'mobile-accessibility'], // Orientation
+                '1.3.5': ['axe-core', 'pa11y'], // Identify Input Purpose
+                
+                // Distinguishable (1.4.x)
+                '1.4.1': ['axe-core', 'contrast-analyzer'], // Use of Color
+                '1.4.2': ['axe-core', 'pa11y'], // Audio Control
+                '1.4.3': ['axe-core', 'contrast-analyzer'], // Contrast (Minimum)
+                '1.4.4': ['axe-core', 'mobile-accessibility'], // Resize text
+                '1.4.5': ['axe-core', 'pa11y'], // Images of Text
+                '1.4.10': ['axe-core', 'mobile-accessibility'], // Reflow
+                '1.4.11': ['axe-core', 'contrast-analyzer'], // Non-text Contrast
+                '1.4.12': ['axe-core', 'mobile-accessibility'], // Text Spacing
+                '1.4.13': ['axe-core', 'mobile-accessibility'], // Content on Hover or Focus
+                
+                // Principle 2: Operable
+                
+                // Keyboard Accessible (2.1.x)
                 '2.1.1': ['axe-core', 'pa11y'], // Keyboard
                 '2.1.2': ['axe-core', 'pa11y'], // No Keyboard Trap
-                '2.4.7': ['axe-core', 'pa11y'], // Focus Visible
+                '2.1.4': ['axe-core', 'pa11y'], // Character Key Shortcuts
                 
-                // Structure/Semantic related
-                '1.3.1': ['axe-core', 'pa11y', 'wave'], // Info and Relationships
-                '2.4.1': ['axe-core', 'pa11y'], // Bypass Blocks
-                '2.4.2': ['axe-core', 'pa11y'], // Page Titled
-                '2.4.4': ['axe-core', 'pa11y'], // Link Purpose
-                '4.1.1': ['axe-core', 'pa11y'], // Parsing
-                '4.1.2': ['axe-core', 'pa11y'], // Name, Role, Value
-                
-                // Images/Media related
-                '1.1.1': ['axe-core', 'pa11y'], // Non-text Content
-                '1.2.1': ['axe-core'], // Audio-only and Video-only
-                '1.2.2': ['axe-core'], // Captions
-                '1.2.3': ['axe-core'], // Audio Description
-                
-                // Forms related
-                '3.3.1': ['axe-core', 'pa11y'], // Error Identification
-                '3.3.2': ['axe-core', 'pa11y'], // Labels or Instructions
-                '4.1.3': ['axe-core', 'pa11y'], // Status Messages
-                
-                // Mobile/Responsive related
-                '1.4.4': ['axe-core', 'mobile-accessibility'], // Resize text
-                '1.4.10': ['axe-core', 'mobile-accessibility'], // Reflow
-                '2.5.5': ['mobile-accessibility'], // Target Size
-                
-                // Timing related
+                // Enough Time (2.2.x)
                 '2.2.1': ['axe-core'], // Timing Adjustable
                 '2.2.2': ['axe-core'], // Pause, Stop, Hide
                 
-                // Seizures related
+                // Seizures and Physical Reactions (2.3.x)
                 '2.3.1': ['axe-core'], // Three Flashes or Below Threshold
                 
-                // Language related
-                '3.1.1': ['axe-core', 'pa11y'], // Language of Page
-                '3.1.2': ['axe-core', 'pa11y'], // Language of Parts
+                // Navigable (2.4.x)
+                '2.4.1': ['axe-core', 'pa11y'], // Bypass Blocks
+                '2.4.2': ['axe-core', 'pa11y'], // Page Titled
+                '2.4.3': ['axe-core', 'pa11y'], // Focus Order
+                '2.4.4': ['axe-core', 'pa11y'], // Link Purpose (In Context)
+                '2.4.5': ['axe-core', 'pa11y'], // Multiple Ways
+                '2.4.6': ['axe-core', 'pa11y'], // Headings and Labels
+                '2.4.7': ['axe-core', 'pa11y'], // Focus Visible
                 
-                // Navigation related
-                '3.2.1': ['axe-core'], // On Focus
-                '3.2.2': ['axe-core'], // On Input
-                '3.2.3': ['axe-core', 'pa11y'], // Consistent Navigation
-                '3.2.4': ['axe-core', 'pa11y'], // Consistent Identification
+                // Input Modalities (2.5.x)
+                '2.5.1': ['mobile-accessibility'], // Pointer Gestures
+                
+                // Principle 3: Understandable (typically manual, but some automation possible)
+                
+                // Principle 4: Robust (typically automated)
+                '4.1.1': ['axe-core', 'pa11y'], // Parsing
+                '4.1.2': ['axe-core', 'pa11y'], // Name, Role, Value
+                '4.1.3': ['axe-core', 'pa11y'], // Status Messages
+                
+                // ===== SECTION 508 CRITERIA (1194.22 series) =====
+                '1194.22(a)': ['axe-core', 'pa11y'], // Text equivalent for non-text elements
+                '1194.22(b)': ['axe-core', 'pa11y'], // Synchronized multimedia presentations
+                '1194.22(c)': ['axe-core', 'pa11y'], // Web pages marked up with proper structural elements
+                '1194.22(d)': ['axe-core', 'pa11y'], // Documents readable without stylesheets
+                '1194.22(e)': ['axe-core', 'pa11y'], // Server-side image maps provide text links
+                '1194.22(f)': ['axe-core', 'pa11y'], // Client-side image maps have text links
+                '1194.22(g)': ['axe-core', 'pa11y'], // Data tables have row and column headers
+                '1194.22(h)': ['axe-core', 'pa11y'], // Markup for data table headers and cells
+                '1194.22(i)': ['axe-core', 'pa11y'], // Frames titled with text
+                '1194.22(j)': ['axe-core'], // Pages avoid causing screen flicker
+                '1194.22(k)': ['axe-core'], // Text-only page provided when compliance cannot be accomplished
+                '1194.22(l)': ['axe-core', 'pa11y'], // Skip navigation links when scripting used
+                '1194.22(m)': ['axe-core'], // Electronic forms accessible to assistive technology
+                '1194.22(n)': ['axe-core', 'pa11y'], // Forms allow completion by assistive technology
+                '1194.22(o)': ['axe-core', 'pa11y'], // Skip repetitive navigation links
+                '1194.22(p)': ['axe-core'] // Timed responses can be extended or bypassed
             };
 
             // Get tools for this specific criterion, or default to general tools
@@ -7711,20 +7794,199 @@ ${requirement.failure_examples}
                 // Load detailed results for this run
                 const response = await this.apiCall(`/automated-testing/results/${run.id}`);
                 
-                if (response.success) {
-                    // Show detailed results in a modal or expand the row
-                    this.showNotification('info', 'Run Details', 
-                        `Run ${run.id.substring(0, 8)}: ${response.data.results.length} results loaded`);
+                if (response.success && response.data) {
+                    const data = response.data;
                     
-                    // You could open a modal here to show detailed results
-                    // For now, just show a notification
+                    // Format duration
+                    const duration = data.summary?.duration ? 
+                        this.formatDuration(data.summary.duration) : 
+                        (run.duration_ms ? this.formatDuration(run.duration_ms) : 'Unknown');
+                    
+                    // Extract detailed findings
+                    const detailedFindings = data.detailed_results?.detailed_findings || [];
+                    const hasFindings = detailedFindings.length > 0;
+                    
+                    // Get requirements tested for this run
+                    const requirementsTested = data.requirements_tested || [];
+                    const hasRequirements = requirementsTested.length > 0;
+                    
+                    // Create comprehensive modal with run details
+                    const modal = document.createElement('div');
+                    modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4';
+                    modal.innerHTML = `
+                        <div class="bg-white rounded-lg max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
+                            <!-- Header -->
+                            <div class="bg-gradient-to-r from-blue-600 to-purple-600 px-6 py-4 flex justify-between items-center text-white">
+                                <div>
+                                    <h2 class="text-xl font-bold">Automation Run Details</h2>
+                                    <p class="text-blue-100">Run ID: ${run.id.substring(0, 8)}... • ${new Date(run.started_at || run.created_at).toLocaleString()}</p>
+                                </div>
+                                <button onclick="this.closest('.fixed').remove()" class="text-white hover:text-gray-200 text-2xl">&times;</button>
+                            </div>
+                            
+                            <!-- Content -->
+                            <div class="flex-1 overflow-y-auto p-6">
+                                <!-- Summary Statistics -->
+                                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                                    <div class="bg-blue-50 p-4 rounded-lg text-center">
+                                        <div class="text-2xl font-bold text-blue-600">${data.summary?.tools_used?.length || run.tools_used?.length || 0}</div>
+                                        <div class="text-sm text-gray-600">Tools Used</div>
+                                    </div>
+                                    <div class="bg-green-50 p-4 rounded-lg text-center">
+                                        <div class="text-2xl font-bold text-green-600">${data.summary?.pages_tested || run.pages_tested || 0}</div>
+                                        <div class="text-sm text-gray-600">Pages Tested</div>
+                                    </div>
+                                    <div class="bg-red-50 p-4 rounded-lg text-center">
+                                        <div class="text-2xl font-bold text-red-600">${data.summary?.total_issues || run.total_issues || 0}</div>
+                                        <div class="text-sm text-gray-600">Issues Found</div>
+                                    </div>
+                                    <div class="bg-purple-50 p-4 rounded-lg text-center">
+                                        <div class="text-2xl font-bold text-purple-600">${duration}</div>
+                                        <div class="text-sm text-gray-600">Duration</div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Tools Used -->
+                                <div class="mb-6">
+                                    <h3 class="text-lg font-semibold mb-3 flex items-center">
+                                        <i class="fas fa-tools mr-2 text-blue-600"></i>
+                                        Tools Used
+                                    </h3>
+                                    <div class="flex flex-wrap gap-2">
+                                        ${(data.summary?.tools_used || run.tools_used || []).map(tool => `
+                                            <span class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
+                                                <i class="${this.getToolIcon(tool)} mr-1"></i>
+                                                ${tool.replace('-', ' ').replace(/\\b\\w/g, l => l.toUpperCase())}
+                                            </span>
+                                        `).join('')}
+                                    </div>
+                                </div>
+                                
+                                <!-- Test Instances Updated -->
+                                <div class="mb-6">
+                                    <h3 class="text-lg font-semibold mb-3 flex items-center">
+                                        <i class="fas fa-clipboard-check mr-2 text-green-600"></i>
+                                        Test Results Summary
+                                    </h3>
+                                    <div class="bg-gray-50 p-4 rounded-lg">
+                                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+                                            <div>
+                                                <div class="text-xl font-bold text-blue-600">${data.test_instances_updated || 0}</div>
+                                                <div class="text-sm text-gray-600">Test Instances Updated</div>
+                                            </div>
+                                            <div>
+                                                <div class="text-xl font-bold text-purple-600">${data.evidence_files || 0}</div>
+                                                <div class="text-sm text-gray-600">Evidence Files Created</div>
+                                            </div>
+                                            <div>
+                                                <div class="text-xl font-bold ${run.status === 'completed' ? 'text-green-600' : run.status === 'failed' ? 'text-red-600' : 'text-yellow-600'}">${run.status.toUpperCase()}</div>
+                                                <div class="text-sm text-gray-600">Run Status</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Requirements Tested -->
+                                ${hasRequirements ? `
+                                    <div class="mb-6">
+                                        <h3 class="text-lg font-semibold mb-3 flex items-center">
+                                            <i class="fas fa-list-check mr-2 text-purple-600"></i>
+                                            Requirements Tested (${requirementsTested.length})
+                                        </h3>
+                                        <div class="bg-gray-50 p-4 rounded-lg">
+                                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                                ${requirementsTested.map(req => `
+                                                    <div class="bg-white p-3 rounded-lg border border-gray-200">
+                                                        <div class="flex items-center justify-between mb-2">
+                                                            <span class="font-medium text-sm text-blue-700">${req.criterion_number}</span>
+                                                            <span class="px-2 py-1 text-xs rounded-full ${req.level === 'A' ? 'bg-green-100 text-green-700' : req.level === 'AA' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}">
+                                                                WCAG ${req.level}
+                                                            </span>
+                                                        </div>
+                                                        <div class="text-xs text-gray-600 mb-2">${req.title || 'Untitled Requirement'}</div>
+                                                        <div class="flex items-center text-xs">
+                                                            <span class="px-2 py-1 rounded-full ${req.result === 'passed' ? 'bg-green-100 text-green-700' : req.result === 'failed' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'}">
+                                                                ${req.result || 'tested'}
+                                                            </span>
+                                                            ${req.violations > 0 ? `<span class="ml-2 text-red-600">${req.violations} issues</span>` : ''}
+                                                        </div>
+                                                    </div>
+                                                `).join('')}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ` : `
+                                    <div class="mb-6">
+                                        <h3 class="text-lg font-semibold mb-3 flex items-center">
+                                            <i class="fas fa-list-check mr-2 text-gray-400"></i>
+                                            Requirements Tested
+                                        </h3>
+                                        <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center">
+                                            <i class="fas fa-exclamation-triangle text-yellow-600 text-xl mb-2"></i>
+                                            <p class="text-yellow-800 font-medium">No Requirements Data Available</p>
+                                            <p class="text-yellow-600 text-sm">This indicates the automation run may not have completed properly.</p>
+                                        </div>
+                                    </div>
+                                `}
+                                
+                                <!-- Detailed Findings -->
+                                ${hasFindings ? `
+                                    <div class="mb-6">
+                                        <h3 class="text-lg font-semibold mb-3 flex items-center">
+                                            <i class="fas fa-search mr-2 text-red-600"></i>
+                                            Detailed Findings (${detailedFindings.length})
+                                        </h3>
+                                        <div class="space-y-3 max-h-96 overflow-y-auto">
+                                            ${this.renderDetailedFindings(detailedFindings)}
+                                        </div>
+                                    </div>
+                                ` : `
+                                    <div class="mb-6">
+                                        <div class="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
+                                            <i class="fas fa-check-circle text-green-600 text-2xl mb-2"></i>
+                                            <h3 class="text-lg font-medium text-green-800">No Violations Detected</h3>
+                                            <p class="text-green-600">This automation run completed successfully with no accessibility issues found.</p>
+                                        </div>
+                                    </div>
+                                `}
+                                
+                                <!-- Raw Results (Collapsible) -->
+                                ${data.detailed_results ? `
+                                    <div class="mb-4">
+                                        <details class="bg-gray-50 rounded-lg">
+                                            <summary class="cursor-pointer p-4 font-medium text-gray-700 hover:bg-gray-100 rounded-lg">
+                                                <i class="fas fa-code mr-2"></i>
+                                                View Raw Results Data
+                                            </summary>
+                                            <div class="p-4 border-t">
+                                                <pre class="text-xs bg-white p-3 rounded border max-h-64 overflow-y-auto">${JSON.stringify(data.detailed_results, null, 2)}</pre>
+                                            </div>
+                                        </details>
+                                    </div>
+                                ` : ''}
+                            </div>
+                            
+                            <!-- Footer -->
+                            <div class="bg-gray-50 px-6 py-4 flex justify-between items-center">
+                                <div class="text-sm text-gray-600">
+                                    Run completed: ${new Date(run.completed_at || run.started_at).toLocaleString()}
+                                </div>
+                                <button onclick="this.closest('.fixed').remove()" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+                                    Close
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    
+                    document.body.appendChild(modal);
+                    
                 } else {
-                    throw new Error(response.error || 'Failed to load run details');
+                    this.showNotification('warning', 'No Data', 'No detailed results available for this run');
                 }
                 
             } catch (error) {
                 console.error('Error viewing automation run details:', error);
-                this.showNotification('error', 'Load Failed', 'Failed to load run details');
+                this.showNotification('error', 'Load Failed', `Failed to load run details: ${error.message}`);
             }
         },
 
@@ -7809,11 +8071,38 @@ ${requirement.failure_examples}
             }
         },
 
+        // Reset chart failure state and re-enable updates
+        resetAutomationChart() {
+            console.log('📊 Resetting automation chart state...');
+            this.chartFailedCount = 0;
+            this.chartUpdatesDisabled = false;
+            this.isUpdatingChart = false;
+            
+            if (this.automationChart) {
+                try {
+                    this.automationChart.destroy();
+                } catch (e) {
+                    console.log('Chart already destroyed or invalid');
+                }
+                this.automationChart = null;
+            }
+            
+            // Reinitialize chart
+            this.initAutomationChart();
+            console.log('📊 Chart reset complete');
+        },
+
         // Update automation chart with new data
         updateAutomationChart(period = '7d') {
             // Prevent multiple simultaneous updates
             if (this.isUpdatingChart) {
                 console.log('📊 Chart update already in progress, skipping');
+                return;
+            }
+            
+            // Skip if chart updates are disabled due to errors
+            if (this.chartUpdatesDisabled) {
+                console.log('📊 Chart updates disabled due to previous errors, skipping');
                 return;
             }
             
@@ -7832,15 +8121,17 @@ ${requirement.failure_examples}
 
                 if (!this.automationRuns || this.automationRuns.length === 0) {
                     console.log('No automation runs data available for chart');
-                    // Show empty chart with message
-                    this.automationChartData = {
+                    // Show empty chart with message (avoid reactive object)
+                    const emptyChartData = {
                         labels: [],
                         datasets: []
                     };
                     if (this.automationChart) {
-                        this.automationChart.data = this.automationChartData;
+                        this.automationChart.data.labels.length = 0;
+                        this.automationChart.data.datasets.length = 0;
                         this.automationChart.update('none');
                     }
+                    this.automationChartData = JSON.parse(JSON.stringify(emptyChartData));
                     return;
                 }
 
@@ -7895,8 +8186,8 @@ ${requirement.failure_examples}
                 const failedRuns = sortedDates.map(date => runsByDate[date].failed);
                 const issuesFound = sortedDates.map(date => runsByDate[date].issues);
 
-                // Update chart data
-                this.automationChartData = {
+                // Create raw chart data (not reactive)
+                const chartData = {
                     labels: labels,
                     datasets: [
                         {
@@ -7938,13 +8229,60 @@ ${requirement.failure_examples}
                     ]
                 };
 
-                // Update chart with new data
+                // Update chart with new data (complete isolation from Alpine reactivity)
                 if (this.automationChart && this.automationChart.data && this.automationChart.update) {
                     try {
-                        this.automationChart.data = this.automationChartData;
+                        // Create completely isolated, non-reactive data structure using the raw chartData (not this.automationChartData)
+                        const isolatedData = {
+                            labels: [...chartData.labels],
+                            datasets: chartData.datasets.map(dataset => ({
+                                label: dataset.label,
+                                data: [...dataset.data],
+                                borderColor: dataset.borderColor,
+                                backgroundColor: dataset.backgroundColor,
+                                borderWidth: dataset.borderWidth,
+                                fill: dataset.fill,
+                                tension: dataset.tension
+                            }))
+                        };
+                        
+                        // Replace chart data completely (not assign)
+                        this.automationChart.data.labels.length = 0;
+                        this.automationChart.data.labels.push(...isolatedData.labels);
+                        this.automationChart.data.datasets.length = 0;
+                        this.automationChart.data.datasets.push(...isolatedData.datasets);
+                        
+                        // Update with minimal animation to prevent conflicts
                         this.automationChart.update('none');
+                        
+                        // Store the chart data for future reference (AFTER chart is updated)
+                        this.automationChartData = JSON.parse(JSON.stringify(chartData));
+                        
                     } catch (updateError) {
                         console.error('Error updating chart data:', updateError);
+                        // Robust fallback: completely recreate chart
+                        try {
+                            if (this.automationChart) {
+                                this.automationChart.destroy();
+                            }
+                            this.automationChart = null;
+                            console.log('📊 Chart destroyed due to error, will reinitialize on next update');
+                            
+                            // Mark chart as failed to prevent infinite loops
+                            this.chartFailedCount = (this.chartFailedCount || 0) + 1;
+                            if (this.chartFailedCount < 3) {
+                                setTimeout(() => {
+                                    this.initAutomationChart();
+                                    // Don't call updateAutomationChart again to prevent recursion
+                                }, 100);
+                            } else {
+                                console.warn('📊 Chart updates disabled due to repeated failures');
+                                this.chartUpdatesDisabled = true;
+                            }
+                            
+                        } catch (destroyError) {
+                            console.error('Error destroying chart:', destroyError);
+                        }
                     }
                 }
 
@@ -13086,3 +13424,14 @@ if (typeof window.dashboard === 'undefined') {
         };
     };
 }
+
+// Add global chart reset function for debugging
+window.resetAutomationChart = function() {
+    if (window.dashboardInstance && window.dashboardInstance.resetAutomationChart) {
+        window.dashboardInstance.resetAutomationChart();
+    } else if (window._dashboardInstance && window._dashboardInstance.resetAutomationChart) {
+        window._dashboardInstance.resetAutomationChart();
+    } else {
+        console.warn('Dashboard instance not found for chart reset');
+    }
+};

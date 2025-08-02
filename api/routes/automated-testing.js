@@ -312,7 +312,8 @@ router.get('/results/:runId', authenticateToken, async (req, res) => {
                 results: results.detailed_results,
                 summary: results.summary,
                 evidence: results.evidence_files,
-                test_instances_updated: results.test_instances_updated
+                test_instances_updated: results.test_instances_updated,
+                requirements_tested: results.requirements_tested || []
             }
         });
 

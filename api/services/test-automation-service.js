@@ -1262,15 +1262,50 @@ class TestAutomationService {
     }
 
     /**
-     * Update automation run status
-     * Note: automated_test_results doesn't track run status - it stores individual test results
-     * This method now just logs status changes instead of trying to update non-existent columns
+     * Update automation run status - FIXED to actually update database
      */
     async updateRunStatus(runId, status, data = {}) {
         console.log(`📊 Automation Run ${runId}: Status changed to ${status}`, data);
         
-        // Log status changes without database updates since automated_test_results
-        // is for individual test results, not run status tracking
+        try {
+            // Update the specific automated_test_results record that represents this run
+            const updateQuery = `
+                UPDATE automated_test_results 
+                SET 
+                    status = $2,
+                    completed_at = CASE WHEN $2 = 'completed' THEN CURRENT_TIMESTAMP ELSE completed_at END,
+                    error = CASE WHEN $2 = 'failed' THEN $3 ELSE error END,
+                    violations_count = COALESCE($4, violations_count),
+                    warnings_count = COALESCE($5, warnings_count),
+                    passes_count = COALESCE($6, passes_count),
+                    test_duration_ms = COALESCE($7, test_duration_ms),
+                    raw_results = CASE WHEN $8 IS NOT NULL THEN $8 ELSE raw_results END
+                WHERE id = $1
+            `;
+            
+            const values = [
+                runId,
+                status,
+                data.error || null,
+                data.total_issues || null,
+                data.warnings || null, 
+                data.passes || null,
+                data.duration_ms || null,
+                data.raw_results ? JSON.stringify(data.raw_results) : null
+            ];
+            
+            const result = await pool.query(updateQuery, values);
+            
+            if (result.rowCount > 0) {
+                console.log(`✅ Updated automation run ${runId} status to ${status}`);
+            } else {
+                console.warn(`⚠️ No automation run found with ID ${runId}`);
+            }
+            
+        } catch (error) {
+            console.error(`❌ Error updating automation run status:`, error);
+            throw error;
+        }
         
         if (status === 'failed' && data.error) {
             console.error(`❌ Automation Run ${runId} failed:`, data.error);
@@ -1290,11 +1325,11 @@ class TestAutomationService {
         try {
             // Get test instances for this session
             const instancesQuery = `
-                SELECT ti.*, tr.requirement_id
+                SELECT ti.*, ur.requirement_id as criterion_number, ur.level, ur.test_method
                 FROM test_instances ti
-                JOIN test_requirements tr ON ti.requirement_id = tr.id
+                JOIN unified_requirements ur ON ti.requirement_id = ur.id
                 WHERE ti.session_id = $1
-                AND (tr.test_method = 'automated' OR tr.test_method = 'both')
+                AND (ur.test_method = 'automated' OR ur.test_method = 'both')
             `;
 
             const instancesResult = await pool.query(instancesQuery, [sessionId]);
@@ -2732,6 +2767,34 @@ class TestAutomationService {
             }
 
             const run = result.rows[0];
+            
+            // Get requirements that were tested in this session
+            const requirementsQuery = `
+                SELECT 
+                    ur.requirement_id as criterion_number,
+                    ur.title,
+                    ur.level,
+                    ur.test_method,
+                    ti.result,
+                    ti.status,
+                    CASE 
+                        WHEN ti.result IS NOT NULL AND ti.result::text LIKE '%violations%' 
+                        THEN COALESCE((ti.result->>'violations_count')::int, 0)
+                        ELSE 0
+                    END as violations
+                FROM test_instances ti
+                JOIN unified_requirements ur ON ti.requirement_id = ur.id
+                WHERE ti.session_id = $1
+                AND (ur.test_method = 'automated' OR ur.test_method = 'both')
+                AND ti.updated_at >= $2::timestamp - interval '5 minutes'
+                AND ti.updated_at <= $2::timestamp + interval '5 minutes'
+                ORDER BY ur.requirement_id
+            `;
+            
+            const requirementsResult = await pool.query(requirementsQuery, [
+                run.test_session_id, 
+                run.executed_at
+            ]);
 
             return {
                 detailed_results: run.raw_results || {},
@@ -2744,7 +2807,8 @@ class TestAutomationService {
                         new Date(run.completed_at) - new Date(run.started_at) : null
                 },
                 evidence_files: run.evidence_count || 0,
-                test_instances_updated: run.test_instances_updated || 0
+                test_instances_updated: run.test_instances_updated || 0,
+                requirements_tested: requirementsResult.rows || []
             };
 
         } catch (error) {
