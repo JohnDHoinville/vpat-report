@@ -1164,14 +1164,12 @@ class TestAutomationService {
      * Create automation run record
      */
     async createAutomationRun(sessionId, runId, tools, userId) {
-        // Get a default page_id for this session (we'll use the first discovered page from site discovery)
+        // Get page_id from test instances (same source as storeToolResults uses)
         const pageQuery = `
-            SELECT dp.id as page_id
-            FROM test_sessions ts
-            JOIN projects p ON ts.project_id = p.id
-            JOIN site_discovery sd ON sd.project_id = p.id
-            JOIN discovered_pages dp ON dp.discovery_id = sd.id
-            WHERE ts.id = $1
+            SELECT DISTINCT dp.id as page_id
+            FROM test_instances ti
+            JOIN discovered_pages dp ON ti.page_id = dp.id
+            WHERE ti.session_id = $1
             LIMIT 1
         `;
         
@@ -1272,14 +1270,14 @@ class TestAutomationService {
             const updateQuery = `
                 UPDATE automated_test_results 
                 SET 
-                    status = $2,
-                    completed_at = CASE WHEN $2 = 'completed' THEN CURRENT_TIMESTAMP ELSE completed_at END,
-                    error = CASE WHEN $2 = 'failed' THEN $3 ELSE error END,
+                    status = $2::character varying,
+                    completed_at = CASE WHEN $2::character varying = 'completed' THEN CURRENT_TIMESTAMP ELSE completed_at END,
+                    error = CASE WHEN $2::character varying = 'failed' THEN $3 ELSE error END,
                     violations_count = COALESCE($4, violations_count),
                     warnings_count = COALESCE($5, warnings_count),
                     passes_count = COALESCE($6, passes_count),
                     test_duration_ms = COALESCE($7, test_duration_ms),
-                    raw_results = CASE WHEN $8 IS NOT NULL THEN $8 ELSE raw_results END
+                    raw_results = CASE WHEN $8::text IS NOT NULL THEN $8::jsonb ELSE raw_results END
                 WHERE id = $1
             `;
             
@@ -1325,11 +1323,11 @@ class TestAutomationService {
         try {
             // Get test instances for this session
             const instancesQuery = `
-                SELECT ti.*, ur.requirement_id as criterion_number, ur.level, ur.test_method
+                SELECT ti.*, tr.criterion_number, tr.level, tr.test_method
                 FROM test_instances ti
-                JOIN unified_requirements ur ON ti.requirement_id = ur.id
+                JOIN test_requirements tr ON ti.requirement_id = tr.id
                 WHERE ti.session_id = $1
-                AND (ur.test_method = 'automated' OR ur.test_method = 'both')
+                AND (tr.test_method = 'automated' OR tr.test_method = 'both')
             `;
 
             const instancesResult = await pool.query(instancesQuery, [sessionId]);
@@ -1533,17 +1531,17 @@ class TestAutomationService {
         }
 
         // Determine status based on violations
-        let newStatus = 'passed_review_required'; // Default for automated tests
+        let newStatus = 'needs_review'; // Default for automated tests
         let confidence = 'high';
         
         if (criticalViolations > 0) {
             newStatus = 'failed'; // Critical violations = failed
             confidence = 'high';
         } else if (totalViolations > 0) {
-            newStatus = 'passed_review_required'; // Non-critical violations = review required
+            newStatus = 'needs_review'; // Non-critical violations = review required
             confidence = 'medium';
         } else {
-            newStatus = 'passed_review_required'; // No violations = review required
+            newStatus = 'passed'; // No violations = passed
             confidence = 'high';
         }
 
@@ -4270,7 +4268,10 @@ class TestAutomationService {
      */
     async getTestInstancesToRun(sessionId, specificInstances = null) {
         try {
+            console.log(`🔍 DEBUG getTestInstancesToRun: sessionId=${sessionId}, specificInstances=${JSON.stringify(specificInstances)}`);
+            
             if (specificInstances && Array.isArray(specificInstances)) {
+                console.log(`🎯 DEBUG: Using specific instances branch with ${specificInstances.length} instances`);
                 // Run specific test instances
                 const query = `
                     SELECT 
@@ -4280,21 +4281,23 @@ class TestAutomationService {
                         ti.test_method_used,
                         dp.url,
                         dp.title as page_title,
-                        ur.requirement_id as criterion_number,
-                        ur.title as requirement_title,
-                        ur.description
+                        tr.criterion_number,
+                        tr.title as requirement_title,
+                        tr.description
                     FROM test_instances ti
                     JOIN discovered_pages dp ON ti.page_id = dp.id
-                    JOIN unified_requirements ur ON ti.requirement_id = ur.id
+                    JOIN test_requirements tr ON ti.requirement_id = tr.id
                     WHERE ti.id = ANY($1)
                     AND ti.session_id = $2
-                    ORDER BY dp.url, ur.requirement_id
+                    ORDER BY dp.url, tr.criterion_number
                 `;
                 
                 const result = await pool.query(query, [specificInstances, sessionId]);
                 return result.rows;
             }
 
+            console.log(`🎯 DEBUG: Using main query branch for all automated instances`);
+            
             // Get test instances with REAL WCAG criteria for proper mapping
             const query = `
                 SELECT 
@@ -4305,21 +4308,20 @@ class TestAutomationService {
                     ti.status,
                     dp.url,
                     dp.title as page_title,
-                    ur.requirement_id as criterion_number,
-                    ur.title as requirement_title,
-                    ur.description,
-                    ur.standard_type,
-                    COALESCE(ur.tool_mappings, '{"axe-core": true, "pa11y": true}') as tool_mappings,
-                    COALESCE(ur.automation_coverage, 'automated') as automation_coverage
+                    tr.criterion_number,
+                    tr.title as requirement_title,
+                    tr.description,
+                    tr.requirement_type as standard_type,
+                    '{"axe-core": true, "pa11y": true}' as tool_mappings,
+                    'automated' as automation_coverage
                 FROM test_instances ti
                 JOIN discovered_pages dp ON ti.page_id = dp.id
-                JOIN unified_requirements ur ON ti.requirement_id = ur.id
+                JOIN test_requirements tr ON ti.requirement_id = tr.id
                 WHERE ti.session_id = $1
                 AND dp.url IS NOT NULL
-                AND ti.test_method_used = 'automated'
-                AND ur.standard_type = 'wcag'
-                AND ur.requirement_id IS NOT NULL
-                ORDER BY dp.url
+                AND (ti.test_method_used = 'automated' OR tr.test_method IN ('automated', 'both'))
+                AND tr.criterion_number IS NOT NULL
+                ORDER BY dp.url, tr.criterion_number
                 LIMIT 50
             `;
 
