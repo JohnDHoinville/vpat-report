@@ -102,7 +102,7 @@
                                     <div>
                                         <h4 class="font-medium text-gray-900 mb-1">Test Requirement</h4>
                                         <p class="text-sm text-gray-600" x-text="`${request.criterion_number}: ${request.requirement_title}`"></p>
-                                        <p class="text-xs text-gray-500 mt-1" x-text="request.page_url || 'Site-wide test'"></p>
+                                        <p class="text-xs text-gray-500 mt-1" x-text="request.page_url || 'Site-wide test (all applicable pages)'"></p>
                                     </div>
                                     <div>
                                         <h4 class="font-medium text-gray-900 mb-1">Change Details</h4>
@@ -203,7 +203,7 @@
                                 </div>
                                 <div>
                                     <span class="text-sm font-medium text-gray-700">Page:</span>
-                                    <p class="text-sm text-gray-600" x-text="changeApproval.currentRequest.request.page_url || 'Site-wide test'"></p>
+                                    <p class="text-sm text-gray-600" x-text="changeApproval.currentRequest.request.page_url || 'Site-wide test (all applicable pages)'"></p>
                                 </div>
                                 <div>
                                     <span class="text-sm font-medium text-gray-700">Current Status:</span>

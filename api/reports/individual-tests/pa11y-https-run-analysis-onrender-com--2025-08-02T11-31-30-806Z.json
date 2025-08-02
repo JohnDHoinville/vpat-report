@@ -1,0 +1,91 @@
+{
+  "tool": "pa11y",
+  "pageUrl": "https://run-analysis.onrender.com/",
+  "pageId": "e4b6a47b-fa32-4adf-9710-fe0279cb186c",
+  "sessionId": "5b524a21-fdcb-4119-bf17-e36484f6ba79",
+  "runId": "e8b57d4a-951f-40a7-8a84-1274c3e5912b",
+  "timestamp": "2025-08-02T11:31:30.806Z",
+  "violations": [
+    {
+      "code": "WCAG2AA.Principle1.Guideline1_4.1_4_3.G145.Fail",
+      "type": "error",
+      "typeCode": 1,
+      "message": "This element has insufficient contrast at this conformance level. Expected a contrast ratio of at least 3:1, but text in this element has a contrast ratio of 2.46:1. Recommendation:  change text colour to #242424.",
+      "context": "<span role=\"img\" aria-label=\"runner\" style=\"font-size: 40px;\">🏃</span>",
+      "selector": "#features > div > div:nth-child(2) > div:nth-child(1) > div:nth-child(1) > span",
+      "runner": "htmlcs",
+      "runnerExtras": {}
+    },
+    {
+      "code": "WCAG2AA.Principle1.Guideline1_4.1_4_3.G145.Fail",
+      "type": "error",
+      "typeCode": 1,
+      "message": "This element has insufficient contrast at this conformance level. Expected a contrast ratio of at least 3:1, but text in this element has a contrast ratio of 2.46:1. Recommendation:  change text colour to #242424.",
+      "context": "<span role=\"img\" aria-label=\"chart\" style=\"font-size: 40px;\">📊</span>",
+      "selector": "#features > div > div:nth-child(2) > div:nth-child(2) > div:nth-child(1) > span",
+      "runner": "htmlcs",
+      "runnerExtras": {}
+    },
+    {
+      "code": "WCAG2AA.Principle1.Guideline1_4.1_4_3.G145.Fail",
+      "type": "error",
+      "typeCode": 1,
+      "message": "This element has insufficient contrast at this conformance level. Expected a contrast ratio of at least 3:1, but text in this element has a contrast ratio of 2.46:1. Recommendation:  change text colour to #242424.",
+      "context": "<span role=\"img\" aria-label=\"chart\" style=\"font-size: 40px;\">📈</span>",
+      "selector": "#features > div > div:nth-child(2) > div:nth-child(3) > div:nth-child(1) > span",
+      "runner": "htmlcs",
+      "runnerExtras": {}
+    },
+    {
+      "code": "WCAG2AA.Principle1.Guideline1_4.1_4_3.G145.Fail",
+      "type": "error",
+      "typeCode": 1,
+      "message": "This element has insufficient contrast at this conformance level. Expected a contrast ratio of at least 3:1, but text in this element has a contrast ratio of 2.46:1. Recommendation:  change text colour to #242424.",
+      "context": "<span role=\"img\" aria-label=\"heart\" style=\"font-size: 40px;\">❤️</span>",
+      "selector": "#features > div > div:nth-child(2) > div:nth-child(4) > div:nth-child(1) > span",
+      "runner": "htmlcs",
+      "runnerExtras": {}
+    },
+    {
+      "code": "WCAG2AA.Principle1.Guideline1_4.1_4_3.G145.Fail",
+      "type": "error",
+      "typeCode": 1,
+      "message": "This element has insufficient contrast at this conformance level. Expected a contrast ratio of at least 3:1, but text in this element has a contrast ratio of 2.46:1. Recommendation:  change text colour to #242424.",
+      "context": "<span role=\"img\" aria-label=\"mobile\" style=\"font-size: 40px;\">📱</span>",
+      "selector": "#features > div > div:nth-child(2) > div:nth-child(5) > div:nth-child(1) > span",
+      "runner": "htmlcs",
+      "runnerExtras": {}
+    },
+    {
+      "code": "WCAG2AA.Principle1.Guideline1_4.1_4_3.G18.Fail",
+      "type": "error",
+      "typeCode": 1,
+      "message": "This element has insufficient contrast at this conformance level. Expected a contrast ratio of at least 4.5:1, but text in this element has a contrast ratio of 4.1:1. Recommendation:  change text colour to #358439.",
+      "context": "<h4 style=\"color: rgb(46, 125, 50); font-weight: 600; margin-bottom: 1rem;\">Company</h4>",
+      "selector": "#root > div > div > div > footer > div > div:nth-child(1) > div:nth-child(1) > h4",
+      "runner": "htmlcs",
+      "runnerExtras": {}
+    },
+    {
+      "code": "WCAG2AA.Principle1.Guideline1_4.1_4_3.G18.Fail",
+      "type": "error",
+      "typeCode": 1,
+      "message": "This element has insufficient contrast at this conformance level. Expected a contrast ratio of at least 4.5:1, but text in this element has a contrast ratio of 4.1:1. Recommendation:  change text colour to #358439.",
+      "context": "<h4 style=\"color: rgb(46, 125, 50); font-weight: 600; margin-bottom: 1rem;\">Resources</h4>",
+      "selector": "#root > div > div > div > footer > div > div:nth-child(1) > div:nth-child(2) > h4",
+      "runner": "htmlcs",
+      "runnerExtras": {}
+    },
+    {
+      "code": "WCAG2AA.Principle1.Guideline1_4.1_4_3.G18.Fail",
+      "type": "error",
+      "typeCode": 1,
+      "message": "This element has insufficient contrast at this conformance level. Expected a contrast ratio of at least 4.5:1, but text in this element has a contrast ratio of 4.1:1. Recommendation:  change text colour to #358439.",
+      "context": "<h4 style=\"color: rgb(46, 125, 50); font-weight: 600; margin-bottom: 1rem;\">Legal</h4>",
+      "selector": "#root > div > div > div > footer > div > div:nth-child(1) > div:nth-child(3) > h4",
+      "runner": "htmlcs",
+      "runnerExtras": {}
+    }
+  ],
+  "violationCount": 8
+}

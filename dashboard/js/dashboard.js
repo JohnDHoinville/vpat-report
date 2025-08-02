@@ -485,7 +485,7 @@ window.dashboard = function() {
             }
             
             if (this.requirementFilters.wcagLevel) {
-                filtered = filtered.filter(r => r.wcag_level === this.requirementFilters.wcagLevel);
+                filtered = filtered.filter(r => r.level && r.level.toUpperCase() === this.requirementFilters.wcagLevel.toUpperCase());
             }
             
             if (this.requirementFilters.testMethod) {
@@ -673,6 +673,7 @@ ${requirement.failure_examples}
         automationRuns: [],
         automationRunsSummary: {},
         loadingAutomationRuns: false,
+        availableTools: [],
         
         // ===== AUTOMATION CHART STATE =====
         automationChart: null,
@@ -6912,6 +6913,11 @@ ${requirement.failure_examples}
                     console.warn('Error parsing result for tools:', e);
                 }
             }
+
+            // If still no tools but requirement can be automated, determine appropriate tools based on criterion
+            if (tools.length === 0 && (requirement.test_method === 'automated' || requirement.test_method === 'both')) {
+                tools = this.getRecommendedToolsForCriterion(requirement.criterion_number, requirement.test_method);
+            }
             
             // Map tool names to display names
             const toolDisplayNames = {
@@ -6921,7 +6927,8 @@ ${requirement.failure_examples}
                 'lighthouse': 'Lighthouse',
                 'WAVE': 'WAVE',
                 'wave': 'WAVE',
-                'color-contrast-analyzer': 'Color Contrast',
+                'contrast-analyzer': 'Color Contrast Analyzer',
+                'mobile-accessibility': 'Mobile Accessibility',
                 'CCA': 'Color Contrast',
                 'luma': 'Luma',
                 'ANDI': 'ANDI',
@@ -6929,6 +6936,125 @@ ${requirement.failure_examples}
             };
             
             return tools.map(tool => toolDisplayNames[tool] || tool);
+        },
+
+        // Get recommended tools for a specific WCAG criterion
+        getRecommendedToolsForCriterion(criterionNumber, testMethod) {
+            if (testMethod === 'manual') {
+                return []; // Manual testing doesn't use automated tools
+            }
+
+            // Define tool recommendations based on WCAG criteria
+            const toolRecommendations = {
+                // Color/Contrast related
+                '1.4.3': ['axe-core', 'contrast-analyzer'], // Contrast (Minimum)
+                '1.4.6': ['axe-core', 'contrast-analyzer'], // Contrast (Enhanced)
+                '1.4.11': ['axe-core', 'contrast-analyzer'], // Non-text Contrast
+                
+                // Keyboard/Focus related
+                '2.1.1': ['axe-core', 'pa11y'], // Keyboard
+                '2.1.2': ['axe-core', 'pa11y'], // No Keyboard Trap
+                '2.4.7': ['axe-core', 'pa11y'], // Focus Visible
+                
+                // Structure/Semantic related
+                '1.3.1': ['axe-core', 'pa11y', 'wave'], // Info and Relationships
+                '2.4.1': ['axe-core', 'pa11y'], // Bypass Blocks
+                '2.4.2': ['axe-core', 'pa11y'], // Page Titled
+                '2.4.4': ['axe-core', 'pa11y'], // Link Purpose
+                '4.1.1': ['axe-core', 'pa11y'], // Parsing
+                '4.1.2': ['axe-core', 'pa11y'], // Name, Role, Value
+                
+                // Images/Media related
+                '1.1.1': ['axe-core', 'pa11y'], // Non-text Content
+                '1.2.1': ['axe-core'], // Audio-only and Video-only
+                '1.2.2': ['axe-core'], // Captions
+                '1.2.3': ['axe-core'], // Audio Description
+                
+                // Forms related
+                '3.3.1': ['axe-core', 'pa11y'], // Error Identification
+                '3.3.2': ['axe-core', 'pa11y'], // Labels or Instructions
+                '4.1.3': ['axe-core', 'pa11y'], // Status Messages
+                
+                // Mobile/Responsive related
+                '1.4.4': ['axe-core', 'mobile-accessibility'], // Resize text
+                '1.4.10': ['axe-core', 'mobile-accessibility'], // Reflow
+                '2.5.5': ['mobile-accessibility'], // Target Size
+                
+                // Timing related
+                '2.2.1': ['axe-core'], // Timing Adjustable
+                '2.2.2': ['axe-core'], // Pause, Stop, Hide
+                
+                // Seizures related
+                '2.3.1': ['axe-core'], // Three Flashes or Below Threshold
+                
+                // Language related
+                '3.1.1': ['axe-core', 'pa11y'], // Language of Page
+                '3.1.2': ['axe-core', 'pa11y'], // Language of Parts
+                
+                // Navigation related
+                '3.2.1': ['axe-core'], // On Focus
+                '3.2.2': ['axe-core'], // On Input
+                '3.2.3': ['axe-core', 'pa11y'], // Consistent Navigation
+                '3.2.4': ['axe-core', 'pa11y'], // Consistent Identification
+            };
+
+            // Get tools for this specific criterion, or default to general tools
+            const criterionTools = toolRecommendations[criterionNumber] || ['axe-core', 'pa11y'];
+            
+            // For 'both' test method, include comprehensive tools
+            if (testMethod === 'both') {
+                return [...new Set([...criterionTools, 'wave'])]; // Add WAVE for comprehensive analysis
+            }
+            
+            return criterionTools;
+        },
+
+        // Get tool icon class for display
+        getToolIcon(toolName) {
+            const iconMap = {
+                'Axe Core': 'fa-cog',
+                'Pa11y': 'fa-terminal',
+                'Lighthouse': 'fa-lighthouse',
+                'WAVE': 'fa-eye',
+                'Color Contrast Analyzer': 'fa-palette',
+                'Mobile Accessibility': 'fa-mobile-alt',
+                'Luma': 'fa-sun',
+                'ANDI': 'fa-search',
+                'HTML CodeSniffer': 'fa-code'
+            };
+            return iconMap[toolName] || 'fa-tools';
+        },
+
+        // Get tool color class for display
+        getToolColorClass(toolName) {
+            const colorMap = {
+                'Axe Core': 'text-blue-600',
+                'Pa11y': 'text-green-600',
+                'Lighthouse': 'text-yellow-600',
+                'WAVE': 'text-teal-600',
+                'Color Contrast Analyzer': 'text-purple-600',
+                'Mobile Accessibility': 'text-indigo-600',
+                'Luma': 'text-orange-600',
+                'ANDI': 'text-red-600',
+                'HTML CodeSniffer': 'text-gray-600'
+            };
+            return colorMap[toolName] || 'text-gray-600';
+        },
+
+        // Get full tool description for tooltip
+        getToolDescription(toolName) {
+            const descriptions = {
+                'Axe Core': 'Industry-leading accessibility testing engine for WCAG compliance',
+                'Pa11y': 'Command-line accessibility testing tool with HTML validation',
+                'Lighthouse': 'Google\'s web performance and accessibility auditing tool',
+                'WAVE': 'WebAIM\'s WAVE API for comprehensive accessibility analysis',
+                'Color Contrast Analyzer': 'Advanced color contrast analysis for WCAG AA/AAA compliance',
+                'Mobile Accessibility': 'Mobile accessibility testing across multiple viewports and touch interfaces',
+                'Luma': 'Color luminance and contrast testing tool',
+                'ANDI': 'Accessible Name & Description Inspector',
+                'HTML CodeSniffer': 'HTML accessibility code analysis tool'
+            };
+            return descriptions[toolName] || `${toolName} accessibility testing tool`;
         },
 
         getAutomationConfidenceClass(confidence) {
@@ -7509,6 +7635,9 @@ ${requirement.failure_examples}
                 
                 // Load automation summary
                 await this.loadAutomationSummary(sessionId);
+                
+                // Load available automation tools
+                await this.loadAvailableTools();
                 
             } catch (error) {
                 console.error('Error loading session details data:', error);
@@ -8126,6 +8255,24 @@ ${requirement.failure_examples}
                 this.automationSummary = {};
             }
         },
+
+        // Load available automation tools
+        async loadAvailableTools() {
+            try {
+                const response = await this.apiCall('/automated-testing/tools');
+                
+                if (response.success) {
+                    this.availableTools = response.tools || [];
+                    console.log('🔧 Available tools loaded:', this.availableTools.length);
+                } else {
+                    console.warn('Failed to load available tools:', response.error);
+                    this.availableTools = [];
+                }
+            } catch (error) {
+                console.error('Error loading available tools:', error);
+                this.availableTools = [];
+            }
+        },
         
         // Load session test instances
         async loadSessionTestInstances(sessionId) {
@@ -8450,11 +8597,21 @@ ${requirement.failure_examples}
                 <div class="space-y-6">
                     <!-- Modal Header -->
                     <div class="flex justify-between items-start">
-                        <div>
-                            <h3 class="text-2xl font-bold text-gray-900">Test Instance Details</h3>
-                            <p class="text-gray-600 text-sm mt-1">${testInstance.criterion_number} - ${testInstance.requirement_title || testInstance.title || 'Untitled'}</p>
+                        <div class="flex-1 mr-4">
+                            <h3 class="text-xl font-bold text-gray-900">${testInstance.criterion_number} - ${testInstance.requirement_title || testInstance.title || 'Untitled'}</h3>
+                            <div class="flex items-center mt-2 text-sm text-gray-600">
+                                <i class="fas fa-globe mr-2 text-blue-500"></i>
+                                ${testInstance.page_url ? `
+                                    <a href="${testInstance.page_url}" target="_blank" class="text-blue-600 hover:text-blue-800 font-medium">
+                                        ${testInstance.page_url}
+                                        <i class="fas fa-external-link-alt ml-1 text-xs"></i>
+                                    </a>
+                                ` : `
+                                    <span class="text-gray-600 font-medium">Site-wide test (all applicable pages)</span>
+                                `}
+                            </div>
                         </div>
-                        <button onclick="this.closest('.fixed').remove()" class="text-gray-400 hover:text-gray-600">
+                        <button onclick="this.closest('.fixed').remove()" class="text-gray-400 hover:text-gray-600 flex-shrink-0">
                             <i class="fas fa-times text-xl"></i>
                         </button>
                     </div>
@@ -8478,11 +8635,24 @@ ${requirement.failure_examples}
                                         <span class="ml-2 text-blue-900">${testInstance.test_method_used || testInstance.requirement_test_method || 'Manual'}</span>
                                     </div>
                                     <div>
-                                        <span class="font-medium text-blue-800">Page:</span>
-                                        ${testInstance.page_url ? `<a href="${testInstance.page_url}" target="_blank" class="ml-2 text-blue-600 hover:text-blue-800">
-                                            <span>${testInstance.page_title || testInstance.page_url}</span>
-                                            <i class="fas fa-external-link-alt ml-1 text-xs"></i>
-                                        </a>` : '<span class="ml-2 text-blue-900">Site-wide test</span>'}
+                                        <span class="font-medium text-blue-800">Test Scope:</span>
+                                        ${testInstance.page_url ? `
+                                            <div class="ml-2 mt-1">
+                                                <div class="text-xs text-gray-600 mb-1">Specific Page:</div>
+                                                <a href="${testInstance.page_url}" target="_blank" class="text-blue-600 hover:text-blue-800 flex items-center">
+                                                    <span class="break-all">${testInstance.page_url}</span>
+                                                    <i class="fas fa-external-link-alt ml-1 text-xs flex-shrink-0"></i>
+                                                </a>
+                                                ${testInstance.page_title && testInstance.page_title !== 'From Sitemap' ? `
+                                                    <div class="text-xs text-gray-500 mt-1">Page: ${testInstance.page_title}</div>
+                                                ` : ''}
+                                            </div>
+                                        ` : `
+                                            <div class="ml-2 mt-1">
+                                                <div class="text-blue-900 font-medium">Site-wide Test</div>
+                                                <div class="text-xs text-gray-600">Applied to all applicable pages in the session</div>
+                                            </div>
+                                        `}
                                     </div>
                                 </div>
                             </div>
@@ -8863,6 +9033,105 @@ ${requirement.failure_examples}
             }
         },
 
+        // Render detailed automation findings
+        renderDetailedFindings(findings) {
+            if (!findings) return '<p class="text-sm text-gray-500">No detailed findings available</p>';
+            
+            if (findings.error) {
+                return `<p class="text-sm text-red-600">${findings.error}</p>`;
+            }
+            
+            if (findings.rule_id) {
+                // Single violation
+                return `
+                    <div class="space-y-2">
+                        <div class="flex items-start justify-between">
+                            <div class="flex-1">
+                                <div class="font-medium text-gray-900">${findings.rule_id}</div>
+                                <div class="text-sm text-gray-600 mt-1">${findings.description || 'No description'}</div>
+                            </div>
+                            <span class="px-2 py-1 text-xs font-medium rounded-full ${this.getImpactBadgeClass(findings.impact)}">
+                                ${(findings.impact || 'unknown').toUpperCase()}
+                            </span>
+                        </div>
+                        
+                        ${findings.elements_affected ? `
+                            <div class="text-sm text-gray-600">
+                                <span class="font-medium">Elements affected:</span> ${findings.elements_affected}
+                            </div>
+                        ` : ''}
+                        
+                        ${findings.selector ? `
+                            <div class="text-sm text-gray-600">
+                                <span class="font-medium">Selector:</span> 
+                                <code class="bg-gray-100 px-1 rounded text-xs">${findings.selector}</code>
+                            </div>
+                        ` : ''}
+                        
+                        ${findings.message ? `
+                            <div class="text-sm text-gray-600">
+                                <span class="font-medium">Details:</span> ${findings.message}
+                            </div>
+                        ` : ''}
+                        
+                        ${findings.help_url ? `
+                            <div class="text-sm">
+                                <a href="${findings.help_url}" target="_blank" class="text-purple-600 hover:text-purple-800">
+                                    <i class="fas fa-external-link-alt mr-1"></i>Learn more
+                                </a>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }
+            
+            if (findings.violations && Array.isArray(findings.violations)) {
+                // Multiple violations
+                return `
+                    <div class="space-y-3">
+                        <div class="text-sm font-medium text-gray-900">
+                            ${findings.total_violations} violations found:
+                        </div>
+                        ${findings.violations.map(v => `
+                            <div class="border border-gray-200 rounded p-3">
+                                <div class="flex items-start justify-between mb-2">
+                                    <div class="font-medium text-gray-900">${v.rule_id}</div>
+                                    <span class="px-2 py-1 text-xs font-medium rounded-full ${this.getImpactBadgeClass(v.impact)}">
+                                        ${(v.impact || 'unknown').toUpperCase()}
+                                    </span>
+                                </div>
+                                <div class="text-sm text-gray-600">${v.description || 'No description'}</div>
+                                ${v.elements_affected ? `
+                                    <div class="text-xs text-gray-500 mt-1">
+                                        ${v.elements_affected} elements affected
+                                    </div>
+                                ` : ''}
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            }
+            
+            // Fallback for raw data
+            return `
+                <details class="text-sm">
+                    <summary class="cursor-pointer font-medium text-gray-700">View raw findings</summary>
+                    <pre class="mt-2 bg-gray-100 p-2 rounded text-xs overflow-auto">${JSON.stringify(findings, null, 2)}</pre>
+                </details>
+            `;
+        },
+
+        // Get badge class for violation impact level
+        getImpactBadgeClass(impact) {
+            switch (impact?.toLowerCase()) {
+                case 'critical': return 'bg-red-100 text-red-800';
+                case 'serious': return 'bg-orange-100 text-orange-800';
+                case 'moderate': return 'bg-yellow-100 text-yellow-800';
+                case 'minor': return 'bg-blue-100 text-blue-800';
+                default: return 'bg-gray-100 text-gray-800';
+            }
+        },
+
         // Load automation results for current test instance
         async loadAutomationResults(instanceId) {
             try {
@@ -8899,7 +9168,7 @@ ${requirement.failure_examples}
                                 ${result.violations_count > 0 ? `
                                     <div class="bg-red-50 border border-red-200 rounded p-3 text-center">
                                         <div class="text-xl font-bold text-red-700">${result.violations_count}</div>
-                                        <div class="text-xs text-red-600">Violations</div>
+                                        <div class="text-xs text-red-600">Violations Found</div>
                                     </div>
                                 ` : ''}
                                 ${result.warnings_count > 0 ? `
@@ -8911,10 +9180,26 @@ ${requirement.failure_examples}
                                 ${result.passes_count > 0 ? `
                                     <div class="bg-green-50 border border-green-200 rounded p-3 text-center">
                                         <div class="text-xl font-bold text-green-700">${result.passes_count}</div>
-                                        <div class="text-xs text-green-600">Passed</div>
+                                        <div class="text-xs text-green-600">Tests Passed</div>
+                                    </div>
+                                ` : ''}
+                                ${result.violations_count === 0 && result.warnings_count === 0 && result.passes_count === 0 ? `
+                                    <div class="col-span-3 bg-blue-50 border border-blue-200 rounded p-3 text-center">
+                                        <div class="text-sm text-blue-700">Test completed - No violations detected</div>
                                     </div>
                                 ` : ''}
                             </div>
+                            
+                            <!-- Detailed Findings -->
+                            ${result.detailed_findings ? `
+                                <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
+                                    <h5 class="text-sm font-semibold text-gray-900 mb-3 flex items-center">
+                                        <i class="fas fa-search mr-2 text-purple-600"></i>
+                                        Detailed Findings
+                                    </h5>
+                                    ${this.renderDetailedFindings(result.detailed_findings)}
+                                </div>
+                            ` : ''}
 
                             <!-- Detailed Results -->
                             ${result.raw_results && Object.keys(result.raw_results).length > 0 ? `
@@ -10101,6 +10386,47 @@ ${requirement.failure_examples}
             } catch (error) {
                 console.error('Error running bulk automation:', error);
                 this.showNotification('error', 'Bulk Automation Failed', error.message);
+            }
+        },
+
+        // Run automated test for a specific requirement
+        async runAutomatedTestForRequirement(requirement) {
+            try {
+                console.log(`🎯 Running automated test for requirement: ${requirement.criterion_number}`);
+                
+                if (!this.selectedSessionDetails) {
+                    throw new Error('No session selected');
+                }
+
+                this.loading = true;
+                
+                // Run PER-INSTANCE automated test (CORRECT APPROACH)
+                const response = await this.apiCall(`/automated-testing/run-per-instance/${this.selectedSessionDetails.id}`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        tools: ['axe-core', 'pa11y'], // Updated to use new parameter name
+                        run_async: true,
+                        clientMetadata: {
+                            ip: 'dashboard',
+                            userAgent: navigator.userAgent,
+                            timestamp: new Date().toISOString(),
+                            trigger: 'individual_requirement_test'
+                        }
+                    })
+                });
+                
+                this.showNotification('success', 'Test Started', `Automated test started for ${requirement.criterion_number}`);
+                
+                // Refresh this specific requirement's data
+                setTimeout(() => {
+                    this.loadSessionRequirements(this.selectedSessionDetails.id);
+                }, 3000);
+                
+            } catch (error) {
+                console.error('❌ Error running automated test:', error);
+                this.showNotification('error', 'Test Failed', `Failed to run automated test: ${error.message}`);
+            } finally {
+                this.loading = false;
             }
         },
         
@@ -12165,7 +12491,7 @@ ${requirement.failure_examples}
         }
 
         if (this.requirementFilters.wcagLevel) {
-            filtered = filtered.filter(req => req.level === this.requirementFilters.wcagLevel);
+            filtered = filtered.filter(req => req.level && req.level.toUpperCase() === this.requirementFilters.wcagLevel.toUpperCase());
         }
 
         if (this.requirementFilters.testMethod) {
@@ -12624,7 +12950,7 @@ ${requirement.failure_examples}
     window.formatTestResult = (result) => componentInstance.formatTestResult(result);
     window.viewRequirementDetails = (requirement) => componentInstance.viewRequirementDetails(requirement);
     window.closeRequirementDetailsModal = () => componentInstance.closeRequirementDetailsModal();
-    window.runAutomatedTestForRequirement = (requirement) => componentInstance.runAutomatedTestForRequirement(requirement);
+
     window.filterRequirements = () => componentInstance.filterRequirements();
     window.updateRequirementsPagination = () => componentInstance.updateRequirementsPagination();
     window.triggerAutomatedTest = (sessionId) => componentInstance.triggerAutomatedTest(sessionId);
@@ -12678,6 +13004,66 @@ ${requirement.failure_examples}
     window.editTestInstance = (testInstance) => componentInstance.editTestInstance(testInstance);
     window.toggleAutomationResults = (instanceId) => componentInstance.toggleAutomationResults(instanceId);
     window.saveTestEvidence = (instanceId, modal) => componentInstance.saveTestEvidence(instanceId, modal);
+    
+    // Make runAutomatedTestForRequirement available globally for Alpine.js modals
+    window.runAutomatedTestForRequirement = async function(requirement) {
+        try {
+            console.log(`🎯 Running automated test for requirement: ${requirement.criterion_number}`);
+            
+            const dashboardInstance = window._dashboardInstance || window.dashboardInstance;
+            if (!dashboardInstance) {
+                console.error('Dashboard instance not found');
+                return;
+            }
+
+            if (!dashboardInstance.selectedSessionDetails) {
+                throw new Error('No session selected');
+            }
+
+            dashboardInstance.loading = true;
+            
+            // Run PER-INSTANCE automated test (CORRECT APPROACH)
+            const response = await dashboardInstance.apiCall(`/automated-testing/run-per-instance/${dashboardInstance.selectedSessionDetails.id}`, {
+                method: 'POST',
+                body: JSON.stringify({
+                    tools: ['axe-core', 'pa11y'],
+                    run_async: true,
+                    clientMetadata: {
+                        ip: 'dashboard',
+                        userAgent: navigator.userAgent,
+                        timestamp: new Date().toISOString(),
+                        trigger: 'individual_requirement_test'
+                    }
+                })
+            });
+            
+            dashboardInstance.showNotification('success', 'Test Started', `Automated test started for ${requirement.criterion_number}`);
+            
+            // Refresh this specific requirement's data
+            setTimeout(() => {
+                dashboardInstance.loadSessionRequirements(dashboardInstance.selectedSessionDetails.id);
+            }, 3000);
+            
+        } catch (error) {
+            console.error('❌ Error running automated test:', error);
+            const dashboardInstance = window._dashboardInstance || window.dashboardInstance;
+            if (dashboardInstance) {
+                dashboardInstance.showNotification('error', 'Test Failed', `Failed to run automated test: ${error.message}`);
+            }
+        } finally {
+            const dashboardInstance = window._dashboardInstance || window.dashboardInstance;
+            if (dashboardInstance) {
+                dashboardInstance.loading = false;
+            }
+        }
+    };
+    
+    // Debug logging to verify function registration
+    console.log('✅ Window functions registered:', {
+        runAutomatedTestForRequirement: typeof window.runAutomatedTestForRequirement,
+        toggleAutomationResults: typeof window.toggleAutomationResults,
+        dashboardInstance: typeof window._dashboardInstance
+    });
     
     return componentInstance;
 }

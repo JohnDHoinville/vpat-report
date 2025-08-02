@@ -2617,15 +2617,54 @@ class TestAutomationService {
         const { limit = 10, offset = 0 } = options;
 
         try {
+            // Group automation results by execution time to create logical "runs"
             const query = `
-                SELECT * FROM automated_test_results 
-                WHERE test_session_id = $1 
-                ORDER BY executed_at DESC 
+                WITH automation_runs AS (
+                    SELECT 
+                        DATE_TRUNC('minute', executed_at) as run_time,
+                        MIN(id::text) as run_id,
+                        MIN(executed_at) as started_at,
+                        MAX(executed_at) as completed_at,
+                        ARRAY_AGG(DISTINCT tool_name ORDER BY tool_name) as tools_used,
+                        COUNT(DISTINCT page_id) as pages_tested,
+                        SUM(violations_count) as total_issues,
+                        SUM(passes_count) as total_passes,
+                        CASE 
+                            WHEN COUNT(*) = COUNT(CASE WHEN status = 'completed' THEN 1 END) THEN 'completed'
+                            WHEN COUNT(CASE WHEN status = 'failed' THEN 1 END) > 0 THEN 'failed'
+                            ELSE 'pending'
+                        END as status,
+                        EXTRACT(EPOCH FROM (MAX(executed_at) - MIN(executed_at))) * 1000 as duration_ms,
+                        COUNT(*) as total_test_results
+                    FROM automated_test_results 
+                    WHERE test_session_id = $1 
+                    GROUP BY DATE_TRUNC('minute', executed_at)
+                )
+                SELECT 
+                    run_id::text as id,
+                    started_at,
+                    completed_at,
+                    tools_used,
+                    pages_tested,
+                    total_issues,
+                    total_passes,
+                    status,
+                    duration_ms,
+                    total_test_results,
+                    CASE 
+                        WHEN total_issues = 0 THEN 'success'
+                        WHEN total_issues <= 5 THEN 'warning'
+                        ELSE 'danger'
+                    END as result_type
+                FROM automation_runs
+                ORDER BY started_at DESC 
                 LIMIT $2 OFFSET $3
             `;
 
             const countQuery = `
-                SELECT COUNT(*) as total FROM automated_test_results WHERE test_session_id = $1
+                SELECT COUNT(DISTINCT DATE_TRUNC('minute', executed_at)) as total 
+                FROM automated_test_results 
+                WHERE test_session_id = $1
             `;
 
             const [runsResult, countResult] = await Promise.all([
@@ -2633,13 +2672,25 @@ class TestAutomationService {
                 pool.query(countQuery, [sessionId])
             ]);
 
+            // Enhance run data with additional details
+            const enhancedRuns = runsResult.rows.map(run => ({
+                ...run,
+                summary: `${run.tools_used.length} tools, ${run.pages_tested} pages, ${run.total_issues} issues found`,
+                success_rate: run.total_passes + run.total_issues > 0 ? 
+                    ((run.total_passes / (run.total_passes + run.total_issues)) * 100).toFixed(1) : '0',
+                avg_issues_per_page: run.pages_tested > 0 ? 
+                    (run.total_issues / run.pages_tested).toFixed(1) : '0',
+                formatted_duration: this.formatDuration(run.duration_ms),
+                tools_display: run.tools_used.map(tool => tool.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())).join(', ')
+            }));
+
             return {
-                runs: runsResult.rows,
+                runs: enhancedRuns,
                 pagination: {
                     total: parseInt(countResult.rows[0].total),
                     limit: limit,
                     offset: offset,
-                    has_more: (offset + runsResult.rows.length) < parseInt(countResult.rows[0].total)
+                    has_more: (offset + enhancedRuns.length) < parseInt(countResult.rows[0].total)
                 }
             };
 
@@ -2647,6 +2698,17 @@ class TestAutomationService {
             console.error('Error getting automation history:', error);
             return { runs: [], pagination: { total: 0, limit, offset, has_more: false } };
         }
+    }
+
+    // Helper function to format duration
+    formatDuration(ms) {
+        if (!ms || ms < 1000) return '< 1s';
+        const seconds = Math.floor(ms / 1000);
+        const minutes = Math.floor(seconds / 60);
+        if (minutes > 0) {
+            return `${minutes}m ${seconds % 60}s`;
+        }
+        return `${seconds}s`;
     }
 
     /**
@@ -3852,6 +3914,15 @@ class TestAutomationService {
      */
     async storeToolResults(sessionId, pageId, tool, toolResults) {
         try {
+            console.log(`🔍 DEBUG: Storing ${tool} results for session ${sessionId}, page ${pageId}`);
+            console.log(`🔍 DEBUG: Tool results structure:`, {
+                hasResults: !!toolResults,
+                hasViolationsByPage: !!(toolResults && toolResults.violations_by_page),
+                totalViolations: toolResults?.total_violations,
+                violationsByPageKeys: toolResults?.violations_by_page ? Object.keys(toolResults.violations_by_page) : [],
+                sampleViolations: toolResults?.violations_by_page ? Object.values(toolResults.violations_by_page)[0] : null
+            });
+            
             // Extract violations and passes count from results
             let violationsCount = 0;
             let passesCount = 0;
@@ -3860,6 +3931,7 @@ class TestAutomationService {
                 // Sum violations across all pages for this tool
                 Object.values(toolResults.violations_by_page).forEach(pageResult => {
                     violationsCount += pageResult.violations || 0;
+                    console.log(`🔍 DEBUG: Page result violations: ${pageResult.violations || 0}`);
                 });
             }
             
@@ -3888,6 +3960,15 @@ class TestAutomationService {
                 RETURNING id
             `;
 
+            console.log(`🔍 DEBUG: About to execute UPDATE query with:`, {
+                tool,
+                sessionId,
+                pageId,
+                violationsCount,
+                passesCount,
+                rawResultsSize: JSON.stringify(toolResults).length
+            });
+
             const result = await pool.query(query, [
                 JSON.stringify(toolResults),
                 violationsCount,
@@ -3897,11 +3978,18 @@ class TestAutomationService {
                 tool
             ]);
 
+            console.log(`🔍 DEBUG: UPDATE query result:`, {
+                rowsAffected: result.rowCount,
+                rowsReturned: result.rows.length
+            });
+
             if (result.rows.length > 0) {
                 console.log(`💾 Stored ${tool} results: ${violationsCount} violations, ${passesCount} passes`);
                 return result.rows[0];
             } else {
                 console.error(`❌ Failed to store ${tool} results - no matching record found`);
+                console.error(`🔍 DEBUG: Query was:`, query);
+                console.error(`🔍 DEBUG: Parameters were:`, [JSON.stringify(toolResults), violationsCount, passesCount, sessionId, pageId, tool]);
                 return null;
             }
 
@@ -4156,14 +4244,17 @@ class TestAutomationService {
                     ur.requirement_id as criterion_number,
                     ur.title as requirement_title,
                     ur.description,
+                    ur.standard_type,
                     COALESCE(ur.tool_mappings, '{"axe-core": true, "pa11y": true}') as tool_mappings,
                     COALESCE(ur.automation_coverage, 'automated') as automation_coverage
                 FROM test_instances ti
                 JOIN discovered_pages dp ON ti.page_id = dp.id
-                LEFT JOIN unified_requirements ur ON ti.requirement_id = ur.id
+                JOIN unified_requirements ur ON ti.requirement_id = ur.id
                 WHERE ti.session_id = $1
                 AND dp.url IS NOT NULL
                 AND ti.test_method_used = 'automated'
+                AND ur.standard_type = 'wcag'
+                AND ur.requirement_id IS NOT NULL
                 ORDER BY dp.url
                 LIMIT 50
             `;
@@ -4475,10 +4566,43 @@ class TestAutomationService {
             console.log(`🔍 DEBUG: Mapping ${violations.length} violations to ${pageInstances.length} test instances`);
             console.log(`🔍 DEBUG: Page instances preview:`, pageInstances.slice(0, 2).map(inst => ({
                 test_instance_id: inst.test_instance_id,
-                requirement_id: inst.requirement_id || inst.criterion_number,
+                requirement_id: inst.requirement_id,
+                criterion_number: inst.criterion_number,
                 page_id: inst.page_id,
                 url: inst.url
             })));
+            
+            // Check if criterion_number field is missing from JOIN
+            const missingCriterion = pageInstances.filter(inst => !inst.criterion_number);
+            if (missingCriterion.length > 0) {
+                console.log(`⚠️ WARNING: ${missingCriterion.length} test instances missing criterion_number (JOIN issue)`);
+                console.log(`🔍 DEBUG: Sample missing instances:`, missingCriterion.slice(0, 2).map(inst => ({
+                    test_instance_id: inst.test_instance_id,
+                    requirement_id: inst.requirement_id,
+                    criterion_number: inst.criterion_number
+                })));
+            }
+
+            // Fallback: If any instances are missing criterion_number, try to fetch them
+            if (missingCriterion.length > 0) {
+                console.log(`🔧 FIXING: Attempting to resolve missing criterion numbers for ${missingCriterion.length} instances`);
+                
+                for (const instance of missingCriterion) {
+                    try {
+                        const query = `SELECT requirement_id FROM unified_requirements WHERE id = $1 AND standard_type = 'wcag'`;
+                        const result = await pool.query(query, [instance.requirement_id]);
+                        
+                        if (result.rows.length > 0) {
+                            instance.criterion_number = result.rows[0].requirement_id;
+                            console.log(`✅ FIXED: Instance ${instance.test_instance_id} criterion_number: ${instance.criterion_number}`);
+                        } else {
+                            console.log(`❌ UNFIXABLE: No WCAG requirement found for instance ${instance.test_instance_id} requirement_id: ${instance.requirement_id}`);
+                        }
+                    } catch (error) {
+                        console.error(`❌ Error resolving criterion for instance ${instance.test_instance_id}:`, error.message);
+                    }
+                }
+            }
 
             for (const violation of violations) {
                 // Determine which WCAG criteria this violation maps to
@@ -4488,7 +4612,13 @@ class TestAutomationService {
                 // Find matching test instances for this page and WCAG criteria
                 const matchingInstances = pageInstances.filter(instance => {
                     const instanceCriterion = instance.criterion_number; // Use the WCAG string, not UUID
-                    return wcagCriteria.includes(instanceCriterion);
+                    const matches = wcagCriteria.includes(instanceCriterion);
+                    
+                    if (!instanceCriterion) {
+                        console.log(`🔍 DEBUG: Instance ${instance.test_instance_id} missing criterion_number, requirement_id: ${instance.requirement_id}`);
+                    }
+                    
+                    return matches;
                 });
 
                 console.log(`🔍 DEBUG: Found ${matchingInstances.length} matching instances for WCAG criteria:`, wcagCriteria);
@@ -4506,6 +4636,9 @@ class TestAutomationService {
                     await this.updateTestInstanceWithResult(instance.test_instance_id, result);
                     updated++;
                     
+                    // Log automation change to audit trail
+                    await this.logAutomationChange(instance.test_instance_id, tool, violation, result.status);
+                    
                     console.log(`📊 Updated test instance ${instance.test_instance_id} (${instance.requirement_id || instance.criterion_number}) with ${tool} violation`);
                 }
             }
@@ -4516,6 +4649,51 @@ class TestAutomationService {
         } catch (error) {
             console.error('❌ Error mapping violations to test instances:', error);
             return { updated: 0, violations: violations.length };
+        }
+    }
+
+    /**
+     * Log automation changes to audit trail
+     */
+    async logAutomationChange(instanceId, tool, violation, status) {
+        try {
+            const auditQuery = `
+                INSERT INTO test_audit_log (
+                    test_instance_id, 
+                    user_id, 
+                    action_type, 
+                    change_description,
+                    old_value,
+                    new_value,
+                    timestamp
+                ) VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)
+            `;
+            
+            const changeDescription = `Automated testing with ${tool} detected violation: ${violation.id || violation.code}`;
+            const oldValue = JSON.stringify({ status: 'pending', source: 'manual' });
+            const newValue = JSON.stringify({ 
+                status: status,
+                source: 'automation',
+                tool: tool,
+                violation_id: violation.id || violation.code,
+                violation_description: violation.description || violation.help,
+                impact: violation.impact
+            });
+            
+            await pool.query(auditQuery, [
+                instanceId,
+                'automation', // System user for automation
+                'automation_result',
+                changeDescription,
+                oldValue,
+                newValue
+            ]);
+            
+            console.log(`📝 Logged automation change for instance ${instanceId}: ${tool} - ${violation.id || violation.code}`);
+            
+        } catch (error) {
+            console.error('Error logging automation change to audit trail:', error);
+            // Don't fail the automation if audit logging fails
         }
     }
 
