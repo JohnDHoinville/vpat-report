@@ -55,6 +55,7 @@ window.dashboard = function() {
         socketConnected: false,
         realtimeUpdates: true,
         automationProgress: null,
+        availableTools: [],
         
         // ===== FORM OBJECTS =====
         loginForm: { username: '', password: '' },
@@ -1104,6 +1105,9 @@ ${requirement.failure_examples}
             this.checkAuthentication();
             this.checkApiConnection();
             this.initWebSocket();
+            
+            // Load available automation tools
+            this.loadAvailableTools();
         },
         
         setupNestedObjectProtection() {
@@ -2042,6 +2046,20 @@ ${requirement.failure_examples}
             } catch (error) {
                 this.apiConnected = false;
                 console.error('API connection error:', error);
+            }
+        },
+
+        async loadAvailableTools() {
+            try {
+                console.log('🔧 Loading available automation tools...');
+                const response = await this.apiCall('/automated-testing/tools', {
+                    method: 'GET'
+                });
+                this.availableTools = response.tools || [];
+                console.log('🔧 Available tools loaded:', this.availableTools.length);
+            } catch (error) {
+                console.error('❌ Error loading available tools:', error);
+                this.availableTools = [];
             }
         },
         
@@ -12265,6 +12283,8 @@ ${requirement.failure_examples}
         }
     };
 
+
+
             // Run automated test for a specific requirement
         componentInstance.runAutomatedTestForRequirement = async function(requirement) {
             try {
@@ -12680,9 +12700,43 @@ document.addEventListener('alpine:init', () => {
     if (window.Alpine && window.dashboard) {
         window.Alpine.data('dashboard', window.dashboard);
         console.log('✅ Dashboard registered with Alpine.js');
+        
+        // Verify global methods are available
+        console.log('🔍 Checking global methods availability:');
+        console.log('- runAutomatedTestForRequirement:', typeof window.runAutomatedTestForRequirement);
+        console.log('- runAutomatedTestForInstance:', typeof window.runAutomatedTestForInstance);
     } else {
         console.error('❌ Alpine.js or dashboard function not available for registration');
     }
 });
 
+// ===== IMMEDIATE GLOBAL METHOD EXPOSURE =====
+// Expose critical methods immediately for Alpine.js (before dashboard() is called)
+window.runAutomatedTestForRequirement = function(requirement) {
+    console.log('🎯 Global wrapper: Running automated test for requirement:', requirement.criterion_number);
+    // Get the current dashboard instance from Alpine
+    const dashboardEl = document.querySelector('[x-data*="dashboard"]');
+    if (dashboardEl && dashboardEl._x_dataStack && dashboardEl._x_dataStack[0]) {
+        const instance = dashboardEl._x_dataStack[0];
+        if (instance.runAutomatedTestForRequirement) {
+            return instance.runAutomatedTestForRequirement(requirement);
+        }
+    }
+    console.error('❌ Dashboard instance not found or method not available');
+};
+
+window.runAutomatedTestForInstance = function(testInstance) {
+    console.log('🎯 Global wrapper: Running automated test for instance:', testInstance.id);
+    // Get the current dashboard instance from Alpine
+    const dashboardEl = document.querySelector('[x-data*="dashboard"]');
+    if (dashboardEl && dashboardEl._x_dataStack && dashboardEl._x_dataStack[0]) {
+        const instance = dashboardEl._x_dataStack[0];
+        if (instance.runAutomatedTestForInstance) {
+            return instance.runAutomatedTestForInstance(testInstance);
+        }
+    }
+    console.error('❌ Dashboard instance not found or method not available');
+};
+
 console.log('📦 Dashboard module loaded successfully');
+console.log('🎯 Global automation methods exposed immediately');
