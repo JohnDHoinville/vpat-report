@@ -4748,7 +4748,7 @@ class TestAutomationService {
             
             await pool.query(auditQuery, [
                 instanceId,
-                'automation', // System user for automation
+                null, // NULL for automated system actions
                 'automation_result',
                 changeDescription,
                 oldValue,

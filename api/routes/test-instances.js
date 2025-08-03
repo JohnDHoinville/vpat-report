@@ -163,7 +163,11 @@ router.get('/', authenticateToken, async (req, res) => {
         let query = `
             SELECT ti.*,
                    tr.criterion_number, tr.title as requirement_title, tr.level as requirement_level,
-                   tr.test_method as requirement_test_method,
+                   tr.test_method as test_method,
+                   CASE 
+                       WHEN tr.test_method IN ('automated', 'both') THEN '[]'::jsonb
+                       ELSE '[]'::jsonb
+                   END as automated_tools,
                    dp.url as page_url, dp.title as page_title,
                    tester.username as assigned_tester_username,
                    reviewer.username as reviewer_username

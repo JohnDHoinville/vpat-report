@@ -20,18 +20,25 @@
     <!-- Alpine.js Error Handler (load before Alpine) -->
     <script src="dashboard/js/alpine-error-handler.js"></script>
     
-    <!-- Block Alpine.js auto-start until dashboard is ready -->
-    <script src="alpine-block-autostart.js"></script>
-    
-    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
-    
     <!-- Dashboard Utilities - Load before dashboard.js -->
     <script src="dashboard/js/utils/dashboardUtils.js"></script>
     
     <!-- Dashboard API Service - Load before dashboard.js -->
     <script src="dashboard/js/services/apiService.js"></script>
+    
+    <!-- Dashboard Core - Load before Alpine.js -->
+    <script src="dashboard/js/dashboard.js"></script>
+    
+    <!-- Block Alpine auto-start before it loads -->
+    <script>
+        // Prevent Alpine from auto-starting
+        window.deferLoadingAlpine = true;
+    </script>
+    
+    <!-- Alpine.js - Manual initialization (no defer) -->
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
     
     <!-- React Components Bundle - Load after utilities and services -->
     <script src="dashboard/dist/runtime.js"></script>
@@ -53,7 +60,6 @@
     <!-- Reporting Components Test Suite (Development) -->
     <script src="dashboard/js/components/reporting/reportingTest.js"></script>
     
-    <script src="dashboard/js/dashboard.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         /* Custom scrollbar styles */
