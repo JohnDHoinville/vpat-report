@@ -39,10 +39,12 @@ window.dashboard = function() {
         showSessionResultsModal: false,
         showTestDetailsModal: false,
         showTestConfigurationModal: false,
+        showAutomationRunDetailsModal: false,
         showTestGrid: false,
         
         // ===== PROGRESS AND STATE FLAGS =====
         loading: false,
+        loadingAutomationRunDetails: false,
         discoveryInProgress: false,
         crawlerInProgress: false,
         sessionCapturing: false,
@@ -179,6 +181,10 @@ window.dashboard = function() {
         testSessionResults: [],
         recentViolations: [],
         sessionResults: [],
+        
+        // ===== AUTOMATION RUN DETAILS =====
+        selectedAutomationRun: null,
+        automationRunResults: null,
         
         // ===== TEST GRID STATE =====
         showTestGrid: false,
@@ -4747,6 +4753,14 @@ ${requirement.failure_examples}
             this.showTestConfigurationModal = false;
         },
 
+        // Close automation run details modal
+        closeAutomationRunDetailsModal() {
+            this.showAutomationRunDetailsModal = false;
+            this.selectedAutomationRun = null;
+            this.automationRunResults = null;
+            this.loadingAutomationRunDetails = false;
+        },
+
         // Show advanced test configuration modal
         showAdvancedTestConfiguration() {
             this.showTestConfigurationModal = true;
@@ -7642,23 +7656,41 @@ ${requirement.failure_examples}
             try {
                 console.log('🔍 Viewing automation run details:', run.id);
                 
+                // Set loading state and show modal
+                this.loadingAutomationRunDetails = true;
+                this.selectedAutomationRun = run;
+                this.showAutomationRunDetailsModal = true;
+                
                 // Load detailed results for this run
                 const response = await this.apiCall(`/automated-testing/results/${run.id}`);
                 
                 if (response.success) {
-                    // Show detailed results in a modal or expand the row
-                    this.showNotification('info', 'Run Details', 
-                        `Run ${run.id.substring(0, 8)}: ${response.data.results.length} results loaded`);
+                    console.log('✅ Loaded automation run details:', response.data);
                     
-                    // You could open a modal here to show detailed results
-                    // For now, just show a notification
+                    // Store the detailed results
+                    this.automationRunResults = response.data;
+                    
+                    // Ensure each result has a showRawData property for toggling
+                    if (this.automationRunResults.results) {
+                        this.automationRunResults.results.forEach(result => {
+                            result.showRawData = false;
+                        });
+                    }
+                    
+                    this.showNotification('success', 'Details Loaded', 
+                        `Run ${run.id.substring(0, 8)}: ${response.data.results?.length || 0} detailed results loaded`);
                 } else {
                     throw new Error(response.error || 'Failed to load run details');
                 }
                 
             } catch (error) {
-                console.error('Error viewing automation run details:', error);
-                this.showNotification('error', 'Load Failed', 'Failed to load run details');
+                console.error('❌ Error viewing automation run details:', error);
+                this.showNotification('error', 'Load Failed', 'Failed to load detailed run results');
+                
+                // Close modal on error
+                this.closeAutomationRunDetailsModal();
+            } finally {
+                this.loadingAutomationRunDetails = false;
             }
         },
 
