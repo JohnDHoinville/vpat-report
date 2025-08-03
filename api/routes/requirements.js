@@ -18,9 +18,11 @@ router.get('/test', async (req, res) => {
                 title,
                 level,
                 test_method,
+                COALESCE(automated_tools, '[]'::jsonb) as automated_tools,
                 is_active as enabled,
                 priority
             FROM test_requirements
+            WHERE automated_tools IS NOT NULL AND automated_tools != '[]'
             LIMIT 3
         `;
 

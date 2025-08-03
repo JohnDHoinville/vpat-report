@@ -6891,13 +6891,51 @@ ${requirement.failure_examples}
             };
             return descriptions[method] || 'Test method not specified';
         },
+        
+        // Tool helper functions for UI display
+        getToolColorClass(tool) {
+            const colorMap = {
+                'Axe Core': 'text-blue-600 border-blue-300',
+                'Pa11y': 'text-green-600 border-green-300',
+                'Lighthouse': 'text-orange-600 border-orange-300',
+                'WAVE': 'text-purple-600 border-purple-300',
+                'Color Contrast': 'text-indigo-600 border-indigo-300',
+                'Luma': 'text-pink-600 border-pink-300',
+                'ANDI': 'text-teal-600 border-teal-300'
+            };
+            return colorMap[tool] || 'text-gray-600 border-gray-300';
+        },
+        
+        getToolIcon(tool) {
+            const iconMap = {
+                'Axe Core': 'fa-shield-alt',
+                'Pa11y': 'fa-terminal',
+                'Lighthouse': 'fa-lighthouse',
+                'WAVE': 'fa-wave-square',
+                'Color Contrast': 'fa-eye',
+                'Luma': 'fa-palette',
+                'ANDI': 'fa-search'
+            };
+            return iconMap[tool] || 'fa-tools';
+        },
+        
+        getToolDescription(tool) {
+            const descriptionMap = {
+                'Axe Core': 'Comprehensive accessibility testing with 70+ rules. Zero false positives by design.',
+                'Pa11y': 'Command-line accessibility testing tool with multiple output formats.',
+                'Lighthouse': 'Google\'s automated auditing tool for performance and accessibility.',
+                'WAVE': 'Web accessibility evaluation tool with visual feedback.',
+                'Color Contrast': 'Specialized tool for checking color contrast ratios.',
+                'Luma': 'Advanced color and contrast analysis tool.',
+                'ANDI': 'Accessible Name & Description Inspector from Social Security Administration.'
+            };
+            return descriptionMap[tool] || 'Accessibility testing tool';
+        },
 
         getProposedTools(requirement) {
             if (!requirement) {
                 return [];
             }
-            
-
             
             let tools = [];
             
