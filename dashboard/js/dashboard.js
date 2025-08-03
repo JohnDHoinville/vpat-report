@@ -6897,6 +6897,8 @@ ${requirement.failure_examples}
                 return [];
             }
             
+
+            
             let tools = [];
             
             // First, try to get tools from the requirement's automated_tools (shows all available tools)
@@ -6929,6 +6931,11 @@ ${requirement.failure_examples}
                 } catch (e) {
                     console.warn('Error parsing result for tools:', e);
                 }
+            }
+
+            // If still no tools but requirement can be automated, this indicates a data issue
+            if (tools.length === 0 && (requirement.test_method === 'automated' || requirement.test_method === 'both')) {
+                console.warn('⚠️ No automated tools found for requirement:', requirement.criterion_number);
             }
             
             // Map tool names to display names

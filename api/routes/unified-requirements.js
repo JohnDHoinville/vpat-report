@@ -454,6 +454,7 @@ router.get('/session/:sessionId', async (req, res) => {
                 description,
                 level,
                 test_method,
+                COALESCE(automated_tools, '[]'::jsonb) as automated_tools,
                 testing_instructions,
                 acceptance_criteria,
                 failure_examples,
