@@ -455,6 +455,7 @@ window.dashboard = function() {
             const automatedPending = this.sessionRequirements.filter(r => r.automated_status === 'pending').length;
             const automatedInProgress = this.sessionRequirements.filter(r => r.automated_status === 'in_progress').length;
             const automatedRunning = this.sessionRequirements.filter(r => r.automated_status === 'running').length;
+            const automatedNeedsReview = this.sessionRequirements.filter(r => r.automated_status === 'needs_review').length;
             const manualCompleted = this.sessionRequirements.filter(r => r.manual_status === 'completed').length;
             const manualPending = this.sessionRequirements.filter(r => r.manual_status === 'pending').length;
             const manualInProgress = this.sessionRequirements.filter(r => r.manual_status === 'in_progress').length;
@@ -470,6 +471,7 @@ window.dashboard = function() {
                 automated_pending: automatedPending,
                 automated_in_progress: automatedInProgress,
                 automated_running: automatedRunning,
+                automated_needs_review: automatedNeedsReview,
                 manual_completed: manualCompleted,
                 manual_pending: manualPending,
                 manual_in_progress: manualInProgress,
@@ -481,7 +483,12 @@ window.dashboard = function() {
                 automated: this.requirementStats.automated_requirements,
                 hybrid: this.requirementStats.hybrid_requirements,
                 manual: this.requirementStats.manual_requirements,
-                automated_total: this.requirementStats.automated_requirements + this.requirementStats.hybrid_requirements
+                automated_total: this.requirementStats.automated_requirements + this.requirementStats.hybrid_requirements,
+                automated_pending: this.requirementStats.automated_pending,
+                automated_in_progress: this.requirementStats.automated_in_progress,
+                automated_running: this.requirementStats.automated_running,
+                automated_needs_review: this.requirementStats.automated_needs_review,
+                manual_pending: this.requirementStats.manual_pending
             });
         },
         
@@ -12499,17 +12506,35 @@ ${requirement.failure_examples}
                 });
             }
             
-            // Safely process manual tests
+            // Safely process test instances (both automated and manual)
             if (Array.isArray(manualTests)) {
+                console.log(`📊 Processing ${manualTests.length} test instances`);
+                let automatedCount = 0;
+                let manualCount = 0;
+                
                 manualTests.forEach(test => {
                     const reqId = test.requirement_id || test.criterion_number;
                     if (reqId) {
-                        if (!manualByRequirement[reqId]) {
-                            manualByRequirement[reqId] = [];
+                        // Categorize based on test_method_used
+                        if (test.test_method_used === 'automated') {
+                            // This is an automated test instance
+                            if (!automatedByRequirement[reqId]) {
+                                automatedByRequirement[reqId] = [];
+                            }
+                            automatedByRequirement[reqId].push(test);
+                            automatedCount++;
+                        } else {
+                            // This is a manual test instance
+                            if (!manualByRequirement[reqId]) {
+                                manualByRequirement[reqId] = [];
+                            }
+                            manualByRequirement[reqId].push(test);
+                            manualCount++;
                         }
-                        manualByRequirement[reqId].push(test);
                     }
                 });
+                
+                console.log(`📊 Categorized test instances: ${automatedCount} automated, ${manualCount} manual`);
             }
             
             // Enhance each requirement with proper arrays
@@ -12784,16 +12809,32 @@ ${requirement.failure_examples}
     componentInstance.getAutomatedTestStatus = function(automatedTests) {
         if (!automatedTests || automatedTests.length === 0) return 'not_tested';
         
-        const hasPass = automatedTests.some(test => test.result_status === 'pass' || test.result_status === 'passed');
-        const hasFail = automatedTests.some(test => test.result_status === 'fail' || test.result_status === 'failed');
-        const hasPending = automatedTests.some(test => test.result_status === 'pending' || test.status === 'pending');
-        const hasInProgress = automatedTests.some(test => test.result_status === 'in_progress' || test.status === 'in_progress');
-        const hasRunning = automatedTests.some(test => test.result_status === 'running' || test.status === 'running');
+        const hasPass = automatedTests.some(test => 
+            test.result_status === 'pass' || test.result_status === 'passed' || 
+            test.status === 'passed'
+        );
+        const hasFail = automatedTests.some(test => 
+            test.result_status === 'fail' || test.result_status === 'failed' || 
+            test.status === 'failed'
+        );
+        const hasPending = automatedTests.some(test => 
+            test.result_status === 'pending' || test.status === 'pending'
+        );
+        const hasInProgress = automatedTests.some(test => 
+            test.result_status === 'in_progress' || test.status === 'in_progress'
+        );
+        const hasRunning = automatedTests.some(test => 
+            test.result_status === 'running' || test.status === 'running'
+        );
+        const hasNeedsReview = automatedTests.some(test => 
+            test.result_status === 'needs_review' || test.status === 'needs_review'
+        );
         
         if (hasFail) return 'failed';
         if (hasPass) return 'passed';
         if (hasRunning) return 'running';
         if (hasInProgress) return 'in_progress';
+        if (hasNeedsReview) return 'needs_review';
         if (hasPending) return 'pending';
         return 'not_tested';
     };
@@ -12825,9 +12866,10 @@ ${requirement.failure_examples}
         // If manual completed but no automated, consider passed
         if (manualStatus === 'completed' && autoStatus === 'not_tested') return 'passed';
         
-        // If anything is running, in progress, or pending
+        // If anything is running, in progress, needs review, or pending
         if (autoStatus === 'running' || manualStatus === 'running') return 'running';
         if (autoStatus === 'in_progress' || manualStatus === 'in_progress') return 'in_progress';
+        if (autoStatus === 'needs_review' || manualStatus === 'needs_review') return 'needs_review';
         if (autoStatus === 'pending' || manualStatus === 'pending') return 'pending';
         
         return 'not_tested';
@@ -12841,6 +12883,7 @@ ${requirement.failure_examples}
             'failed': 'bg-red-100 text-red-800',
             'running': 'bg-blue-100 text-blue-800',
             'in_progress': 'bg-orange-100 text-orange-800',
+            'needs_review': 'bg-purple-100 text-purple-800',
             'pending': 'bg-yellow-100 text-yellow-800',
             'not_tested': 'bg-gray-100 text-gray-600'
         };
@@ -12856,6 +12899,7 @@ ${requirement.failure_examples}
             'failed': 'Failed',
             'running': 'Running',
             'in_progress': 'In Progress',
+            'needs_review': 'Needs Review',
             'pending': 'Pending',
             'not_tested': 'Not Tested'
         };
