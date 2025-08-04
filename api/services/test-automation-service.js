@@ -4181,10 +4181,13 @@ class TestAutomationService {
                             const toolResults = await this.runToolAgainstPage(tool, pageUrl, pageInstances);
                             
                             if (toolResults && toolResults.violations) {
-                                // Map violations to specific test instances
+                                // Get ALL test instances for this page and session (not just the ones selected for automation)
+                                const allPageInstances = await this.getAllTestInstancesForPage(sessionId, pageUrl);
+                                
+                                // Map violations to ALL test instances on the page
                                 const mappingResults = await this.mapViolationsToTestInstances(
                                     toolResults.violations,
-                                    pageInstances,
+                                    allPageInstances,
                                     tool,
                                     pageUrl
                                 );
@@ -4278,6 +4281,46 @@ class TestAutomationService {
             console.error(`❌ Per-instance test execution failed:`, error);
             await this.updateRunStatus(runId, 'failed', { error: error.message });
             throw error;
+        }
+    }
+
+    /**
+     * Get ALL test instances for a specific page and session (for violation mapping)
+     * This ensures violations can be mapped to any relevant test instance on the page
+     */
+    async getAllTestInstancesForPage(sessionId, pageUrl) {
+        try {
+            const query = `
+                SELECT 
+                    ti.id as test_instance_id,
+                    ti.page_id,
+                    ti.requirement_id,
+                    ti.test_method_used,
+                    ti.status,
+                    dp.url,
+                    dp.title as page_title,
+                    tr.criterion_number,
+                    tr.title as requirement_title,
+                    tr.description,
+                    tr.requirement_type as standard_type
+                FROM test_instances ti
+                JOIN discovered_pages dp ON ti.page_id = dp.id
+                JOIN test_requirements tr ON ti.requirement_id = tr.id
+                WHERE ti.session_id = $1
+                AND dp.url = $2
+                AND tr.criterion_number IS NOT NULL
+                ORDER BY tr.criterion_number
+            `;
+
+            const result = await pool.query(query, [sessionId, pageUrl]);
+            
+            console.log(`🔍 DEBUG: Found ${result.rows.length} total test instances for page ${pageUrl} in session ${sessionId}`);
+            
+            return result.rows;
+
+        } catch (error) {
+            console.error('❌ Error getting all test instances for page:', error);
+            return [];
         }
     }
 
@@ -4768,7 +4811,7 @@ class TestAutomationService {
             await pool.query(auditQuery, [
                 instanceId,
                 null, // NULL for automated system actions
-                'automation_result',
+                'automated_test_result',
                 changeDescription,
                 oldValue,
                 newValue
