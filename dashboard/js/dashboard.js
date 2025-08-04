@@ -6731,13 +6731,28 @@ ${requirement.failure_examples}
             }
         },
         
+        // Map filter categories to actual database status values
+        getStatusesForFilter(filterValue) {
+            const statusMapping = {
+                'pending': ['pending'],
+                'in_progress': ['pending', 'needs_review', 'in_progress'], // Include needs_review in "In Progress"
+                'needs_review': ['needs_review'], // Direct filter for needs_review
+                'passed': ['passed'],
+                'failed': ['failed'],
+                'untestable': ['untestable'],
+                'not_applicable': ['not_applicable']
+            };
+            return statusMapping[filterValue] || [filterValue];
+        },
+        
         // Apply filters to test instances
         applyTestGridFilters() {
             let filtered = [...this.testInstances];
             
-            // Filter by status
+            // Filter by status with proper mapping
             if (this.testGridFilters.status) {
-                filtered = filtered.filter(instance => instance.status === this.testGridFilters.status);
+                const allowedStatuses = this.getStatusesForFilter(this.testGridFilters.status);
+                filtered = filtered.filter(instance => allowedStatuses.includes(instance.status));
             }
             
             // Filter by level

@@ -208,17 +208,39 @@
                                 </div>
                                 
                                 <!-- Session Meta -->
-                                <div class="flex items-center justify-between mt-4 text-sm text-gray-500">
-                                    <div class="flex items-center space-x-4">
-                                        <span><i class="fas fa-calendar mr-1"></i>Created: <span x-text="formatDate(session.created_at)"></span></span>
-                                        <span x-show="session.updated_at !== session.created_at">
-                                            <i class="fas fa-clock mr-1"></i>Updated: <span x-text="formatDate(session.updated_at)"></span>
-                                        </span>
+                                <div class="mt-4 text-sm text-gray-500 space-y-2">
+                                    <!-- First row: Created/Updated -->
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center space-x-4">
+                                            <span><i class="fas fa-calendar mr-1"></i>Created: <span x-text="formatDate(session.created_at)"></span></span>
+                                            <span x-show="session.updated_at !== session.created_at">
+                                                <i class="fas fa-clock mr-1"></i>Updated: <span x-text="formatDate(session.updated_at)"></span>
+                                            </span>
+                                        </div>
+                                        <div class="flex items-center space-x-2">
+                                            <span x-show="session.created_by_username">
+                                                <i class="fas fa-user mr-1"></i><span x-text="session.created_by_username"></span>
+                                            </span>
+                                        </div>
                                     </div>
-                                    <div class="flex items-center space-x-2">
-                                        <span x-show="session.created_by_username">
-                                            <i class="fas fa-user mr-1"></i><span x-text="session.created_by_username"></span>
-                                        </span>
+                                    
+                                    <!-- Second row: Automation run info -->
+                                    <div class="flex items-center justify-between" x-show="session.progress?.lastAutomationRun || session.progress?.automationRunsCount > 0">
+                                        <div class="flex items-center space-x-4">
+                                            <span x-show="session.progress?.lastAutomationRun">
+                                                <i class="fas fa-robot mr-1 text-blue-500"></i>Last Automation: 
+                                                <span x-text="formatDate(session.progress.lastAutomationRun)" class="font-medium"></span>
+                                            </span>
+                                            <span x-show="session.progress?.automationRunsCount > 0" class="text-xs bg-blue-100 px-2 py-1 rounded">
+                                                <span x-text="session.progress.automationRunsCount"></span> runs
+                                            </span>
+                                        </div>
+                                        <div class="flex items-center space-x-2" x-show="session.progress?.totalViolationsFound > 0">
+                                            <span class="text-xs bg-red-100 text-red-700 px-2 py-1 rounded">
+                                                <i class="fas fa-exclamation-triangle mr-1"></i>
+                                                <span x-text="session.progress.totalViolationsFound"></span> violations found
+                                            </span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>

@@ -126,9 +126,9 @@ async function calculateSessionProgress(sessionId) {
     const query = `
         SELECT 
             COUNT(*) as total_tests,
-            COUNT(CASE WHEN status IN ('passed', 'failed', 'untestable', 'not_applicable') THEN 1 END) as completed_tests,
+            COUNT(CASE WHEN status IN ('passed', 'failed', 'untestable', 'not_applicable', 'needs_review') THEN 1 END) as completed_tests,
             COUNT(CASE WHEN status = 'passed' THEN 1 END) as passed_tests,
-            COUNT(CASE WHEN status = 'failed' THEN 1 END) as failed_tests,
+            COUNT(CASE WHEN status IN ('failed', 'needs_review') THEN 1 END) as failed_tests,
             COUNT(CASE WHEN status = 'untestable' THEN 1 END) as untestable_tests,
             COUNT(CASE WHEN status = 'not_applicable' THEN 1 END) as not_applicable_tests,
             COUNT(CASE WHEN status = 'needs_review' THEN 1 END) as needs_review_tests,
@@ -137,8 +137,21 @@ async function calculateSessionProgress(sessionId) {
         WHERE session_id = $1
     `;
     
+    // Get last automation run info
+    const automationQuery = `
+        SELECT 
+            MAX(atr.completed_at) as last_automation_run,
+            COUNT(DISTINCT atr.id) as automation_runs_count,
+            SUM(atr.violations_count) as total_violations_found
+        FROM automated_test_runs atr
+        WHERE atr.session_id = $1 AND atr.status = 'completed'
+    `;
+    
     const result = await pool.query(query, [sessionId]);
+    const automationResult = await pool.query(automationQuery, [sessionId]);
+    
     const stats = result.rows[0];
+    const automationStats = automationResult.rows[0];
     
     const completionPercentage = stats.total_tests > 0 
         ? ((parseInt(stats.completed_tests) / parseInt(stats.total_tests)) * 100).toFixed(2)
@@ -148,12 +161,17 @@ async function calculateSessionProgress(sessionId) {
         totalTests: parseInt(stats.total_tests),
         completedTests: parseInt(stats.completed_tests),
         passedTests: parseInt(stats.passed_tests),
-        failedTests: parseInt(stats.failed_tests),
+        failedTests: parseInt(stats.failed_tests), // Now includes needs_review
         untestableTests: parseInt(stats.untestable_tests),
         notApplicableTests: parseInt(stats.not_applicable_tests),
         needsReviewTests: parseInt(stats.needs_review_tests),
         remainingTests: parseInt(stats.remaining_tests),
-        completionPercentage: parseFloat(completionPercentage)
+        completionPercentage: parseFloat(completionPercentage),
+        
+        // New automation run information
+        lastAutomationRun: automationStats.last_automation_run,
+        automationRunsCount: parseInt(automationStats.automation_runs_count) || 0,
+        totalViolationsFound: parseInt(automationStats.total_violations_found) || 0
     };
 }
 
