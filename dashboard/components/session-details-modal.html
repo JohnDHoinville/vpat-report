@@ -677,6 +677,10 @@
                                             <option value="">All Statuses</option>
                                             <option value="passed">Passed</option>
                                             <option value="failed">Failed</option>
+                                            <option value="pending">Pending</option>
+                                            <option value="in_progress">In Progress</option>
+                                            <option value="running">Running</option>
+                                            <option value="needs_review">Needs Review</option>
                                             <option value="not_tested">Not Tested</option>
                                             <option value="manual_pending">Manual Pending</option>
                                         </select>
@@ -717,7 +721,7 @@
                                 </div>
                                 
                                 <!-- Requirements Statistics -->
-                                <div class="grid grid-cols-2 md:grid-cols-7 gap-4 text-center">
+                                <div class="grid grid-cols-2 md:grid-cols-8 gap-4 text-center">
                                     <div class="bg-blue-100 p-3 rounded-lg">
                                         <div class="text-xl font-bold text-blue-600" x-text="requirementStats.total || 0"></div>
                                         <div class="text-xs text-blue-700">Total</div>
@@ -733,6 +737,10 @@
                                     <div class="bg-red-100 p-3 rounded-lg">
                                         <div class="text-xl font-bold text-red-600" x-text="requirementStats.automated_failed || 0"></div>
                                         <div class="text-xs text-red-700">Auto Failed</div>
+                                    </div>
+                                    <div class="bg-orange-100 p-3 rounded-lg">
+                                        <div class="text-xl font-bold text-orange-600" x-text="(requirementStats.automated_pending || 0) + (requirementStats.automated_in_progress || 0) + (requirementStats.automated_running || 0)"></div>
+                                        <div class="text-xs text-orange-700">In Progress</div>
                                     </div>
                                     <div class="bg-yellow-100 p-3 rounded-lg">
                                         <div class="text-xl font-bold text-yellow-600" x-text="requirementStats.manual_completed || 0"></div>
@@ -1404,6 +1412,13 @@
                                             </div>
                                         </div>
                                     </template>
+                                    <!-- Empty state for tool results -->
+                                    <div x-show="!sessionResults?.toolResults || sessionResults.toolResults.length === 0" 
+                                         class="text-center py-8 text-gray-500">
+                                        <i class="fas fa-robot text-4xl mb-3 text-gray-300"></i>
+                                        <p class="text-lg font-medium">No tool results available</p>
+                                        <p class="text-sm">Run some automated tests to see results here</p>
+                                    </div>
                                 </div>
                             </div>
 
@@ -1421,10 +1436,17 @@
                                             </div>
                                             <div class="text-right">
                                                 <div class="text-sm text-gray-900" x-text="formatDate(run.startedAt)"></div>
-                                                <div class="text-xs text-gray-500" x-text="run.duration + ' min'"></div>
+                                                <div class="text-xs text-gray-500" x-text="formatDuration(run.duration)"></div>
                                             </div>
                                         </div>
                                     </template>
+                                    <!-- Empty state for recent runs -->
+                                    <div x-show="!sessionResults?.recentRuns || sessionResults.recentRuns.length === 0" 
+                                         class="text-center py-8 text-gray-500">
+                                        <i class="fas fa-history text-4xl mb-3 text-gray-300"></i>
+                                        <p class="text-lg font-medium">No recent test runs</p>
+                                        <p class="text-sm">Automated test runs will appear here</p>
+                                    </div>
                                 </div>
                             </div>
 
@@ -1439,12 +1461,12 @@
                                                     <div class="flex items-center space-x-2 mb-1">
                                                         <span class="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800" 
                                                               x-text="violation.severity"></span>
-                                                        <span class="text-sm font-medium text-gray-900" x-text="violation.wcagCriterion"></span>
+                                                        <span class="text-sm font-medium text-gray-900" x-text="violation.wcag_criterion"></span>
                                                     </div>
                                                     <div class="text-sm text-gray-700" x-text="violation.description"></div>
-                                                    <div class="text-xs text-gray-500 mt-1" x-text="'Found on: ' + violation.pageUrl"></div>
+                                                    <div class="text-xs text-gray-500 mt-1" x-text="'Found on: ' + violation.page_url"></div>
                                                 </div>
-                                                <span class="text-xs text-gray-500" x-text="formatDate(violation.timestamp)"></span>
+                                                <span class="text-xs text-gray-500" x-text="formatDate(violation.found_at)"></span>
                                             </div>
                                         </div>
                                     </template>

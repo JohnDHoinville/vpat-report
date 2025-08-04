@@ -452,8 +452,12 @@ window.dashboard = function() {
             // Count requirements by actual test status
             const automatedPassed = this.sessionRequirements.filter(r => r.automated_status === 'passed').length;
             const automatedFailed = this.sessionRequirements.filter(r => r.automated_status === 'failed').length;
+            const automatedPending = this.sessionRequirements.filter(r => r.automated_status === 'pending').length;
+            const automatedInProgress = this.sessionRequirements.filter(r => r.automated_status === 'in_progress').length;
+            const automatedRunning = this.sessionRequirements.filter(r => r.automated_status === 'running').length;
             const manualCompleted = this.sessionRequirements.filter(r => r.manual_status === 'completed').length;
             const manualPending = this.sessionRequirements.filter(r => r.manual_status === 'pending').length;
+            const manualInProgress = this.sessionRequirements.filter(r => r.manual_status === 'in_progress').length;
             const notTested = this.sessionRequirements.filter(r => r.status === 'not_tested').length;
             
             this.requirementStats = {
@@ -463,8 +467,12 @@ window.dashboard = function() {
                 manual_requirements: manualRequirements,
                 automated_passed: automatedPassed,
                 automated_failed: automatedFailed,
+                automated_pending: automatedPending,
+                automated_in_progress: automatedInProgress,
+                automated_running: automatedRunning,
                 manual_completed: manualCompleted,
                 manual_pending: manualPending,
+                manual_in_progress: manualInProgress,
                 not_tested: notTested
             };
             
@@ -8166,7 +8174,7 @@ ${requirement.failure_examples}
                 
                 // Load actual automation tool results (reuse the same data from recent runs)
                 const toolRunsResponse = await this.apiCall(`/automated-testing/history/${sessionId}?limit=50`);
-                if (automationRunsResponse.success && automationRunsResponse.data.runs) {
+                if (toolRunsResponse.success && toolRunsResponse.data.runs) {
                     const toolMap = new Map();
                     
                     // Process automation runs to build tool statistics
@@ -8322,6 +8330,9 @@ ${requirement.failure_examples}
                 }
                 
                 console.log('📊 Session results loaded:', this.sessionResults);
+                console.log('📊 Tool results count:', this.sessionResults.toolResults?.length || 0);
+                console.log('📊 Recent runs count:', this.sessionResults.recentRuns?.length || 0);
+                console.log('📊 Violations count:', this.sessionResults.violations?.length || 0);
             } catch (error) {
                 console.error('Error loading session results:', error);
                 this.sessionResults = null;
@@ -12775,9 +12786,15 @@ ${requirement.failure_examples}
         
         const hasPass = automatedTests.some(test => test.result_status === 'pass' || test.result_status === 'passed');
         const hasFail = automatedTests.some(test => test.result_status === 'fail' || test.result_status === 'failed');
+        const hasPending = automatedTests.some(test => test.result_status === 'pending' || test.status === 'pending');
+        const hasInProgress = automatedTests.some(test => test.result_status === 'in_progress' || test.status === 'in_progress');
+        const hasRunning = automatedTests.some(test => test.result_status === 'running' || test.status === 'running');
         
         if (hasFail) return 'failed';
         if (hasPass) return 'passed';
+        if (hasRunning) return 'running';
+        if (hasInProgress) return 'in_progress';
+        if (hasPending) return 'pending';
         return 'not_tested';
     };
 
@@ -12808,7 +12825,9 @@ ${requirement.failure_examples}
         // If manual completed but no automated, consider passed
         if (manualStatus === 'completed' && autoStatus === 'not_tested') return 'passed';
         
-        // If anything is in progress or pending
+        // If anything is running, in progress, or pending
+        if (autoStatus === 'running' || manualStatus === 'running') return 'running';
+        if (autoStatus === 'in_progress' || manualStatus === 'in_progress') return 'in_progress';
         if (autoStatus === 'pending' || manualStatus === 'pending') return 'pending';
         
         return 'not_tested';
@@ -12820,11 +12839,28 @@ ${requirement.failure_examples}
         const classes = {
             'passed': 'bg-green-100 text-green-800',
             'failed': 'bg-red-100 text-red-800',
+            'running': 'bg-blue-100 text-blue-800',
+            'in_progress': 'bg-orange-100 text-orange-800',
             'pending': 'bg-yellow-100 text-yellow-800',
             'not_tested': 'bg-gray-100 text-gray-600'
         };
         
         return classes[status] || classes.not_tested;
+    };
+
+    componentInstance.getRequirementOverallStatusDisplay = function(requirement) {
+        const status = requirement.overall_status || this.getRequirementOverallStatus(requirement.automated_tests, requirement.manual_tests);
+        
+        const displays = {
+            'passed': 'Passed',
+            'failed': 'Failed',
+            'running': 'Running',
+            'in_progress': 'In Progress',
+            'pending': 'Pending',
+            'not_tested': 'Not Tested'
+        };
+        
+        return displays[status] || 'Not Tested';
     };
 
     componentInstance.getTestMethodBadgeClass = function(testMethod) {
@@ -12999,6 +13035,7 @@ ${requirement.failure_examples}
     window.loadSessionRequirements = (sessionId) => componentInstance.loadSessionRequirements(sessionId);
     window.getRequirementOverallStatusClass = (requirement) => componentInstance.getRequirementOverallStatusClass(requirement);
     window.getRequirementOverallStatus = (requirement) => componentInstance.getRequirementOverallStatus(requirement);
+    window.getRequirementOverallStatusDisplay = (requirement) => componentInstance.getRequirementOverallStatusDisplay(requirement);
     window.getProposedTools = (requirement) => componentInstance.getProposedTools(requirement);
     window.getAutomationConfidenceClass = (confidence) => componentInstance.getAutomationConfidenceClass(confidence);
     window.getAutomationConfidenceDisplay = (confidence) => componentInstance.getAutomationConfidenceDisplay(confidence);
