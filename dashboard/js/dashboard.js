@@ -317,6 +317,25 @@ window.dashboard = function() {
             }
         },
         
+        canNavigateTestInstance: function(direction) {
+            if (!this.sessionDetailsTestInstances || !this.currentTestInstance) return false;
+            const idx = this.sessionDetailsTestInstances.findIndex(t => t.id === this.currentTestInstance.id);
+            if (direction === -1) return idx > 0;
+            if (direction === 1) return idx < this.sessionDetailsTestInstances.length - 1;
+            return false;
+        },
+        
+        navigateTestInstance: function(direction) {
+            if (!this.sessionDetailsTestInstances || !this.currentTestInstance) return;
+            const idx = this.sessionDetailsTestInstances.findIndex(t => t.id === this.currentTestInstance.id);
+            const newIdx = idx + direction;
+            if (newIdx >= 0 && newIdx < this.sessionDetailsTestInstances.length) {
+                this.currentTestInstance = this.sessionDetailsTestInstances[newIdx];
+                // Re-open the modal with the new test instance
+                this.viewTestInstanceDetails(this.currentTestInstance);
+            }
+        },
+        
         loadSessionRequirements: async function(sessionId) {
             console.log(`🚀 loadSessionRequirements called with sessionId: ${sessionId}`);
             console.log(`📊 Current state - sessionRequirements length:`, this.sessionRequirements?.length || 0);
@@ -7799,6 +7818,43 @@ ${requirement.failure_examples}
                 this.selectedAutomationRun = run;
                 this.showAutomationRunDetailsModal = true;
                 
+                // Force the modal to show immediately
+                setTimeout(() => {
+                    if (!this.showAutomationRunDetailsModal) {
+                        console.log('🔧 Forcing modal to show...');
+                        this.showAutomationRunDetailsModal = true;
+                    }
+                    
+                    // Also try to force the modal to show via DOM manipulation
+                    const modalElement = document.querySelector('[x-show="showAutomationRunDetailsModal"]');
+                    if (modalElement && !modalElement.style.display || modalElement.style.display === 'none') {
+                        console.log('🔧 Forcing modal display via DOM...');
+                        modalElement.style.display = 'flex';
+                        modalElement.style.zIndex = '9999';
+                    }
+                }, 100);
+                console.log('🔍 Modal state set:', {
+                    showAutomationRunDetailsModal: this.showAutomationRunDetailsModal,
+                    selectedAutomationRun: this.selectedAutomationRun,
+                    loadingAutomationRunDetails: this.loadingAutomationRunDetails
+                });
+                
+                // Force Alpine.js to update
+                this.$nextTick(() => {
+                    console.log('🔍 Modal state after nextTick:', {
+                        showAutomationRunDetailsModal: this.showAutomationRunDetailsModal,
+                        selectedAutomationRun: this.selectedAutomationRun
+                    });
+                    
+                    // Check if modal is actually in the DOM
+                    const modalElement = document.querySelector('[x-show="showAutomationRunDetailsModal"]');
+                    console.log('🔍 Modal element found:', modalElement);
+                    if (modalElement) {
+                        console.log('🔍 Modal display style:', window.getComputedStyle(modalElement).display);
+                        console.log('🔍 Modal visibility:', window.getComputedStyle(modalElement).visibility);
+                    }
+                });
+                
                 // Load detailed results for this run
                 const response = await this.apiCall(`/automated-testing/results/${run.id}`);
                 
@@ -8812,6 +8868,19 @@ ${requirement.failure_examples}
         viewTestInstanceDetails(testInstance) {
             console.log('👀 Viewing test instance details:', testInstance.id);
             
+            // Set the current test instance for navigation
+            this.currentTestInstance = testInstance;
+            
+            // Calculate current position for navigation
+            const currentIndex = this.sessionDetailsTestInstances ? 
+                this.sessionDetailsTestInstances.findIndex(t => t.id === testInstance.id) : -1;
+            const totalCount = this.sessionDetailsTestInstances ? this.sessionDetailsTestInstances.length : 0;
+            const positionText = currentIndex >= 0 ? `${currentIndex + 1} of ${totalCount} test instances` : 'Position unknown';
+            
+            // Update navigation button states
+            const canGoPrev = this.canNavigateTestInstance(-1);
+            const canGoNext = this.canNavigateTestInstance(1);
+            
             // Create comprehensive modal content
             const detailsHTML = `
                 <div class="space-y-6">
@@ -8927,6 +8996,35 @@ ${requirement.failure_examples}
                                 <i class="fas fa-external-link-alt mr-1"></i>Section 508 Reference
                             </a>` : ''}
                         </div>` : ''}
+                    </div>
+
+                    <!-- Navigation Section - Between Description and Test Results -->
+                    <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
+                        <div class="flex flex-col sm:flex-row justify-between items-center space-y-3 sm:space-y-0 sm:space-x-4">
+                            <!-- Left side - Current Position -->
+                            <div class="flex items-center space-x-3">
+                                <span class="text-sm font-medium text-blue-800">Navigation:</span>
+                                <span class="text-sm text-blue-600">${positionText}</span>
+                            </div>
+                            
+                            <!-- Right side - Navigation Buttons -->
+                            <div class="flex items-center space-x-3">
+                                <!-- Previous Button -->
+                                <button 
+                                    onclick="window.navigateTestInstance(-1)"
+                                    ${!canGoPrev ? 'disabled' : ''}
+                                    class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors ${!canGoPrev ? 'opacity-50 cursor-not-allowed' : ''}">
+                                    <i class="fas fa-arrow-left mr-2"></i>Previous
+                                </button>
+                                <!-- Next Button -->
+                                <button 
+                                    onclick="window.navigateTestInstance(1)"
+                                    ${!canGoNext ? 'disabled' : ''}
+                                    class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors ${!canGoNext ? 'opacity-50 cursor-not-allowed' : ''}">
+                                    Next<i class="fas fa-arrow-right ml-2"></i>
+                                </button>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Test Results -->
@@ -13195,6 +13293,8 @@ ${requirement.failure_examples}
     window.navigateRequirement = (direction) => componentInstance.navigateRequirement(direction);
     window.canNavigateTestResult = (direction) => componentInstance.canNavigateTestResult(direction);
     window.navigateTestResult = (direction) => componentInstance.navigateTestResult(direction);
+    window.canNavigateTestInstance = (direction) => componentInstance.canNavigateTestInstance(direction);
+    window.navigateTestInstance = (direction) => componentInstance.navigateTestInstance(direction);
     
     // Also expose them directly to Alpine.js context
     componentInstance.canNavigateRequirement = function(direction) {
