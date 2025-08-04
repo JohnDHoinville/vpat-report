@@ -142,9 +142,10 @@ async function calculateSessionProgress(sessionId) {
         SELECT 
             MAX(atr.completed_at) as last_automation_run,
             COUNT(DISTINCT atr.id) as automation_runs_count,
-            SUM(atr.violations_count) as total_violations_found
+            SUM(atr.total_violations) as total_violations_found,
+            SUM(atr.test_instances_updated) as total_instances_updated
         FROM automated_test_runs atr
-        WHERE atr.session_id = $1 AND atr.status = 'completed'
+        WHERE atr.test_session_id = $1 AND atr.status = 'completed'
     `;
     
     const result = await pool.query(query, [sessionId]);
@@ -171,7 +172,8 @@ async function calculateSessionProgress(sessionId) {
         // New automation run information
         lastAutomationRun: automationStats.last_automation_run,
         automationRunsCount: parseInt(automationStats.automation_runs_count) || 0,
-        totalViolationsFound: parseInt(automationStats.total_violations_found) || 0
+        totalViolationsFound: parseInt(automationStats.total_violations_found) || 0,
+        totalInstancesUpdated: parseInt(automationStats.total_instances_updated) || 0
     };
 }
 
