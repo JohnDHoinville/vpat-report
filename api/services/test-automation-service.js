@@ -2760,19 +2760,51 @@ class TestAutomationService {
      */
     async getAutomationResults(runId) {
         try {
-            const query = `
+            // First try to find the run in automated_test_runs table (new schema)
+            const runQuery = `
                 SELECT atr.*, 
                        COUNT(te.id) as evidence_count
-                FROM automated_test_results atr
+                FROM automated_test_runs atr
                 LEFT JOIN test_evidence te ON te.metadata->>'run_id' = atr.id::text
                 WHERE atr.id = $1
                 GROUP BY atr.id
             `;
 
-            const result = await pool.query(query, [runId]);
+            const result = await pool.query(runQuery, [runId]);
             
             if (result.rows.length === 0) {
-                throw new Error('Automation run not found');
+                // Fallback: try automated_test_results table (old schema)
+                const fallbackQuery = `
+                    SELECT atr.*, 
+                           COUNT(te.id) as evidence_count
+                    FROM automated_test_results atr
+                    LEFT JOIN test_evidence te ON te.metadata->>'run_id' = atr.id::text
+                    WHERE atr.id = $1
+                    GROUP BY atr.id
+                `;
+                
+                const fallbackResult = await pool.query(fallbackQuery, [runId]);
+                
+                if (fallbackResult.rows.length === 0) {
+                    throw new Error('Automation run not found');
+                }
+                
+                const run = fallbackResult.rows[0];
+                
+                return {
+                    detailed_results: run.raw_results || {},
+                    summary: {
+                        tools_used: run.tools_used || [],
+                        pages_tested: run.pages_tested || 0,
+                        total_issues: run.total_issues || 0,
+                        critical_issues: run.critical_issues || 0,
+                        duration: run.completed_at ? 
+                            new Date(run.completed_at) - new Date(run.started_at) : null
+                    },
+                    evidence_files: run.evidence_count || 0,
+                    test_instances_updated: run.test_instances_updated || 0,
+                    requirements_tested: []
+                };
             }
 
             const run = result.rows[0];
@@ -2808,10 +2840,11 @@ class TestAutomationService {
             return {
                 detailed_results: run.raw_results || {},
                 summary: {
-                    tools_used: run.tools_used,
-                    pages_tested: run.pages_tested,
-                    total_issues: run.total_issues,
-                    critical_issues: run.critical_issues,
+                    tools_used: Array.isArray(run.tools_used) ? run.tools_used : 
+                               (run.tools_used ? JSON.parse(run.tools_used) : []),
+                    pages_tested: run.pages_tested || 0,
+                    total_issues: run.total_violations || 0,
+                    critical_issues: run.critical_violations || 0,
                     duration: run.completed_at ? 
                         new Date(run.completed_at) - new Date(run.started_at) : null
                 },

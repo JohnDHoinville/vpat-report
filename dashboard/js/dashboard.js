@@ -183,6 +183,10 @@ window.dashboard = function() {
         sessionResults: [],
         selectedViolation: null,
         showViolationDetailsModal: false,
+        selectedAutomationRun: null,
+        showAutomationRunDetailsModal: false,
+        sessionViolations: [],
+        showSessionViolationsModal: false,
         
         // ===== AUTOMATION RUN DETAILS =====
         selectedAutomationRun: null,
@@ -4967,6 +4971,57 @@ ${requirement.failure_examples}
             this.showViolationDetailsModal = true;
         },
 
+        // View detailed violations for an automation run
+        async viewAutomationRunViolations(run) {
+            try {
+                console.log('🔍 Viewing automation run violations:', run);
+                
+                if (!run.id) {
+                    throw new Error('No run ID provided');
+                }
+                
+                // Load detailed results for this automation run
+                const response = await this.apiCall(`/automated-testing/results/${run.id}`);
+                
+                if (response.success && response.data) {
+                    this.selectedAutomationRun = {
+                        ...run,
+                        detailedResults: response.data.results,
+                        summary: response.data.summary,
+                        evidence: response.data.evidence
+                    };
+                    this.showAutomationRunDetailsModal = true;
+                } else {
+                    throw new Error('Failed to load automation run details');
+                }
+                
+            } catch (error) {
+                console.error('Error viewing automation run violations:', error);
+                this.showNotification('error', 'Loading Failed', `Failed to load run details: ${error.message}`);
+            }
+        },
+
+        // View all violations for a session
+        async viewSessionViolations(sessionId) {
+            try {
+                console.log('🔍 Viewing all session violations:', sessionId);
+                
+                // Load all violations for the session
+                const response = await this.apiCall(`/violations/session/${sessionId}/all-results?limit=100`);
+                
+                if (response.success && response.data) {
+                    this.sessionViolations = response.data.results || [];
+                    this.showSessionViolationsModal = true;
+                } else {
+                    throw new Error('Failed to load session violations');
+                }
+                
+            } catch (error) {
+                console.error('Error viewing session violations:', error);
+                this.showNotification('error', 'Loading Failed', `Failed to load session violations: ${error.message}`);
+            }
+        },
+
         // Authentication helper methods (from stable backup)
         getAvailableAuthConfigs() {
             return this.data.projectAuthConfigs.filter(config => config.auth_config_id || config.id);
@@ -8109,36 +8164,39 @@ ${requirement.failure_examples}
                         Math.round((this.sessionResults.summary.passedTests / totalTests) * 100) : 0;
                 }
                 
-                // For now, create a simple tool breakdown based on test instances
-                // TODO: Update to use actual automated test results when API is available
-                const toolMap = new Map();
-                
-                if (testInstancesResponse.success && testInstancesResponse.test_instances) {
-                    testInstancesResponse.test_instances.forEach(instance => {
-                        const tool = instance.tool_used || 'Manual';
-                        if (!toolMap.has(tool)) {
-                            toolMap.set(tool, {
-                                tool: tool,
-                                pagesTested: 0,
-                                violations: 0,
-                                passes: 0,
-                                lastRun: null,
-                                successRate: 0
-                            });
-                        }
+                // Load actual automation tool results (reuse the same data from recent runs)
+                const toolRunsResponse = await this.apiCall(`/automated-testing/history/${sessionId}?limit=50`);
+                if (automationRunsResponse.success && automationRunsResponse.data.runs) {
+                    const toolMap = new Map();
+                    
+                    // Process automation runs to build tool statistics
+                    toolRunsResponse.data.runs.forEach(run => {
+                        const tools = Array.isArray(run.tools_used) ? run.tools_used : 
+                                     (run.tools_used ? JSON.parse(run.tools_used) : []);
                         
-                        const toolData = toolMap.get(tool);
-                        toolData.pagesTested++;
-                        
-                        if (instance.status === 'failed') {
-                            toolData.violations++;
-                        } else if (instance.status === 'passed') {
-                            toolData.passes++;
-                        }
-                        
-                        if (!toolData.lastRun || new Date(instance.updated_at) > new Date(toolData.lastRun)) {
-                            toolData.lastRun = instance.updated_at;
-                        }
+                        tools.forEach(tool => {
+                            if (!toolMap.has(tool)) {
+                                toolMap.set(tool, {
+                                    tool: tool,
+                                    pagesTested: 0,
+                                    violations: 0,
+                                    passes: 0,
+                                    lastRun: null,
+                                    successRate: 0,
+                                    runsCount: 0
+                                });
+                            }
+                            
+                            const toolData = toolMap.get(tool);
+                            toolData.pagesTested += run.pages_tested || 0;
+                            toolData.violations += run.total_issues || 0;
+                            toolData.passes += run.total_passes || 0;
+                            toolData.runsCount++;
+                            
+                            if (!toolData.lastRun || new Date(run.completed_at) > new Date(toolData.lastRun)) {
+                                toolData.lastRun = run.completed_at;
+                            }
+                        });
                     });
                     
                     // Calculate success rates
@@ -8148,25 +8206,63 @@ ${requirement.failure_examples}
                     });
                     
                     this.sessionResults.toolResults = Array.from(toolMap.values());
-                    this.sessionResults.summary.totalViolations = Array.from(toolMap.values())
+                    
+                    // Also add manual testing if there are manual test instances
+                    const manualInstances = testInstancesResponse.success ? 
+                        testInstancesResponse.test_instances.filter(i => i.test_method_used === 'manual') : [];
+                    
+                    if (manualInstances.length > 0) {
+                        const manualViolations = manualInstances.filter(i => i.status === 'failed' || i.status === 'needs_review').length;
+                        const manualPasses = manualInstances.filter(i => i.status === 'passed').length;
+                        const totalManual = manualInstances.length;
+                        
+                        this.sessionResults.toolResults.push({
+                            tool: 'Manual',
+                            pagesTested: manualInstances.length,
+                            violations: manualViolations,
+                            passes: manualPasses,
+                            lastRun: manualInstances.length > 0 ? 
+                                new Date(Math.max(...manualInstances.map(i => new Date(i.updated_at)))) : null,
+                            successRate: totalManual > 0 ? Math.round((manualPasses / totalManual) * 100) : 0,
+                            runsCount: 1
+                        });
+                    }
+                    
+                    // Update total violations from all tools
+                    this.sessionResults.summary.totalViolations = this.sessionResults.toolResults
                         .reduce((sum, tool) => sum + tool.violations, 0);
+                        
+                    console.log(`📊 Loaded tool results:`, this.sessionResults.toolResults);
+                } else {
+                    throw new Error(`Failed to load automation tool results: ${toolRunsResponse.error || 'Unknown error'}`);
                 }
                 
-                // For now, create a simple recent runs list based on test instances
-                // TODO: Update to use actual automation runs when API is available
-                if (testInstancesResponse.success && testInstancesResponse.test_instances) {
-                    const recentInstances = testInstancesResponse.test_instances
-                        .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))
-                        .slice(0, 10);
-                    
-                    this.sessionResults.recentRuns = recentInstances.map(instance => ({
-                        id: instance.id,
-                        status: instance.status,
-                        tools: instance.tool_used ? [instance.tool_used] : [],
-                        pagesTested: 1,
-                        startedAt: instance.created_at,
-                        duration: 0
+                // Load actual automation runs for recent runs
+                const automationRunsResponse = await this.apiCall(`/automated-testing/history/${sessionId}?limit=10`);
+                if (automationRunsResponse.success && automationRunsResponse.data.runs) {
+                    this.sessionResults.recentRuns = automationRunsResponse.data.runs.map(run => ({
+                        id: run.id,
+                        run_id: run.run_id,
+                        status: run.status,
+                        tools: Array.isArray(run.tools_used) ? run.tools_used : 
+                               (run.tools_used ? JSON.parse(run.tools_used) : []),
+                        pagesTested: run.pages_tested || 0,
+                        startedAt: run.started_at,
+                        completedAt: run.completed_at,
+                        duration: run.duration_ms || 0,
+                        totalViolations: run.total_issues || 0,
+                        totalPasses: run.total_passes || 0,
+                        resultType: run.result_type || 'unknown',
+                        summary: run.summary || ''
                     }));
+                    
+                    // Update total violations count from automation runs
+                    const totalViolations = this.sessionResults.recentRuns.reduce((sum, run) => sum + (run.totalViolations || 0), 0);
+                    this.sessionResults.summary.totalViolations = totalViolations;
+                    
+                    console.log(`📊 Loaded ${this.sessionResults.recentRuns.length} automation runs with ${totalViolations} total violations`);
+                } else {
+                    throw new Error(`Failed to load automation runs: ${automationRunsResponse.error || 'Unknown error'}`);
                 }
                 
                 // Load violations from test instances that have result data
