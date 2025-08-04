@@ -4917,6 +4917,7 @@ class TestAutomationService {
                 SET 
                     result = $2,
                     status = $3,
+                    automated_result_id = $4,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE id = $1
             `;
@@ -4924,8 +4925,20 @@ class TestAutomationService {
             await pool.query(query, [
                 testInstanceId,
                 JSON.stringify(result),
-                result.status
+                result.status,
+                result.id || result.automated_result_id
             ]);
+
+            // Also update the automated test result to link back to the test instance
+            if (result.id || result.automated_result_id) {
+                const automatedResultId = result.id || result.automated_result_id;
+                const linkQuery = `
+                    UPDATE automated_test_results 
+                    SET test_instance_id = $1
+                    WHERE id = $2
+                `;
+                await pool.query(linkQuery, [testInstanceId, automatedResultId]);
+            }
 
         } catch (error) {
             console.error(`❌ Error updating test instance ${testInstanceId}:`, error);

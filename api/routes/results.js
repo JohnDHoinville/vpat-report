@@ -163,6 +163,7 @@ router.get('/automated-test-results/:id/details', async (req, res) => {
                             'element_html', v.element_html,
                             'description', v.description,
                             'remediation_guidance', v.remediation_guidance,
+                            'impact_description', v.impact_description,
                             'help_url', v.help_url
                         ) ORDER BY v.severity DESC, v.id
                     ) FILTER (WHERE v.id IS NOT NULL),

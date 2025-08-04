@@ -192,6 +192,7 @@ router.get('/session/:sessionId/violations', authenticateToken, async (req, res)
                 v.section_508_criteria,
                 v.description,
                 v.remediation_guidance,
+                v.impact_description,
                 v.element_selector,
                 v.element_html,
                 v.help_url,
