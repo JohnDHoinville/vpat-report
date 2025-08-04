@@ -5,11 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Accessibility Testing Platform</title>
     <script>
-        // Suppress Tailwind production warnings
+        // Suppress development warnings
         const originalConsoleWarn = console.warn;
         console.warn = function(...args) {
-            if (args.some(arg => typeof arg === 'string' && arg.includes('cdn.tailwindcss.com should not be used in production'))) {
-                return; // Suppress this specific warning
+            const message = args.join(' ');
+            if (message.includes('cdn.tailwindcss.com should not be used in production') ||
+                message.includes('React Refresh') ||
+                message.includes('socket connection')) {
+                return; // Suppress development warnings
             }
             originalConsoleWarn.apply(console, args);
         };
@@ -29,14 +32,14 @@
     <!-- Dashboard Core - Load before Alpine.js -->
     <script src="dashboard/js/dashboard.js"></script>
     
-    <!-- Block Alpine auto-start before it loads -->
+    <!-- Alpine auto-start configuration -->
     <script>
-        // Prevent Alpine from auto-starting
-        window.deferLoadingAlpine = true;
+        // Let Alpine start automatically with defer
+        window.deferLoadingAlpine = false;
     </script>
     
-    <!-- Alpine.js - Manual initialization (no defer) -->
-    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <!-- Alpine.js - Proper deferred initialization -->
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
     
@@ -460,10 +463,8 @@
                 loadView('projects-view-content', 'dashboard/views/projects.html')
             ]);
             
-            // Initialize Alpine.js data after components are loaded
-            if (window.Alpine) {
-                window.Alpine.initTree(document.body);
-            }
+            // Alpine.js will auto-initialize with defer
+            console.log('✅ Components loaded, Alpine.js will initialize automatically');
 });
 </script>
 

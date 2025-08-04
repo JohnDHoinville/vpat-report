@@ -1928,11 +1928,14 @@ ${requirement.failure_examples}
                     this.initializeWebSocket();
                     await this.loadInitialData();
                     
+                    // Load automation tools now that we're authenticated
+                    await this.loadAvailableTools();
+                    
                     // Allow user management modal to open after initialization is complete
                     setTimeout(() => {
                         this.preventAutoUserManagement = false;
                         console.log('✅ User management modal auto-open protection disabled');
-                    }, 10000); // Wait 10 seconds after login
+                    }, 3000); // Wait 3 seconds after login
                 } else {
                     this.loginError = data.error || 'Login failed';
                 }
@@ -2061,6 +2064,13 @@ ${requirement.failure_examples}
         },
 
         async loadAvailableTools() {
+            // Skip if not authenticated
+            if (!this.auth.isAuthenticated) {
+                console.log('🔧 Skipping tools load - not authenticated');
+                this.availableTools = [];
+                return;
+            }
+            
             try {
                 console.log('🔧 Loading available automation tools...');
                 const response = await this.apiCall('/automated-testing/tools', {
@@ -6302,10 +6312,10 @@ ${requirement.failure_examples}
                 return;
             }
             
-            // NUCLEAR OPTION: Block ALL opens during critical startup and authentication period
-            if ((!this.auth.isAuthenticated && timeSinceInit < 15000) || 
-                (this.auth.isAuthenticated && timeSinceInit < 20000)) {
-                console.log('🚫 NUCLEAR BLOCK: Preventing ALL user management modal opens during startup/auth period', {
+            // NUCLEAR OPTION: Block only AUTO opens during critical startup period
+            if (!manualOpen && ((!this.auth.isAuthenticated && timeSinceInit < 10000) || 
+                (this.auth.isAuthenticated && timeSinceInit < 5000))) {
+                console.log('🚫 NUCLEAR BLOCK: Preventing AUTO user management modal opens during startup/auth period', {
                     timeSinceInit,
                     isAuthenticated: this.auth.isAuthenticated,
                     manualOpen
@@ -11318,7 +11328,7 @@ ${requirement.failure_examples}
             if (!this.sessionWizard?.conformance_levels?.length) {
                 // Only log once per session or when state changes
                 if (!this._loggedNoConformanceLevels) {
-                    console.log('❌ No conformance levels selected');
+                    console.log('⚠️ No conformance levels selected (will be set after session selection)');
                     this._loggedNoConformanceLevels = true;
                 }
                 return [];
