@@ -142,7 +142,7 @@
                         class="py-4 px-1 border-b-2 font-medium text-sm transition-colors">
                     <i class="fas fa-list-alt mr-2"></i>Requirements
                 </button>
-                            <button @click="sessionDetailsActiveTab = 'automation'" 
+                            <button @click="sessionDetailsActiveTab = 'automation'; $nextTick(() => { loadAutomationSummary(selectedSessionDetails?.id); })" 
                                     :class="sessionDetailsActiveTab === 'automation' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
                                     class="py-4 px-1 border-b-2 font-medium text-sm transition-colors">
                                 <i class="fas fa-robot mr-2"></i>Automation
@@ -1982,6 +1982,35 @@
                 </div>
             </div>
 
+            <!-- Navigation Section - After Details -->
+            <div x-show="!loadingRequirementDetails" class="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-6">
+                <div class="flex flex-col sm:flex-row justify-between items-center space-y-3 sm:space-y-0 sm:space-x-4">
+                    <!-- Left side - Current Position -->
+                    <div class="flex items-center space-x-3">
+                        <span class="text-sm font-medium text-blue-800">Navigation:</span>
+                        <span class="text-sm text-blue-600" x-text="`${(filteredRequirements?.findIndex(r => r.id === currentRequirement?.id) || 0) + 1} of ${filteredRequirements?.length || 0} requirements`"></span>
+                    </div>
+                    
+                    <!-- Right side - Navigation Buttons -->
+                    <div class="flex items-center space-x-3">
+                        <!-- Previous Button -->
+                        <button 
+                            @click="navigateRequirement(-1)"
+                            :disabled="!canNavigateRequirement(-1)"
+                            class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                            <i class="fas fa-arrow-left mr-2"></i>Previous
+                        </button>
+                        <!-- Next Button -->
+                        <button 
+                            @click="navigateRequirement(1)"
+                            :disabled="!canNavigateRequirement(1)"
+                            class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                            Next<i class="fas fa-arrow-right ml-2"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
             <!-- Enhanced Action Buttons -->
             <div x-show="!loadingRequirementDetails" class="bg-gradient-to-r from-gray-50 to-slate-50 border border-gray-200 rounded-lg p-6">
                 <div class="flex flex-col sm:flex-row justify-between items-center space-y-3 sm:space-y-0 sm:space-x-4">
@@ -2007,16 +2036,15 @@
                     
                     <!-- Right side - Primary Actions -->
                     <div class="flex items-center space-x-3">
-                <button @click="closeRequirementDetailsModal()" 
-                        class="px-6 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors">
+                        <button @click="closeRequirementDetailsModal()" 
+                                class="px-6 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors">
                             <i class="fas fa-times mr-2"></i>Close
-                </button>
-                <button x-show="currentRequirement?.test_method === 'automated' || currentRequirement?.test_method === 'both'" 
-                        @click="runAutomatedTestForRequirement(currentRequirement)" 
-                                class="px-6 py-2 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-md hover:from-purple-700 hover:to-purple-800 transition-all shadow-md">
-                    <i class="fas fa-robot mr-2"></i>Run Automated Test
-                </button>
+                        </button>
+                    </div>
+                </div>
             </div>
+
+
         </div>
     </div>
 </div> 

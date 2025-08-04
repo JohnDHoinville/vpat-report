@@ -2634,7 +2634,7 @@ class TestAutomationService {
     async getAutomationStatus(sessionId) {
         try {
             const query = `
-                SELECT * FROM get_automation_summary($1)
+                SELECT * FROM get_automation_runs_summary($1)
             `;
 
             const result = await pool.query(query, [sessionId]);
@@ -2642,7 +2642,14 @@ class TestAutomationService {
 
             return {
                 current_status: this.runningTests.has(sessionId) ? 'running' : 'idle',
-                summary: summary,
+                summary: {
+                    total_runs: summary.total_runs || 0,
+                    last_run_date: summary.last_run_date,
+                    total_issues_found: summary.total_issues_found || 0,
+                    critical_issues_found: summary.critical_issues_found || 0,
+                    test_instances_updated: summary.test_instances_updated || 0,
+                    tools_used: summary.tools_used || []
+                },
                 latest_run: summary.last_run_date ? {
                     date: summary.last_run_date,
                     issues: summary.total_issues_found,

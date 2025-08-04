@@ -281,6 +281,42 @@ window.dashboard = function() {
         selectedRequirement: null,
         
         // ===== REQUIREMENTS FUNCTIONS (for Alpine.js template access) =====
+        
+        // Navigation Functions
+        canNavigateRequirement: function(direction) {
+            if (!this.filteredRequirements || !this.currentRequirement) return false;
+            const idx = this.filteredRequirements.findIndex(r => r.id === this.currentRequirement.id);
+            if (direction === -1) return idx > 0;
+            if (direction === 1) return idx < this.filteredRequirements.length - 1;
+            return false;
+        },
+        
+        navigateRequirement: function(direction) {
+            if (!this.filteredRequirements || !this.currentRequirement) return;
+            const idx = this.filteredRequirements.findIndex(r => r.id === this.currentRequirement.id);
+            const newIdx = idx + direction;
+            if (newIdx >= 0 && newIdx < this.filteredRequirements.length) {
+                this.currentRequirement = this.filteredRequirements[newIdx];
+            }
+        },
+        
+        canNavigateTestResult: function(direction) {
+            if (!this.automationRuns || !this.selectedTestResult) return false;
+            const idx = this.automationRuns.findIndex(r => r.id === this.selectedTestResult.id);
+            if (direction === -1) return idx > 0;
+            if (direction === 1) return idx < this.automationRuns.length - 1;
+            return false;
+        },
+        
+        navigateTestResult: function(direction) {
+            if (!this.automationRuns || !this.selectedTestResult) return;
+            const idx = this.automationRuns.findIndex(r => r.id === this.selectedTestResult.id);
+            const newIdx = idx + direction;
+            if (newIdx >= 0 && newIdx < this.automationRuns.length) {
+                this.selectedTestResult = this.automationRuns[newIdx];
+            }
+        },
+        
         loadSessionRequirements: async function(sessionId) {
             console.log(`🚀 loadSessionRequirements called with sessionId: ${sessionId}`);
             console.log(`📊 Current state - sessionRequirements length:`, this.sessionRequirements?.length || 0);
@@ -13137,6 +13173,8 @@ ${requirement.failure_examples}
         console.log('- Selected project:', componentInstance.selectedProject);
         console.log('- Selected test session:', componentInstance.selectedTestSession?.id);
     };
+    
+
 
     // Global Helper Functions (accessible from any Alpine.js context)
     window.getTestMethodExplanation = (criterionNumber, testMethod) => componentInstance.getTestMethodExplanation(criterionNumber, testMethod);
@@ -13151,6 +13189,47 @@ ${requirement.failure_examples}
     window.editTestInstance = (testInstance) => componentInstance.editTestInstance(testInstance);
     window.toggleAutomationResults = (instanceId) => componentInstance.toggleAutomationResults(instanceId);
     window.saveTestEvidence = (instanceId, modal) => componentInstance.saveTestEvidence(instanceId, modal);
+    
+    // Navigation Global Functions
+    window.canNavigateRequirement = (direction) => componentInstance.canNavigateRequirement(direction);
+    window.navigateRequirement = (direction) => componentInstance.navigateRequirement(direction);
+    window.canNavigateTestResult = (direction) => componentInstance.canNavigateTestResult(direction);
+    window.navigateTestResult = (direction) => componentInstance.navigateTestResult(direction);
+    
+    // Also expose them directly to Alpine.js context
+    componentInstance.canNavigateRequirement = function(direction) {
+        if (!this.filteredRequirements || !this.currentRequirement) return false;
+        const idx = this.filteredRequirements.findIndex(r => r.id === this.currentRequirement.id);
+        if (direction === -1) return idx > 0;
+        if (direction === 1) return idx < this.filteredRequirements.length - 1;
+        return false;
+    };
+    
+    componentInstance.navigateRequirement = function(direction) {
+        if (!this.filteredRequirements || !this.currentRequirement) return;
+        const idx = this.filteredRequirements.findIndex(r => r.id === this.currentRequirement.id);
+        const newIdx = idx + direction;
+        if (newIdx >= 0 && newIdx < this.filteredRequirements.length) {
+            this.currentRequirement = this.filteredRequirements[newIdx];
+        }
+    };
+    
+    componentInstance.canNavigateTestResult = function(direction) {
+        if (!this.automationRuns || !this.selectedTestResult) return false;
+        const idx = this.automationRuns.findIndex(r => r.id === this.selectedTestResult.id);
+        if (direction === -1) return idx > 0;
+        if (direction === 1) return idx < this.automationRuns.length - 1;
+        return false;
+    };
+    
+    componentInstance.navigateTestResult = function(direction) {
+        if (!this.automationRuns || !this.selectedTestResult) return;
+        const idx = this.automationRuns.findIndex(r => r.id === this.selectedTestResult.id);
+        const newIdx = idx + direction;
+        if (newIdx >= 0 && newIdx < this.automationRuns.length) {
+            this.selectedTestResult = this.automationRuns[newIdx];
+        }
+    };
     
     return componentInstance;
 }
