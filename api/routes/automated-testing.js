@@ -1001,6 +1001,7 @@ router.post('/run-per-instance/:sessionId', authenticateToken, async (req, res) 
             batch_size = 10 // Number of instances to run simultaneously
         } = req.body;
 
+        console.log(`🔥 IMMEDIATE: API route reached for session ${sessionId}`);
         console.log(`🎯 Starting PER-INSTANCE automated tests for session ${sessionId} with tools: ${tools.join(', ')}`);
         console.log(`🔍 DEBUG: Request body:`, req.body);
         console.log(`🔍 DEBUG: User ID:`, req.user.id);

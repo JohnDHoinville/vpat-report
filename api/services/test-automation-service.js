@@ -1226,6 +1226,27 @@ class TestAutomationService {
             console.log('🔍 DEBUG: Selected existing page_id:', pageId);
         }
         
+        // Create main automation run record
+        const runQuery = `
+            INSERT INTO automated_test_runs (
+                id, test_session_id, run_id, tools_used, pages_tested, 
+                started_at, status, created_by
+            ) VALUES ($1, $2, $3, $4, 1, CURRENT_TIMESTAMP, 'pending', $5)
+            ON CONFLICT (run_id) 
+            DO UPDATE SET 
+                test_session_id = EXCLUDED.test_session_id,
+                tools_used = EXCLUDED.tools_used,
+                started_at = EXCLUDED.started_at,
+                status = EXCLUDED.status
+            RETURNING *
+        `;
+
+        const runResult = await pool.query(runQuery, [
+            runId, sessionId, runId, JSON.stringify(tools), userId
+        ]);
+        
+        console.log(`✅ Created automation run record: ${runId}`);
+
         // Create entries for all tools
         const results = [];
         for (const tool of tools) {
@@ -1256,7 +1277,7 @@ class TestAutomationService {
             results.push(result.rows[0]);
         }
 
-        return results[0]; // Return first result for compatibility
+        return runResult.rows[0]; // Return the automation run record
     }
 
     /**
@@ -1266,19 +1287,18 @@ class TestAutomationService {
         console.log(`📊 Automation Run ${runId}: Status changed to ${status}`, data);
         
         try {
-            // Update the specific automated_test_results record that represents this run
+            // Update the automated_test_runs record using run_id (FIXED)
             const updateQuery = `
-                UPDATE automated_test_results 
+                UPDATE automated_test_runs 
                 SET 
                     status = $2::character varying,
                     completed_at = CASE WHEN $2::character varying = 'completed' THEN CURRENT_TIMESTAMP ELSE completed_at END,
                     error = CASE WHEN $2::character varying = 'failed' THEN $3::text ELSE error END,
-                    violations_count = COALESCE($4::integer, violations_count),
-                    warnings_count = COALESCE($5::integer, warnings_count),
-                    passes_count = COALESCE($6::integer, passes_count),
-                    test_duration_ms = COALESCE($7::integer, test_duration_ms),
-                    raw_results = COALESCE($8::jsonb, raw_results)
-                WHERE id = $1
+                    total_violations = COALESCE($4::integer, total_violations),
+                    critical_violations = COALESCE($5::integer, critical_violations),
+                    pages_tested = COALESCE($6::integer, pages_tested),
+                    test_instances_updated = COALESCE($7::integer, test_instances_updated)
+                WHERE run_id = $1
             `;
             
             const values = [
@@ -1286,10 +1306,9 @@ class TestAutomationService {
                 status,
                 data.error || null,
                 data.total_issues || null,
-                data.warnings || null, 
-                data.passes || null,
-                data.duration_ms || null,
-                data.raw_results ? JSON.stringify(data.raw_results) : '{}' // Use empty JSON instead of null
+                data.critical_issues || null, 
+                data.pages_tested || null,
+                data.test_instances_updated || null
             ];
             
             const result = await pool.query(updateQuery, values);
