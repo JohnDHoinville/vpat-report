@@ -1002,6 +1002,9 @@ router.post('/run-per-instance/:sessionId', authenticateToken, async (req, res) 
         } = req.body;
 
         console.log(`🎯 Starting PER-INSTANCE automated tests for session ${sessionId} with tools: ${tools.join(', ')}`);
+        console.log(`🔍 DEBUG: Request body:`, req.body);
+        console.log(`🔍 DEBUG: User ID:`, req.user.id);
+        console.log(`🔍 DEBUG: Specific instances:`, specific_instances);
 
         // Validate tools
         const validTools = ['axe-core', 'pa11y', 'lighthouse', 'contrast-analyzer', 'mobile-accessibility', 'wave', 'form-accessibility', 'heading-structure', 'aria-testing', 'playwright', 'cypress'];
@@ -1014,6 +1017,7 @@ router.post('/run-per-instance/:sessionId', authenticateToken, async (req, res) 
         }
 
         // Start per-instance automation run
+        console.log(`🚀 DEBUG: About to call automation service with sessionId: ${sessionId}`);
         const result = await automationService.runPerInstanceAutomatedTests(sessionId, {
             tools,
             runAsync: run_async,
@@ -1023,10 +1027,12 @@ router.post('/run-per-instance/:sessionId', authenticateToken, async (req, res) 
             clientMetadata: req.body.clientMetadata || {}
         });
 
+        console.log(`✅ DEBUG: Automation service returned:`, result);
+        
         res.json({
             success: true,
             message: 'Per-instance automated tests started successfully',
-            runId: result.runId,
+            runId: result.run_id, // Fixed: use run_id not runId
             totalInstances: result.totalInstances,
             batchCount: result.batchCount,
             tools,

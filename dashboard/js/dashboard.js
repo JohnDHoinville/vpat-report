@@ -689,6 +689,7 @@ ${requirement.failure_examples}
             datasets: []
         },
         isUpdatingChart: false,
+        chartUpdateTimeout: null,
         
         // ===== UTILITY FUNCTIONS =====
         getAutomationRunStatusClass(status) {
@@ -1114,6 +1115,10 @@ ${requirement.failure_examples}
             
             // Load available automation tools
             this.loadAvailableTools();
+            
+            // Store dashboard instance globally for reliable access by global wrapper functions
+            window._dashboardInstance = this;
+            console.log('✅ Dashboard instance stored globally');
         },
         
         setupNestedObjectProtection() {
@@ -7667,18 +7672,40 @@ ${requirement.failure_examples}
                 if (response.success) {
                     console.log('✅ Loaded automation run details:', response.data);
                     
-                    // Store the detailed results
-                    this.automationRunResults = response.data;
-                    
-                    // Ensure each result has a showRawData property for toggling
-                    if (this.automationRunResults.results) {
-                        this.automationRunResults.results.forEach(result => {
-                            result.showRawData = false;
-                        });
-                    }
+                    // Transform the API response to match frontend expectations
+                    this.automationRunResults = {
+                        run_id: response.data.run_id,
+                        summary: response.data.summary,
+                        evidence_files: response.data.evidence_files,
+                        test_instances_updated: response.data.test_instances_updated,
+                        requirements_tested: response.data.requirements_tested || [],
+                        // Convert detailed_results object to array of results for display
+                        results: response.data.detailed_results ? [
+                            {
+                                id: run.id,
+                                tool_name: 'Combined Results',
+                                page_url: 'Multiple pages',
+                                status: 'completed',
+                                created_at: run.started_at,
+                                violations_count: response.data.summary?.total_issues || 0,
+                                passes_count: 0, // We don't have this data from current API
+                                test_duration_ms: response.data.summary?.duration || 0,
+                                result: response.data.detailed_results,
+                                showRawData: false
+                            }
+                        ] : [],
+                        // Also preserve original data for any legacy access
+                        detailed_results: response.data.detailed_results,
+                        // Extract tools used from summary
+                        tools_used: response.data.summary?.tools_used || [],
+                        // Extract statistics
+                        pages_tested: response.data.summary?.pages_tested || 0,
+                        total_violations: response.data.summary?.total_issues || 0,
+                        total_passes: 0 // We don't have this data from current API
+                    };
                     
                     this.showNotification('success', 'Details Loaded', 
-                        `Run ${run.id.substring(0, 8)}: ${response.data.results?.length || 0} detailed results loaded`);
+                        `Run ${run.id.substring(0, 8)}: Detailed results loaded with ${this.automationRunResults.total_violations} violations`);
                 } else {
                     throw new Error(response.error || 'Failed to load run details');
                 }
@@ -7783,6 +7810,18 @@ ${requirement.failure_examples}
                 return;
             }
             
+            // Add debouncing to prevent rapid successive calls
+            if (this.chartUpdateTimeout) {
+                clearTimeout(this.chartUpdateTimeout);
+            }
+            
+            this.chartUpdateTimeout = setTimeout(() => {
+                this._doUpdateAutomationChart(period);
+            }, 100);
+        },
+
+        // Internal chart update method
+        _doUpdateAutomationChart(period = '7d') {
             try {
                 this.isUpdatingChart = true;
                 this.automationChartPeriod = period;
@@ -7793,6 +7832,13 @@ ${requirement.failure_examples}
                     console.log('Chart not initialized, initializing now...');
                     this.initAutomationChart();
                     // Don't call updateAutomationChart recursively - let the caller handle it
+                    return;
+                }
+
+                // Additional safety: check if chart is still valid
+                if (!this.automationChart.canvas || !this.automationChart.canvas.getContext) {
+                    console.warn('Chart canvas is invalid, reinitializing...');
+                    this.initAutomationChart();
                     return;
                 }
 
@@ -7904,13 +7950,26 @@ ${requirement.failure_examples}
                     ]
                 };
 
-                // Update chart with new data
+                // Update chart with new data (with enhanced safety)
                 if (this.automationChart && this.automationChart.data && this.automationChart.update) {
                     try {
-                        this.automationChart.data = this.automationChartData;
+                        // Safely update the chart data
+                        this.automationChart.data.labels = this.automationChartData.labels;
+                        this.automationChart.data.datasets = this.automationChartData.datasets;
+                        
+                        // Use animation: false to prevent chart.js conflicts
                         this.automationChart.update('none');
                     } catch (updateError) {
                         console.error('Error updating chart data:', updateError);
+                        // If chart update fails, try to destroy and recreate
+                        try {
+                            this.automationChart.destroy();
+                            this.automationChart = null;
+                            // Don't recursively call - just log for now
+                            console.log('Chart destroyed due to errors, will reinitialize on next update');
+                        } catch (destroyError) {
+                            console.error('Error destroying chart:', destroyError);
+                        }
                     }
                 }
 
@@ -8973,40 +9032,58 @@ ${requirement.failure_examples}
                                 </div>
                             </div>
                             
-                            <!-- Results Summary -->
+                            <!-- Results Summary - Always show all counts -->
                             <div class="grid grid-cols-3 gap-3 mb-4">
-                                ${result.violations_count > 0 ? `
-                                    <div class="bg-red-50 border border-red-200 rounded p-3 text-center">
-                                        <div class="text-xl font-bold text-red-700">${result.violations_count}</div>
-                                        <div class="text-xs text-red-600">Violations</div>
-                                    </div>
-                                ` : ''}
-                                ${result.warnings_count > 0 ? `
-                                    <div class="bg-yellow-50 border border-yellow-200 rounded p-3 text-center">
-                                        <div class="text-xl font-bold text-yellow-700">${result.warnings_count}</div>
-                                        <div class="text-xs text-yellow-600">Warnings</div>
-                                    </div>
-                                ` : ''}
-                                ${result.passes_count > 0 ? `
-                                    <div class="bg-green-50 border border-green-200 rounded p-3 text-center">
-                                        <div class="text-xl font-bold text-green-700">${result.passes_count}</div>
-                                        <div class="text-xs text-green-600">Passed</div>
-                                    </div>
-                                ` : ''}
+                                <div class="bg-red-50 border border-red-200 rounded p-3 text-center">
+                                    <div class="text-xl font-bold text-red-700">${result.violations_count || 0}</div>
+                                    <div class="text-xs text-red-600">Violations</div>
+                                </div>
+                                <div class="bg-yellow-50 border border-yellow-200 rounded p-3 text-center">
+                                    <div class="text-xl font-bold text-yellow-700">${result.warnings_count || 0}</div>
+                                    <div class="text-xs text-yellow-600">Warnings</div>
+                                </div>
+                                <div class="bg-green-50 border border-green-200 rounded p-3 text-center">
+                                    <div class="text-xl font-bold text-green-700">${result.passes_count || 0}</div>
+                                    <div class="text-xs text-green-600">Passed</div>
+                                </div>
                             </div>
+                            
+                            <!-- Zero Results Indicator -->
+                            ${(result.violations_count || 0) === 0 && (result.warnings_count || 0) === 0 && (result.passes_count || 0) === 0 ? `
+                                <div class="bg-blue-50 border border-blue-200 rounded p-3 mb-3">
+                                    <div class="flex items-center space-x-2 text-blue-700">
+                                        <i class="fas fa-info-circle"></i>
+                                        <span class="text-sm font-medium">Zero Results Detected</span>
+                                    </div>
+                                    <p class="text-xs text-blue-600 mt-1">
+                                        This automation tool ran but found no violations, warnings, or passes. 
+                                        This may indicate a testing issue or that the tool couldn't analyze this content.
+                                    </p>
+                                </div>
+                            ` : ''}
 
                             <!-- Detailed Results -->
-                            ${result.raw_results && Object.keys(result.raw_results).length > 0 ? `
-                                <details class="mb-3">
-                                    <summary class="cursor-pointer text-sm font-medium text-purple-700 hover:text-purple-900 flex items-center">
-                                        <i class="fas fa-list mr-2"></i>View Detailed Results
-                                        <i class="fas fa-chevron-down ml-auto text-xs"></i>
-                                    </summary>
-                                    <div class="mt-2 bg-gray-50 p-3 rounded border text-xs">
-                                        ${this.formatAutomationResults(result.raw_results)}
-                                    </div>
-                                </details>
-                            ` : ''}
+                            <details class="mb-3">
+                                <summary class="cursor-pointer text-sm font-medium text-purple-700 hover:text-purple-900 flex items-center">
+                                    <i class="fas fa-list mr-2"></i>View Detailed Results
+                                    <i class="fas fa-chevron-down ml-auto text-xs"></i>
+                                </summary>
+                                <div class="mt-2 bg-gray-50 p-3 rounded border text-xs">
+                                    ${result.raw_results && Object.keys(result.raw_results).length > 0 ? 
+                                        this.formatAutomationResults(result.raw_results) : 
+                                        `<div class="text-center py-4 text-gray-500">
+                                            <i class="fas fa-info-circle mb-2"></i>
+                                            <p class="text-sm">No detailed results available</p>
+                                            <p class="text-xs mt-1">This test ran but produced no detailed output. This could mean:</p>
+                                            <ul class="text-xs mt-2 space-y-1 text-left">
+                                                <li>• The page passed all automated checks</li>
+                                                <li>• The automation tool encountered an error</li>
+                                                <li>• The test didn't run properly</li>
+                                            </ul>
+                                        </div>`
+                                    }
+                                </div>
+                            </details>
                             
 
                             
@@ -12787,32 +12864,93 @@ document.addEventListener('alpine:init', () => {
     }
 });
 
-// ===== IMMEDIATE GLOBAL METHOD EXPOSURE =====
-// Expose critical methods immediately for Alpine.js (before dashboard() is called)
+// ===== ROBUST GLOBAL METHOD EXPOSURE =====
+// Store dashboard instance globally for reliable access
+window._dashboardInstance = null;
+
+// Expose critical methods with multiple fallback strategies
 window.runAutomatedTestForRequirement = function(requirement) {
     console.log('🎯 Global wrapper: Running automated test for requirement:', requirement.criterion_number);
-    // Get the current dashboard instance from Alpine
-    const dashboardEl = document.querySelector('[x-data*="dashboard"]');
-    if (dashboardEl && dashboardEl._x_dataStack && dashboardEl._x_dataStack[0]) {
-        const instance = dashboardEl._x_dataStack[0];
-        if (instance.runAutomatedTestForRequirement) {
-            return instance.runAutomatedTestForRequirement(requirement);
+    
+    // Strategy 1: Use stored instance
+    if (window._dashboardInstance && window._dashboardInstance.runAutomatedTestForRequirement) {
+        console.log('✅ Using stored dashboard instance');
+        return window._dashboardInstance.runAutomatedTestForRequirement(requirement);
+    }
+    
+    // Strategy 2: Find Alpine data via multiple selectors
+    const selectors = ['[x-data*="dashboard"]', '[x-data="dashboard()"]', '.dashboard-container', 'body'];
+    for (const selector of selectors) {
+        const element = document.querySelector(selector);
+        if (element && element._x_dataStack) {
+            for (const data of element._x_dataStack) {
+                if (data && data.runAutomatedTestForRequirement) {
+                    console.log('✅ Found dashboard instance via Alpine data stack');
+                    window._dashboardInstance = data; // Cache for future use
+                    return data.runAutomatedTestForRequirement(requirement);
+                }
+            }
         }
     }
-    console.error('❌ Dashboard instance not found or method not available');
+    
+    // Strategy 3: Try Alpine's global store
+    if (window.Alpine && window.Alpine.store) {
+        try {
+            const storeData = window.Alpine.store('dashboard');
+            if (storeData && storeData.runAutomatedTestForRequirement) {
+                console.log('✅ Found dashboard instance via Alpine store');
+                return storeData.runAutomatedTestForRequirement(requirement);
+            }
+        } catch (e) {
+            console.log('Alpine store not available or no dashboard store');
+        }
+    }
+    
+    console.error('❌ Dashboard instance not found through any strategy');
+    console.error('Available elements:', document.querySelectorAll('[x-data]').length);
+    console.error('Alpine available:', !!window.Alpine);
 };
 
 window.runAutomatedTestForInstance = function(testInstance) {
     console.log('🎯 Global wrapper: Running automated test for instance:', testInstance.id);
-    // Get the current dashboard instance from Alpine
-    const dashboardEl = document.querySelector('[x-data*="dashboard"]');
-    if (dashboardEl && dashboardEl._x_dataStack && dashboardEl._x_dataStack[0]) {
-        const instance = dashboardEl._x_dataStack[0];
-        if (instance.runAutomatedTestForInstance) {
-            return instance.runAutomatedTestForInstance(testInstance);
+    
+    // Strategy 1: Use stored instance
+    if (window._dashboardInstance && window._dashboardInstance.runAutomatedTestForInstance) {
+        console.log('✅ Using stored dashboard instance');
+        return window._dashboardInstance.runAutomatedTestForInstance(testInstance);
+    }
+    
+    // Strategy 2: Find Alpine data via multiple selectors
+    const selectors = ['[x-data*="dashboard"]', '[x-data="dashboard()"]', '.dashboard-container', 'body'];
+    for (const selector of selectors) {
+        const element = document.querySelector(selector);
+        if (element && element._x_dataStack) {
+            for (const data of element._x_dataStack) {
+                if (data && data.runAutomatedTestForInstance) {
+                    console.log('✅ Found dashboard instance via Alpine data stack');
+                    window._dashboardInstance = data; // Cache for future use
+                    return data.runAutomatedTestForInstance(testInstance);
+                }
+            }
         }
     }
-    console.error('❌ Dashboard instance not found or method not available');
+    
+    // Strategy 3: Try Alpine's global store
+    if (window.Alpine && window.Alpine.store) {
+        try {
+            const storeData = window.Alpine.store('dashboard');
+            if (storeData && storeData.runAutomatedTestForInstance) {
+                console.log('✅ Found dashboard instance via Alpine store');
+                return storeData.runAutomatedTestForInstance(testInstance);
+            }
+        } catch (e) {
+            console.log('Alpine store not available or no dashboard store');
+        }
+    }
+    
+    console.error('❌ Dashboard instance not found through any strategy');
+    console.error('Available elements:', document.querySelectorAll('[x-data]').length);
+    console.error('Alpine available:', !!window.Alpine);
 };
 
 console.log('📦 Dashboard module loaded successfully');

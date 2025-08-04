@@ -1272,12 +1272,12 @@ class TestAutomationService {
                 SET 
                     status = $2::character varying,
                     completed_at = CASE WHEN $2::character varying = 'completed' THEN CURRENT_TIMESTAMP ELSE completed_at END,
-                    error = CASE WHEN $2::character varying = 'failed' THEN $3 ELSE error END,
-                    violations_count = COALESCE($4, violations_count),
-                    warnings_count = COALESCE($5, warnings_count),
-                    passes_count = COALESCE($6, passes_count),
-                    test_duration_ms = COALESCE($7, test_duration_ms),
-                    raw_results = CASE WHEN $8::text IS NOT NULL THEN $8::jsonb ELSE raw_results END
+                    error = CASE WHEN $2::character varying = 'failed' THEN $3::text ELSE error END,
+                    violations_count = COALESCE($4::integer, violations_count),
+                    warnings_count = COALESCE($5::integer, warnings_count),
+                    passes_count = COALESCE($6::integer, passes_count),
+                    test_duration_ms = COALESCE($7::integer, test_duration_ms),
+                    raw_results = COALESCE($8::jsonb, raw_results)
                 WHERE id = $1
             `;
             
@@ -1289,7 +1289,7 @@ class TestAutomationService {
                 data.warnings || null, 
                 data.passes || null,
                 data.duration_ms || null,
-                data.raw_results ? JSON.stringify(data.raw_results) : null
+                data.raw_results ? JSON.stringify(data.raw_results) : '{}' // Use empty JSON instead of null
             ];
             
             const result = await pool.query(updateQuery, values);
@@ -4890,6 +4890,8 @@ class TestAutomationService {
      * This is the CORRECT approach that tests each page × WCAG criterion combination individually
      */
     async runPerInstanceAutomatedTests(sessionId, options = {}) {
+        console.log(`🚀 ENTERED runPerInstanceAutomatedTests with sessionId: ${sessionId}, options:`, options);
+        
         const {
             tools = ['axe-core', 'pa11y'],
             runAsync = true,
