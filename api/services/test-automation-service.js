@@ -2669,53 +2669,38 @@ class TestAutomationService {
         const { limit = 10, offset = 0 } = options;
 
         try {
-            // Group automation results by execution time to create logical "runs"
+            // Get automation runs from the correct table
             const query = `
-                WITH automation_runs AS (
-                    SELECT 
-                        DATE_TRUNC('minute', executed_at) as run_time,
-                        MIN(id::text) as run_id,
-                        MIN(executed_at) as started_at,
-                        MAX(executed_at) as completed_at,
-                        ARRAY_AGG(DISTINCT tool_name ORDER BY tool_name) as tools_used,
-                        COUNT(DISTINCT page_id) as pages_tested,
-                        SUM(violations_count) as total_issues,
-                        SUM(passes_count) as total_passes,
-                        CASE 
-                            WHEN COUNT(*) = COUNT(CASE WHEN status = 'completed' THEN 1 END) THEN 'completed'
-                            WHEN COUNT(CASE WHEN status = 'failed' THEN 1 END) > 0 THEN 'failed'
-                            ELSE 'pending'
-                        END as status,
-                        EXTRACT(EPOCH FROM (MAX(executed_at) - MIN(executed_at))) * 1000 as duration_ms,
-                        COUNT(*) as total_test_results
-                    FROM automated_test_results 
-                    WHERE test_session_id = $1 
-                    GROUP BY DATE_TRUNC('minute', executed_at)
-                )
                 SELECT 
-                    run_id::text as id,
+                    id::text as id,
+                    run_id,
                     started_at,
                     completed_at,
-                    tools_used,
-                    pages_tested,
-                    total_issues,
-                    total_passes,
                     status,
-                    duration_ms,
-                    total_test_results,
+                    total_violations as total_issues,
+                    critical_violations,
+                    test_instances_updated,
+                    pages_tested,
+                    tools_used,
+                    error,
+                    EXTRACT(EPOCH FROM (completed_at - started_at)) * 1000 as duration_ms,
                     CASE 
-                        WHEN total_issues = 0 THEN 'success'
-                        WHEN total_issues <= 5 THEN 'warning'
-                        ELSE 'danger'
-                    END as result_type
-                FROM automation_runs
+                        WHEN status = 'completed' AND total_violations = 0 THEN 'success'
+                        WHEN status = 'completed' AND total_violations <= 5 THEN 'warning'
+                        WHEN status = 'completed' AND total_violations > 5 THEN 'danger'
+                        WHEN status = 'failed' THEN 'danger'
+                        ELSE 'pending'
+                    END as result_type,
+                    0 as total_passes -- Placeholder since we don't track passes in this table
+                FROM automated_test_runs 
+                WHERE test_session_id = $1 
                 ORDER BY started_at DESC 
                 LIMIT $2 OFFSET $3
             `;
 
             const countQuery = `
-                SELECT COUNT(DISTINCT DATE_TRUNC('minute', executed_at)) as total 
-                FROM automated_test_results 
+                SELECT COUNT(*) as total 
+                FROM automated_test_runs 
                 WHERE test_session_id = $1
             `;
 
@@ -2725,16 +2710,23 @@ class TestAutomationService {
             ]);
 
             // Enhance run data with additional details
-            const enhancedRuns = runsResult.rows.map(run => ({
-                ...run,
-                summary: `${run.tools_used.length} tools, ${run.pages_tested} pages, ${run.total_issues} issues found`,
-                success_rate: run.total_passes + run.total_issues > 0 ? 
-                    ((run.total_passes / (run.total_passes + run.total_issues)) * 100).toFixed(1) : '0',
-                avg_issues_per_page: run.pages_tested > 0 ? 
-                    (run.total_issues / run.pages_tested).toFixed(1) : '0',
-                formatted_duration: this.formatDuration(run.duration_ms),
-                tools_display: run.tools_used.map(tool => tool.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())).join(', ')
-            }));
+            const enhancedRuns = runsResult.rows.map(run => {
+                const toolsArray = Array.isArray(run.tools_used) ? run.tools_used : 
+                    (run.tools_used ? JSON.parse(run.tools_used) : []);
+                
+                return {
+                    ...run,
+                    tools_used: toolsArray,
+                    summary: `${toolsArray.length} tools, ${run.pages_tested || 0} pages, ${run.total_issues || 0} issues found`,
+                    success_rate: run.total_issues > 0 ? '0' : '100', // Simple: 0 issues = 100% success
+                    avg_issues_per_page: (run.pages_tested && run.pages_tested > 0) ? 
+                        (run.total_issues / run.pages_tested).toFixed(1) : '0',
+                    formatted_duration: this.formatDuration(run.duration_ms),
+                    tools_display: toolsArray.map(tool => 
+                        tool.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())
+                    ).join(', ') || 'Unknown'
+                };
+            });
 
             return {
                 runs: enhancedRuns,

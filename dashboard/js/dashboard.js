@@ -181,6 +181,8 @@ window.dashboard = function() {
         testSessionResults: [],
         recentViolations: [],
         sessionResults: [],
+        selectedViolation: null,
+        showViolationDetailsModal: false,
         
         // ===== AUTOMATION RUN DETAILS =====
         selectedAutomationRun: null,
@@ -8167,9 +8169,61 @@ ${requirement.failure_examples}
                     }));
                 }
                 
-                // For now, skip violations since the API needs to be updated for the current schema
-                // TODO: Update violations API to work with the current database schema
+                // Load violations from test instances that have result data
                 this.sessionResults.violations = [];
+                if (testInstancesResponse.success && testInstancesResponse.test_instances) {
+                    const violations = [];
+                    
+                    for (const instance of testInstancesResponse.test_instances) {
+                        if (instance.result && instance.status === 'needs_review') {
+                            try {
+                                const resultData = typeof instance.result === 'string' ? 
+                                    JSON.parse(instance.result) : instance.result;
+                                
+                                if (resultData.violation) {
+                                    // Format axe-core violations
+                                    if (resultData.violation.help && resultData.violation.description) {
+                                        violations.push({
+                                            id: instance.id,
+                                            rule_id: resultData.violation.id || 'axe-violation',
+                                            description: resultData.violation.help,
+                                            severity: resultData.violation.impact || 'moderate',
+                                            page_url: resultData.pageUrl || 'Unknown page',
+                                            found_at: resultData.timestamp || instance.updated_at,
+                                            tool: resultData.tool || 'axe-core',
+                                            wcag_criterion: instance.criterion_number,
+                                            element_count: resultData.violation.nodes ? resultData.violation.nodes.length : 1
+                                        });
+                                    }
+                                    // Format pa11y violations
+                                    else if (resultData.violation.message && resultData.violation.code) {
+                                        violations.push({
+                                            id: instance.id,
+                                            rule_id: resultData.violation.code,
+                                            description: resultData.violation.message,
+                                            severity: resultData.violation.type || 'error',
+                                            page_url: resultData.pageUrl || 'Unknown page',
+                                            found_at: resultData.timestamp || instance.updated_at,
+                                            tool: resultData.tool || 'pa11y',
+                                            wcag_criterion: instance.criterion_number,
+                                            element_count: 1
+                                        });
+                                    }
+                                }
+                            } catch (error) {
+                                console.warn('Error parsing violation data for instance:', instance.id, error);
+                            }
+                        }
+                    }
+                    
+                    // Sort by most recent first and limit to 20
+                    this.sessionResults.violations = violations
+                        .sort((a, b) => new Date(b.found_at) - new Date(a.found_at))
+                        .slice(0, 20);
+                    
+                    // Also populate recentViolations for the Results tab
+                    this.recentViolations = this.sessionResults.violations;
+                }
                 
                 console.log('📊 Session results loaded:', this.sessionResults);
             } catch (error) {
@@ -9096,6 +9150,7 @@ ${requirement.failure_examples}
                                 <div class="mt-2 bg-gray-50 p-3 rounded border text-xs">
                                     ${result.raw_results && Object.keys(result.raw_results).length > 0 ? 
                                         this.formatAutomationResults(result.raw_results) : 
+                                        result.violation ? this.formatViolationResult(result.violation) :
                                         `<div class="text-center py-4 text-gray-500">
                                             <i class="fas fa-info-circle mb-2"></i>
                                             <p class="text-sm">No detailed results available</p>
@@ -9534,6 +9589,67 @@ ${requirement.failure_examples}
                 'pending': 'bg-yellow-100 text-yellow-800'
             };
             return classes[status] || 'bg-gray-100 text-gray-800';
+        },
+
+        // Format individual violation result for display
+        formatViolationResult(violation) {
+            if (!violation || typeof violation !== 'object') {
+                return '<em class="text-gray-500">No violation details available</em>';
+            }
+
+            let html = '<div class="space-y-3">';
+            
+            // Handle axe-core format
+            if (violation.help && violation.description) {
+                html += `<div class="border-l-4 border-red-500 pl-3">
+                    <div class="flex items-center space-x-2 mb-2">
+                        <span class="px-2 py-1 text-xs font-medium rounded bg-red-100 text-red-800">${violation.impact || 'ERROR'}</span>
+                        <strong class="text-red-700">${violation.id || 'Axe Violation'}</strong>
+                    </div>
+                    <p class="text-sm text-gray-700 mb-2">${violation.help}</p>
+                    <p class="text-xs text-gray-600 mb-2">${violation.description}</p>`;
+                    
+                if (violation.nodes && violation.nodes.length > 0) {
+                    html += `<div class="bg-red-50 p-2 rounded text-xs">
+                        <strong>Elements affected:</strong>
+                        <ul class="mt-1 space-y-1">`;
+                    violation.nodes.slice(0, 3).forEach(node => {
+                        html += `<li class="font-mono text-red-600">${node.target ? node.target.join(', ') : 'Element'}</li>`;
+                        if (node.html) {
+                            html += `<li class="text-gray-600 ml-4">${node.html.substring(0, 100)}${node.html.length > 100 ? '...' : ''}</li>`;
+                        }
+                    });
+                    if (violation.nodes.length > 3) {
+                        html += `<li class="text-gray-500 italic">... and ${violation.nodes.length - 3} more</li>`;
+                    }
+                    html += '</ul></div>';
+                }
+                html += `<div class="mt-2"><a href="${violation.helpUrl}" target="_blank" class="text-blue-600 hover:text-blue-800 text-xs">Learn more →</a></div>`;
+                html += '</div>';
+            }
+            // Handle pa11y format  
+            else if (violation.message && violation.code) {
+                html += `<div class="border-l-4 border-red-500 pl-3">
+                    <div class="flex items-center space-x-2 mb-2">
+                        <span class="px-2 py-1 text-xs font-medium rounded bg-red-100 text-red-800">${violation.type || 'ERROR'}</span>
+                        <strong class="text-red-700">${violation.code}</strong>
+                    </div>
+                    <p class="text-sm text-gray-700 mb-2">${violation.message}</p>`;
+                    
+                if (violation.context) {
+                    html += `<div class="bg-red-50 p-2 rounded text-xs">
+                        <strong>Element:</strong>
+                        <div class="mt-1 font-mono text-red-600">${violation.context.substring(0, 200)}${violation.context.length > 200 ? '...' : ''}</div>
+                    </div>`;
+                }
+                if (violation.selector) {
+                    html += `<div class="mt-2 text-xs text-gray-600"><strong>Selector:</strong> <code>${violation.selector}</code></div>`;
+                }
+                html += '</div>';
+            }
+            
+            html += '</div>';
+            return html;
         },
 
         // Format automation results for display
@@ -12720,6 +12836,15 @@ ${requirement.failure_examples}
     window._dashboardInitialized = true;
     window._dashboardInstance = componentInstance;
     
+    // Also store in Alpine's global store for better accessibility
+    if (window.Alpine && window.Alpine.store) {
+        try {
+            window.Alpine.store('dashboard', componentInstance);
+        } catch (e) {
+            console.log('Alpine store not available for dashboard instance');
+        }
+    }
+    
     console.log('✅ Dashboard initialized successfully');
     console.log('📊 Global functions available:', {
         dashboard: typeof window.dashboard,
@@ -12903,7 +13028,21 @@ window.runAutomatedTestForRequirement = function(requirement) {
         return window._dashboardInstance.runAutomatedTestForRequirement(requirement);
     }
     
-    // Strategy 2: Find Alpine data via multiple selectors
+    // Strategy 2: Try Alpine's global store
+    if (window.Alpine && window.Alpine.store) {
+        try {
+            const storeData = window.Alpine.store('dashboard');
+            if (storeData && storeData.runAutomatedTestForRequirement) {
+                console.log('✅ Found dashboard instance via Alpine store');
+                window._dashboardInstance = storeData; // Cache for future use
+                return storeData.runAutomatedTestForRequirement(requirement);
+            }
+        } catch (e) {
+            console.log('Alpine store not available or no dashboard store');
+        }
+    }
+    
+    // Strategy 3: Find Alpine data via multiple selectors
     const selectors = ['[x-data*="dashboard"]', '[x-data="dashboard()"]', '.dashboard-container', 'body'];
     for (const selector of selectors) {
         const element = document.querySelector(selector);
@@ -12918,22 +13057,34 @@ window.runAutomatedTestForRequirement = function(requirement) {
         }
     }
     
-    // Strategy 3: Try Alpine's global store
-    if (window.Alpine && window.Alpine.store) {
-        try {
-            const storeData = window.Alpine.store('dashboard');
-            if (storeData && storeData.runAutomatedTestForRequirement) {
-                console.log('✅ Found dashboard instance via Alpine store');
-                return storeData.runAutomatedTestForRequirement(requirement);
-            }
-        } catch (e) {
-            console.log('Alpine store not available or no dashboard store');
-        }
+    // Strategy 4: Wait for initialization and retry
+    if (!window._dashboardInitialized) {
+        console.log('⏳ Dashboard not initialized yet, waiting...');
+        setTimeout(() => {
+            window.runAutomatedTestForRequirement(requirement);
+        }, 1000);
+        return;
     }
     
     console.error('❌ Dashboard instance not found through any strategy');
     console.error('Available elements:', document.querySelectorAll('[x-data]').length);
     console.error('Alpine available:', !!window.Alpine);
+    console.error('Dashboard initialized:', window._dashboardInitialized);
+    
+    // Show user-friendly error
+    if (window.Alpine && window.Alpine.store) {
+        try {
+            const storeData = window.Alpine.store('dashboard');
+            if (storeData && storeData.showNotification) {
+                storeData.showNotification('error', 'Automation Error', 'Unable to start automation. Please refresh the page and try again.');
+            }
+        } catch (e) {
+            // Fallback to alert
+            alert('Unable to start automation. Please refresh the page and try again.');
+        }
+    } else {
+        alert('Unable to start automation. Please refresh the page and try again.');
+    }
 };
 
 window.runAutomatedTestForInstance = function(testInstance) {
