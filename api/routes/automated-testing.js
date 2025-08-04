@@ -507,7 +507,81 @@ router.get('/instance-results/:instanceId', authenticateToken, async (req, res) 
         // Query automation results from the database
         const { pool } = require('../../database/config');
         
-        const query = `
+        // NEW APPROACH: Get results directly from test_instances.result field
+        const testInstanceQuery = `
+            SELECT 
+                ti.id,
+                ti.session_id as test_session_id,
+                ti.status,
+                ti.result,
+                ti.updated_at,
+                tr.criterion_number,
+                tr.title as requirement_title,
+                dp.url as page_url
+            FROM test_instances ti
+            LEFT JOIN test_requirements tr ON ti.requirement_id = tr.id
+            LEFT JOIN discovered_pages dp ON ti.page_id = dp.id
+            WHERE ti.id = $1
+        `;
+        
+        const instanceResult = await pool.query(testInstanceQuery, [instanceId]);
+        
+        if (instanceResult.rows.length === 0) {
+            return res.json({
+                success: true,
+                data: [],
+                count: 0,
+                message: 'Test instance not found'
+            });
+        }
+        
+        const testInstance = instanceResult.rows[0];
+        
+        // Parse the result field to extract violation data
+        let automationResults = [];
+        if (testInstance.result) {
+            try {
+                const resultData = typeof testInstance.result === 'string' 
+                    ? JSON.parse(testInstance.result) 
+                    : testInstance.result;
+                
+                // Convert the stored violation data to the expected format
+                if (resultData.violation) {
+                    automationResults.push({
+                        id: `instance-${instanceId}`,
+                        test_session_id: testInstance.test_session_id,
+                        tool_name: resultData.tool || 'unknown',
+                        tool_version: '1.0',
+                        raw_results: {
+                            violation: resultData.violation,
+                            status: resultData.status,
+                            pageUrl: resultData.pageUrl
+                        },
+                        violations_count: 1,
+                        warnings_count: 0,
+                        passes_count: 0,
+                        test_duration_ms: 0,
+                        executed_at: resultData.timestamp || testInstance.updated_at,
+                        browser_name: 'chrome',
+                        viewport_width: null,
+                        viewport_height: null,
+                        test_environment: 'desktop',
+                        test_suite: 'per-instance',
+                        
+                        // Additional metadata for frontend
+                        criterion_number: testInstance.criterion_number,
+                        requirement_title: testInstance.requirement_title,
+                        page_url: testInstance.page_url,
+                        instance_status: testInstance.status
+                    });
+                }
+            } catch (error) {
+                console.error('Error parsing test instance result:', error);
+            }
+        }
+        
+        // Fallback: also check old automated_test_results table for compatibility
+        const legacyQuery = `
             SELECT 
                 atr.id,
                 atr.test_session_id,
@@ -530,13 +604,17 @@ router.get('/instance-results/:instanceId', authenticateToken, async (req, res) 
             ORDER BY atr.executed_at DESC
         `;
         
-        const result = await pool.query(query, [instanceId]);
+        const legacyResult = await pool.query(legacyQuery, [instanceId]);
+        
+        // Combine new and legacy results
+        const allResults = [...automationResults, ...legacyResult.rows];
         
         res.json({
             success: true,
-            data: result.rows,
-            count: result.rows.length,
-            message: `Found ${result.rows.length} automation results for test instance`
+            data: allResults,
+            count: allResults.length,
+            message: `Found ${allResults.length} automation results for test instance`,
+            source: automationResults.length > 0 ? 'test_instance_result' : 'automated_test_results'
         });
 
     } catch (error) {
