@@ -284,19 +284,77 @@ window.dashboard = function() {
         
         // Navigation Functions
         canNavigateRequirement: function(direction) {
-            if (!this.filteredRequirements || !this.currentRequirement) return false;
+            console.log('🔍 canNavigateRequirement called with direction:', direction);
+            console.log('🔍 filteredRequirements length:', this.filteredRequirements?.length || 0);
+            console.log('🔍 currentRequirement:', this.currentRequirement?.id);
+            
+            // If requirements aren't loaded yet, try to load them
+            if (!this.filteredRequirements || this.filteredRequirements.length === 0) {
+                console.log('📋 Requirements not loaded, attempting to load...');
+                if (this.selectedSessionDetails?.id) {
+                    this.loadSessionRequirements(this.selectedSessionDetails.id);
+                }
+                return false;
+            }
+            
+            if (!this.currentRequirement) {
+                console.log('❌ No current requirement selected');
+                return false;
+            }
+            
             const idx = this.filteredRequirements.findIndex(r => r.id === this.currentRequirement.id);
+            console.log('🔍 Found requirement at index:', idx);
+            
+            if (idx === -1) {
+                console.log('❌ Current requirement not found in filteredRequirements');
+                return false;
+            }
+            
             if (direction === -1) return idx > 0;
             if (direction === 1) return idx < this.filteredRequirements.length - 1;
             return false;
         },
         
         navigateRequirement: function(direction) {
-            if (!this.filteredRequirements || !this.currentRequirement) return;
+            console.log('🚀 navigateRequirement called with direction:', direction);
+            console.log('🚀 filteredRequirements length:', this.filteredRequirements?.length || 0);
+            console.log('🚀 currentRequirement:', this.currentRequirement?.id);
+            
+            // If requirements aren't loaded yet, try to load them
+            if (!this.filteredRequirements || this.filteredRequirements.length === 0) {
+                console.log('📋 Requirements not loaded, attempting to load...');
+                if (this.selectedSessionDetails?.id) {
+                    this.loadSessionRequirements(this.selectedSessionDetails.id).then(() => {
+                        // Retry navigation after requirements are loaded
+                        setTimeout(() => this.navigateRequirement(direction), 100);
+                    });
+                }
+                return;
+            }
+            
+            if (!this.currentRequirement) {
+                console.log('❌ No current requirement selected');
+                return;
+            }
+            
             const idx = this.filteredRequirements.findIndex(r => r.id === this.currentRequirement.id);
+            console.log('🚀 Found requirement at index:', idx);
+            
+            if (idx === -1) {
+                console.log('❌ Current requirement not found in filteredRequirements');
+                return;
+            }
+            
             const newIdx = idx + direction;
+            console.log('🚀 New index would be:', newIdx);
+            
             if (newIdx >= 0 && newIdx < this.filteredRequirements.length) {
+                console.log('✅ Navigating to new requirement:', this.filteredRequirements[newIdx].criterion_number);
                 this.currentRequirement = this.filteredRequirements[newIdx];
+                // Re-fetch the full details for the new requirement
+                this.fetchFullRequirementDetails(this.currentRequirement.criterion_number);
+            } else {
+                console.log('❌ New index out of bounds:', newIdx);
             }
         },
         
@@ -318,21 +376,435 @@ window.dashboard = function() {
         },
         
         canNavigateTestInstance: function(direction) {
-            if (!this.sessionDetailsTestInstances || !this.currentTestInstance) return false;
-            const idx = this.sessionDetailsTestInstances.findIndex(t => t.id === this.currentTestInstance.id);
+            // Determine which array to use based on context
+            let instancesArray = this.filteredTestGridInstances && this.filteredTestGridInstances.length > 0 ? 
+                this.filteredTestGridInstances : this.sessionDetailsTestInstances;
+            
+            if (!instancesArray || !this.currentTestInstance) {
+                console.log('🔍 canNavigateTestInstance: No instances array or current test instance');
+                return false;
+            }
+            
+            const idx = instancesArray.findIndex(t => t.id === this.currentTestInstance.id);
+            console.log(`🔍 canNavigateTestInstance: Found at index ${idx} of ${instancesArray.length} instances`);
+            
             if (direction === -1) return idx > 0;
-            if (direction === 1) return idx < this.sessionDetailsTestInstances.length - 1;
+            if (direction === 1) return idx < instancesArray.length - 1;
             return false;
         },
         
         navigateTestInstance: function(direction) {
-            if (!this.sessionDetailsTestInstances || !this.currentTestInstance) return;
-            const idx = this.sessionDetailsTestInstances.findIndex(t => t.id === this.currentTestInstance.id);
+            console.log('🚀 navigateTestInstance called with direction:', direction);
+            console.log('🚀 currentTestInstance:', this.currentTestInstance?.id);
+            console.log('🚀 filteredTestGridInstances length:', this.filteredTestGridInstances?.length || 0);
+            console.log('🚀 sessionDetailsTestInstances length:', this.sessionDetailsTestInstances?.length || 0);
+            
+            // Determine which array to use based on context
+            let instancesArray = this.filteredTestGridInstances && this.filteredTestGridInstances.length > 0 ? 
+                this.filteredTestGridInstances : this.sessionDetailsTestInstances;
+            
+            console.log('🚀 Using instances array:', instancesArray === this.filteredTestGridInstances ? 'filteredTestGridInstances' : 'sessionDetailsTestInstances');
+            console.log('🚀 Instances array length:', instancesArray?.length || 0);
+            
+            if (!instancesArray || !this.currentTestInstance) {
+                console.log('❌ navigateTestInstance: No instances array or current test instance');
+                console.log('❌ instancesArray:', instancesArray);
+                console.log('❌ currentTestInstance:', this.currentTestInstance);
+                return;
+            }
+            
+            const idx = instancesArray.findIndex(t => t.id === this.currentTestInstance.id);
+            console.log(`🚀 navigateTestInstance: Found at index ${idx} of ${instancesArray.length} instances`);
+            
+            if (idx === -1) {
+                console.log('❌ navigateTestInstance: Current test instance not found in array');
+                console.log('❌ Looking for ID:', this.currentTestInstance.id);
+                console.log('❌ Available IDs:', instancesArray.map(t => t.id).slice(0, 5));
+                return;
+            }
+            
             const newIdx = idx + direction;
-            if (newIdx >= 0 && newIdx < this.sessionDetailsTestInstances.length) {
-                this.currentTestInstance = this.sessionDetailsTestInstances[newIdx];
-                // Re-open the modal with the new test instance
-                this.viewTestInstanceDetails(this.currentTestInstance);
+            if (newIdx >= 0 && newIdx < instancesArray.length) {
+                console.log(`✅ navigateTestInstance: Navigating to index ${newIdx}`);
+                this.currentTestInstance = instancesArray[newIdx];
+                // Update the existing modal content instead of creating a new one
+                this.updateTestInstanceModalContent(this.currentTestInstance);
+            } else {
+                console.log(`❌ navigateTestInstance: New index ${newIdx} out of bounds`);
+            }
+        },
+        
+        // Update existing test instance modal content
+        updateTestInstanceModalContent(testInstance) {
+            console.log('🔄 Updating test instance modal content for:', testInstance.id);
+            
+            // Find the existing modal
+            const existingModal = document.querySelector('.fixed.inset-0.bg-black.bg-opacity-50.z-50');
+            if (!existingModal) {
+                console.error('❌ No existing modal found, falling back to creating new one');
+                this.viewTestInstanceDetails(testInstance);
+                return;
+            }
+            
+            // Debug logging removed - navigation working correctly
+            
+            // Calculate current position for navigation
+            let instancesArray = this.filteredTestGridInstances && this.filteredTestGridInstances.length > 0 ? 
+                this.filteredTestGridInstances : this.sessionDetailsTestInstances;
+            
+            const currentIndex = instancesArray ? 
+                instancesArray.findIndex(t => t.id === testInstance.id) : -1;
+            const totalCount = instancesArray ? instancesArray.length : 0;
+            const positionText = currentIndex >= 0 ? `${currentIndex + 1} of ${totalCount} test instances` : 'Position unknown';
+            
+            // Update navigation button states
+            const canGoPrev = this.canNavigateTestInstance(-1);
+            const canGoNext = this.canNavigateTestInstance(1);
+            
+            // Create the updated modal content (without the wrapper div)
+            const updatedContent = `
+                    <!-- Modal Header -->
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <h3 class="text-2xl font-bold text-gray-900">Test Instance Details</h3>
+                            <p class="text-gray-600 text-sm mt-1">${testInstance.criterion_number} - ${testInstance.requirement_title || testInstance.title || 'Untitled'}</p>
+                        </div>
+                        <button onclick="this.closest('.fixed').remove()" class="text-gray-400 hover:text-gray-600">
+                            <i class="fas fa-times text-xl"></i>
+                        </button>
+                    </div>
+
+                    <!-- Test Overview -->
+                    <div class="bg-blue-50 rounded-lg p-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <h4 class="text-lg font-semibold text-blue-900 mb-3">Test Details</h4>
+                                <div class="space-y-2 text-sm">
+                                    <div>
+                                        <span class="font-medium text-blue-800">WCAG Criterion:</span>
+                                        <span class="ml-2 font-mono bg-blue-100 px-2 py-1 rounded text-blue-900">${testInstance.criterion_number}</span>
+                                    </div>
+                                    <div>
+                                        <span class="font-medium text-blue-800">WCAG Level:</span>
+                                        <span class="ml-2 px-2 py-1 rounded text-xs font-semibold bg-yellow-100 text-yellow-800">${(testInstance.requirement_level || testInstance.level || 'N/A').toUpperCase()}</span>
+                                    </div>
+                                    <div>
+                                        <span class="font-medium text-blue-800">Test Method:</span>
+                                        <span class="ml-2 text-blue-900">${testInstance.test_method_used || testInstance.requirement_test_method || 'Manual'}</span>
+                                    </div>
+                                    <div>
+                                        <span class="font-medium text-blue-800">Page:</span>
+                                        ${testInstance.page_url ? `<a href="${testInstance.page_url}" target="_blank" class="ml-2 text-blue-600 hover:text-blue-800">
+                                            <span>${testInstance.page_title || testInstance.page_url}</span>
+                                            <i class="fas fa-external-link-alt ml-1 text-xs"></i>
+                                        </a>` : '<span class="ml-2 text-blue-900">Site-wide test</span>'}
+                                    </div>
+                                </div>
+                            </div>
+                            <div>
+                                <h4 class="text-lg font-semibold text-blue-900 mb-3">Current Status</h4>
+                                <div class="space-y-2 text-sm">
+                                    <div>
+                                        <span class="font-medium text-blue-800">Status:</span>
+                                        <span class="ml-2 px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800">${testInstance.status || 'pending'}</span>
+                                    </div>
+                                    <div>
+                                        <span class="font-medium text-blue-800">Assigned Tester:</span>
+                                        <span class="ml-2 text-blue-900">${testInstance.assigned_tester_name || 'Unassigned'}</span>
+                                    </div>
+                                    <div>
+                                        <span class="font-medium text-blue-800">Confidence Level:</span>
+                                        <span class="ml-2 text-blue-900">${testInstance.confidence_level || 'Medium'}</span>
+                                    </div>
+                                    <div>
+                                        <span class="font-medium text-blue-800">Last Updated:</span>
+                                        <span class="ml-2 text-blue-900">${testInstance.updated_at ? new Date(testInstance.updated_at).toLocaleDateString() : 'Never'}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Navigation Section - Between Test Details and Requirement Description -->
+                        <div class="mt-6 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
+                            <div class="flex flex-col sm:flex-row justify-between items-center space-y-3 sm:space-y-0 sm:space-x-4">
+                                <!-- Left side - Current Position -->
+                                <div class="flex items-center space-x-3">
+                                    <span class="text-sm font-medium text-blue-800">Navigation:</span>
+                                    <span class="text-sm text-blue-600">${positionText}</span>
+                                </div>
+                                
+                                <!-- Right side - Navigation Buttons -->
+                                <div class="flex items-center space-x-3">
+                                    <!-- Previous Button -->
+                                    <button 
+                                        id="prev-test-instance-btn"
+                                        ${!canGoPrev ? 'disabled' : ''}
+                                        class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors ${!canGoPrev ? 'opacity-50 cursor-not-allowed' : ''}">
+                                        <i class="fas fa-arrow-left mr-2"></i>Previous
+                                    </button>
+                                    <!-- Next Button -->
+                                    <button 
+                                        id="next-test-instance-btn"
+                                        ${!canGoNext ? 'disabled' : ''}
+                                        class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors ${!canGoNext ? 'opacity-50 cursor-not-allowed' : ''}">
+                                        Next<i class="fas fa-arrow-right ml-2"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Requirement Description -->
+                    <div class="bg-gray-50 border border-gray-200 rounded-lg p-6">
+                        <h4 class="text-lg font-semibold text-gray-900 mb-3">Requirement Description</h4>
+                        <div class="bg-white border border-gray-200 rounded p-4">
+                            <p class="text-sm text-gray-900 leading-relaxed">${testInstance.requirement_description || testInstance.description || this.getWCAGDescription(testInstance.criterion_number) || 'Loading requirement details...'}</p>
+                        </div>
+                        
+                        <!-- Enhanced Testing Instructions -->
+                        <div class="mt-4 space-y-3">
+                            ${testInstance.test_method === 'both' ? `
+                                <div class="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                                    <h5 class="text-sm font-medium text-yellow-800 mb-2 flex items-center">
+                                        <i class="fas fa-info-circle mr-2"></i>Why Both Automated & Manual Testing?
+                                    </h5>
+                                    <p class="text-sm text-yellow-700">${this.getTestMethodExplanation(testInstance.criterion_number, testInstance.test_method) || 'This criterion requires both automated detection and manual verification.'}</p>
+                                </div>
+                            ` : ''}
+                            
+                            <div class="p-4 bg-green-50 border border-green-200 rounded-lg">
+                                <h5 class="text-sm font-medium text-green-800 mb-3 flex items-center">
+                                    <i class="fas fa-tasks mr-2"></i>Step-by-Step Testing Guide
+                                </h5>
+                                <div>${this.getDetailedTestingSteps(testInstance.criterion_number, testInstance.test_method)}</div>
+                            </div>
+                            
+                            <details class="bg-gray-50 border border-gray-200 rounded-lg">
+                                <summary class="p-4 cursor-pointer hover:bg-gray-100 transition-colors">
+                                    <span class="text-sm font-medium text-gray-800 flex items-center">
+                                        <i class="fas fa-exclamation-triangle mr-2 text-orange-500"></i>
+                                        Common Violations & Examples
+                                        <i class="fas fa-chevron-down ml-auto text-xs"></i>
+                                    </span>
+                                </summary>
+                                <div class="p-4 pt-0">
+                                    <div>${this.getCommonViolations(testInstance.criterion_number)}</div>
+                                </div>
+                            </details>
+                        </div>
+                        
+                        ${testInstance.wcag_url || testInstance.section_508_url ? `
+                        <div class="mt-4 flex space-x-4">
+                            ${testInstance.wcag_url ? `
+                            <a href="${testInstance.wcag_url}" target="_blank" class="inline-flex items-center text-sm text-blue-600 hover:text-blue-800">
+                                <i class="fas fa-external-link-alt mr-1"></i>WCAG Understanding Guide
+                            </a>` : ''}
+                            ${testInstance.section_508_url ? `
+                            <a href="${testInstance.section_508_url}" target="_blank" class="inline-flex items-center text-sm text-blue-600 hover:text-blue-800">
+                                <i class="fas fa-external-link-alt mr-1"></i>Section 508 Reference
+                            </a>` : ''}
+                        </div>` : ''}
+                    </div>
+
+                    <!-- Test Results -->
+                    <div class="bg-white border border-gray-200 rounded-lg p-6">
+                        <h4 class="text-lg font-semibold text-gray-900 mb-4">Test Results</h4>
+                        
+                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                            <!-- Status and Assignment -->
+                <div class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Test Status</label>
+                                    <select id="test-status-select" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                        <option value="pending" ${testInstance.status === 'pending' ? 'selected' : ''}>Pending</option>
+                                        <option value="in_progress" ${testInstance.status === 'in_progress' ? 'selected' : ''}>In Progress</option>
+                                        <option value="passed" ${testInstance.status === 'passed' ? 'selected' : ''}>Passed</option>
+                                        <option value="failed" ${testInstance.status === 'failed' ? 'selected' : ''}>Failed</option>
+                                        <option value="not_applicable" ${testInstance.status === 'not_applicable' ? 'selected' : ''}>Not Applicable</option>
+                                        <option value="untestable" ${testInstance.status === 'untestable' ? 'selected' : ''}>Untestable</option>
+                                        <option value="needs_review" ${testInstance.status === 'needs_review' ? 'selected' : ''}>Needs Review</option>
+                                    </select>
+                    </div>
+
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Confidence Level</label>
+                                    <select id="confidence-level-select" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                        <option value="low" ${testInstance.confidence_level === 'low' ? 'selected' : ''}>Low</option>
+                                        <option value="medium" ${testInstance.confidence_level === 'medium' ? 'selected' : ''}>Medium</option>
+                                        <option value="high" ${testInstance.confidence_level === 'high' ? 'selected' : ''}>High</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Evidence Upload -->
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Evidence Files</label>
+                                    <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                                        <input type="file" multiple accept="image/*,.pdf,.doc,.docx" 
+                                               id="evidence-upload"
+                                               class="hidden">
+                                        <label for="evidence-upload" class="cursor-pointer">
+                                            <div class="text-gray-400">
+                                                <i class="fas fa-cloud-upload-alt text-3xl mb-2"></i>
+                                                <p class="text-sm">Click to upload evidence files</p>
+                                                <p class="text-xs text-gray-500">PNG, JPG, PDF, DOC files</p>
+                                            </div>
+                                        </label>
+                                    </div>
+                                    
+                                    <!-- Evidence List -->
+                                    <div id="evidence-list" class="mt-3 space-y-2" style="display: none;">
+                                        <!-- Evidence files will be listed here -->
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Additional Info -->
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Assigned Tester</label>
+                                    <input type="text" id="assigned-tester" 
+                                           value="${testInstance.assigned_tester_name || ''}"
+                                           placeholder="Enter tester name or UUID"
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Notes Section -->
+                        <div class="mt-6 space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Test Notes</label>
+                                <textarea id="test-notes" 
+                                          rows="4" 
+                                          placeholder="Enter detailed test notes, findings, and observations..."
+                                          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">${testInstance.notes || ''}</textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Test History -->
+                    <div class="bg-gray-50 border border-gray-200 rounded-lg p-6">
+                        <div class="flex justify-between items-center mb-3">
+                            <h4 class="text-lg font-semibold text-gray-900">Test History & Audit Trail</h4>
+                            <button id="toggle-history-btn" 
+                                    onclick="window.toggleTestHistory('${testInstance.id}')"
+                                    class="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors">
+                                <i class="fas fa-refresh mr-1"></i>Refresh History
+                            </button>
+                        </div>
+                        <div id="test-history" class="space-y-3">
+                            <div id="history-list">
+                                <div class="text-center py-4 text-gray-500">
+                                    <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
+                                    <p>Loading audit history...</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="flex justify-end space-x-3 pt-6 border-t border-gray-200">
+                        <button onclick="this.closest('.fixed').remove()" 
+                                class="px-6 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors">
+                            Cancel
+                        </button>
+                        <button onclick="window.saveTestInstanceDetails('${testInstance.id}', this.closest('.fixed'))" 
+                                class="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
+                            Save Changes
+                        </button>
+                    </div>
+                            `;
+                
+                console.log('🔍 Test instance data:', {
+                id: testInstance.id,
+                criterion_number: testInstance.criterion_number,
+                title: testInstance.title,
+                requirement_title: testInstance.requirement_title,
+                status: testInstance.status
+            });
+            console.log('🔍 Updated content preview:', updatedContent.substring(0, 200) + '...');
+                
+                // Update the modal content - target the specific content area
+            let modalContent = existingModal.querySelector('.bg-white.rounded-lg.shadow-xl.max-w-6xl');
+            
+            if (!modalContent) {
+                // Try alternative selectors
+                modalContent = existingModal.querySelector('[class*="max-w-6xl"]');
+            }
+            if (!modalContent) {
+                modalContent = existingModal.querySelector('.bg-white.rounded-lg.shadow-xl');
+            }
+            if (!modalContent) {
+                modalContent = existingModal.querySelector('.bg-white.rounded-lg');
+            }
+            
+            if (modalContent) {
+                console.log('🔍 Found modal container:', modalContent);
+                
+                // Find the main content wrapper within the modal
+                // This should be the div that contains all the dynamic content
+                let contentWrapper = existingModal.querySelector('.bg-white.rounded-lg.shadow-xl.max-w-6xl > .space-y-6');
+                
+                if (!contentWrapper) {
+                    // Fallback if the direct child selector doesn't work
+                    contentWrapper = existingModal.querySelector('.bg-white.rounded-lg.shadow-xl.max-w-6xl .space-y-6');
+                }
+                
+                if (contentWrapper) {
+                    console.log('✅ Found content wrapper for update:', contentWrapper);
+                    contentWrapper.innerHTML = updatedContent; // updatedContent no longer has the space-y-6 wrapper
+                    console.log('✅ Modal content updated successfully');
+                } else {
+                    console.error('❌ Could not find content wrapper for update, falling back to creating new modal.');
+                    this.viewTestInstanceDetails(testInstance); // Fallback to creating a new modal
+                    return;
+                }
+                
+                // Re-add event listeners for the new navigation buttons
+                const prevBtn = modalContent.querySelector('#prev-test-instance-btn');
+                const nextBtn = modalContent.querySelector('#next-test-instance-btn');
+                
+                if (prevBtn) {
+                    prevBtn.addEventListener('click', () => {
+                        console.log('🔍 Previous button clicked, attempting navigation...');
+                        try {
+                            console.log('✅ Using direct component instance navigation...');
+                            this.navigateTestInstance(-1);
+                        } catch (error) {
+                            console.error('❌ Direct navigation failed:', error);
+                            if (window.navigateTestInstance) {
+                                console.log('🔄 Falling back to global function...');
+                                window.navigateTestInstance(-1);
+                            }
+                        }
+                    });
+                }
+                
+                if (nextBtn) {
+                    nextBtn.addEventListener('click', () => {
+                        console.log('🔍 Next button clicked, attempting navigation...');
+                        try {
+                            console.log('✅ Using direct component instance navigation...');
+                            this.navigateTestInstance(1);
+                        } catch (error) {
+                            console.error('❌ Direct navigation failed:', error);
+                            if (window.navigateTestInstance) {
+                                console.log('🔄 Falling back to global function...');
+                                window.navigateTestInstance(1);
+                            }
+                        }
+                    });
+                }
+                
+                // Load test history and automation results for the new test instance
+                this.loadTestInstanceHistory(testInstance.id);
+                this.loadAutomationResults(testInstance.id);
+                
+                console.log('✅ Modal content updated successfully');
+            } else {
+                console.error('❌ Modal content container not found');
             }
         },
         
@@ -8871,11 +9343,24 @@ ${requirement.failure_examples}
             // Set the current test instance for navigation
             this.currentTestInstance = testInstance;
             
+            // Ensure requirements are loaded for navigation
+            if (!this.filteredRequirements || this.filteredRequirements.length === 0) {
+                console.log('📋 Loading requirements for navigation...');
+                this.loadSessionRequirements(this.selectedSessionDetails?.id).then(() => {
+                    console.log('✅ Requirements loaded for navigation');
+                });
+            }
+            
             // Calculate current position for navigation
-            const currentIndex = this.sessionDetailsTestInstances ? 
-                this.sessionDetailsTestInstances.findIndex(t => t.id === testInstance.id) : -1;
-            const totalCount = this.sessionDetailsTestInstances ? this.sessionDetailsTestInstances.length : 0;
+            let instancesArray = this.filteredTestGridInstances && this.filteredTestGridInstances.length > 0 ? 
+                this.filteredTestGridInstances : this.sessionDetailsTestInstances;
+            
+            const currentIndex = instancesArray ? 
+                instancesArray.findIndex(t => t.id === testInstance.id) : -1;
+            const totalCount = instancesArray ? instancesArray.length : 0;
             const positionText = currentIndex >= 0 ? `${currentIndex + 1} of ${totalCount} test instances` : 'Position unknown';
+            
+            console.log(`📍 Position calculation: ${positionText} (using ${instancesArray === this.filteredTestGridInstances ? 'testGridInstances' : 'sessionDetailsTestInstances'})`);
             
             // Update navigation button states
             const canGoPrev = this.canNavigateTestInstance(-1);
@@ -8944,6 +9429,35 @@ ${requirement.failure_examples}
                                 </div>
                             </div>
                         </div>
+                        
+                        <!-- Navigation Section - Between Test Details and Requirement Description -->
+                        <div class="mt-6 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
+                            <div class="flex flex-col sm:flex-row justify-between items-center space-y-3 sm:space-y-0 sm:space-x-4">
+                                <!-- Left side - Current Position -->
+                                <div class="flex items-center space-x-3">
+                                    <span class="text-sm font-medium text-blue-800">Navigation:</span>
+                                    <span class="text-sm text-blue-600">${positionText}</span>
+                                </div>
+                                
+                                <!-- Right side - Navigation Buttons -->
+                                <div class="flex items-center space-x-3">
+                                    <!-- Previous Button -->
+                                    <button 
+                                        id="prev-test-instance-btn"
+                                        ${!canGoPrev ? 'disabled' : ''}
+                                        class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors ${!canGoPrev ? 'opacity-50 cursor-not-allowed' : ''}">
+                                        <i class="fas fa-arrow-left mr-2"></i>Previous
+                                    </button>
+                                    <!-- Next Button -->
+                                    <button 
+                                        id="next-test-instance-btn"
+                                        ${!canGoNext ? 'disabled' : ''}
+                                        class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors ${!canGoNext ? 'opacity-50 cursor-not-allowed' : ''}">
+                                        Next<i class="fas fa-arrow-right ml-2"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Requirement Description -->
@@ -8996,35 +9510,6 @@ ${requirement.failure_examples}
                                 <i class="fas fa-external-link-alt mr-1"></i>Section 508 Reference
                             </a>` : ''}
                         </div>` : ''}
-                    </div>
-
-                    <!-- Navigation Section - Between Description and Test Results -->
-                    <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
-                        <div class="flex flex-col sm:flex-row justify-between items-center space-y-3 sm:space-y-0 sm:space-x-4">
-                            <!-- Left side - Current Position -->
-                            <div class="flex items-center space-x-3">
-                                <span class="text-sm font-medium text-blue-800">Navigation:</span>
-                                <span class="text-sm text-blue-600">${positionText}</span>
-                            </div>
-                            
-                            <!-- Right side - Navigation Buttons -->
-                            <div class="flex items-center space-x-3">
-                                <!-- Previous Button -->
-                                <button 
-                                    onclick="window.navigateTestInstance(-1)"
-                                    ${!canGoPrev ? 'disabled' : ''}
-                                    class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors ${!canGoPrev ? 'opacity-50 cursor-not-allowed' : ''}">
-                                    <i class="fas fa-arrow-left mr-2"></i>Previous
-                                </button>
-                                <!-- Next Button -->
-                                <button 
-                                    onclick="window.navigateTestInstance(1)"
-                                    ${!canGoNext ? 'disabled' : ''}
-                                    class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors ${!canGoNext ? 'opacity-50 cursor-not-allowed' : ''}">
-                                    Next<i class="fas fa-arrow-right ml-2"></i>
-                                </button>
-                            </div>
-                        </div>
                     </div>
 
                     <!-- Test Results -->
@@ -9176,6 +9661,48 @@ ${requirement.failure_examples}
                 </div>
             `;
             document.body.appendChild(modal);
+
+            // Add event listeners for navigation buttons
+            const prevBtn = modal.querySelector('#prev-test-instance-btn');
+            const nextBtn = modal.querySelector('#next-test-instance-btn');
+            
+            if (prevBtn) {
+                prevBtn.addEventListener('click', () => {
+                    console.log('🔍 Previous button clicked, attempting navigation...');
+                    
+                    // Use the current component instance directly
+                    try {
+                        console.log('✅ Using direct component instance navigation...');
+                        this.navigateTestInstance(-1);
+                    } catch (error) {
+                        console.error('❌ Direct navigation failed:', error);
+                        // Fallback to global function if direct call fails
+                        if (window.navigateTestInstance) {
+                            console.log('🔄 Falling back to global function...');
+                            window.navigateTestInstance(-1);
+                        }
+                    }
+                });
+            }
+            
+            if (nextBtn) {
+                nextBtn.addEventListener('click', () => {
+                    console.log('🔍 Next button clicked, attempting navigation...');
+                    
+                    // Use the current component instance directly
+                    try {
+                        console.log('✅ Using direct component instance navigation...');
+                        this.navigateTestInstance(1);
+                    } catch (error) {
+                        console.error('❌ Direct navigation failed:', error);
+                        // Fallback to global function if direct call fails
+                        if (window.navigateTestInstance) {
+                            console.log('🔄 Falling back to global function...');
+                            window.navigateTestInstance(1);
+                        }
+                    }
+                });
+            }
 
             // Load test history and automation results
             this.loadTestInstanceHistory(testInstance.id);
@@ -13296,40 +13823,7 @@ ${requirement.failure_examples}
     window.canNavigateTestInstance = (direction) => componentInstance.canNavigateTestInstance(direction);
     window.navigateTestInstance = (direction) => componentInstance.navigateTestInstance(direction);
     
-    // Also expose them directly to Alpine.js context
-    componentInstance.canNavigateRequirement = function(direction) {
-        if (!this.filteredRequirements || !this.currentRequirement) return false;
-        const idx = this.filteredRequirements.findIndex(r => r.id === this.currentRequirement.id);
-        if (direction === -1) return idx > 0;
-        if (direction === 1) return idx < this.filteredRequirements.length - 1;
-        return false;
-    };
-    
-    componentInstance.navigateRequirement = function(direction) {
-        if (!this.filteredRequirements || !this.currentRequirement) return;
-        const idx = this.filteredRequirements.findIndex(r => r.id === this.currentRequirement.id);
-        const newIdx = idx + direction;
-        if (newIdx >= 0 && newIdx < this.filteredRequirements.length) {
-            this.currentRequirement = this.filteredRequirements[newIdx];
-        }
-    };
-    
-    componentInstance.canNavigateTestResult = function(direction) {
-        if (!this.automationRuns || !this.selectedTestResult) return false;
-        const idx = this.automationRuns.findIndex(r => r.id === this.selectedTestResult.id);
-        if (direction === -1) return idx > 0;
-        if (direction === 1) return idx < this.automationRuns.length - 1;
-        return false;
-    };
-    
-    componentInstance.navigateTestResult = function(direction) {
-        if (!this.automationRuns || !this.selectedTestResult) return;
-        const idx = this.automationRuns.findIndex(r => r.id === this.selectedTestResult.id);
-        const newIdx = idx + direction;
-        if (newIdx >= 0 && newIdx < this.automationRuns.length) {
-            this.selectedTestResult = this.automationRuns[newIdx];
-        }
-    };
+
     
     return componentInstance;
 }
