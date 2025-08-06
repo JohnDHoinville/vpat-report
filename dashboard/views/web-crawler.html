@@ -9,6 +9,48 @@
                     (<span x-text="webCrawlers.length"></span>/<span x-text="totalCrawlers || webCrawlers.length"></span> Testing)
                 </h2>
                 <p class="mt-2 text-gray-600">Advanced Playwright-based crawling with SAML authentication support</p>
+                
+                <!-- URL Exclusion Info Box -->
+                <div class="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div class="flex items-start">
+                        <i class="fas fa-info-circle text-blue-600 mt-1 mr-3"></i>
+                        <div class="flex-1">
+                            <h4 class="font-medium text-blue-900 mb-2">💡 URL Exclusion Tips</h4>
+                            <p class="text-sm text-blue-800 mb-2">
+                                Use URL patterns to exclude repetitive pages and improve crawling efficiency:
+                            </p>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                                <div>
+                                    <strong class="text-blue-900">Common Exclusions:</strong>
+                                    <ul class="mt-1 space-y-1 text-blue-700">
+                                        <li>• <code>/ra/organizations/\\d+</code> - Organization pages with IDs</li>
+                                        <li>• <code>/ra/users/\\d+</code> - User pages with IDs</li>
+                                        <li>• <code>/ra/realms/\\d+</code> - Realm pages with IDs</li>
+                                        <li>• <code>\\.pdf$</code> - PDF files</li>
+                                        <li>• <code>\\.doc$</code> - Word documents</li>
+                                    </ul>
+                                </div>
+                                <div>
+                                    <strong class="text-blue-900">Benefits:</strong>
+                                    <ul class="mt-1 space-y-1 text-blue-700">
+                                        <li>• Faster crawling</li>
+                                        <li>• Fewer duplicate pages</li>
+                                        <li>• More relevant results</li>
+                                        <li>• Reduced storage usage</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <p class="text-xs text-blue-600 mt-2">
+                                <i class="fas fa-cog mr-1"></i>
+                                Configure exclusions in Advanced Options when creating a new crawler
+                                <button @click="showUrlExclusionHelp()" 
+                                        class="ml-2 text-blue-500 hover:text-blue-700 underline">
+                                    <i class="fas fa-question-circle mr-1"></i>Detailed Help
+                                </button>
+                            </p>
+                        </div>
+                    </div>
+                </div>
             </div>
             <div class="flex items-center space-x-4">
                 <!-- WebSocket Status Indicator -->

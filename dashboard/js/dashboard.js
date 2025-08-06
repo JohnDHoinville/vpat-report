@@ -3475,6 +3475,50 @@ ${requirement.failure_examples}
             }, 5000);
         },
 
+        // Show URL exclusion help modal
+        showUrlExclusionHelp() {
+            const helpContent = `
+🔧 <strong>URL Exclusion Configuration Guide</strong>
+
+<strong>What are URL Exclusions?</strong>
+URL exclusions help you avoid crawling repetitive or irrelevant pages, making your crawler more efficient and focused.
+
+<strong>Common Exclusion Patterns:</strong>
+• <code>/ra/organizations/\\d+</code> - Exclude organization pages with numeric IDs
+• <code>/ra/users/\\d+</code> - Exclude user profile pages with numeric IDs  
+• <code>/ra/realms/\\d+</code> - Exclude realm pages with numeric IDs
+• <code>\\.pdf$</code> - Exclude PDF files
+• <code>\\.doc$</code> - Exclude Word documents
+• <code>/api/</code> - Exclude API endpoints
+• <code>/assets/</code> - Exclude static assets
+
+<strong>Include Patterns (Optional):</strong>
+• <code>.*\\/admin\\/.*</code> - Only crawl admin pages
+• <code>.*\\/dashboard.*</code> - Only crawl dashboard pages
+
+<strong>JSON Format:</strong>
+<pre>[
+  {"type": "exclude", "regex": "/ra/organizations/\\d+"},
+  {"type": "exclude", "regex": "/ra/users/\\d+"},
+  {"type": "exclude", "regex": "\\.pdf$"}
+]</pre>
+
+<strong>Benefits:</strong>
+✅ Faster crawling (fewer pages to process)
+✅ More relevant results (focus on important pages)
+✅ Reduced storage usage
+✅ Better performance for testing sessions
+
+<strong>How to Use:</strong>
+1. Create a new crawler
+2. Expand "Advanced Options"
+3. Add exclusion patterns in "URL Patterns (JSON)"
+4. Use regex patterns to match URLs you want to exclude
+            `;
+            
+            this.showNotification('info', 'URL Exclusion Help', helpContent);
+        },
+
         hideNotification() {
             this.notification.show = false;
             this.ui.notification.show = false;
@@ -6975,7 +7019,9 @@ ${requirement.failure_examples}
                 const response = await this.apiCall('/users');
                 
                 if (response.success) {
-                    this.allUsers = response.users || [];
+                    // Handle both response.users and response.data.users for compatibility
+                    const users = response.users || response.data?.users || [];
+                    this.allUsers = users;
                     this.filteredUsers = this.allUsers;
                     this.applyUserFilters();
                     
@@ -13726,6 +13772,13 @@ ${requirement.failure_examples}
                 stackTrace: new Error().stack
             });
             
+            // Check if componentInstance is available
+            if (!componentInstance) {
+                console.error('❌ componentInstance not available for showUserManagement');
+                alert('User management not available. Please refresh the page and try again.');
+                return;
+            }
+            
             // Nuclear protection during startup
             const now = Date.now();
             const initTime = componentInstance._initializationTime || now;
@@ -13740,7 +13793,12 @@ ${requirement.failure_examples}
                 return;
             }
             
-            return componentInstance.openUserManagement(true); // Manual open
+            try {
+                return componentInstance.openUserManagement(true); // Manual open
+            } catch (error) {
+                console.error('❌ Error opening user management:', error);
+                alert('Error opening user management. Please refresh the page and try again.');
+            }
         };
         window.showAddUserForm = () => componentInstance.showAddUserForm();
         window.closeUserForm = () => componentInstance.closeUserForm();
@@ -13828,7 +13886,77 @@ ${requirement.failure_examples}
     window.getTestingTools = (criterionNumber, testMethod) => componentInstance.getTestingTools(criterionNumber, testMethod);
     
     // Test Instance Management Global Functions
-    window.saveTestInstanceDetails = (instanceId, modal) => componentInstance.saveTestInstanceDetails(instanceId, modal);
+    window.saveTestInstanceDetails = function(instanceId, modal) {
+        console.log('🔧 Global wrapper: Saving test instance details for:', instanceId);
+        
+        // Strategy 1: Use stored instance
+        if (window._dashboardInstance && window._dashboardInstance.saveTestInstanceDetails) {
+            console.log('✅ Using stored dashboard instance for saveTestInstanceDetails');
+            return window._dashboardInstance.saveTestInstanceDetails(instanceId, modal);
+        }
+        
+        // Strategy 2: Try Alpine's global store
+        if (window.Alpine && window.Alpine.store) {
+            try {
+                const storeData = window.Alpine.store('dashboard');
+                if (storeData && storeData.saveTestInstanceDetails) {
+                    console.log('✅ Found dashboard instance via Alpine store for saveTestInstanceDetails');
+                    window._dashboardInstance = storeData; // Cache for future use
+                    return storeData.saveTestInstanceDetails(instanceId, modal);
+                }
+            } catch (e) {
+                console.log('Alpine store not available or no dashboard store');
+            }
+        }
+        
+        // Strategy 3: Find Alpine data via multiple selectors
+        const selectors = ['[x-data*="dashboard"]', '[x-data="dashboard()"]', '.dashboard-container', 'body'];
+        for (const selector of selectors) {
+            const element = document.querySelector(selector);
+            if (element && element._x_dataStack) {
+                for (const data of element._x_dataStack) {
+                    if (data && data.saveTestInstanceDetails) {
+                        console.log('✅ Found dashboard instance via Alpine data stack for saveTestInstanceDetails');
+                        window._dashboardInstance = data; // Cache for future use
+                        return data.saveTestInstanceDetails(instanceId, modal);
+                    }
+                }
+            }
+        }
+        
+        // Strategy 4: Try window.dashboardInstance
+        if (window.dashboardInstance && window.dashboardInstance.saveTestInstanceDetails) {
+            console.log('✅ Using window.dashboardInstance for saveTestInstanceDetails');
+            window._dashboardInstance = window.dashboardInstance; // Cache for future use
+            return window.dashboardInstance.saveTestInstanceDetails(instanceId, modal);
+        }
+        
+        // Strategy 5: Try componentInstance directly (fallback)
+        if (typeof componentInstance !== 'undefined' && componentInstance && componentInstance.saveTestInstanceDetails) {
+            console.log('✅ Using componentInstance directly for saveTestInstanceDetails');
+            window._dashboardInstance = componentInstance; // Cache for future use
+            return componentInstance.saveTestInstanceDetails(instanceId, modal);
+        }
+        
+        // Strategy 6: Wait for initialization and retry
+        if (!window._dashboardInitialized) {
+            console.log('⏳ Dashboard not initialized yet, waiting for saveTestInstanceDetails...');
+            setTimeout(() => {
+                window.saveTestInstanceDetails(instanceId, modal);
+            }, 1000);
+            return;
+        }
+        
+        console.error('❌ Dashboard instance not found through any strategy for saveTestInstanceDetails');
+        console.error('Available elements:', document.querySelectorAll('[x-data]').length);
+        console.error('Alpine available:', !!window.Alpine);
+        console.error('Dashboard initialized:', window._dashboardInitialized);
+        console.error('window.dashboardInstance available:', !!window.dashboardInstance);
+        console.error('componentInstance available:', typeof componentInstance);
+        
+        // Show user-friendly error
+        alert('Unable to save test instance. Please refresh the page and try again.');
+    };
     window.saveTestInstanceEdit = (instanceId, modal) => componentInstance.saveTestInstanceEdit(instanceId, modal);
     window.viewTestInstanceDetails = (testInstance) => componentInstance.viewTestInstanceDetails(testInstance);
     window.editTestInstance = (testInstance) => componentInstance.editTestInstance(testInstance);
@@ -14000,4 +14128,3 @@ window.runAutomatedTestForInstance = function(testInstance) {
 };
 
 console.log('📦 Dashboard module loaded successfully');
-console.log('🎯 Global automation methods exposed immediately');
