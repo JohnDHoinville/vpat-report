@@ -899,14 +899,29 @@ class PlaywrightCrawlerService {
 
             // Apply URL pattern filters
             if (crawler.url_patterns && crawler.url_patterns.length > 0) {
-                return crawler.url_patterns.some(pattern => {
-                    if (pattern.type === 'include') {
-                        return new RegExp(pattern.regex).test(url);
-                    } else if (pattern.type === 'exclude') {
-                        return !new RegExp(pattern.regex).test(url);
+                // Check include patterns first - if any include patterns exist, URL must match at least one
+                const includePatterns = crawler.url_patterns.filter(pattern => pattern.type === 'include');
+                if (includePatterns.length > 0) {
+                    const matchesInclude = includePatterns.some(pattern => 
+                        new RegExp(pattern.regex).test(url)
+                    );
+                    if (!matchesInclude) {
+                        return false; // URL doesn't match any include pattern
                     }
-                    return true;
-                });
+                }
+                
+                // Check exclude patterns - if URL matches any exclude pattern, it's blocked
+                const excludePatterns = crawler.url_patterns.filter(pattern => pattern.type === 'exclude');
+                if (excludePatterns.length > 0) {
+                    const matchesExclude = excludePatterns.some(pattern => 
+                        new RegExp(pattern.regex).test(url)
+                    );
+                    if (matchesExclude) {
+                        return false; // URL matches an exclude pattern
+                    }
+                }
+                
+                return true; // URL passed all filters
             }
 
             return true;

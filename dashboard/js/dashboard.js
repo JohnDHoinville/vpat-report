@@ -3040,7 +3040,7 @@ ${requirement.failure_examples}
                         // Update the crawler with page counts from pagination (more accurate)
                         crawler.total_pages_found = totalCount;
                         
-                        // Count only explicitly selected pages for testing
+                        // Count pages selected for testing
                         const selectedPagesCount = pages.filter(p => 
                             p.selected_for_testing === true
                         ).length;
@@ -3048,7 +3048,7 @@ ${requirement.failure_examples}
                         // Page count analysis for debugging
                         console.log(`  - Total pages received: ${pages.length}`);
                         console.log(`  - Total count from API: ${totalCount}`);
-                        console.log(`  - Pages with selected_for_testing=true: ${selectedPagesCount}`);
+                        console.log(`  - Pages selected for testing: ${selectedPagesCount}`);
                         console.log(`  - Sample page data:`, pages.slice(0, 3).map(p => ({
                             url: p.url,
                             selected_for_testing: p.selected_for_testing
@@ -12079,17 +12079,37 @@ ${requirement.failure_examples}
                 const allPages = [];
                 for (const crawlerId of this.sessionWizard.selected_crawlers) {
                     console.log(`📄 Loading pages for crawler: ${crawlerId}`);
-                    const response = await this.apiCall(`/web-crawlers/crawlers/${crawlerId}/pages`);
-                    if (response.success) {
-                        const crawlerPages = response.data.map(page => ({
-                            ...page,
-                            crawler_id: crawlerId
-                        }));
-                        allPages.push(...crawlerPages);
-                        console.log(`  ✅ Loaded ${crawlerPages.length} pages from crawler ${crawlerId}`);
-                    } else {
-                        console.error(`  ❌ Failed to load pages from crawler ${crawlerId}:`, response.error);
+                    
+                    // Load all pages using pagination
+                    let page = 1;
+                    let hasMorePages = true;
+                    let totalPagesLoaded = 0;
+                    
+                    while (hasMorePages) {
+                        const offset = (page - 1) * 1000;
+                        const response = await this.apiCall(`/web-crawlers/crawlers/${crawlerId}/pages?limit=1000&offset=${offset}`);
+                        if (response.success && response.data && response.data.length > 0) {
+                            const crawlerPages = response.data.map(pageData => ({
+                                ...pageData,
+                                crawler_id: crawlerId
+                            }));
+                            allPages.push(...crawlerPages);
+                            totalPagesLoaded += crawlerPages.length;
+                            console.log(`  📄 Loaded page ${page}: ${crawlerPages.length} pages (total: ${totalPagesLoaded})`);
+                            
+                            // Check if there are more pages
+                            if (response.data.length < 1000) {
+                                hasMorePages = false;
+                            } else {
+                                page++;
+                            }
+                        } else {
+                            console.log(`  ✅ No more pages for crawler ${crawlerId}`);
+                            hasMorePages = false;
+                        }
                     }
+                    
+                    console.log(`  ✅ Loaded ${totalPagesLoaded} total pages from crawler ${crawlerId}`);
                 }
                 
                 console.log(`📊 Total pages loaded: ${allPages.length}`);
