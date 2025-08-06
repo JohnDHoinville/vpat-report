@@ -8664,11 +8664,11 @@ ${requirement.failure_examples}
                     
                     // Calculate level breakdown from requirements (not test instances)
                     const stats = {
-                        levelA: requirements.filter(r => (r.standard_type || r.requirement_type) === 'wcag' && r.level === 'a').length,
-                        levelAA: requirements.filter(r => (r.standard_type || r.requirement_type) === 'wcag' && r.level === 'aa').length,
-                        levelAAA: requirements.filter(r => (r.standard_type || r.requirement_type) === 'wcag' && r.level === 'aaa').length,
-                        section508Base: requirements.filter(r => (r.standard_type || r.requirement_type) === 'section_508' && r.level === 'base').length,
-                        section508Enhanced: requirements.filter(r => (r.standard_type || r.requirement_type) === 'section_508' && r.level === 'enhanced').length,
+                        levelA: requirements.filter(r => r.standard_type === 'wcag' && r.level === 'A').length,
+                        levelAA: requirements.filter(r => r.standard_type === 'wcag' && r.level === 'AA').length,
+                        levelAAA: requirements.filter(r => r.standard_type === 'wcag' && r.level === 'AAA').length,
+                        section508Base: requirements.filter(r => r.standard_type === 'section508' && r.level === 'Required').length,
+                        section508Enhanced: requirements.filter(r => r.standard_type === 'section508' && r.level === 'Required').length,
                         
                         // Test method breakdown from requirements
                         manualTests: requirements.filter(r => r.test_method === 'manual').length,
@@ -11876,7 +11876,7 @@ ${requirement.failure_examples}
             try {
                 console.log('📋 Loading available requirements...');
                 
-                const response = await this.apiCall('/requirements');
+                const response = await this.apiCall('/unified-requirements');
                 if (response.success && response.data) {
                     // Handle the actual API response structure: response.data.requirements
                     const requirements = response.data.requirements || response.data;
@@ -11897,9 +11897,9 @@ ${requirement.failure_examples}
                         
                         // Calculate requirement counts by conformance level - with null safety
                         this.requirementCounts = this.availableRequirements.reduce((counts, req) => {
-                            if (req.level && req.requirement_type) {
-                            const key = `${req.requirement_type}_${req.level.toLowerCase()}`;
-                            counts[key] = (counts[key] || 0) + 1;
+                            if (req.level && req.standard_type) {
+                                const key = `${req.standard_type}_${req.level.toLowerCase()}`;
+                                counts[key] = (counts[key] || 0) + 1;
                             } else {
                                 console.warn('⚠️ Requirement missing level or type:', req);
                             }
@@ -12275,8 +12275,8 @@ ${requirement.failure_examples}
                         'wcag_22_a': 'wcag_a',
                         'wcag_22_aa': 'wcag_aa',
                         'wcag_22_aaa': 'wcag_aaa',
-                        'section_508_base': 'section_508_base',
-                        'section_508_enhanced': 'section_508_enhanced'
+                        'section_508_base': 'section508_required',
+                        'section_508_enhanced': 'section508_required'
                     };
             
                             // Debug the filtering process
@@ -12288,16 +12288,16 @@ ${requirement.failure_examples}
                 // Sample first few requirements for debugging
                 console.log('  - Sample requirements:', this.availableRequirements.slice(0, 3).map(req => ({
                     requirement_id: req.requirement_id,
-                    criterion: req.criterion_number,
-                    type: req.requirement_type,
+                    criterion: req.requirement_id,
+                    type: req.standard_type,
                     level: req.level,
-                    levelKey: `${req.requirement_type}_${req.level?.toLowerCase()}`
+                    levelKey: `${req.standard_type}_${req.level?.toLowerCase()}`
                 })));
 
                 const filtered = this.availableRequirements.filter(req => {
                     // Enhanced debugging for requirement validation
                     const hasId = req && req.requirement_id;
-                    const hasType = req && req.requirement_type;
+                    const hasType = req && req.standard_type;
                     const hasLevel = req && req.level && typeof req.level === 'string';
                     
                     if (!hasId || !hasType || !hasLevel) {
@@ -12305,20 +12305,20 @@ ${requirement.failure_examples}
                         if (!this.debugLoggedMissingCount || this.debugLoggedMissingCount < 3) {
                             console.log('❌ Filtering out requirement missing properties:', {
                                 requirement_id: req?.requirement_id,
-                                criterion: req?.criterion_number,
+                                criterion: req?.requirement_id,
                                 hasId: hasId,
                                 hasType: hasType,
                                 hasLevel: hasLevel,
                                 levelType: typeof req?.level,
                                 levelValue: req?.level,
-                                requirement_type: req?.requirement_type
+                                standard_type: req?.standard_type
                             });
                             this.debugLoggedMissingCount = (this.debugLoggedMissingCount || 0) + 1;
                         }
                         return false;
                     }
                     
-                    const levelKey = `${req.requirement_type}_${req.level.toLowerCase()}`;
+                    const levelKey = `${req.standard_type}_${req.level.toLowerCase()}`;
                     
                     const matches = this.sessionWizard.conformance_levels.some(selectedLevel => {
                         const mappedLevel = mapping[selectedLevel];
@@ -12355,8 +12355,8 @@ ${requirement.failure_examples}
                     console.log('  - Total available:', this.availableRequirements.length);
                     console.log('  - Expected mapping for wcag_22_a:', mapping['wcag_22_a']);
                     console.log('  - Sample requirement levels:', this.availableRequirements.slice(0, 5).map(req => req.level));
-                    console.log('  - Sample requirement types:', this.availableRequirements.slice(0, 5).map(req => req.requirement_type));
-                    console.log('  - Sample levelKeys:', this.availableRequirements.slice(0, 5).map(req => `${req.requirement_type}_${req.level?.toLowerCase()}`));
+                    console.log('  - Sample requirement types:', this.availableRequirements.slice(0, 5).map(req => req.standard_type));
+                    console.log('  - Sample levelKeys:', this.availableRequirements.slice(0, 5).map(req => `${req.standard_type}_${req.level?.toLowerCase()}`));
                     this._loggedZeroResults = true;
                     this._lastZeroResultsLevels = levelsString;
                 }
