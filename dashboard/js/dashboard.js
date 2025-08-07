@@ -8750,58 +8750,40 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                 const session = sessionResponse.session;
                 const conformanceLevel = session.conformance_level || 'wcag_aa';
                 
-                // Get requirements based on the session's conformance level
-                const requirementsResponse = await this.apiCall(`/unified-requirements/session/${sessionId}`);
+                // Get test instances for this session (this includes requirement data)
+                const testInstancesResponse = await this.apiCall(`/test-instances?session_id=${sessionId}&limit=1000`);
                 
-                if (requirementsResponse.success) {
-                    const requirements = requirementsResponse.data.requirements || [];
+                if (testInstancesResponse.success) {
+                    const testInstances = testInstancesResponse.test_instances || [];
                     
-                    // Calculate level breakdown from requirements (not test instances)
+                    // Calculate level breakdown from actual test instances in the session
                     const stats = {
-                        levelA: requirements.filter(r => r.standard_type === 'wcag' && r.level === 'A').length,
-                        levelAA: requirements.filter(r => r.standard_type === 'wcag' && r.level === 'AA').length,
-                        levelAAA: requirements.filter(r => r.standard_type === 'wcag' && r.level === 'AAA').length,
-                        section508Base: requirements.filter(r => r.standard_type === 'section508' && r.level === 'Required').length,
-                        section508Enhanced: requirements.filter(r => r.standard_type === 'section508' && r.level === 'Required').length,
+                        levelA: testInstances.filter(ti => ti.requirement_level === 'A').length,
+                        levelAA: testInstances.filter(ti => ti.requirement_level === 'AA').length,
+                        levelAAA: testInstances.filter(ti => ti.requirement_level === 'AAA').length,
+                        section508Base: testInstances.filter(ti => ti.standard_type === 'section508' && ti.requirement_level === 'Required').length,
+                        section508Enhanced: testInstances.filter(ti => ti.standard_type === 'section508' && ti.requirement_level === 'Required').length,
                         
-                        // Test method breakdown from requirements
-                        manualTests: requirements.filter(r => r.test_method === 'manual').length,
-                        automatedTests: requirements.filter(r => r.test_method === 'automated').length,
-                        hybridTests: requirements.filter(r => r.test_method === 'both').length
+                        // Test method breakdown from test instances
+                        manualTests: testInstances.filter(ti => ti.test_method === 'manual').length,
+                        automatedTests: testInstances.filter(ti => ti.test_method === 'automated').length,
+                        hybridTests: testInstances.filter(ti => ti.test_method === 'both').length
                     };
                     
                     this.sessionDetailsStats = stats;
-                    console.log('📊 Session stats loaded from requirements:', stats);
+                    console.log('📊 Session stats loaded from test instances:', stats);
                     console.log('📊 Conformance level:', conformanceLevel);
-                    console.log('📊 Total requirements:', requirements.length);
+                    console.log('📊 Total test instances:', testInstances.length);
                     
-                    // Debug: Show sample requirements for troubleshooting
-                    console.log('🔍 Sample WCAG requirements:', requirements.filter(r => r.standard_type === 'wcag').slice(0, 3));
-                    console.log('🔍 Sample Section 508 requirements:', requirements.filter(r => r.standard_type === 'section_508').slice(0, 3));
+                    // Debug: Show sample test instances for troubleshooting
+                    console.log('🔍 Sample test instances:', testInstances.slice(0, 3).map(ti => ({
+                        id: ti.id,
+                        requirement_level: ti.requirement_level,
+                        test_method: ti.test_method,
+                        criterion_number: ti.criterion_number
+                    })));
                 } else {
-                    // Fallback to test instances if requirements API fails
-                    const response = await this.apiCall(`/test-instances?session_id=${sessionId}`);
-                    
-                    if (response.success) {
-                        const testInstances = response.test_instances || [];
-                        
-                        // Calculate level breakdown
-                        const stats = {
-                            levelA: testInstances.filter(t => (t.requirement_level || t.level) === 'a').length,
-                            levelAA: testInstances.filter(t => (t.requirement_level || t.level) === 'aa').length,
-                            levelAAA: testInstances.filter(t => (t.requirement_level || t.level) === 'aaa').length,
-                            section508Base: testInstances.filter(t => (t.requirement_level || t.level) === 'base').length,
-                            section508Enhanced: testInstances.filter(t => (t.requirement_level || t.level) === 'enhanced').length,
-                            
-                            // Test method breakdown
-                            manualTests: testInstances.filter(t => (t.test_method_used || t.requirement_test_method) === 'manual').length,
-                            automatedTests: testInstances.filter(t => (t.test_method_used || t.requirement_test_method) === 'automated').length,
-                            hybridTests: testInstances.filter(t => (t.test_method_used || t.requirement_test_method) === 'both').length
-                        };
-                        
-                        this.sessionDetailsStats = stats;
-                        console.log('📊 Session stats loaded from test instances (fallback):', stats);
-                    }
+                    console.error('Failed to load test instances for stats calculation');
                 }
             } catch (error) {
                 console.error('Error loading session stats:', error);

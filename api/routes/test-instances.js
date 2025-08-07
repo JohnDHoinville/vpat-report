@@ -162,14 +162,14 @@ router.get('/', authenticateToken, async (req, res) => {
         
         let query = `
             SELECT ti.*,
-                   tr.criterion_number, tr.title as requirement_title, tr.level as requirement_level,
-                   tr.test_method as test_method,
-                   COALESCE(tr.automated_tools, '[]'::jsonb) as automated_tools,
+                   ur.requirement_id as criterion_number, ur.title as requirement_title, ur.level as requirement_level,
+                   ur.test_method as test_method,
+                   COALESCE(ur.tool_mappings, '{}'::jsonb) as automated_tools,
                    dp.url as page_url, dp.title as page_title,
                    tester.username as assigned_tester_username,
                    reviewer.username as reviewer_username
             FROM test_instances ti
-            LEFT JOIN test_requirements tr ON ti.requirement_id = tr.id
+            LEFT JOIN unified_requirements ur ON ti.requirement_id = ur.id
             LEFT JOIN discovered_pages dp ON ti.page_id = dp.id
             LEFT JOIN users tester ON ti.assigned_tester = tester.id
             LEFT JOIN users reviewer ON ti.reviewer = reviewer.id
@@ -219,8 +219,8 @@ router.get('/', authenticateToken, async (req, res) => {
         if (search) {
             paramCount++;
             query += ` AND (
-                LOWER(tr.criterion_number) LIKE LOWER($${paramCount}) OR
-                LOWER(tr.title) LIKE LOWER($${paramCount}) OR
+                LOWER(ur.requirement_id) LIKE LOWER($${paramCount}) OR
+                LOWER(ur.title) LIKE LOWER($${paramCount}) OR
                 LOWER(dp.url) LIKE LOWER($${paramCount}) OR
                 LOWER(dp.title) LIKE LOWER($${paramCount}) OR
                 LOWER(ti.notes) LIKE LOWER($${paramCount})
@@ -231,7 +231,7 @@ router.get('/', authenticateToken, async (req, res) => {
         // Add level filter
         if (level) {
             paramCount++;
-            query += ` AND tr.level = $${paramCount}`;
+            query += ` AND ur.level = $${paramCount}`;
             params.push(level);
         }
         
@@ -244,7 +244,7 @@ router.get('/', authenticateToken, async (req, res) => {
         let countQuery = `
             SELECT COUNT(*) as total
             FROM test_instances ti
-            LEFT JOIN test_requirements tr ON ti.requirement_id = tr.id
+            LEFT JOIN unified_requirements ur ON ti.requirement_id = ur.id
             LEFT JOIN discovered_pages dp ON ti.page_id = dp.id
             WHERE 1=1
         `;
@@ -291,8 +291,8 @@ router.get('/', authenticateToken, async (req, res) => {
         if (search) {
             countParamCount++;
             countQuery += ` AND (
-                LOWER(tr.criterion_number) LIKE LOWER($${countParamCount}) OR
-                LOWER(tr.title) LIKE LOWER($${countParamCount}) OR
+                LOWER(ur.requirement_id) LIKE LOWER($${countParamCount}) OR
+                LOWER(ur.title) LIKE LOWER($${countParamCount}) OR
                 LOWER(dp.url) LIKE LOWER($${countParamCount}) OR
                 LOWER(dp.title) LIKE LOWER($${countParamCount}) OR
                 LOWER(ti.notes) LIKE LOWER($${countParamCount})
@@ -302,7 +302,7 @@ router.get('/', authenticateToken, async (req, res) => {
 
         if (level) {
             countParamCount++;
-            countQuery += ` AND tr.level = $${countParamCount}`;
+            countQuery += ` AND ur.level = $${countParamCount}`;
             countParams.push(level);
         }
         
