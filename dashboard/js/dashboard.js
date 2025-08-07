@@ -59,6 +59,9 @@ window.dashboard = function() {
         automationProgress: null,
         availableTools: [],
         
+        // ===== TEST SELECTION STATE =====
+        testSelectionStatus: null,
+        
         // ===== FORM OBJECTS =====
         loginForm: { username: '', password: '' },
         profileForm: { full_name: '', email: '' },
@@ -8310,6 +8313,9 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                 // Load automation summary
                 await this.loadAutomationSummary(sessionId);
                 
+                // Load test selection status
+                await this.getTestSelectionStatus(sessionId);
+                
             } catch (error) {
                 console.error('Error loading session details data:', error);
                 throw error;
@@ -8765,13 +8771,30 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                         section508Enhanced: testInstances.filter(ti => ti.standard_type === 'section508' && ti.requirement_level === 'Required').length,
                         
                         // Test method breakdown from test instances
-                        manualTests: testInstances.filter(ti => ti.test_method === 'manual').length,
-                        automatedTests: testInstances.filter(ti => ti.test_method === 'automated').length,
-                        hybridTests: testInstances.filter(ti => ti.test_method === 'both').length
+                        manualTests: testInstances.filter(ti => ti.test_method_used === 'manual').length,
+                        automatedTests: testInstances.filter(ti => ti.test_method_used === 'automated').length,
+                        hybridTests: testInstances.filter(ti => ti.test_method_used === 'hybrid').length
                     };
                     
+                    // Calculate completion percentage based on actual test instances
+                    const totalTests = testInstances.length;
+                    const completedTests = testInstances.filter(ti =>
+                        ['passed', 'failed', 'human_review', 'not_applicable', 'untestable'].includes(ti.status)
+                    ).length;
+                    const completionPercentage = totalTests > 0 ? Math.round((completedTests / totalTests) * 100) : 0;
+
+                    // Update session progress for display
+                    if (this.selectedSession) {
+                        this.selectedSession.progress = {
+                            completionPercentage: completionPercentage,
+                            completedTests: completedTests,
+                            totalTests: totalTests
+                        };
+                    }
+
                     this.sessionDetailsStats = stats;
                     console.log('📊 Session stats loaded from test instances:', stats);
+                    console.log('📊 Completion percentage:', completionPercentage + '%');
                     console.log('📊 Conformance level:', conformanceLevel);
                     console.log('📊 Total test instances:', testInstances.length);
                     
@@ -9099,6 +9122,85 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
             }
         },
         
+        // Select tests for automated testing
+        async selectTestsForAutomation(sessionId, testInstanceIds = null, selectAll = false) {
+            try {
+                console.log(`🔄 Selecting tests for automation in session: ${sessionId}`);
+                
+                const response = await this.apiCall(`/test-instances/${sessionId}/select-for-automation`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        testInstanceIds: testInstanceIds,
+                        selectAll: selectAll
+                    })
+                });
+
+                if (response.success) {
+                    console.log(`✅ Successfully selected ${response.selectedCount} tests for automation`);
+                    
+                    // Refresh session stats to show updated status
+                    await this.loadSessionStats(sessionId);
+                    
+                    // Show success message
+                    this.showNotification('success', `Selected ${response.selectedCount} tests for automation`);
+                    
+                    return response;
+                } else {
+                    console.error('❌ Failed to select tests for automation:', response.error);
+                    this.showNotification('error', 'Failed to select tests for automation');
+                    return response;
+                }
+            } catch (error) {
+                console.error('❌ Error selecting tests for automation:', error);
+                this.showNotification('error', 'Error selecting tests for automation');
+                return { success: false, error: error.message };
+            }
+        },
+
+        // Get test selection status
+        async getTestSelectionStatus(sessionId) {
+            try {
+                const response = await this.apiCall(`/test-instances/${sessionId}/selection-status`);
+                
+                if (response.success) {
+                    console.log('📊 Test selection status:', response.status);
+                    this.testSelectionStatus = response.status;
+                    return response.status;
+                } else {
+                    console.error('❌ Failed to get test selection status:', response.error);
+                    return null;
+                }
+            } catch (error) {
+                console.error('❌ Error getting test selection status:', error);
+                return null;
+            }
+        },
+
+        // Start automated testing for selected tests
+        async startAutomatedTesting(sessionId) {
+            try {
+                console.log(`🤖 Starting automated testing for session: ${sessionId}`);
+                
+                // Show notification that automation is starting
+                this.showNotification('info', 'Starting automated testing...', 'Tests are being queued for automation.');
+                
+                // The automated testing worker should pick up the pending tests automatically
+                // We just need to ensure the worker is running
+                
+                // Refresh the test selection status to show updated counts
+                await this.getTestSelectionStatus(sessionId);
+                
+                // Show success message
+                this.showNotification('success', 'Automation Started', 'Automated tests have been queued and will start running shortly.');
+                
+                return { success: true, message: 'Automation started successfully' };
+            } catch (error) {
+                console.error('❌ Error starting automated testing:', error);
+                this.showNotification('error', 'Automation Error', 'Failed to start automated testing: ' + error.message);
+                return { success: false, error: error.message };
+            }
+        },
+
         // Load automation summary
         async loadAutomationSummary(sessionId) {
             try {

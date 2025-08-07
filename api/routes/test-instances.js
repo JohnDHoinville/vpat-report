@@ -984,4 +984,198 @@ router.get('/session/:sessionId/matrix', authenticateToken, async (req, res) => 
     }
 });
 
+// =============================================================================
+// TEST SELECTION ENDPOINTS
+// =============================================================================
+
+/**
+ * Select tests for automated testing
+ * Changes status from 'not_started' to 'pending' for automated/hybrid tests
+ */
+router.post('/:sessionId/select-for-automation', authenticateToken, async (req, res) => {
+    try {
+        const { sessionId } = req.params;
+        const { testInstanceIds, selectAll } = req.body;
+        
+        console.log(`🔄 Selecting tests for automation in session: ${sessionId}`);
+        console.log(`📋 Select all: ${selectAll}, Test instance IDs:`, testInstanceIds);
+        
+        let query;
+        let params;
+
+        if (selectAll) {
+            // Select all automated tests that are not_started
+            query = `
+                UPDATE test_instances 
+                SET status = 'pending', updated_at = CURRENT_TIMESTAMP
+                WHERE session_id = $1 
+                AND test_method_used IN ('automated', 'hybrid')
+                AND status = 'not_started'
+            `;
+            params = [sessionId];
+        } else if (testInstanceIds && testInstanceIds.length > 0) {
+            // Select specific test instances
+            const placeholders = testInstanceIds.map((_, index) => `$${index + 2}`).join(',');
+            query = `
+                UPDATE test_instances 
+                SET status = 'pending', updated_at = CURRENT_TIMESTAMP
+                WHERE session_id = $1 
+                AND id IN (${placeholders})
+                AND test_method_used IN ('automated', 'hybrid')
+                AND status = 'not_started'
+            `;
+            params = [sessionId, ...testInstanceIds];
+        } else {
+            return res.status(400).json({
+                success: false,
+                error: 'No test instances specified'
+            });
+        }
+
+        const result = await pool.query(query, params);
+        console.log(`✅ Selected ${result.rowCount} tests for automation`);
+
+        // Create automated test results entries for the selected tests
+        await createAutomatedTestResults(sessionId);
+
+        res.json({
+            success: true,
+            selectedCount: result.rowCount,
+            message: `Selected ${result.rowCount} tests for automation`
+        });
+
+    } catch (error) {
+        console.error('❌ Error selecting tests for automation:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to select tests for automation',
+            details: error.message
+        });
+    }
+});
+
+/**
+ * Create automated test results entries for selected tests
+ */
+async function createAutomatedTestResults(sessionId) {
+    try {
+        console.log(`📝 Creating automated test results for session: ${sessionId}`);
+
+        // Get the selected test instances that are now pending
+        const selectedTestsQuery = `
+            SELECT DISTINCT ti.page_id, dp.url
+            FROM test_instances ti
+            JOIN discovered_pages dp ON ti.page_id = dp.id
+            WHERE ti.session_id = $1 
+            AND ti.status = 'pending'
+            AND ti.test_method_used IN ('automated', 'hybrid')
+        `;
+
+        const selectedTests = await pool.query(selectedTestsQuery, [sessionId]);
+        console.log(`📄 Found ${selectedTests.rows.length} unique pages for automated testing`);
+
+        // Define the tools to run
+        const tools = ['axe-core', 'pa11y', 'lighthouse'];
+
+        // Create pending automated test results for each page and tool
+        for (const test of selectedTests.rows) {
+            for (const tool of tools) {
+                const insertQuery = `
+                    INSERT INTO automated_test_results (
+                        test_session_id, page_id, tool_name, status, 
+                        started_at
+                    ) VALUES ($1, $2, $3, 'pending', CURRENT_TIMESTAMP)
+                    ON CONFLICT (test_session_id, page_id, tool_name) 
+                    DO UPDATE SET 
+                        status = 'pending',
+                        started_at = CURRENT_TIMESTAMP
+                `;
+
+                await pool.query(insertQuery, [sessionId, test.page_id, tool]);
+            }
+        }
+
+        console.log(`✅ Created automated test results for ${selectedTests.rows.length} pages × ${tools.length} tools`);
+
+    } catch (error) {
+        console.error('❌ Error creating automated test results:', error);
+        throw error;
+    }
+}
+
+/**
+ * Get test selection status for a session
+ */
+router.get('/:sessionId/selection-status', authenticateToken, async (req, res) => {
+    try {
+        const { sessionId } = req.params;
+        
+        const query = `
+            SELECT 
+                test_method_used,
+                status,
+                COUNT(*) as count
+            FROM test_instances 
+            WHERE session_id = $1
+            GROUP BY test_method_used, status
+            ORDER BY test_method_used, status
+        `;
+
+        const result = await pool.query(query, [sessionId]);
+        
+        const status = {
+            total: 0,
+            byMethod: {},
+            byStatus: {},
+            readyForAutomation: 0,
+            pendingAutomation: 0,
+            completed: 0
+        };
+
+        result.rows.forEach(row => {
+            status.total += parseInt(row.count);
+            
+            // By method
+            if (!status.byMethod[row.test_method_used]) {
+                status.byMethod[row.test_method_used] = {};
+            }
+            status.byMethod[row.test_method_used][row.status] = parseInt(row.count);
+
+            // By status
+            if (!status.byStatus[row.status]) {
+                status.byStatus[row.status] = 0;
+            }
+            status.byStatus[row.status] += parseInt(row.count);
+
+            // Ready for automation (automated/hybrid tests that are not_started)
+            if ((row.test_method_used === 'automated' || row.test_method_used === 'hybrid') && row.status === 'not_started') {
+                status.readyForAutomation += parseInt(row.count);
+            }
+
+            // Pending automation
+            if (row.status === 'pending') {
+                status.pendingAutomation += parseInt(row.count);
+            }
+
+            // Completed tests
+            if (['passed', 'failed', 'human_review'].includes(row.status)) {
+                status.completed += parseInt(row.count);
+            }
+        });
+
+        res.json({
+            success: true,
+            status: status
+        });
+
+    } catch (error) {
+        console.error('❌ Error getting test selection status:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to get test selection status',
+            details: error.message
+        });
+    }
+});
+
 module.exports = router; 
