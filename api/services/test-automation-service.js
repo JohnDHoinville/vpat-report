@@ -4331,17 +4331,17 @@ class TestAutomationService {
                     ti.status,
                     dp.url,
                     dp.title as page_title,
-                    tr.criterion_number,
-                    tr.title as requirement_title,
-                    tr.description,
-                    tr.requirement_type as standard_type
+                    ur.requirement_id as criterion_number,
+                    ur.title as requirement_title,
+                    ur.description,
+                    ur.standard_type
                 FROM test_instances ti
                 JOIN discovered_pages dp ON ti.page_id = dp.id
-                JOIN test_requirements tr ON ti.requirement_id = tr.id
+                JOIN unified_requirements ur ON ti.requirement_id = ur.id
                 WHERE ti.session_id = $1
                 AND dp.url = $2
-                AND tr.criterion_number IS NOT NULL
-                ORDER BY tr.criterion_number
+                AND ur.requirement_id IS NOT NULL
+                ORDER BY ur.requirement_id
             `;
 
             const result = await pool.query(query, [sessionId, pageUrl]);
