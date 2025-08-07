@@ -6531,10 +6531,16 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                 const response = await this.apiCall('/users');
                 
                 if (response.success) {
-                    this.availableTesters = response.users?.filter(user => 
-                        ['admin', 'tester', 'reviewer'].includes(user.role) && user.is_active
+                    // Handle both response.users and response.data.users for compatibility
+                    const users = response.users || response.data?.users || [];
+                    
+                    // Filter for active users with appropriate roles
+                    this.availableTesters = users.filter(user => 
+                        ['admin', 'user'].includes(user.role) && user.is_active === true
                     ) || [];
-                    console.log(`👥 Loaded ${this.availableTesters.length} available testers`);
+                    
+                    console.log(`👥 Loaded ${this.availableTesters.length} available testers:`, 
+                        this.availableTesters.map(t => `${t.full_name || t.username} (${t.role})`));
                 } else {
                     console.warn('Failed to load users for tester assignment');
                     this.availableTesters = [];
@@ -6939,6 +6945,20 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                 stackTrace: new Error().stack
             });
             
+            // Check authentication first
+            if (!this.auth.isAuthenticated) {
+                console.log('🚫 User not authenticated, cannot open user management');
+                this.showNotification('error', 'Authentication Required', 'Please log in to access user management');
+                return;
+            }
+            
+            // Check if user has admin role
+            if (this.auth.user && this.auth.user.role !== 'admin') {
+                console.log('🚫 User does not have admin role, cannot open user management');
+                this.showNotification('error', 'Access Denied', 'Admin privileges required for user management');
+                return;
+            }
+            
             // Aggressive prevention: Block any auto-opening during the first 10 seconds after initialization
             const now = Date.now();
             const initTime = this._initializationTime || now;
@@ -6984,6 +7004,7 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
             } catch (error) {
                 console.error('Error loading user management:', error);
                 this.showNotification('error', 'Load Failed', 'Failed to load user management');
+                this.showUserManagement = false; // Close modal on error
             } finally {
                 this.loading = false;
             }
@@ -7010,6 +7031,21 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
             console.log('🔍 DEBUG: showUserManagement alias called', {
                 stackTrace: new Error().stack
             });
+            
+            // Check authentication first
+            if (!this.auth.isAuthenticated) {
+                console.log('🚫 User not authenticated, cannot open user management');
+                this.showNotification('error', 'Authentication Required', 'Please log in to access user management');
+                return;
+            }
+            
+            // Check if user has admin role
+            if (this.auth.user && this.auth.user.role !== 'admin') {
+                console.log('🚫 User does not have admin role, cannot open user management');
+                this.showNotification('error', 'Access Denied', 'Admin privileges required for user management');
+                return;
+            }
+            
             return this.openUserManagement(true); // Manual open
         },
         
@@ -11282,10 +11318,12 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
         // Assign tester to test instance
         async assignTestInstanceTester(instanceId, testerId) {
             try {
-                const response = await this.apiCall(`/test-instances/${instanceId}`, {
-                    method: 'PUT',
+                console.log(`🔍 Assigning tester ${testerId} to test instance ${instanceId}`);
+                
+                const response = await this.apiCall(`/test-instances/${instanceId}/assign`, {
+                    method: 'POST',
                     body: JSON.stringify({
-                    assigned_tester: testerId || null
+                        assigned_tester: testerId || null
                     })
                 });
                 
@@ -11299,6 +11337,15 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                     }
                     
                     this.applyTestGridFilters(); // Refresh the filtered view
+                    
+                    // Show success notification
+                    const testerName = testerId ? 
+                        (this.availableTesters.find(u => u.id === testerId)?.full_name || 
+                         this.availableTesters.find(u => u.id === testerId)?.username) : 
+                        'Unassigned';
+                    this.showNotification('success', 'Assignment Updated', `Test assigned to ${testerName}`);
+                } else {
+                    throw new Error(response.error || 'Failed to assign tester');
                 }
             } catch (error) {
                 console.error('Error assigning tester:', error);

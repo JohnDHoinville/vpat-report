@@ -86,4 +86,58 @@ window.saveTestInstanceDetails = function(instanceId, modal) {
     }
 };
 
+// Global fallback for showUserManagement
+window.showUserManagement = function() {
+    console.log("🚨 Fixed fallback called for showUserManagement");
+    
+    // Try to find the dashboard instance
+    let dashboardInstance = null;
+    
+    // Strategy 1: Check Alpine store
+    if (window.Alpine && window.Alpine.store) {
+        try {
+            dashboardInstance = window.Alpine.store('dashboard');
+        } catch (e) {
+            console.log('Alpine store not available');
+        }
+    }
+    
+    // Strategy 2: Check window.dashboardInstance
+    if (!dashboardInstance && window.dashboardInstance) {
+        dashboardInstance = window.dashboardInstance;
+    }
+    
+    // Strategy 3: Check window._dashboardInstance
+    if (!dashboardInstance && window._dashboardInstance) {
+        dashboardInstance = window._dashboardInstance;
+    }
+    
+    // Strategy 4: Find via Alpine data stack
+    if (!dashboardInstance) {
+        const selectors = ['[x-data*="dashboard"]', '[x-data="dashboard()"]', '.dashboard-container', 'body'];
+        for (const selector of selectors) {
+            const element = document.querySelector(selector);
+            if (element && element._x_dataStack) {
+                for (const data of element._x_dataStack) {
+                    if (data && data.showUserManagement && data.showUserManagement !== window.showUserManagement) {
+                        dashboardInstance = data;
+                        break;
+                    }
+                }
+            }
+            if (dashboardInstance) break;
+        }
+    }
+    
+    // If we found the dashboard instance, use it
+    if (dashboardInstance && dashboardInstance.showUserManagement && dashboardInstance.showUserManagement !== window.showUserManagement) {
+        console.log('✅ Found dashboard instance, calling showUserManagement');
+        return dashboardInstance.showUserManagement();
+    }
+    
+    // If not found, show error message
+    console.error('❌ Dashboard instance not found for showUserManagement');
+    alert('User management not available. Please refresh the page and try again.');
+};
+
 console.log('✅ Fixed global fallback functions loaded'); 

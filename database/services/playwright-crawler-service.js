@@ -925,7 +925,8 @@ class PlaywrightCrawlerService {
             }
 
             return true;
-        } catch {
+        } catch (error) {
+            console.error(`❌ Error in shouldCrawlUrl for ${url}:`, error.message);
             return false;
         }
     }
@@ -1025,7 +1026,113 @@ class PlaywrightCrawlerService {
         const client = await this.pool.connect();
         try {
             const result = await client.query('SELECT * FROM web_crawlers WHERE id = $1', [crawlerId]);
-            return result.rows[0];
+            if (result.rows.length === 0) {
+                return null;
+            }
+            
+            const crawler = result.rows[0];
+            
+            // Parse JSON fields that are stored as strings
+            if (crawler.url_patterns && typeof crawler.url_patterns === 'string') {
+                try {
+                    crawler.url_patterns = JSON.parse(crawler.url_patterns);
+                } catch (error) {
+                    console.warn(`Failed to parse url_patterns for crawler ${crawlerId}:`, error.message);
+                    crawler.url_patterns = [];
+                }
+            }
+            
+            if (crawler.auth_credentials && typeof crawler.auth_credentials === 'string') {
+                try {
+                    crawler.auth_credentials = JSON.parse(crawler.auth_credentials);
+                } catch (error) {
+                    console.warn(`Failed to parse auth_credentials for crawler ${crawlerId}:`, error.message);
+                    crawler.auth_credentials = {};
+                }
+            }
+            
+            if (crawler.auth_workflow && typeof crawler.auth_workflow === 'string') {
+                try {
+                    crawler.auth_workflow = JSON.parse(crawler.auth_workflow);
+                } catch (error) {
+                    console.warn(`Failed to parse auth_workflow for crawler ${crawlerId}:`, error.message);
+                    crawler.auth_workflow = {};
+                }
+            }
+            
+            if (crawler.saml_config && typeof crawler.saml_config === 'string') {
+                try {
+                    crawler.saml_config = JSON.parse(crawler.saml_config);
+                } catch (error) {
+                    console.warn(`Failed to parse saml_config for crawler ${crawlerId}:`, error.message);
+                    crawler.saml_config = {};
+                }
+            }
+            
+            if (crawler.wait_conditions && typeof crawler.wait_conditions === 'string') {
+                try {
+                    crawler.wait_conditions = JSON.parse(crawler.wait_conditions);
+                } catch (error) {
+                    console.warn(`Failed to parse wait_conditions for crawler ${crawlerId}:`, error.message);
+                    crawler.wait_conditions = [];
+                }
+            }
+            
+            if (crawler.custom_selectors && typeof crawler.custom_selectors === 'string') {
+                try {
+                    crawler.custom_selectors = JSON.parse(crawler.custom_selectors);
+                } catch (error) {
+                    console.warn(`Failed to parse custom_selectors for crawler ${crawlerId}:`, error.message);
+                    crawler.custom_selectors = {};
+                }
+            }
+            
+            if (crawler.javascript_execution && typeof crawler.javascript_execution === 'string') {
+                try {
+                    crawler.javascript_execution = JSON.parse(crawler.javascript_execution);
+                } catch (error) {
+                    console.warn(`Failed to parse javascript_execution for crawler ${crawlerId}:`, error.message);
+                    crawler.javascript_execution = {};
+                }
+            }
+            
+            if (crawler.extraction_rules && typeof crawler.extraction_rules === 'string') {
+                try {
+                    crawler.extraction_rules = JSON.parse(crawler.extraction_rules);
+                } catch (error) {
+                    console.warn(`Failed to parse extraction_rules for crawler ${crawlerId}:`, error.message);
+                    crawler.extraction_rules = {};
+                }
+            }
+            
+            if (crawler.content_filters && typeof crawler.content_filters === 'string') {
+                try {
+                    crawler.content_filters = JSON.parse(crawler.content_filters);
+                } catch (error) {
+                    console.warn(`Failed to parse content_filters for crawler ${crawlerId}:`, error.message);
+                    crawler.content_filters = {};
+                }
+            }
+            
+            if (crawler.viewport_config && typeof crawler.viewport_config === 'string') {
+                try {
+                    crawler.viewport_config = JSON.parse(crawler.viewport_config);
+                } catch (error) {
+                    console.warn(`Failed to parse viewport_config for crawler ${crawlerId}:`, error.message);
+                    crawler.viewport_config = { width: 1920, height: 1080 };
+                }
+            }
+            
+            if (crawler.headers && typeof crawler.headers === 'string') {
+                try {
+                    crawler.headers = JSON.parse(crawler.headers);
+                } catch (error) {
+                    console.warn(`Failed to parse headers for crawler ${crawlerId}:`, error.message);
+                    crawler.headers = {};
+                }
+            }
+            
+            return crawler;
         } finally {
             client.release();
         }

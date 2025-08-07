@@ -812,10 +812,11 @@ router.post('/:id/assign', authenticateToken, async (req, res) => {
         const { id } = req.params;
         const { assigned_tester } = req.body;
         
-        if (!assigned_tester) {
+        // Allow null for unassigning, but require a value for assigning
+        if (assigned_tester === undefined) {
             return res.status(400).json({
                 success: false,
-                error: 'assigned_tester is required'
+                error: 'assigned_tester field is required (use null to unassign)'
             });
         }
         
@@ -840,11 +841,15 @@ router.post('/:id/assign', authenticateToken, async (req, res) => {
             INSERT INTO test_audit_log (
                 test_instance_id, session_id, user_id, action_type, change_description,
                 timestamp
-            ) VALUES ($1, $2, $3, 'assignment', $4, CURRENT_TIMESTAMP)
+            ) VALUES ($1, $2, $3, 'assigned', $4, CURRENT_TIMESTAMP)
         `;
         
+        const changeDescription = assigned_tester ? 
+            `Test assigned to tester ID: ${assigned_tester}` : 
+            'Test unassigned from tester';
+            
         await pool.query(auditQuery, [
-            id, result.rows[0].session_id, req.user.id, `Test assigned to tester ID: ${assigned_tester}`
+            id, result.rows[0].session_id, req.user.id, changeDescription
         ]);
         
         res.json({
