@@ -866,8 +866,7 @@ async function getRequirementsForWizardLevels(conformanceLevels, smartFiltering 
                 tool_mappings,
                 understanding_url,
                 applies_to_page_types,
-                created_at,
-                updated_at
+                created_at
             FROM unified_requirements 
             WHERE (${whereConditions.join(' OR ')})
             ORDER BY standard_type, level, requirement_id

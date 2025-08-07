@@ -4375,15 +4375,15 @@ class TestAutomationService {
                         ti.test_method_used,
                         dp.url,
                         dp.title as page_title,
-                        tr.criterion_number,
-                        tr.title as requirement_title,
-                        tr.description
+                        ur.requirement_id as criterion_number,
+                        ur.title as requirement_title,
+                        ur.description
                     FROM test_instances ti
                     JOIN discovered_pages dp ON ti.page_id = dp.id
-                    JOIN test_requirements tr ON ti.requirement_id = tr.id
+                    JOIN unified_requirements ur ON ti.requirement_id = ur.id
                     WHERE ti.id = ANY($1)
                     AND ti.session_id = $2
-                    ORDER BY dp.url, tr.criterion_number
+                    ORDER BY dp.url, ur.requirement_id
                 `;
                 
                 const result = await pool.query(query, [specificInstances, sessionId]);
@@ -4402,20 +4402,20 @@ class TestAutomationService {
                     ti.status,
                     dp.url,
                     dp.title as page_title,
-                    tr.criterion_number,
-                    tr.title as requirement_title,
-                    tr.description,
-                    tr.requirement_type as standard_type,
-                    '{"axe-core": true, "pa11y": true}' as tool_mappings,
-                    'automated' as automation_coverage
+                    ur.requirement_id as criterion_number,
+                    ur.title as requirement_title,
+                    ur.description,
+                    ur.standard_type,
+                    ur.tool_mappings,
+                    ur.automation_coverage
                 FROM test_instances ti
                 JOIN discovered_pages dp ON ti.page_id = dp.id
-                JOIN test_requirements tr ON ti.requirement_id = tr.id
+                JOIN unified_requirements ur ON ti.requirement_id = ur.id
                 WHERE ti.session_id = $1
                 AND dp.url IS NOT NULL
-                AND (ti.test_method_used = 'automated' OR tr.test_method IN ('automated', 'both'))
-                AND tr.criterion_number IS NOT NULL
-                ORDER BY dp.url, tr.criterion_number
+                AND (ti.test_method_used = 'automated' OR ur.test_method IN ('automated', 'both'))
+                AND ur.requirement_id IS NOT NULL
+                ORDER BY dp.url, ur.requirement_id
                 LIMIT 50
             `;
 

@@ -2621,15 +2621,27 @@ ${requirement.failure_examples}
             
             try {
                 console.log('🔧 Loading available automation tools...');
+                console.log('🔧 Auth state:', this.auth.isAuthenticated);
+                console.log('🔧 Auth token:', this.getAuthToken() ? 'Present' : 'Missing');
+                
                 const response = await this.apiCall('/automated-testing/tools', {
                     method: 'GET'
                 });
+                
+                console.log('🔧 API Response:', response);
                 this.availableTools = response.tools || [];
                 console.log('🔧 Available tools loaded:', this.availableTools.length);
             } catch (error) {
                 console.error('❌ Error loading available tools:', error);
+                console.error('❌ Error details:', error.message);
                 this.availableTools = [];
             }
+        },
+
+        // Manual trigger for debugging
+        async debugLoadTools() {
+            console.log('🔧 Manual tools load triggered');
+            await this.loadAvailableTools();
         },
         
         // ===== WEBSOCKET MANAGEMENT =====
@@ -12024,8 +12036,8 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                 'wcag_22_a': 'wcag_a',
                 'wcag_22_aa': 'wcag_aa', 
                 'wcag_22_aaa': 'wcag_aaa',
-                'section_508_base': 'section_508_base',
-                'section_508_enhanced': 'section_508_enhanced'
+                'section_508_base': 'section508_required',
+                'section_508_enhanced': 'section508_required'
             };
             const mappedLevel = mapping[level];
             const count = this.requirementCounts[mappedLevel] || 0;
