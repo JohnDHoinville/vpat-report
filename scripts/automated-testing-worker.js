@@ -136,6 +136,11 @@ class AutomatedTestingWorker {
             // Update test result
             await this.updateTestResult(test.id, result);
             
+            // Map violations to test instances
+            if (result.violations && result.violations.length > 0) {
+                await this.mapViolationsToTestInstances(test.test_session_id, test.page_url, result.violations, test.tool_name);
+            }
+            
             console.log(`✅ Test completed: ${test.tool_name} for ${test.page_url}`);
             
         } catch (error) {
@@ -352,6 +357,118 @@ class AutomatedTestingWorker {
             testDuration,
             testId
         ]);
+    }
+
+    async mapViolationsToTestInstances(sessionId, pageUrl, violations, toolName) {
+        try {
+            console.log(`🔗 Mapping ${violations.length} violations to test instances for ${pageUrl}`);
+            
+            // Get test instances for this page and session
+            const instancesQuery = `
+                SELECT 
+                    ti.id as test_instance_id,
+                    ti.page_id,
+                    ti.requirement_id,
+                    ur.requirement_id as criterion_number,
+                    ur.title as requirement_title
+                FROM test_instances ti
+                JOIN discovered_pages dp ON ti.page_id = dp.id
+                JOIN unified_requirements ur ON ti.requirement_id = ur.id
+                WHERE ti.session_id = $1
+                AND dp.url = $2
+                AND ur.requirement_id IS NOT NULL
+            `;
+            
+            const instancesResult = await this.pool.query(instancesQuery, [sessionId, pageUrl]);
+            const testInstances = instancesResult.rows;
+            
+            console.log(`🔍 Found ${testInstances.length} test instances for page ${pageUrl}`);
+            
+            let updatedCount = 0;
+            
+            for (const violation of violations) {
+                // Map violation to WCAG criteria
+                const wcagCriteria = this.mapViolationToWcagCriteria(violation, toolName);
+                
+                // Find matching test instances
+                const matchingInstances = testInstances.filter(instance => 
+                    wcagCriteria.includes(instance.criterion_number)
+                );
+                
+                console.log(`🔍 Violation "${violation.id || violation.code}" maps to WCAG ${wcagCriteria}, found ${matchingInstances.length} matching instances`);
+                
+                // Update matching test instances
+                for (const instance of matchingInstances) {
+                    const updateQuery = `
+                        UPDATE test_instances 
+                        SET status = 'failed',
+                            automated_result_id = (
+                                SELECT id FROM automated_test_results 
+                                WHERE test_session_id = $1 
+                                AND page_id = $2 
+                                AND tool_name = $3 
+                                AND status = 'completed'
+                                ORDER BY executed_at DESC 
+                                LIMIT 1
+                            ),
+                            notes = $4,
+                            evidence = $5,
+                            updated_at = CURRENT_TIMESTAMP
+                        WHERE id = $6
+                    `;
+                    
+                    const notes = `Automated test failed: ${violation.description || violation.help || violation.message}`;
+                    const evidence = JSON.stringify({
+                        tool: toolName,
+                        violation: violation,
+                        timestamp: new Date().toISOString()
+                    });
+                    
+                    await this.pool.query(updateQuery, [
+                        sessionId, 
+                        instance.page_id, 
+                        toolName, 
+                        notes, 
+                        evidence, 
+                        instance.test_instance_id
+                    ]);
+                    
+                    updatedCount++;
+                }
+            }
+            
+            console.log(`✅ Updated ${updatedCount} test instances with violations for ${pageUrl}`);
+            
+        } catch (error) {
+            console.error(`❌ Error mapping violations to test instances:`, error);
+        }
+    }
+    
+    mapViolationToWcagCriteria(violation, toolName) {
+        // Map common violations to WCAG criteria
+        const violationMappings = {
+            'color-contrast': ['1.4.3'],
+            'document-title': ['2.4.2'],
+            'page-has-heading-one': ['1.3.1', '2.4.6'],
+            'image-alt': ['1.1.1'],
+            'label': ['3.3.2'],
+            'link-name': ['2.4.4'],
+            'WCAG2AA.Principle2.Guideline2_4.2_4_2.H25.1.EmptyTitle': ['2.4.2'],
+            'WCAG2AA.Principle1.Guideline1_4.1_4_3.G18.Fail': ['1.4.3'],
+            'WCAG2AA.Principle1.Guideline1_1.1_1_1.H37': ['1.1.1']
+        };
+        
+        const violationId = violation.id || violation.code || '';
+        
+        // Try to find a mapping
+        for (const [pattern, criteria] of Object.entries(violationMappings)) {
+            if (violationId.includes(pattern) || violationId === pattern) {
+                return criteria;
+            }
+        }
+        
+        // Default mapping for unknown violations
+        return ['1.3.1']; // Default to structure criterion
     }
 
     sleep(ms) {
