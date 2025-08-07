@@ -145,122 +145,156 @@ class AutomatedTestingWorker {
     }
 
     async runAxeTest(url) {
-        // Simple axe-core test simulation
-        console.log(`  🪓 Running axe-core test for ${url}`);
+        console.log(`  🪓 Running real axe-core test for ${url}`);
         
-        // Simulate test execution
-        await this.sleep(2000);
-        
-        return {
-            violations: [
-                {
-                    id: 'color-contrast',
-                    impact: 'serious',
-                    tags: ['wcag2aa', 'wcag143'],
-                    description: 'Ensures the contrast between foreground and background colors meets WCAG 2 AA contrast ratio thresholds',
-                    help: 'Elements must meet minimum color contrast ratio requirements',
-                    helpUrl: 'https://dequeuniversity.com/rules/axe/4.7/color-contrast',
-                    nodes: [
-                        {
-                            html: '<button class="btn-primary">Submit</button>',
-                            target: ['button.btn-primary'],
-                            failureSummary: 'Fix any of the following:\n  Element has insufficient color contrast of 2.51 (foreground color: #ffffff, background color: #f0f0f0, font size: 12.0pt (16px), font weight: normal). Expected contrast ratio of 4.5:1'
-                        }
-                    ]
-                }
-            ],
-            passes: [
-                {
-                    id: 'document-title',
-                    impact: null,
-                    tags: ['wcag2a', 'wcag242'],
-                    description: 'Ensures each HTML document contains a non-empty <title> element',
-                    help: 'Documents should have a title that describes page content',
-                    helpUrl: 'https://dequeuniversity.com/rules/axe/4.7/document-title',
-                    nodes: [
-                        {
-                            html: '<title>Test Page</title>',
-                            target: ['title']
-                        }
-                    ]
-                }
-            ],
-            timestamp: new Date().toISOString(),
-            url: url,
-            tool: 'axe-core'
-        };
+        try {
+            const { execSync } = require('child_process');
+            
+            // Run axe-core CLI against the URL
+            const command = `npx axe "${url}" --format json --timeout 30000`;
+            console.log(`    Executing: ${command}`);
+            
+            const output = execSync(command, { 
+                encoding: 'utf8', 
+                timeout: 60000,
+                stdio: ['ignore', 'pipe', 'pipe'] 
+            });
+            
+            const results = JSON.parse(output);
+            
+            console.log(`    ✅ Axe-core found ${results.violations?.length || 0} violations, ${results.passes?.length || 0} passes`);
+            
+            return {
+                violations: results.violations || [],
+                passes: results.passes || [],
+                timestamp: new Date().toISOString(),
+                url: url,
+                tool: 'axe-core'
+            };
+            
+        } catch (error) {
+            console.error(`    ❌ Axe-core test failed for ${url}:`, error.message);
+            
+            // Return empty results on failure
+            return {
+                violations: [],
+                passes: [],
+                timestamp: new Date().toISOString(),
+                url: url,
+                tool: 'axe-core',
+                error: error.message
+            };
+        }
     }
 
     async runPa11yTest(url) {
-        // Simple pa11y test simulation
-        console.log(`  🔍 Running pa11y test for ${url}`);
+        console.log(`  🔍 Running real pa11y test for ${url}`);
         
-        // Simulate test execution
-        await this.sleep(3000);
-        
-        return {
-            violations: [
-                {
-                    code: 'WCAG2AA.Principle1.Guideline1_4.1_4_3',
-                    message: 'Elements must meet minimum color contrast ratio requirements',
-                    selector: 'button.btn-primary',
-                    context: '<button class="btn-primary">Submit</button>',
-                    type: 'error'
+        try {
+            const { execSync } = require('child_process');
+            
+            // Run pa11y with axe runner for better WCAG 2.2 support
+            const command = `npx pa11y "${url}" --reporter json --runner axe --standard WCAG2AA --timeout 30000`;
+            console.log(`    Executing: ${command}`);
+            
+            let output;
+            try {
+                output = execSync(command, { 
+                    encoding: 'utf8', 
+                    timeout: 60000,
+                    stdio: ['ignore', 'pipe', 'pipe'] 
+                });
+            } catch (error) {
+                // Pa11y returns non-zero exit code when violations are found
+                // This is normal behavior, so we should still process the output
+                if (error.stdout) {
+                    output = error.stdout;
+                } else {
+                    throw error;
                 }
-            ],
-            passes: [
-                {
-                    code: 'WCAG2AA.Principle2.Guideline2_4.2_4_2',
-                    message: 'Page has a title',
-                    selector: 'title',
-                    context: '<title>Test Page</title>',
-                    type: 'pass'
-                }
-            ],
-            timestamp: new Date().toISOString(),
-            url: url,
-            tool: 'pa11y'
-        };
+            }
+            
+            const results = JSON.parse(output);
+            
+            console.log(`    ✅ Pa11y found ${results.length || 0} issues`);
+            
+            return {
+                violations: results.filter(issue => issue.type === 'error') || [],
+                passes: results.filter(issue => issue.type === 'pass') || [],
+                timestamp: new Date().toISOString(),
+                url: url,
+                tool: 'pa11y'
+            };
+            
+        } catch (error) {
+            console.error(`    ❌ Pa11y test failed for ${url}:`, error.message);
+            
+            // Return empty results on failure
+            return {
+                violations: [],
+                passes: [],
+                timestamp: new Date().toISOString(),
+                url: url,
+                tool: 'pa11y',
+                error: error.message
+            };
+        }
     }
 
     async runLighthouseTest(url) {
-        // Simple lighthouse test simulation
-        console.log(`  💡 Running lighthouse test for ${url}`);
+        console.log(`  💡 Running real lighthouse test for ${url}`);
         
-        // Simulate test execution
-        await this.sleep(5000);
-        
-        return {
-            audits: {
-                'color-contrast': {
-                    score: 0.8,
-                    title: 'Background and foreground colors have a sufficient contrast ratio',
-                    description: 'Low-contrast text is difficult or impossible for many users to read.',
-                    details: {
-                        type: 'table',
-                        headings: [
-                            { key: 'node', itemType: 'node', text: 'Element' },
-                            { key: 'contrastRatio', itemType: 'numeric', text: 'Contrast Ratio' }
-                        ],
-                        items: [
-                            {
-                                node: { type: 'node', snippet: '<button class="btn-primary">Submit</button>' },
-                                contrastRatio: 2.51
-                            }
-                        ]
-                    }
-                }
-            },
-            categories: {
-                accessibility: {
-                    score: 0.85,
-                    title: 'Accessibility'
-                }
-            },
-            timestamp: new Date().toISOString(),
-            url: url,
-            tool: 'lighthouse'
-        };
+        try {
+            const { execSync } = require('child_process');
+            
+            // Run lighthouse accessibility audit
+            const command = `npx lighthouse "${url}" --only-categories=accessibility --output=json --quiet --chrome-flags="--headless"`;
+            console.log(`    Executing: ${command}`);
+            
+            const output = execSync(command, { 
+                encoding: 'utf8', 
+                timeout: 120000, // 2 minutes for lighthouse
+                stdio: ['ignore', 'pipe', 'pipe'] 
+            });
+            
+            const results = JSON.parse(output);
+            
+            // Extract accessibility audits
+            const audits = results.audits || {};
+            const accessibilityScore = results.categories?.accessibility?.score || 0;
+            
+            // Count failed audits as violations
+            const violations = Object.values(audits).filter(audit => 
+                audit.score !== null && audit.score < 1
+            );
+            
+            console.log(`    ✅ Lighthouse accessibility score: ${Math.round(accessibilityScore * 100)}%, found ${violations.length} failed audits`);
+            
+            return {
+                audits: audits,
+                categories: results.categories,
+                accessibilityScore: accessibilityScore,
+                violations: violations,
+                timestamp: new Date().toISOString(),
+                url: url,
+                tool: 'lighthouse'
+            };
+            
+        } catch (error) {
+            console.error(`    ❌ Lighthouse test failed for ${url}:`, error.message);
+            
+            // Return empty results on failure
+            return {
+                audits: {},
+                categories: {},
+                accessibilityScore: 0,
+                violations: [],
+                timestamp: new Date().toISOString(),
+                url: url,
+                tool: 'lighthouse',
+                error: error.message
+            };
+        }
     }
 
     async updateTestStatus(testId, status, error = null) {
@@ -288,10 +322,27 @@ class AutomatedTestingWorker {
             WHERE id = $6
         `;
         
-        const violationsCount = result.violations ? result.violations.length : 0;
-        const warningsCount = result.warnings ? result.warnings.length : 0;
-        const passesCount = result.passes ? result.passes.length : 0;
-        const testDuration = 5000; // Simulated duration
+        // Handle different result formats from different tools
+        let violationsCount = 0;
+        let warningsCount = 0;
+        let passesCount = 0;
+        
+        if (result.tool === 'lighthouse') {
+            // Lighthouse has a different structure
+            violationsCount = result.violations ? result.violations.length : 0;
+            warningsCount = 0; // Lighthouse doesn't have warnings in the same format
+            passesCount = 0; // Lighthouse doesn't have passes in the same format
+        } else {
+            // axe-core and pa11y have standard format
+            violationsCount = result.violations ? result.violations.length : 0;
+            warningsCount = result.warnings ? result.warnings.length : 0;
+            passesCount = result.passes ? result.passes.length : 0;
+        }
+        
+        // Calculate actual test duration (we'll use a reasonable estimate for now)
+        const testDuration = result.tool === 'lighthouse' ? 60000 : 30000; // 60s for lighthouse, 30s for others
+        
+        console.log(`    📊 Updating test result: ${violationsCount} violations, ${warningsCount} warnings, ${passesCount} passes`);
         
         await this.pool.query(query, [
             JSON.stringify(result),
