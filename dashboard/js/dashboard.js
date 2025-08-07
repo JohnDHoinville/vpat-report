@@ -9107,6 +9107,24 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                 if (response.success) {
                     this.automationSummary = response.data.summary || {};
                     console.log('🤖 Automation summary loaded:', this.automationSummary);
+                    
+                    // Update automationProgress with real data from the database
+                    const summary = response.data.summary;
+                    if (summary) {
+                        this.automationProgress = {
+                            completedTests: summary.test_instances_updated || 0,
+                            totalTests: summary.total_runs || 0,
+                            violationsFound: summary.total_issues_found || 0,
+                            percentage: summary.total_runs > 0 ? 100 : 0, // If we have runs, consider it complete
+                            message: summary.total_runs > 0 ? 'Per-instance testing completed' : 'No automation runs found',
+                            currentTool: summary.tools_used ? summary.tools_used.join(', ') : '',
+                            lastRunDate: summary.last_run_date,
+                            totalRuns: summary.total_runs || 0,
+                            criticalIssues: summary.critical_issues_found || 0
+                        };
+                        
+                        console.log('📊 Updated automationProgress with real data:', this.automationProgress);
+                    }
                 }
             } catch (error) {
                 console.error('Error loading automation summary:', error);

@@ -1,0 +1,21 @@
+{
+  "tool": "pa11y",
+  "pageUrl": "https://fm-dev.ti.internet2.edu/home",
+  "pageId": "cc74e3a3-6610-4691-a90c-49260b6ce541",
+  "sessionId": "b591df2b-fd0c-47a9-bfad-468474c29101",
+  "runId": "b88a09ba-f5a1-4317-b26b-ec983fa7118e",
+  "timestamp": "2025-08-07T18:20:32.992Z",
+  "violations": [
+    {
+      "code": "WCAG2AA.Principle2.Guideline2_4.2_4_2.H25.1.EmptyTitle",
+      "type": "error",
+      "typeCode": 1,
+      "message": "The title element in the head section should be non-empty.",
+      "context": "<title>\n  </title>",
+      "selector": "html > head > title",
+      "runner": "htmlcs",
+      "runnerExtras": {}
+    }
+  ],
+  "violationCount": 1
+}

@@ -151,7 +151,7 @@ class AutomatedTestingWorker {
             const { execSync } = require('child_process');
             
             // Run axe-core CLI against the URL
-            const command = `npx axe "${url}" --format json --timeout 30000`;
+            const command = `npx axe "${url}" --stdout --tags wcag2a,wcag2aa`;
             console.log(`    Executing: ${command}`);
             
             const output = execSync(command, { 
