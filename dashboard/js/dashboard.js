@@ -11611,7 +11611,7 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
 
                 // Refresh the requirement details to show updated status
                 if (this.showRequirementDetailsModal && this.currentRequirement) {
-                    await this.loadRequirementDetails(this.currentRequirement.id);
+                    await this.loadSessionRequirements(this.selectedSessionDetails?.id);
                 }
 
             } catch (error) {
