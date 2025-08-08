@@ -10107,11 +10107,21 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                     return;
                 }
                 
+                console.log(`🔍 Getting automation results for test instance: ${instanceId}`);
+                
                 // Load automation results for this test instance
                 const response = await this.apiCall(`/automated-testing/instance-results/${instanceId}`);
+                console.log(`📊 Automation results response for ${instanceId}:`, response);
+                
                 const automationList = document.getElementById('automation-list');
                 
+                if (!automationList) {
+                    console.error('❌ Automation list element not found in DOM');
+                    return;
+                }
+                
                 if (response.success && response.data.length > 0 && automationList) {
+                    console.log(`📋 Processing ${response.data.length} automation results for ${instanceId}:`, response.data);
                     automationList.innerHTML = response.data.map(result => `
                         <div class="bg-white border border-purple-200 rounded-lg p-4 shadow-sm">
                             <div class="flex justify-between items-start mb-3">
@@ -10155,8 +10165,20 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                                     </div>
                                     <p class="text-xs text-blue-600 mt-1">
                                         This automation tool ran but found no violations, warnings, or passes. 
-                                        This may indicate a testing issue or that the tool couldn't analyze this content.
+                                        This may indicate:
                                     </p>
+                                    <ul class="text-xs text-blue-600 mt-2 list-disc list-inside">
+                                        <li>The page passed all automated checks</li>
+                                        <li>The tool couldn't analyze this specific content</li>
+                                        <li>Manual review is required for this requirement</li>
+                                        <li>There may be a configuration issue</li>
+                                    </ul>
+                                    <div class="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded">
+                                        <p class="text-xs text-yellow-700">
+                                            <i class="fas fa-exclamation-triangle mr-1"></i>
+                                            <strong>Recommendation:</strong> Perform manual testing to verify accessibility compliance.
+                                        </p>
+                                    </div>
                                 </div>
                             ` : ''}
 
@@ -10217,6 +10239,10 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                         <div class="text-center py-8 text-red-500">
                             <i class="fas fa-exclamation-triangle text-3xl mb-2"></i>
                             <p>Error loading automation results: ${error.message}</p>
+                            <button onclick="window.dashboard().loadAutomationResults('${instanceId}')" 
+                                    class="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+                                <i class="fas fa-refresh mr-2"></i>Retry Loading Results
+                            </button>
                         </div>
                     `;
                 }
@@ -11649,6 +11675,23 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                     // Update the current requirement's test instances
                     const updatedTestInstances = this.getRequirementTestInstances(criterionNumber);
                     console.log(`🔄 Refreshed test instances for requirement ${criterionNumber}: ${updatedTestInstances.length} instances`);
+                    
+                    // Update test instance statuses to completed if they have automation results
+                    for (const instance of updatedTestInstances) {
+                        if (instance.status === 'in_process') {
+                            try {
+                                const resultsResponse = await this.apiCall(`/automated-testing/instance-results/${instance.id || instance.test_instance_id || instance.instance_id}`);
+                                if (resultsResponse.success && resultsResponse.data && resultsResponse.data.length > 0) {
+                                    // Update local status to completed
+                                    instance.status = 'completed';
+                                    instance.completed_at = new Date().toISOString();
+                                    console.log(`✅ Updated test instance ${instance.id} status to completed`);
+                                }
+                            } catch (error) {
+                                console.log(`⚠️ Could not check automation results for instance ${instance.id}:`, error.message);
+                            }
+                        }
+                    }
                 }
 
             } catch (error) {
@@ -14315,7 +14358,14 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
         window.toggleTestHistory = () => componentInstance.toggleTestHistory();
         window.runTestsForRequirement = (criterionNumber) => componentInstance.runTestsForRequirement(criterionNumber);
     window.editTestInstance = (testInstance) => componentInstance.editTestInstance(testInstance);
-    window.toggleAutomationResults = (instanceId) => componentInstance.toggleAutomationResults(instanceId);
+    window.toggleAutomationResults = (instanceId) => {
+        if (componentInstance && componentInstance.toggleAutomationResults) {
+            return componentInstance.toggleAutomationResults(instanceId);
+        } else {
+            console.error('❌ toggleAutomationResults: componentInstance not available');
+            return false;
+        }
+    };
     window.saveTestEvidence = (instanceId, modal) => componentInstance.saveTestEvidence(instanceId, modal);
     
     // Navigation Global Functions
