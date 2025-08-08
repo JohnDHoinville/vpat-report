@@ -5021,6 +5021,9 @@ class TestAutomationService {
             // Create automation run record
             const runData = await this.createAutomationRun(sessionId, runId, tools, userId);
 
+            // Create automated test results entries for the worker to pick up
+            await this.createAutomatedTestResultsForSession(sessionId, tools);
+
             if (runAsync) {
                 // Run per-instance tests in background
                 this.runPerInstanceTestsInBackground(runId, sessionId, tools, testInstances, batchSize, userId, clientMetadata);
@@ -5048,6 +5051,113 @@ class TestAutomationService {
             await this.updateRunStatus(runId, 'failed', { error: error.message });
             throw error;
         }
+    }
+
+    /**
+     * Create automated test results entries for a session
+     */
+    async createAutomatedTestResultsForSession(sessionId, tools) {
+        try {
+            console.log(`📝 Creating automated test results for session: ${sessionId} with tools: ${tools.join(', ')}`);
+
+            // Get ALL automated test instances that are pending
+            const automatedTestInstancesQuery = `
+                SELECT 
+                    ti.id as test_instance_id,
+                    ti.page_id,
+                    ti.requirement_id,
+                    ti.test_method_used,
+                    dp.url,
+                    ur.requirement_id as criterion_number,
+                    ur.title as requirement_title,
+                    ur.test_method as requirement_test_method
+                FROM test_instances ti
+                JOIN discovered_pages dp ON ti.page_id = dp.id
+                JOIN unified_requirements ur ON ti.requirement_id = ur.id
+                WHERE ti.session_id = $1 
+                AND ti.status = 'pending'
+                AND ti.test_method_used IN ('automated', 'hybrid')
+                ORDER BY dp.url, ur.requirement_id
+            `;
+
+            const automatedTestInstances = await pool.query(automatedTestInstancesQuery, [sessionId]);
+            console.log(`📄 Found ${automatedTestInstances.rows.length} automated test instances to process`);
+
+            // Create pending automated test results for each test instance and appropriate tools
+            let createdCount = 0;
+            for (const testInstance of automatedTestInstances.rows) {
+                // Determine which tools can test this specific requirement
+                const applicableTools = this.getApplicableToolsForRequirement(testInstance.criterion_number, tools);
+                
+                for (const tool of applicableTools) {
+                    const insertQuery = `
+                        INSERT INTO automated_test_results (
+                            test_session_id, page_id, tool_name, status, 
+                            started_at, test_instance_id
+                        ) VALUES ($1, $2, $3, 'pending', CURRENT_TIMESTAMP, $4)
+                        ON CONFLICT (test_session_id, page_id, tool_name) 
+                        DO UPDATE SET 
+                            status = 'pending',
+                            started_at = CURRENT_TIMESTAMP,
+                            test_instance_id = $4
+                    `;
+
+                    await pool.query(insertQuery, [sessionId, testInstance.page_id, tool, testInstance.test_instance_id]);
+                    createdCount++;
+                }
+            }
+
+            console.log(`✅ Created ${createdCount} automated test results for ${automatedTestInstances.rows.length} test instances`);
+
+        } catch (error) {
+            console.error('❌ Error creating automated test results:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Determine which tools can test a specific WCAG requirement
+     */
+    getApplicableToolsForRequirement(criterionNumber, availableTools) {
+        // Map WCAG criteria to applicable tools
+        const toolMapping = {
+            // Color and contrast
+            '1.4.1': ['axe-core', 'pa11y', 'lighthouse'], // Use of Color
+            '1.4.3': ['axe-core', 'pa11y', 'lighthouse'], // Contrast (Minimum)
+            '1.4.11': ['axe-core', 'pa11y', 'lighthouse'], // Non-text Contrast
+            
+            // Text alternatives
+            '1.1.1': ['axe-core', 'pa11y', 'lighthouse'], // Non-text Content
+            
+            // Page structure
+            '1.3.1': ['axe-core', 'pa11y', 'lighthouse'], // Info and Relationships
+            '1.3.4': ['axe-core', 'pa11y', 'lighthouse'], // Orientation
+            '1.3.5': ['axe-core', 'pa11y', 'lighthouse'], // Identify Input Purpose
+            
+            // Keyboard and navigation
+            '2.1.1': ['axe-core', 'pa11y'], // Keyboard
+            '2.1.2': ['axe-core', 'pa11y'], // No Keyboard Trap
+            '2.4.1': ['axe-core', 'pa11y'], // Bypass Blocks
+            '2.4.2': ['axe-core', 'pa11y', 'lighthouse'], // Page Titled
+            '2.4.3': ['axe-core', 'pa11y'], // Focus Order
+            '2.4.4': ['axe-core', 'pa11y'], // Link Purpose
+            '2.4.6': ['axe-core', 'pa11y'], // Headings and Labels
+            '2.4.7': ['axe-core', 'pa11y'], // Focus Visible
+            
+            // Language
+            '3.1.1': ['axe-core', 'pa11y', 'lighthouse'], // Language of Page
+            '3.1.2': ['axe-core', 'pa11y', 'lighthouse'], // Language of Parts
+            
+            // Forms and inputs
+            '3.3.2': ['axe-core', 'pa11y'], // Labels or Instructions
+            '4.1.2': ['axe-core', 'pa11y'], // Name, Role, Value
+        };
+
+        // Get applicable tools for this criterion, or use all available tools as fallback
+        const applicableTools = toolMapping[criterionNumber] || availableTools;
+        
+        // Filter to only include tools that are available
+        return applicableTools.filter(tool => availableTools.includes(tool));
     }
 }
 
