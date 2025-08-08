@@ -5121,11 +5121,6 @@ class TestAutomationService {
     getApplicableToolsForRequirement(criterionNumber, availableTools) {
         // Map WCAG criteria to applicable tools
         const toolMapping = {
-            // Color and contrast
-            '1.4.1': ['axe-core', 'pa11y', 'lighthouse'], // Use of Color
-            '1.4.3': ['axe-core', 'pa11y', 'lighthouse'], // Contrast (Minimum)
-            '1.4.11': ['axe-core', 'pa11y', 'lighthouse'], // Non-text Contrast
-            
             // Text alternatives
             '1.1.1': ['axe-core', 'pa11y', 'lighthouse'], // Non-text Content
             
@@ -5134,23 +5129,58 @@ class TestAutomationService {
             '1.3.4': ['axe-core', 'pa11y', 'lighthouse'], // Orientation
             '1.3.5': ['axe-core', 'pa11y', 'lighthouse'], // Identify Input Purpose
             
+            // Color and contrast
+            '1.4.1': ['axe-core', 'pa11y', 'lighthouse'], // Use of Color
+            '1.4.2': ['axe-core', 'pa11y', 'lighthouse'], // Audio Control
+            '1.4.3': ['axe-core', 'pa11y', 'lighthouse'], // Contrast (Minimum)
+            '1.4.4': ['axe-core', 'pa11y', 'lighthouse'], // Resize Text
+            '1.4.5': ['axe-core', 'pa11y', 'lighthouse'], // Images of Text
+            '1.4.10': ['axe-core', 'pa11y', 'lighthouse'], // Reflow
+            '1.4.11': ['axe-core', 'pa11y', 'lighthouse'], // Non-text Contrast
+            '1.4.12': ['axe-core', 'pa11y', 'lighthouse'], // Text Spacing
+            '1.4.13': ['axe-core', 'pa11y', 'lighthouse'], // Content on Hover or Focus
+            
             // Keyboard and navigation
             '2.1.1': ['axe-core', 'pa11y'], // Keyboard
             '2.1.2': ['axe-core', 'pa11y'], // No Keyboard Trap
+            '2.1.4': ['axe-core', 'pa11y'], // Character Key Shortcuts
+            '2.2.1': ['axe-core', 'pa11y'], // Timing Adjustable
+            '2.2.2': ['axe-core', 'pa11y'], // Pause, Stop, Hide
+            '2.3.1': ['axe-core', 'pa11y'], // Three Flashes or Below Threshold
             '2.4.1': ['axe-core', 'pa11y'], // Bypass Blocks
             '2.4.2': ['axe-core', 'pa11y', 'lighthouse'], // Page Titled
             '2.4.3': ['axe-core', 'pa11y'], // Focus Order
             '2.4.4': ['axe-core', 'pa11y'], // Link Purpose
+            '2.4.5': ['axe-core', 'pa11y'], // Multiple Ways
             '2.4.6': ['axe-core', 'pa11y'], // Headings and Labels
             '2.4.7': ['axe-core', 'pa11y'], // Focus Visible
+            
+            // Pointer and motion
+            '2.5.1': ['axe-core', 'pa11y'], // Pointer Gestures
+            '2.5.2': ['axe-core', 'pa11y'], // Pointer Cancellation
+            '2.5.3': ['axe-core', 'pa11y'], // Label in Name
+            '2.5.4': ['axe-core', 'pa11y'], // Motion Actuation
             
             // Language
             '3.1.1': ['axe-core', 'pa11y', 'lighthouse'], // Language of Page
             '3.1.2': ['axe-core', 'pa11y', 'lighthouse'], // Language of Parts
             
-            // Forms and inputs
+            // Predictable
+            '3.2.1': ['axe-core', 'pa11y'], // On Focus
+            '3.2.2': ['axe-core', 'pa11y'], // On Input
+            '3.2.3': ['axe-core', 'pa11y'], // Consistent Navigation
+            '3.2.4': ['axe-core', 'pa11y'], // Consistent Identification
+            
+            // Input assistance
+            '3.3.1': ['axe-core', 'pa11y'], // Error Identification
             '3.3.2': ['axe-core', 'pa11y'], // Labels or Instructions
+            '3.3.3': ['axe-core', 'pa11y'], // Error Suggestion
+            '3.3.4': ['axe-core', 'pa11y'], // Error Prevention
+            
+            // Robust
+            '4.1.1': ['axe-core', 'pa11y'], // Parsing
             '4.1.2': ['axe-core', 'pa11y'], // Name, Role, Value
+            '4.1.3': ['axe-core', 'pa11y'], // Status Messages
         };
 
         // Get applicable tools for this criterion, or use all available tools as fallback
