@@ -21,19 +21,19 @@
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     
     <!-- Alpine.js Error Handler (load before Alpine) -->
-    <script src="js/alpine-error-handler.js"></script>
+    <script src="dashboard/js/alpine-error-handler.js"></script>
     
     <!-- Dashboard Utilities - Load before dashboard.js -->
-    <script src="js/utils/dashboardUtils.js"></script>
+    <script src="dashboard/js/utils/dashboardUtils.js"></script>
     
     <!-- Dashboard API Service - Load before dashboard.js -->
-    <script src="js/services/apiService.js"></script>
+    <script src="dashboard/js/services/apiService.js"></script>
     
     <!-- Fixed Global Fallback Functions - Load before dashboard.js -->
-    <script src="js/fixed-fallback.js"></script>
+    <script src="dashboard/js/fixed-fallback.js"></script>
     
     <!-- Dashboard Core - Load before Alpine.js -->
-    <script src="js/dashboard.js"></script>
+    <script src="dashboard/js/dashboard.js"></script>
     
     <!-- Alpine auto-start configuration -->
     <script>
@@ -47,24 +47,24 @@
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
     
     <!-- React Components Bundle - Load after utilities and services -->
-    <script src="dist/runtime.js"></script>
-    <script src="dist/vendors.js"></script>
-    <script src="dist/react-components.js"></script>
+    <script src="dashboard/dist/runtime.js"></script>
+    <script src="dashboard/dist/vendors.js"></script>
+    <script src="dashboard/dist/react-components.js"></script>
     
     <!-- Authentication Test Suite (Development) -->
-    <script src="js/components/auth/authTest.js"></script>
+    <script src="dashboard/js/components/auth/authTest.js"></script>
     
     <!-- Project/Session Test Suite (Development) -->
-    <script src="js/components/project/projectSessionTest.js"></script>
+    <script src="dashboard/js/components/project/projectSessionTest.js"></script>
     
     <!-- Automated Testing Test Suite (Development) -->
-    <script src="js/components/testing/automatedTestingTest.js"></script>
+    <script src="dashboard/js/components/testing/automatedTestingTest.js"></script>
     
     <!-- Manual Testing Test Suite (Development) -->
-    <script src="js/components/testing/manual/manualTestingTest.js"></script>
+    <script src="dashboard/js/components/testing/manual/manualTestingTest.js"></script>
     
     <!-- Reporting Components Test Suite (Development) -->
-    <script src="js/components/reporting/reportingTest.js"></script>
+    <script src="dashboard/js/components/reporting/reportingTest.js"></script>
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
@@ -393,7 +393,7 @@
         window.loadAuthenticationView = async function() {
             if (!document.getElementById('authentication-view-content').innerHTML) {
                 try {
-                    const response = await fetch('views/authentication.html');
+                    const response = await fetch('dashboard/views/authentication.html');
                     const html = await response.text();
                     document.getElementById('authentication-view-content').innerHTML = html;
                                             } catch (error) {
@@ -406,7 +406,7 @@
         window.loadTestingSessionsView = async function() {
             if (!document.getElementById('testing-sessions-view-content').innerHTML) {
                 try {
-                    const response = await fetch('views/testing-sessions.html');
+                    const response = await fetch('dashboard/views/testing-sessions.html');
                     const html = await response.text();
                     document.getElementById('testing-sessions-view-content').innerHTML = html;
                 } catch (error) {
@@ -440,30 +440,30 @@
         // Load all components when page loads
         document.addEventListener('DOMContentLoaded', async () => {
             await Promise.all([
-                        loadComponent('header-component', 'components/header.html'),
-        loadComponent('navigation-component', 'components/navigation.html'),
-        loadComponent('auth-modals-component', 'components/auth-modals.html'),
-        loadComponent('project-modals-component', 'components/project-modals.html'),
-        loadComponent('web-crawler-modals-component', 'components/web-crawler-modals.html'),
-        loadComponent('testing-modals-component', 'components/testing-modals.html'),
-        loadComponent('session-modals-component', 'components/session-modals.html'),
-        loadComponent('session-details-modal-component', 'components/session-details-modal.html'),
-        loadComponent('session-creation-wizard-component', 'components/session-creation-wizard.html'),
-        loadComponent('test-grid-component', 'components/test-grid.html'),
-        loadComponent('audit-timeline-modal-component', 'components/audit-timeline-modal.html'),
-        loadComponent('user-management-modals-component', 'components/user-management-modals.html'),
-        loadComponent('admin-backup-modals-component', 'components/admin-backup-modals.html')
+                        loadComponent('header-component', 'dashboard/components/header.html'),
+        loadComponent('navigation-component', 'dashboard/components/navigation.html'),
+        loadComponent('auth-modals-component', 'dashboard/components/auth-modals.html'),
+        loadComponent('project-modals-component', 'dashboard/components/project-modals.html'),
+        loadComponent('web-crawler-modals-component', 'dashboard/components/web-crawler-modals.html'),
+        loadComponent('testing-modals-component', 'dashboard/components/testing-modals.html'),
+        loadComponent('session-modals-component', 'dashboard/components/session-modals.html'),
+        loadComponent('session-details-modal-component', 'dashboard/components/session-details-modal.html'),
+        loadComponent('session-creation-wizard-component', 'dashboard/components/session-creation-wizard.html'),
+        loadComponent('test-grid-component', 'dashboard/components/test-grid.html'),
+        loadComponent('audit-timeline-modal-component', 'dashboard/components/audit-timeline-modal.html'),
+        loadComponent('user-management-modals-component', 'dashboard/components/user-management-modals.html'),
+        loadComponent('admin-backup-modals-component', 'dashboard/components/admin-backup-modals.html')
             ]);
             
             // Load views
             await Promise.all([
-                        loadView('authentication-view-content', 'views/authentication.html'),
-        loadView('web-crawler-view-content', 'views/web-crawler.html'),
-        loadView('testing-sessions-view-content', 'views/testing-sessions.html'),
-        loadView('testing-view-content', 'views/testing.html'),
-        loadView('manual-testing-view-content', 'views/manual-testing.html'),
-        loadView('results-view-content', 'views/results.html'),
-        loadView('projects-view-content', 'views/projects.html')
+                        loadView('authentication-view-content', 'dashboard/views/authentication.html'),
+        loadView('web-crawler-view-content', 'dashboard/views/web-crawler.html'),
+        loadView('testing-sessions-view-content', 'dashboard/views/testing-sessions.html'),
+        loadView('testing-view-content', 'dashboard/views/testing.html'),
+        loadView('manual-testing-view-content', 'dashboard/views/manual-testing.html'),
+        loadView('results-view-content', 'dashboard/views/results.html'),
+        loadView('projects-view-content', 'dashboard/views/projects.html')
             ]);
             
             // Alpine.js will auto-initialize with defer
@@ -472,7 +472,7 @@
 </script>
 
 <!-- Session Fix Patch -->
-    <script src="js/quick-session-fix.js"></script>
+    <script src="dashboard/js/quick-session-fix.js"></script>
 
 </body>
 </html> 

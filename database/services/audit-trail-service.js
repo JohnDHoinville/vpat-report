@@ -44,7 +44,7 @@ class AuditTrailService {
             
             // 4. Check if human review is required
             const needsReview = evidence.review_indicators?.requires_human_review || false;
-            const finalStatus = needsReview ? 'needs_review' : preliminaryStatus;
+            const finalStatus = needsReview ? 'human_review' : preliminaryStatus;
             
             // 5. Set audit context for trigger
             await this.setAuditContext(client, {
@@ -381,8 +381,8 @@ class AuditTrailService {
     resolveFinalStatus(toolResult, reviewDecision) {
         if (reviewDecision.decision === 'accept') return toolResult === 'pass' ? 'passed' : 'failed';
         if (reviewDecision.decision === 'reject') return toolResult === 'pass' ? 'failed' : 'passed';
-        if (reviewDecision.decision === 'modify') return reviewDecision.override_status || 'needs_review';
-        return 'needs_review';
+        if (reviewDecision.decision === 'modify') return reviewDecision.override_status || 'human_review';
+        return 'human_review';
     }
 
     async setAuditContext(client, context) {

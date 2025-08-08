@@ -1550,14 +1550,14 @@ class TestAutomationService {
         }
 
         // Determine status based on violations
-        let newStatus = 'needs_review'; // Default for automated tests
+        let newStatus = 'human_review'; // Default for automated tests
         let confidence = 'high';
         
         if (criticalViolations > 0) {
             newStatus = 'failed'; // Critical violations = failed
             confidence = 'high';
         } else if (totalViolations > 0) {
-            newStatus = 'needs_review'; // Non-critical violations = review required
+            newStatus = 'human_review'; // Non-critical violations = review required
             confidence = 'medium';
         } else {
             newStatus = 'passed'; // No violations = passed
@@ -4790,7 +4790,7 @@ class TestAutomationService {
                         pageUrl: pageUrl,
                         violation: violation,
                         timestamp: new Date().toISOString(),
-                        status: violation.impact === 'critical' || violation.impact === 'serious' ? 'failed' : 'needs_review'
+                        status: violation.impact === 'critical' || violation.impact === 'serious' ? 'failed' : 'human_review'
                     };
 
                     await this.updateTestInstanceWithResult(instance.test_instance_id, result);
