@@ -11498,6 +11498,70 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                 this.showNotification('error', 'Assignment Failed', error.message);
             }
         },
+
+        // Assign test instance (opens assignment modal)
+        async assignTestInstance(instanceId) {
+            try {
+                console.log(`🔍 Opening assignment modal for test instance ${instanceId}`);
+                
+                // Find the test instance
+                const instance = this.getRequirementTestInstances().find(t => t.id === instanceId);
+                if (!instance) {
+                    throw new Error('Test instance not found');
+                }
+                
+                // Set the instance for assignment
+                this.testInstanceToAssign = instance;
+                this.showAssignmentModal = true;
+                
+            } catch (error) {
+                console.error('Error opening assignment modal:', error);
+                this.showNotification('error', 'Assignment Failed', error.message);
+            }
+        },
+
+        // Start test instance
+        async startTestInstance(instanceId) {
+            try {
+                console.log(`🚀 Starting test instance ${instanceId}`);
+                
+                const response = await this.apiCall(`/test-instances/${instanceId}/start`, {
+                    method: 'POST'
+                });
+                
+                if (response.success) {
+                    // Update local data
+                    const instance = this.getRequirementTestInstances().find(t => t.id === instanceId);
+                    if (instance) {
+                        instance.status = 'in_process';
+                        instance.started_at = new Date().toISOString();
+                    }
+                    
+                    // Show success notification
+                    this.showNotification('success', 'Test Started', 'Test instance has been started successfully');
+                    
+                    // Refresh the requirement details if modal is open
+                    if (this.showRequirementDetailsModal) {
+                        await this.loadRequirementDetails(this.currentRequirement.id);
+                    }
+                } else {
+                    throw new Error(response.error || 'Failed to start test');
+                }
+            } catch (error) {
+                console.error('Error starting test instance:', error);
+                this.showNotification('error', 'Start Failed', error.message);
+            }
+        },
+
+        // Toggle test history visibility
+        toggleTestHistory() {
+            try {
+                console.log('🔄 Toggling test history visibility');
+                this.showTestHistory = !this.showTestHistory;
+            } catch (error) {
+                console.error('Error toggling test history:', error);
+            }
+        },
         
         // Get test status select class
         getTestStatusSelectClass(status) {
@@ -14151,7 +14215,10 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
         alert('Unable to save test instance. Please refresh the page and try again.');
     };
     window.saveTestInstanceEdit = (instanceId, modal) => componentInstance.saveTestInstanceEdit(instanceId, modal);
-    window.viewTestInstanceDetails = (testInstance) => componentInstance.viewTestInstanceDetails(testInstance);
+            window.viewTestInstanceDetails = (testInstance) => componentInstance.viewTestInstanceDetails(testInstance);
+        window.assignTestInstance = (instanceId) => componentInstance.assignTestInstance(instanceId);
+        window.startTestInstance = (instanceId) => componentInstance.startTestInstance(instanceId);
+        window.toggleTestHistory = () => componentInstance.toggleTestHistory();
     window.editTestInstance = (testInstance) => componentInstance.editTestInstance(testInstance);
     window.toggleAutomationResults = (instanceId) => componentInstance.toggleAutomationResults(instanceId);
     window.saveTestEvidence = (instanceId, modal) => componentInstance.saveTestEvidence(instanceId, modal);

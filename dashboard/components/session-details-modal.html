@@ -2006,6 +2006,136 @@
                         </div>
                     </div>
 
+                    <!-- Comprehensive Tests Table -->
+                    <div class="bg-gradient-to-br from-emerald-50 to-green-50 border border-emerald-200 rounded-lg p-6">
+                        <h4 class="text-lg font-semibold text-emerald-900 mb-3 flex items-center">
+                            <i class="fas fa-table mr-2"></i>All Tests for This Requirement
+                        </h4>
+                        <div class="bg-white border border-emerald-200 rounded-lg overflow-hidden">
+                            <!-- Table Header -->
+                            <div class="bg-emerald-50 px-4 py-3 border-b border-emerald-200">
+                                <div class="grid grid-cols-12 gap-4 text-sm font-medium text-emerald-900">
+                                    <div class="col-span-3">Page URL</div>
+                                    <div class="col-span-2">Test Method</div>
+                                    <div class="col-span-2">Status</div>
+                                    <div class="col-span-2">Assigned To</div>
+                                    <div class="col-span-2">Last Updated</div>
+                                    <div class="col-span-1">Actions</div>
+                                </div>
+                            </div>
+                            
+                            <!-- Table Body -->
+                            <div class="max-h-96 overflow-y-auto">
+                                <template x-if="getRequirementTestInstances(currentRequirement?.criterion_number)?.length > 0">
+                                    <template x-for="instance in getRequirementTestInstances(currentRequirement?.criterion_number)" :key="instance.id">
+                                        <div class="px-4 py-3 border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                                            <div class="grid grid-cols-12 gap-4 text-sm items-center">
+                                                <!-- Page URL -->
+                                                <div class="col-span-3">
+                                                    <div class="font-medium text-gray-900 truncate" x-text="instance.page_url || 'Site-wide'"></div>
+                                                    <div class="text-xs text-gray-500" x-text="instance.page_title || 'No title'"></div>
+                                                </div>
+                                                
+                                                <!-- Test Method -->
+                                                <div class="col-span-2">
+                                                    <span :class="getTestMethodBadgeClass(instance.test_method_used || 'manual') + ' px-2 py-1 text-xs font-medium rounded-full'" 
+                                                          x-text="(instance.test_method_used || 'manual').charAt(0).toUpperCase() + (instance.test_method_used || 'manual').slice(1)"></span>
+                                                </div>
+                                                
+                                                <!-- Status -->
+                                                <div class="col-span-2">
+                                                    <span :class="getTestStatusBadgeClass(instance.status) + ' px-2 py-1 text-xs font-medium rounded-full'" 
+                                                          x-text="instance.status || 'Not Started'"></span>
+                                                </div>
+                                                
+                                                <!-- Assigned To -->
+                                                <div class="col-span-2">
+                                                    <div x-show="instance.assigned_tester_name" class="text-sm text-gray-900" x-text="instance.assigned_tester_name"></div>
+                                                    <div x-show="!instance.assigned_tester_name" class="text-sm text-gray-500 italic">Unassigned</div>
+                                                </div>
+                                                
+                                                <!-- Last Updated -->
+                                                <div class="col-span-2">
+                                                    <div class="text-sm text-gray-900" x-text="formatDate(instance.updated_at || instance.created_at)"></div>
+                                                    <div class="text-xs text-gray-500" x-text="instance.completed_at ? 'Completed' : 'In Progress'"></div>
+                                                </div>
+                                                
+                                                <!-- Actions -->
+                                                <div class="col-span-1">
+                                                    <div class="flex space-x-1">
+                                                        <button @click="viewTestInstanceDetails(instance.id || instance.test_instance_id)" 
+                                                                class="text-emerald-600 hover:text-emerald-800 transition-colors"
+                                                                title="View Details">
+                                                            <i class="fas fa-eye"></i>
+                                                        </button>
+                                                        <button x-show="instance.status === 'pending' || instance.status === 'not_started'"
+                                                                @click="assignTestInstance(instance.id || instance.test_instance_id)"
+                                                                class="text-blue-600 hover:text-blue-800 transition-colors"
+                                                                title="Assign Test">
+                                                            <i class="fas fa-user-plus"></i>
+                                                        </button>
+                                                        <button x-show="instance.status === 'pending' || instance.status === 'not_started'"
+                                                                @click="startTestInstance(instance.id || instance.test_instance_id)"
+                                                                class="text-green-600 hover:text-green-800 transition-colors"
+                                                                title="Start Test">
+                                                            <i class="fas fa-play"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            <!-- Additional Details (expandable) -->
+                                            <div x-show="instance.notes || instance.evidence" class="mt-2 pt-2 border-t border-gray-100">
+                                                <div class="text-xs text-gray-600">
+                                                    <div x-show="instance.notes" class="mb-1">
+                                                        <span class="font-medium">Notes:</span> <span x-text="instance.notes"></span>
+                                                    </div>
+                                                    <div x-show="instance.evidence && instance.evidence.length > 0" class="mb-1">
+                                                        <span class="font-medium">Evidence:</span> <span x-text="instance.evidence.length + ' items'"></span>
+                                                    </div>
+                                                    <div x-show="instance.confidence_level" class="mb-1">
+                                                        <span class="font-medium">Confidence:</span> 
+                                                        <span :class="'px-1 py-0.5 text-xs rounded ' + (instance.confidence_level === 'high' ? 'bg-green-100 text-green-800' : instance.confidence_level === 'medium' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800')" 
+                                                              x-text="instance.confidence_level"></span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </template>
+                                
+                                <!-- No Tests Message -->
+                                <template x-if="!getRequirementTestInstances(currentRequirement?.criterion_number)?.length">
+                                    <div class="px-4 py-8 text-center">
+                                        <i class="fas fa-info-circle text-gray-400 text-2xl mb-2"></i>
+                                        <p class="text-gray-500">No test instances found for this requirement</p>
+                                        <p class="text-xs text-gray-400 mt-1">Tests will be created when pages are discovered</p>
+                                    </div>
+                                </template>
+                            </div>
+                            
+                            <!-- Table Footer -->
+                            <div class="bg-gray-50 px-4 py-3 border-t border-gray-200">
+                                <div class="flex justify-between items-center text-sm text-gray-600">
+                                    <div>
+                                        <span x-text="getRequirementTestInstances(currentRequirement?.criterion_number)?.length || 0"></span> total tests
+                                    </div>
+                                    <div class="flex space-x-4">
+                                        <span>
+                                            <span class="font-medium text-green-600" x-text="getRequirementTestInstances(currentRequirement?.criterion_number)?.filter(t => t.status === 'passed').length || 0"></span> passed
+                                        </span>
+                                        <span>
+                                            <span class="font-medium text-red-600" x-text="getRequirementTestInstances(currentRequirement?.criterion_number)?.filter(t => t.status === 'failed').length || 0"></span> failed
+                                        </span>
+                                        <span>
+                                            <span class="font-medium text-yellow-600" x-text="getRequirementTestInstances(currentRequirement?.criterion_number)?.filter(t => t.status === 'pending' || t.status === 'not_started').length || 0"></span> pending
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- External Links -->
                     <div class="bg-gradient-to-br from-indigo-50 to-purple-50 border border-indigo-200 rounded-lg p-6">
                         <h4 class="text-lg font-semibold text-indigo-900 mb-3 flex items-center">
