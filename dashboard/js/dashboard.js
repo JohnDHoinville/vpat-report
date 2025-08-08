@@ -7440,11 +7440,13 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
         // Map filter categories to actual database status values
         getStatusesForFilter(filterValue) {
             const statusMapping = {
+                'not_started': ['not_started'],
                 'pending': ['pending'],
-                'in_progress': ['pending', 'needs_review', 'in_progress'], // Include needs_review in "In Progress"
-                'needs_review': ['needs_review'], // Direct filter for needs_review
+                'in_progress': ['in_progress'],
+                'needs_review': ['needs_review'],
                 'passed': ['passed'],
                 'failed': ['failed'],
+                'human_review': ['human_review'],
                 'untestable': ['untestable'],
                 'not_applicable': ['not_applicable']
             };
@@ -14190,6 +14192,8 @@ document.addEventListener('alpine:init', () => {
 // ===== ROBUST GLOBAL METHOD EXPOSURE =====
 // Store dashboard instance globally for reliable access
 window._dashboardInstance = null;
+window._recursionCount = 0;
+window._maxRecursionAttempts = 5;
 
 // Expose critical methods with multiple fallback strategies
 window.runAutomatedTestForRequirement = function(requirement) {
@@ -14198,6 +14202,7 @@ window.runAutomatedTestForRequirement = function(requirement) {
     // Strategy 1: Use stored instance
     if (window._dashboardInstance && window._dashboardInstance.runAutomatedTestForRequirement) {
         console.log('✅ Using stored dashboard instance');
+        window._recursionCount = 0; // Reset recursion counter on success
         return window._dashboardInstance.runAutomatedTestForRequirement(requirement);
     }
     
@@ -14208,6 +14213,7 @@ window.runAutomatedTestForRequirement = function(requirement) {
             if (storeData && storeData.runAutomatedTestForRequirement) {
                 console.log('✅ Found dashboard instance via Alpine store');
                 window._dashboardInstance = storeData; // Cache for future use
+                window._recursionCount = 0; // Reset recursion counter on success
                 return storeData.runAutomatedTestForRequirement(requirement);
             }
         } catch (e) {
@@ -14224,18 +14230,28 @@ window.runAutomatedTestForRequirement = function(requirement) {
                 if (data && data.runAutomatedTestForRequirement) {
                     console.log('✅ Found dashboard instance via Alpine data stack');
                     window._dashboardInstance = data; // Cache for future use
+                    window._recursionCount = 0; // Reset recursion counter on success
                     return data.runAutomatedTestForRequirement(requirement);
                 }
             }
         }
     }
     
-    // Strategy 4: Wait for initialization and retry
-    if (!window._dashboardInitialized) {
-        console.log('⏳ Dashboard not initialized yet, waiting...');
+    // Strategy 4: Wait for initialization and retry (WITH RECURSION LIMIT)
+    if (!window._dashboardInitialized && window._recursionCount < window._maxRecursionAttempts) {
+        window._recursionCount++;
+        console.log(`⏳ Dashboard not initialized yet, waiting... (attempt ${window._recursionCount}/${window._maxRecursionAttempts})`);
         setTimeout(() => {
             window.runAutomatedTestForRequirement(requirement);
         }, 1000);
+        return;
+    }
+    
+    // If we've exceeded recursion attempts, show error and stop
+    if (window._recursionCount >= window._maxRecursionAttempts) {
+        console.error('❌ Maximum recursion attempts reached. Dashboard initialization failed.');
+        window._recursionCount = 0; // Reset for future attempts
+        alert('Dashboard initialization failed. Please refresh the page and try again.');
         return;
     }
     

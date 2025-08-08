@@ -60,9 +60,24 @@ class AutomatedTestingWorker {
     }
 
     async pollForTests() {
+        let consecutiveEmptyPolls = 0;
+        const maxEmptyPolls = 10; // Stop polling after 10 consecutive empty polls
+        
         while (this.isRunning) {
             try {
-                await this.processPendingTests();
+                const hadTests = await this.processPendingTests();
+                
+                if (hadTests) {
+                    consecutiveEmptyPolls = 0; // Reset counter when we process tests
+                } else {
+                    consecutiveEmptyPolls++;
+                    if (consecutiveEmptyPolls >= maxEmptyPolls) {
+                        console.log(`🛑 No pending tests found for ${maxEmptyPolls} consecutive polls. Stopping worker.`);
+                        this.isRunning = false;
+                        break;
+                    }
+                }
+                
                 await this.sleep(this.pollInterval);
             } catch (error) {
                 console.error('❌ Error in polling loop:', error);
@@ -82,9 +97,14 @@ class AutomatedTestingWorker {
                 for (const test of pendingTests) {
                     await this.processTest(test);
                 }
+                
+                return true; // Indicate that we processed tests
+            } else {
+                return false; // Indicate no tests were processed
             }
         } catch (error) {
             console.error('❌ Error processing pending tests:', error);
+            return false;
         }
     }
 
@@ -108,7 +128,10 @@ class AutomatedTestingWorker {
 
         try {
             const result = await this.pool.query(query);
-            console.log(`🔍 Found ${result.rows.length} pending tests`);
+            // Only log when we find tests or on first few empty polls
+            if (result.rows.length > 0) {
+                console.log(`🔍 Found ${result.rows.length} pending tests`);
+            }
             return result.rows;
         } catch (error) {
             console.error('❌ Error getting pending tests:', error);

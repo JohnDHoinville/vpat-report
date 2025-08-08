@@ -385,10 +385,12 @@
                     <select x-model="testGridFilters.status" @change="applyTestGridFilters()" 
                             class="px-3 py-1 text-sm border border-gray-300 rounded">
                         <option value="">All Statuses</option>
-                        <option value="pending">Not Started</option>
+                        <option value="not_started">Not Started</option>
+                        <option value="pending">Pending</option>
                         <option value="in_progress">In Progress</option>
                         <option value="passed">Passed</option>
                         <option value="failed">Failed</option>
+                        <option value="human_review">Human Review</option>
                         <option value="untestable">Untestable</option>
                         <option value="not_applicable">Not Applicable</option>
                     </select>

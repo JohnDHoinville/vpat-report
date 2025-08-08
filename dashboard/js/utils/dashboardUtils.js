@@ -179,12 +179,13 @@ window.DashboardUtils.STATUS_BADGE_CLASSES = {
 };
 
 window.DashboardUtils.STATUS_DISPLAY_TEXT = {
-    'pending': 'Not Started',
+    'pending': 'Pending',
     'not_started': 'Not Started',
     'in_progress': 'In Progress',
     'passed': 'Passed',
     'passed_review_required': 'Passed - Review Required',
     'failed': 'Failed',
+    'human_review': 'Human Review',
     'untestable': 'Untestable',
     'not_applicable': 'N/A',
     'completed': 'Completed',

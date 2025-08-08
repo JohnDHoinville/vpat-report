@@ -113,7 +113,7 @@ export const STATUS_TEXT_CLASSES = {
 // Display Text Mappings
 export const STATUS_DISPLAY_TEXT = {
     // Test status displays
-    [TEST_STATUS.PENDING]: 'Not Started',
+    [TEST_STATUS.PENDING]: 'Pending',
     [TEST_STATUS.NOT_STARTED]: 'Not Started',
     [TEST_STATUS.IN_PROGRESS]: 'In Progress',
     [TEST_STATUS.PASSED]: 'Passed',
