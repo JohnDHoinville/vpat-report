@@ -1887,8 +1887,18 @@ ${requirement.failure_examples}
             
             console.log('🎉 Automation completed for session:', data.sessionId);
             
-            // Reset progress state
-            this.automationProgress = null;
+            // Update automation progress with completion data
+            if (data.results) {
+                this.automationProgress = {
+                    percentage: 100,
+                    completedTests: data.results.completedTests || 0,
+                    totalTests: data.results.totalTests || 0,
+                    violationsFound: data.results.violationsFound || 0,
+                    message: 'Automation completed successfully',
+                    currentTool: '',
+                    stage: 'completed'
+                };
+            }
             
             // Show completion notification
             this.showNotification('success', 'Automation Complete', 
@@ -9213,16 +9223,20 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                     // Update automationProgress with real data from the database
                     const summary = response.data.summary;
                     if (summary) {
+                        // Check if we have completed automated tests
+                        const hasCompletedTests = summary.test_instances_updated > 0 || summary.total_runs > 0;
+                        
                         this.automationProgress = {
                             completedTests: summary.test_instances_updated || 0,
                             totalTests: summary.total_runs || 0,
                             violationsFound: summary.total_issues_found || 0,
-                            percentage: summary.total_runs > 0 ? 100 : 0, // If we have runs, consider it complete
-                            message: summary.total_runs > 0 ? 'Per-instance testing completed' : 'No automation runs found',
+                            percentage: hasCompletedTests ? 100 : 0,
+                            message: hasCompletedTests ? 'Automation completed successfully' : 'No automation runs found',
                             currentTool: summary.tools_used ? summary.tools_used.join(', ') : '',
                             lastRunDate: summary.last_run_date,
                             totalRuns: summary.total_runs || 0,
-                            criticalIssues: summary.critical_issues_found || 0
+                            criticalIssues: summary.critical_issues_found || 0,
+                            stage: hasCompletedTests ? 'completed' : 'idle'
                         };
                         
                         console.log('📊 Updated automationProgress with real data:', this.automationProgress);

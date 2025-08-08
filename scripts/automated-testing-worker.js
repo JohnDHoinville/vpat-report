@@ -8,8 +8,9 @@
 
 const { Pool } = require('pg');
 const TestAutomationService = require('../api/services/test-automation-service');
+const WebSocketClient = require('./websocket-client');
 
-// Mock WebSocket service for the worker
+// Mock WebSocket service for the worker (fallback)
 class MockWebSocketService {
     emitToSession(sessionId, event, data) {
         console.log(`📡 WebSocket: ${event} to session ${sessionId}:`, data);
@@ -32,6 +33,7 @@ class AutomatedTestingWorker {
         });
 
         this.automationService = new TestAutomationService(new MockWebSocketService());
+        this.wsClient = new WebSocketClient();
         this.isRunning = false;
         this.pollInterval = 10000; // 10 seconds
     }
@@ -39,6 +41,9 @@ class AutomatedTestingWorker {
     async start() {
         console.log('🤖 Starting Automated Testing Worker...');
         this.isRunning = true;
+        
+        // Connect to WebSocket server
+        await this.wsClient.connect();
         
         // Process any existing pending tests
         await this.processPendingTests();
@@ -50,6 +55,7 @@ class AutomatedTestingWorker {
     async stop() {
         console.log('🛑 Stopping Automated Testing Worker...');
         this.isRunning = false;
+        this.wsClient.disconnect();
         await this.pool.end();
     }
 
@@ -117,6 +123,15 @@ class AutomatedTestingWorker {
             // Update status to running
             await this.updateTestStatus(test.id, 'running');
             
+            // Emit progress update
+            this.wsClient.emitSessionProgress(test.test_session_id, {
+                percentage: 50, // Will be calculated properly
+                currentPage: test.page_url,
+                currentTool: test.tool_name,
+                message: `Testing ${test.page_url} with ${test.tool_name}`,
+                stage: 'testing'
+            });
+            
             // Execute the test based on tool
             let result;
             switch (test.tool_name) {
@@ -141,11 +156,29 @@ class AutomatedTestingWorker {
                 await this.mapViolationsToTestInstances(test.test_session_id, test.page_url, result.violations, test.tool_name);
             }
             
+            // Emit test results update
+            this.wsClient.emitTestResults(test.test_session_id, test.page_id, {
+                tool: test.tool_name,
+                url: test.page_url,
+                violations: result.violations?.length || 0,
+                passes: result.passes?.length || 0,
+                result: result
+            });
+            
             console.log(`✅ Test completed: ${test.tool_name} for ${test.page_url}`);
             
         } catch (error) {
             console.error(`❌ Test failed: ${test.tool_name} for ${test.page_url}:`, error.message);
             await this.updateTestStatus(test.id, 'failed', error.message);
+            
+            // Emit error update
+            this.wsClient.emitSessionProgress(test.test_session_id, {
+                percentage: 0,
+                currentPage: test.page_url,
+                currentTool: test.tool_name,
+                message: `Error: ${error.message}`,
+                stage: 'error'
+            });
         }
     }
 

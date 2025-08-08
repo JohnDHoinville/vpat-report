@@ -44,6 +44,16 @@ class WebSocketService {
                     return next(new Error('Authentication token required'));
                 }
 
+                // Allow worker token for automated testing worker
+                if (token === 'worker-token') {
+                    socket.userId = 'worker';
+                    socket.username = 'Automated Testing Worker';
+                    socket.role = 'worker';
+                    socket.isWorker = true;
+                    console.log('🔌 WebSocket authenticated: Automated Testing Worker');
+                    return next();
+                }
+
                 // No development bypass - proper authentication required
                 if (token === 'test') {
                     return next(new Error('Test token not allowed - proper authentication required'));
@@ -131,6 +141,30 @@ class WebSocketService {
             socket.on('ping', () => {
                 socket.emit('pong', { timestamp: new Date().toISOString() });
             });
+
+            // Handle worker events (from automated testing worker)
+            if (socket.isWorker) {
+                socket.on('session_progress', (data) => {
+                    console.log('📡 Worker session progress:', data);
+                    if (data.sessionId) {
+                        this.io.to(`session_${data.sessionId}`).emit('session_progress', data);
+                    }
+                });
+
+                socket.on('session_complete', (data) => {
+                    console.log('📡 Worker session complete:', data);
+                    if (data.sessionId) {
+                        this.io.to(`session_${data.sessionId}`).emit('session_complete', data);
+                    }
+                });
+
+                socket.on('test_results', (data) => {
+                    console.log('📡 Worker test results:', data);
+                    if (data.sessionId) {
+                        this.io.to(`session_${data.sessionId}`).emit('test_results', data);
+                    }
+                });
+            }
 
             // Handle disconnection
             socket.on('disconnect', (reason) => {
