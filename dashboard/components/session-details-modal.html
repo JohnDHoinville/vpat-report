@@ -2071,19 +2071,19 @@
                                                 <!-- Actions -->
                                                 <div class="col-span-1">
                                                     <div class="flex space-x-1">
-                                                        <button @click="viewTestInstanceDetails(instance.id || instance.test_instance_id)" 
+                                                        <button @click="viewTestInstanceDetails(instance)" 
                                                                 class="text-emerald-600 hover:text-emerald-800 transition-colors"
                                                                 title="View Details">
                                                             <i class="fas fa-eye"></i>
                                                         </button>
                                                         <button x-show="instance.status === 'pending' || instance.status === 'not_started'"
-                                                                @click="assignTestInstance(instance.id || instance.test_instance_id)"
+                                                                @click="assignTestInstance(instance.id || instance.test_instance_id || instance.instance_id)"
                                                                 class="text-blue-600 hover:text-blue-800 transition-colors"
                                                                 title="Assign Test">
                                                             <i class="fas fa-user-plus"></i>
                                                         </button>
                                                         <button x-show="instance.status === 'pending' || instance.status === 'not_started'"
-                                                                @click="startTestInstance(instance.id || instance.test_instance_id)"
+                                                                @click="startTestInstance(instance.id || instance.test_instance_id || instance.instance_id)"
                                                                 class="text-green-600 hover:text-green-800 transition-colors"
                                                                 title="Start Test">
                                                             <i class="fas fa-play"></i>

@@ -388,7 +388,9 @@ window.dashboard = function() {
                 return false;
             }
             
-            const idx = instancesArray.findIndex(t => t.id === this.currentTestInstance.id);
+            // Get the current instance ID using multiple possible field names
+            const currentInstanceId = this.currentTestInstance.id || this.currentTestInstance.test_instance_id || this.currentTestInstance.instance_id;
+            const idx = instancesArray.findIndex(t => (t.id || t.test_instance_id || t.instance_id) === currentInstanceId);
             console.log(`🔍 canNavigateTestInstance: Found at index ${idx} of ${instancesArray.length} instances`);
             
             if (direction === -1) return idx > 0;
@@ -416,13 +418,15 @@ window.dashboard = function() {
                 return;
             }
             
-            const idx = instancesArray.findIndex(t => t.id === this.currentTestInstance.id);
+            // Get the current instance ID using multiple possible field names
+            const currentInstanceId = this.currentTestInstance.id || this.currentTestInstance.test_instance_id || this.currentTestInstance.instance_id;
+            const idx = instancesArray.findIndex(t => (t.id || t.test_instance_id || t.instance_id) === currentInstanceId);
             console.log(`🚀 navigateTestInstance: Found at index ${idx} of ${instancesArray.length} instances`);
             
             if (idx === -1) {
                 console.log('❌ navigateTestInstance: Current test instance not found in array');
-                console.log('❌ Looking for ID:', this.currentTestInstance.id);
-                console.log('❌ Available IDs:', instancesArray.map(t => t.id).slice(0, 5));
+                console.log('❌ Looking for ID:', currentInstanceId);
+                console.log('❌ Available IDs:', instancesArray.map(t => t.id || t.test_instance_id || t.instance_id).slice(0, 5));
                 return;
             }
             
@@ -456,7 +460,7 @@ window.dashboard = function() {
                 this.filteredTestGridInstances : this.sessionDetailsTestInstances;
             
             const currentIndex = instancesArray ? 
-                instancesArray.findIndex(t => t.id === testInstance.id) : -1;
+                instancesArray.findIndex(t => (t.id || t.test_instance_id || t.instance_id) === (testInstance.id || testInstance.test_instance_id || testInstance.instance_id)) : -1;
             const totalCount = instancesArray ? instancesArray.length : 0;
             const positionText = currentIndex >= 0 ? `${currentIndex + 1} of ${totalCount} test instances` : 'Position unknown';
             
@@ -9566,7 +9570,19 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
         
         // Test instance action methods
         viewTestInstanceDetails(testInstance) {
-            console.log('👀 Viewing test instance details:', testInstance.id);
+            // Determine the correct ID field for this test instance
+            const instanceId = testInstance.id || testInstance.test_instance_id || testInstance.instance_id;
+            console.log('👀 Viewing test instance details:', {
+                instanceId,
+                testInstance,
+                availableFields: Object.keys(testInstance)
+            });
+            
+            if (!instanceId) {
+                console.error('❌ No valid instance ID found for test instance:', testInstance);
+                this.showNotification('error', 'Invalid Test Instance', 'Unable to view details: No valid instance ID found');
+                return;
+            }
             
             // Set the current test instance for navigation
             this.currentTestInstance = testInstance;
@@ -9584,7 +9600,7 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                 this.filteredTestGridInstances : this.sessionDetailsTestInstances;
             
             const currentIndex = instancesArray ? 
-                instancesArray.findIndex(t => t.id === testInstance.id) : -1;
+                instancesArray.findIndex(t => (t.id || t.test_instance_id || t.instance_id) === instanceId) : -1;
             const totalCount = instancesArray ? instancesArray.length : 0;
             const positionText = currentIndex >= 0 ? `${currentIndex + 1} of ${totalCount} test instances` : 'Position unknown';
             
@@ -9933,8 +9949,8 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
             }
 
             // Load test history and automation results
-            this.loadTestInstanceHistory(testInstance.id);
-            this.loadAutomationResults(testInstance.id);
+            this.loadTestInstanceHistory(instanceId);
+            this.loadAutomationResults(instanceId);
         },
         
         editTestInstance(testInstance) {
@@ -11589,7 +11605,13 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                 // Call the automation API for each test instance
                 const promises = automatedInstances.map(async (instance) => {
                     try {
-                        const response = await this.apiCall(`/automated-testing/run-instance/${instance.id}`, {
+                        const instanceId = instance.id || instance.test_instance_id || instance.instance_id;
+                        if (!instanceId) {
+                            console.error('No valid instance ID found for instance:', instance);
+                            return { instance, success: false, error: 'No valid instance ID found' };
+                        }
+                        
+                        const response = await this.apiCall(`/automated-testing/run-instance/${instanceId}`, {
                             method: 'POST'
                         });
                         return { instance, success: response.success, error: response.error };
@@ -11611,7 +11633,12 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
 
                 // Refresh the requirement details to show updated status
                 if (this.showRequirementDetailsModal && this.currentRequirement) {
-                    await this.loadSessionRequirements(this.selectedSessionDetails?.id);
+                    // Only refresh the test instances for this specific requirement
+                    await this.loadSessionTestInstances(this.selectedSessionDetails?.id);
+                    
+                    // Update the current requirement's test instances
+                    const updatedTestInstances = this.getRequirementTestInstances(criterionNumber);
+                    console.log(`🔄 Refreshed test instances for requirement ${criterionNumber}: ${updatedTestInstances.length} instances`);
                 }
 
             } catch (error) {
