@@ -10114,9 +10114,12 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                 console.log(`📊 Automation results response for ${instanceId}:`, response);
                 
                 const automationList = document.getElementById('automation-list');
+                console.log(`🔍 Automation list element found:`, !!automationList);
                 
                 if (!automationList) {
                     console.error('❌ Automation list element not found in DOM');
+                    console.log('🔍 Available elements with "automation" in ID:', 
+                        Array.from(document.querySelectorAll('[id*="automation"]')).map(el => el.id));
                     return;
                 }
                 
@@ -10173,6 +10176,29 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                                         <li>Manual review is required for this requirement</li>
                                         <li>There may be a configuration issue</li>
                                     </ul>
+                                    
+                                    <!-- Enhanced Debug Information -->
+                                    <div class="mt-3 p-2 bg-gray-50 border border-gray-200 rounded">
+                                        <p class="text-xs text-gray-700 font-medium mb-1">Debug Information:</p>
+                                        <div class="text-xs text-gray-600 space-y-1">
+                                            <div><strong>Tool:</strong> ${result.tool_name || 'Unknown'}</div>
+                                            <div><strong>Execution Time:</strong> ${result.executed_at ? new Date(result.executed_at).toLocaleString() : 'Unknown'}</div>
+                                            <div><strong>Raw Results Available:</strong> ${result.raw_results && Object.keys(result.raw_results).length > 0 ? 'Yes' : 'No'}</div>
+                                            ${result.raw_results && result.raw_results.error ? 
+                                                `<div><strong>Error:</strong> <span class="text-red-600">${result.raw_results.error}</span></div>` : ''}
+                                            ${result.raw_results && result.raw_results.metadata ? 
+                                                `<div><strong>Elements Tested:</strong> ${result.raw_results.metadata.elements_tested || 'Unknown'}</div>` : ''}
+                                            ${result.raw_results && result.raw_results.timing ? 
+                                                `<div><strong>Page Load Time:</strong> ${result.raw_results.timing.pageLoadTime || 'Unknown'}ms</div>` : ''}
+                                            ${this.analyzeContentAnalysisIssues(result, '1.1.1') ? 
+                                                `<div><strong>Content Analysis Issues:</strong><ul class="list-disc list-inside mt-1">${this.analyzeContentAnalysisIssues(result, '1.1.1').map(issue => `<li class="text-red-600">${issue}</li>`).join('')}</ul></div>` : ''}
+                                            ${result.raw_results && result.raw_results.authentication_status ? 
+                                                `<div><strong>Authentication Status:</strong> <span class="${result.raw_results.authentication_status === 'authenticated' ? 'text-green-600' : 'text-red-600'}">${result.raw_results.authentication_status}</span></div>` : ''}
+                                            ${result.raw_results && result.raw_results.login_page_detected ? 
+                                                `<div><strong>Login Page Detected:</strong> <span class="text-red-600">Yes - Authentication may have failed</span></div>` : ''}
+                                        </div>
+                                    </div>
+                                    
                                     <div class="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded">
                                         <p class="text-xs text-yellow-700">
                                             <i class="fas fa-exclamation-triangle mr-1"></i>
@@ -10739,6 +10765,83 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                 // Generic object format
                 return `<pre class="text-xs overflow-x-auto whitespace-pre-wrap">${JSON.stringify(rawResults, null, 2)}</pre>`;
             }
+        },
+
+        /**
+         * Analyze why automation tools couldn't analyze content for 1.1.1
+         */
+        analyzeContentAnalysisIssues(result, requirementNumber) {
+            if (requirementNumber !== '1.1.1') return null;
+            
+            const issues = [];
+            const toolName = result.tool_name || 'Unknown';
+            
+            // Check for common issues with 1.1.1 (Non-text Content)
+            if (result.raw_results) {
+                const raw = result.raw_results;
+                
+                // Check for timing issues
+                if (raw.timing && raw.timing.pageLoadTime > 10000) {
+                    issues.push('Page took too long to load (>10s) - content may not have been fully rendered');
+                }
+                
+                // Check for JavaScript errors
+                if (raw.error || raw.errors) {
+                    issues.push(`Tool encountered errors: ${raw.error || JSON.stringify(raw.errors)}`);
+                }
+                
+                            // Check for authentication issues
+            if (raw.statusCode === 401 || raw.statusCode === 403) {
+                issues.push('Authentication required - tool may not have accessed full content');
+            }
+            
+            // Check for login page detection
+            if (raw.login_page_detected) {
+                issues.push('Login page detected - authentication failed or not configured');
+            }
+            
+            // Check for authentication status
+            if (raw.authentication_status === 'failed' || raw.authentication_status === 'not_authenticated') {
+                issues.push('Authentication failed - tools cannot access protected content');
+            }
+                
+                // Check for content type issues
+                if (raw.contentType && !raw.contentType.includes('text/html')) {
+                    issues.push(`Content type not HTML: ${raw.contentType}`);
+                }
+                
+                // Check for empty or minimal content
+                if (raw.metadata && raw.metadata.elements_tested === 0) {
+                    issues.push('No elements were tested - page may be empty or not properly loaded');
+                }
+            }
+            
+            // Tool-specific analysis
+            switch (toolName.toLowerCase()) {
+                case 'lighthouse':
+                    if (result.raw_results && result.raw_results.audits) {
+                        const audits = result.raw_results.audits;
+                        if (audits['image-alt'] && audits['image-alt'].score === null) {
+                            issues.push('Lighthouse could not analyze image-alt audit - page may have rendering issues');
+                        }
+                    }
+                    break;
+                case 'pa11y':
+                    if (result.raw_results && result.raw_results.documentTitle === '') {
+                        issues.push('Pa11y found empty document title - page may not have loaded properly');
+                    }
+                    break;
+                case 'axe-core':
+                    if (result.raw_results && result.raw_results.testEngine && result.raw_results.testEngine.name) {
+                        // Axe provides good debugging info
+                        if (result.raw_results.passes && result.raw_results.passes.length === 0) {
+                            issues.push('Axe found no passing tests - page may be empty or inaccessible');
+                        }
+                    }
+                    break;
+            }
+            
+            return issues.length > 0 ? issues : null;
         },
 
         // Save test instance edits (legacy function for edit modal)

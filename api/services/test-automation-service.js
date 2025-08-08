@@ -494,15 +494,86 @@ class TestAutomationService {
         };
 
         try {
+            // Get authentication configuration for this session
+            let authConfig = null;
+            if (sessionId) {
+                try {
+                    const authResult = await this.pool.query(`
+                        SELECT ac.* FROM auth_configs ac
+                        JOIN test_sessions ts ON ts.auth_config_id = ac.id
+                        WHERE ts.id = $1 AND ac.status = 'active'
+                    `, [sessionId]);
+                    
+                    if (authResult.rows.length > 0) {
+                        authConfig = authResult.rows[0];
+                        console.log(`🔐 Found authentication config for session ${sessionId}: ${authConfig.name}`);
+                    } else {
+                        console.log(`⚠️ No authentication config found for session ${sessionId}`);
+                    }
+                } catch (error) {
+                    console.log(`❌ Error fetching auth config: ${error.message}`);
+                }
+            }
+
+            // Create authenticated context if auth config exists
+            let context = null;
+            if (authConfig) {
+                try {
+                    console.log(`🔐 Setting up authenticated browser context...`);
+                    context = await browser.createIncognitoContext();
+                    const authPage = await context.newPage();
+                    
+                    // Navigate to login page
+                    console.log(`🔐 Navigating to login page: ${authConfig.login_page}`);
+                    await authPage.goto(authConfig.login_page, { waitUntil: 'networkidle0', timeout: 30000 });
+                    
+                    // Fill login form
+                    console.log(`🔐 Filling login credentials...`);
+                    if (authConfig.username_selector) {
+                        await authPage.waitForSelector(authConfig.username_selector, { timeout: 10000 });
+                        await authPage.fill(authConfig.username_selector, authConfig.username);
+                    }
+                    
+                    if (authConfig.password_selector) {
+                        await authPage.waitForSelector(authConfig.password_selector, { timeout: 10000 });
+                        await authPage.fill(authConfig.password_selector, authConfig.password);
+                    }
+                    
+                    // Submit form
+                    if (authConfig.submit_selector) {
+                        console.log(`🔐 Submitting login form...`);
+                        await authPage.click(authConfig.submit_selector);
+                        
+                        // Wait for successful login
+                        if (authConfig.success_url) {
+                            await authPage.waitForURL(authConfig.success_url, { timeout: 15000 });
+                            console.log(`✅ Successfully logged in to: ${authConfig.success_url}`);
+                        } else {
+                            // Wait for redirect or success indicator
+                            await authPage.waitForTimeout(3000);
+                            console.log(`✅ Login completed (no success URL specified)`);
+                        }
+                    }
+                    
+                    await authPage.close();
+                    console.log(`🔐 Authentication setup completed`);
+                    
+                } catch (error) {
+                    console.error(`❌ Authentication failed: ${error.message}`);
+                    console.log(`⚠️ Continuing without authentication...`);
+                    context = null;
+                }
+            }
+
             for (let pageIndex = 0; pageIndex < pages.length; pageIndex++) {
                 const page = pages[pageIndex];
-                const browserPage = await browser.newPage();
+                const browserPage = context ? await context.newPage() : await browser.newPage();
                 
                 // Emit page-level progress
                 if (sessionId) {
                     this.emitProgress(sessionId, {
                         percentage: Math.round((pageIndex / pages.length) * 100),
-                        message: `Testing ${page.url} with Axe-core`,
+                        message: `Testing ${page.url} with Axe-core${authConfig ? ' (authenticated)' : ''}`,
                         stage: 'testing',
                         currentTool: 'axe-core',
                         currentPage: page.url,
@@ -514,8 +585,25 @@ class TestAutomationService {
                 }
                 
                 try {
+                    console.log(`🔍 Testing page: ${page.url}${authConfig ? ' (authenticated)' : ' (unauthenticated)'}`);
+                    
                     // Navigate to the page and wait for network to be idle
                     await browserPage.goto(page.url, { waitUntil: 'networkidle0', timeout: 30000 });
+                    
+                    // Check if we're on a login page (authentication failed)
+                    const currentUrl = browserPage.url();
+                    const pageTitle = await browserPage.title();
+                    const isLoginPage = currentUrl.includes('login') || 
+                                       currentUrl.includes('signin') || 
+                                       currentUrl.includes('auth') ||
+                                       pageTitle.toLowerCase().includes('login') ||
+                                       pageTitle.toLowerCase().includes('sign in');
+                    
+                    if (isLoginPage && authConfig) {
+                        console.log(`⚠️ Still on login page after authentication attempt: ${currentUrl}`);
+                        console.log(`⚠️ Page title: ${pageTitle}`);
+                        console.log(`⚠️ Authentication may have failed or page requires different auth method`);
+                    }
                     
                     // Emit page loaded status
                     if (sessionId) {
@@ -686,6 +774,27 @@ class TestAutomationService {
             critical_violations: 0,
             violations_by_page: {}
         };
+
+        // Get authentication configuration for this session
+        let authConfig = null;
+        if (sessionId) {
+            try {
+                const authResult = await this.pool.query(`
+                    SELECT ac.* FROM auth_configs ac
+                    JOIN test_sessions ts ON ts.auth_config_id = ac.id
+                    WHERE ts.id = $1 AND ac.status = 'active'
+                `, [sessionId]);
+                
+                if (authResult.rows.length > 0) {
+                    authConfig = authResult.rows[0];
+                    console.log(`🔐 Found authentication config for Pa11y session ${sessionId}: ${authConfig.name}`);
+                } else {
+                    console.log(`⚠️ No authentication config found for Pa11y session ${sessionId}`);
+                }
+            } catch (error) {
+                console.log(`❌ Error fetching auth config for Pa11y: ${error.message}`);
+            }
+        }
 
         for (let pageIndex = 0; pageIndex < pages.length; pageIndex++) {
             const page = pages[pageIndex];
