@@ -905,47 +905,121 @@ async function getSelectedPagesFromCrawlers(selectedPageIds, selectedCrawlerIds)
             return [];
         }
         
-        // Query to get pages from crawler_discovered_pages and map to discovered_pages
+        // Query to get pages directly from crawler_discovered_pages
         const query = `
             SELECT 
-                dp.id,
+                cdp.id as crawler_page_id,
                 cdp.url,
                 cdp.title,
                 cdp.crawler_id,
                 cdp.status_code,
                 cdp.content_type,
-                cdp.first_discovered_at
+                cdp.first_discovered_at,
+                cdp.selected_for_testing
             FROM crawler_discovered_pages cdp
-            JOIN discovered_pages dp ON cdp.url = dp.url
             WHERE cdp.id = ANY($1::uuid[])
+            AND cdp.selected_for_testing = true
             ORDER BY cdp.url
         `;
         
         const result = await pool.query(query, [selectedPageIds]);
-        const pages = result.rows;
+        const crawlerPages = result.rows;
         
-        console.log(`✅ Retrieved ${pages.length} pages from crawler data`);
+        console.log(`✅ Retrieved ${crawlerPages.length} pages from crawler data`);
         
-        // Map first_discovered_at to created_at for backward compatibility
-        pages.forEach(page => {
-            page.created_at = page.first_discovered_at;
-        });
+        if (crawlerPages.length === 0) {
+            console.log('⚠️ No pages found with selected_for_testing = true');
+            return [];
+        }
         
-        // Additional deduplication by URL (in case same URL appears in multiple crawlers)
+        // Deduplicate by URL (in case same URL appears in multiple crawlers)
         const urlMap = new Map();
-        pages.forEach(page => {
+        crawlerPages.forEach(page => {
             if (!urlMap.has(page.url)) {
                 urlMap.set(page.url, page);
             }
         });
         
-        const deduplicatedPages = Array.from(urlMap.values());
+        const deduplicatedCrawlerPages = Array.from(urlMap.values());
         
-        if (deduplicatedPages.length !== pages.length) {
-            console.log(`🔄 Deduplicated ${pages.length} pages to ${deduplicatedPages.length} unique URLs`);
+        if (deduplicatedCrawlerPages.length !== crawlerPages.length) {
+            console.log(`🔄 Deduplicated ${crawlerPages.length} pages to ${deduplicatedCrawlerPages.length} unique URLs`);
         }
         
-        return deduplicatedPages;
+        // Synchronize pages to discovered_pages table
+        const synchronizedPages = [];
+        
+        for (const crawlerPage of deduplicatedCrawlerPages) {
+            // Check if page already exists in discovered_pages
+            const existingPageQuery = `
+                SELECT id, url, title, page_type
+                FROM discovered_pages dp
+                JOIN site_discovery sd ON dp.discovery_id = sd.id
+                WHERE dp.url = $1
+                AND sd.project_id = (
+                    SELECT project_id FROM web_crawlers WHERE id = $2
+                )
+                LIMIT 1
+            `;
+            
+            const existingPageResult = await pool.query(existingPageQuery, [crawlerPage.url, crawlerPage.crawler_id]);
+            
+            if (existingPageResult.rows.length > 0) {
+                // Page already exists, use it
+                const existingPage = existingPageResult.rows[0];
+                synchronizedPages.push({
+                    id: existingPage.id,
+                    url: existingPage.url,
+                    title: existingPage.title || crawlerPage.title,
+                    page_type: existingPage.page_type,
+                    created_at: crawlerPage.first_discovered_at
+                });
+                console.log(`✅ Using existing discovered page: ${crawlerPage.url}`);
+            } else {
+                // Page doesn't exist, create it
+                const insertPageQuery = `
+                    INSERT INTO discovered_pages (discovery_id, url, title, page_type)
+                    SELECT 
+                        sd.id,
+                        $1,
+                        $2,
+                        CASE
+                            WHEN $1 LIKE '%form%' OR $1 LIKE '%login%' OR $1 LIKE '%register%' THEN 'form'
+                            WHEN $1 LIKE '%app%' OR $1 LIKE '%dashboard%' OR $1 LIKE '%admin%' THEN 'application'
+                            WHEN $1 = sd.primary_url THEN 'homepage'
+                            ELSE 'content'
+                        END
+                    FROM site_discovery sd
+                    JOIN web_crawlers wc ON sd.project_id = wc.project_id
+                    WHERE wc.id = $3
+                    LIMIT 1
+                    RETURNING id, url, title, page_type
+                `;
+                
+                const insertResult = await pool.query(insertPageQuery, [
+                    crawlerPage.url,
+                    crawlerPage.title,
+                    crawlerPage.crawler_id
+                ]);
+                
+                if (insertResult.rows.length > 0) {
+                    const newPage = insertResult.rows[0];
+                    synchronizedPages.push({
+                        id: newPage.id,
+                        url: newPage.url,
+                        title: newPage.title,
+                        page_type: newPage.page_type,
+                        created_at: crawlerPage.first_discovered_at
+                    });
+                    console.log(`✅ Created new discovered page: ${crawlerPage.url}`);
+                } else {
+                    console.log(`⚠️ Failed to create discovered page: ${crawlerPage.url}`);
+                }
+            }
+        }
+        
+        console.log(`✅ Synchronized ${synchronizedPages.length} pages to discovered_pages`);
+        return synchronizedPages;
         
     } catch (error) {
         console.error('Error getting selected pages from crawlers:', error);

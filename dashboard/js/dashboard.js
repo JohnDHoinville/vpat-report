@@ -9196,16 +9196,32 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                 // Show notification that automation is starting
                 this.showNotification('info', 'Starting automated testing...', 'Tests are being queued for automation.');
                 
-                // The automated testing worker should pick up the pending tests automatically
-                // We just need to ensure the worker is running
+                // Call the correct API endpoint to start automation
+                const response = await this.apiCall(`/automated-testing/run-per-instance/${sessionId}`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        tools: ['axe-core', 'pa11y', 'lighthouse'],
+                        run_async: true,
+                        clientMetadata: {
+                            trigger: 'session_automation',
+                            ip: 'dashboard',
+                            userAgent: navigator.userAgent,
+                            timestamp: new Date().toISOString()
+                        }
+                    })
+                });
                 
-                // Refresh the test selection status to show updated counts
-                await this.getTestSelectionStatus(sessionId);
-                
-                // Show success message
-                this.showNotification('success', 'Automation Started', 'Automated tests have been queued and will start running shortly.');
-                
-                return { success: true, message: 'Automation started successfully' };
+                if (response.success) {
+                    // Refresh the test selection status to show updated counts
+                    await this.getTestSelectionStatus(sessionId);
+                    
+                    // Show success message
+                    this.showNotification('success', 'Automation Started', 'Automated tests have been queued and will start running shortly.');
+                    
+                    return { success: true, message: 'Automation started successfully' };
+                } else {
+                    throw new Error(response.error || 'Failed to start automation');
+                }
             } catch (error) {
                 console.error('❌ Error starting automated testing:', error);
                 this.showNotification('error', 'Automation Error', 'Failed to start automated testing: ' + error.message);
