@@ -14359,11 +14359,48 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
         window.runTestsForRequirement = (criterionNumber) => componentInstance.runTestsForRequirement(criterionNumber);
     window.editTestInstance = (testInstance) => componentInstance.editTestInstance(testInstance);
     window.toggleAutomationResults = (instanceId) => {
+        console.log('🔍 toggleAutomationResults called with instanceId:', instanceId);
+        console.log('🔍 componentInstance available:', !!componentInstance);
+        console.log('🔍 componentInstance.toggleAutomationResults available:', !!(componentInstance && componentInstance.toggleAutomationResults));
+        
         if (componentInstance && componentInstance.toggleAutomationResults) {
+            console.log('✅ Calling componentInstance.toggleAutomationResults');
             return componentInstance.toggleAutomationResults(instanceId);
         } else {
-            console.error('❌ toggleAutomationResults: componentInstance not available');
-            return false;
+            // Provide detailed error information instead of hiding it
+            const error = new Error('toggleAutomationResults: componentInstance not available');
+            console.error('❌ toggleAutomationResults failed:', error);
+            console.error('🔍 Debug info:', {
+                componentInstance: !!componentInstance,
+                hasToggleMethod: !!(componentInstance && componentInstance.toggleAutomationResults),
+                instanceId: instanceId,
+                stack: error.stack
+            });
+            
+            // Show user-friendly error message
+            if (typeof window.showNotification === 'function') {
+                window.showNotification('error', 'Function Error', 'Toggle automation results function not available. Please refresh the page.');
+            } else {
+                alert('Toggle automation results function not available. Please refresh the page.');
+            }
+            
+            // Check if this might be a timing issue and retry once
+            if (!componentInstance && window.Alpine) {
+                console.log('🔄 Attempting retry for timing issue...');
+                setTimeout(() => {
+                    try {
+                        if (componentInstance && componentInstance.toggleAutomationResults) {
+                            console.log('✅ Retry successful, calling toggleAutomationResults');
+                            return componentInstance.toggleAutomationResults(instanceId);
+                        }
+                    } catch (retryError) {
+                        console.error('❌ Retry also failed:', retryError);
+                    }
+                }, 100);
+            }
+            
+            // Re-throw the error to prevent silent failure
+            throw error;
         }
     };
     window.saveTestEvidence = (instanceId, modal) => componentInstance.saveTestEvidence(instanceId, modal);
