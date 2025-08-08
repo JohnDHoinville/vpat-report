@@ -11590,8 +11590,18 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
 
                 // Get all test instances for this requirement
                 const testInstances = this.getRequirementTestInstances(criterionNumber);
+                console.log(`📋 Found ${testInstances.length} total test instances for requirement ${criterionNumber}`);
+                
                 const automatedInstances = testInstances.filter(instance => 
                     instance.test_method_used === 'automated' || instance.test_method_used === 'hybrid'
+                );
+                
+                console.log(`🤖 Found ${automatedInstances.length} automated/hybrid test instances for requirement ${criterionNumber}:`, 
+                    automatedInstances.map(inst => ({
+                        id: inst.id || inst.test_instance_id || inst.instance_id,
+                        page_url: inst.page_url,
+                        test_method: inst.test_method_used
+                    }))
                 );
 
                 if (automatedInstances.length === 0) {
