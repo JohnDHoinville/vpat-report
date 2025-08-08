@@ -11562,6 +11562,63 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                 console.error('Error toggling test history:', error);
             }
         },
+
+        // Run tests for a specific requirement
+        async runTestsForRequirement(criterionNumber) {
+            try {
+                console.log(`🚀 Running tests for requirement ${criterionNumber}`);
+                
+                if (!criterionNumber) {
+                    throw new Error('No criterion number provided');
+                }
+
+                // Get all test instances for this requirement
+                const testInstances = this.getRequirementTestInstances(criterionNumber);
+                const automatedInstances = testInstances.filter(instance => 
+                    instance.test_method_used === 'automated' || instance.test_method_used === 'hybrid'
+                );
+
+                if (automatedInstances.length === 0) {
+                    this.showNotification('info', 'No Automated Tests', 'No automated tests found for this requirement');
+                    return;
+                }
+
+                // Show progress notification
+                this.showNotification('info', 'Starting Tests', `Running ${automatedInstances.length} automated tests for requirement ${criterionNumber}...`);
+
+                // Call the automation API for each test instance
+                const promises = automatedInstances.map(async (instance) => {
+                    try {
+                        const response = await this.apiCall(`/automated-testing/run-instance/${instance.id}`, {
+                            method: 'POST'
+                        });
+                        return { instance, success: response.success, error: response.error };
+                    } catch (error) {
+                        return { instance, success: false, error: error.message };
+                    }
+                });
+
+                const results = await Promise.all(promises);
+                const successful = results.filter(r => r.success).length;
+                const failed = results.filter(r => !r.success).length;
+
+                // Show results notification
+                if (failed === 0) {
+                    this.showNotification('success', 'Tests Started', `Successfully started ${successful} automated tests for requirement ${criterionNumber}`);
+                } else {
+                    this.showNotification('warning', 'Partial Success', `Started ${successful} tests, ${failed} failed for requirement ${criterionNumber}`);
+                }
+
+                // Refresh the requirement details to show updated status
+                if (this.showRequirementDetailsModal && this.currentRequirement) {
+                    await this.loadRequirementDetails(this.currentRequirement.id);
+                }
+
+            } catch (error) {
+                console.error('Error running tests for requirement:', error);
+                this.showNotification('error', 'Test Execution Failed', error.message);
+            }
+        },
         
         // Get test status select class
         getTestStatusSelectClass(status) {
@@ -14219,6 +14276,7 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
         window.assignTestInstance = (instanceId) => componentInstance.assignTestInstance(instanceId);
         window.startTestInstance = (instanceId) => componentInstance.startTestInstance(instanceId);
         window.toggleTestHistory = () => componentInstance.toggleTestHistory();
+        window.runTestsForRequirement = (criterionNumber) => componentInstance.runTestsForRequirement(criterionNumber);
     window.editTestInstance = (testInstance) => componentInstance.editTestInstance(testInstance);
     window.toggleAutomationResults = (instanceId) => componentInstance.toggleAutomationResults(instanceId);
     window.saveTestEvidence = (instanceId, modal) => componentInstance.saveTestEvidence(instanceId, modal);
