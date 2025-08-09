@@ -50,6 +50,7 @@ window.dashboard = function() {
         sessionCapturing: false,
         sessionAwaitingLogin: false,
         sessionTesting: false,
+        selectedAuthProject: null,
         apiConnected: false,
         
         // ===== WEBSOCKET STATE =====
@@ -3160,6 +3161,15 @@ ${requirement.failure_examples}
             // Store selection in localStorage for persistence
             localStorage.setItem('selectedProjectId', projectId);
         },
+
+        selectAuthProject(projectId) {
+            this.selectedAuthProject = projectId;
+            console.log(`🔐 Selected auth project: ${projectId}`);
+            
+            // Load auth-specific data for the selected project
+            this.loadProjectAuthConfigs();
+            this.loadSessionInfo();
+        },
         
         async createProject() {
             try {
@@ -4011,6 +4021,85 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                 this.sessionAwaitingLogin = false;
                 this.showNotification('warning', 'Session Capture Cancelled', 'May need to manually close browser window');
             }
+        },
+
+        // ===== ENHANCED SESSION CAPTURE METHODS =====
+        
+        async startSessionCapture() {
+            console.log('🔐 Starting enhanced session capture...');
+            
+            // Use the selected auth project or fall back to selected project
+            let projectId = this.selectedAuthProject || this.selectedProject || this.data.selectedProject || localStorage.getItem('selectedProjectId');
+            
+            if (!projectId) {
+                this.showNotification('error', 'No Project', 'Please select a project first');
+                return;
+            }
+            
+            this.sessionCapturing = true;
+            this.sessionAwaitingLogin = false;
+            
+            try {
+                const response = await fetch(`${this.config.apiBaseUrl}/api/session/capture`, {
+                    method: 'POST',
+                    headers: this.getAuthHeaders(),
+                    body: JSON.stringify({
+                        project_id: projectId
+                    })
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    console.log('🔐 Session capture started:', result);
+                    
+                    if (result.needsLogin) {
+                        this.sessionAwaitingLogin = true;
+                        this.showNotification('info', 'Browser Opened', 
+                            `Please log in to your application in the opened browser window, then click "Complete Capture" when finished`);
+                    } else {
+                        // Already authenticated, complete capture immediately
+                        await this.completeSessionCapture();
+                    }
+                    
+                } else {
+                    const error = await response.json();
+                    this.showNotification('error', 'Capture Failed', error.message || 'Failed to start session capture');
+                    this.sessionCapturing = false;
+                }
+            } catch (error) {
+                console.error('Error starting session capture:', error);
+                this.showNotification('error', 'Network Error', 'Failed to start session capture');
+                this.sessionCapturing = false;
+            }
+        },
+
+        async refreshSessionStatus() {
+            console.log('🔄 Refreshing session status...');
+            
+            try {
+                await this.loadSessionInfo();
+                this.showNotification('success', 'Status Updated', 'Session status refreshed');
+            } catch (error) {
+                console.error('Error refreshing session status:', error);
+                this.showNotification('error', 'Refresh Failed', 'Failed to refresh session status');
+            }
+        },
+
+        getProjectSessionStatus(projectId) {
+            if (!this.sessionInfo || !this.sessionInfo.isValid) {
+                return 'inactive';
+            }
+            
+            // Check if session is for the current project
+            if (this.sessionInfo.isVeryOld) {
+                return 'expired';
+            }
+            
+            return 'active';
+        },
+
+        getProjectSessionInfo(projectId) {
+            return this.sessionInfo || null;
         },
         
         async loadSessionInfo() {
@@ -14454,67 +14543,157 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
         // Show user-friendly error
         alert('Unable to save test instance. Please refresh the page and try again.');
     };
-    window.saveTestInstanceEdit = (instanceId, modal) => componentInstance.saveTestInstanceEdit(instanceId, modal);
-            window.viewTestInstanceDetails = (testInstance) => componentInstance.viewTestInstanceDetails(testInstance);
-        window.assignTestInstance = (instanceId) => componentInstance.assignTestInstance(instanceId);
-        window.startTestInstance = (instanceId) => componentInstance.startTestInstance(instanceId);
-        window.toggleTestHistory = () => componentInstance.toggleTestHistory();
-        window.runTestsForRequirement = (criterionNumber) => componentInstance.runTestsForRequirement(criterionNumber);
-    window.editTestInstance = (testInstance) => componentInstance.editTestInstance(testInstance);
+    window.saveTestInstanceEdit = (instanceId, modal) => {
+        const instance = getDashboardInstance();
+        return instance ? instance.saveTestInstanceEdit(instanceId, modal) : null;
+    };
+            window.viewTestInstanceDetails = (testInstance) => {
+                const instance = getDashboardInstance();
+                return instance ? instance.viewTestInstanceDetails(testInstance) : null;
+            };
+        window.assignTestInstance = (instanceId) => {
+            const instance = getDashboardInstance();
+            return instance ? instance.assignTestInstance(instanceId) : null;
+        };
+        window.startTestInstance = (instanceId) => {
+            const instance = getDashboardInstance();
+            return instance ? instance.startTestInstance(instanceId) : null;
+        };
+        window.toggleTestHistory = () => {
+            const instance = getDashboardInstance();
+            return instance ? instance.toggleTestHistory() : null;
+        };
+        window.runTestsForRequirement = (criterionNumber) => {
+            const instance = getDashboardInstance();
+            return instance ? instance.runTestsForRequirement(criterionNumber) : null;
+        };
+    window.editTestInstance = (testInstance) => {
+        const instance = getDashboardInstance();
+        return instance ? instance.editTestInstance(testInstance) : null;
+    };
     window.toggleAutomationResults = (instanceId) => {
         console.log('🔍 toggleAutomationResults called with instanceId:', instanceId);
-        console.log('🔍 componentInstance available:', !!componentInstance);
-        console.log('🔍 componentInstance.toggleAutomationResults available:', !!(componentInstance && componentInstance.toggleAutomationResults));
         
-        if (componentInstance && componentInstance.toggleAutomationResults) {
-            console.log('✅ Calling componentInstance.toggleAutomationResults');
-            return componentInstance.toggleAutomationResults(instanceId);
-        } else {
-            // Provide detailed error information instead of hiding it
-            const error = new Error('toggleAutomationResults: componentInstance not available');
-            console.error('❌ toggleAutomationResults failed:', error);
-            console.error('🔍 Debug info:', {
-                componentInstance: !!componentInstance,
-                hasToggleMethod: !!(componentInstance && componentInstance.toggleAutomationResults),
-                instanceId: instanceId,
-                stack: error.stack
-            });
-            
-            // Show user-friendly error message
-            if (typeof window.showNotification === 'function') {
-                window.showNotification('error', 'Function Error', 'Toggle automation results function not available. Please refresh the page.');
-            } else {
+        // Strategy 1: Use stored dashboard instance
+        if (window._dashboardInstance && window._dashboardInstance.toggleAutomationResults) {
+            console.log('✅ Using stored dashboard instance');
+            return window._dashboardInstance.toggleAutomationResults(instanceId);
+        }
+        
+        // Strategy 2: Find Alpine data via multiple selectors
+        const selectors = ['[x-data*="dashboard"]', '[x-data="dashboard()"]', '.dashboard-container', 'body'];
+        for (const selector of selectors) {
+            const element = document.querySelector(selector);
+            if (element && element._x_dataStack) {
+                for (const data of element._x_dataStack) {
+                    if (data && data.toggleAutomationResults) {
+                        console.log('✅ Found dashboard instance via Alpine data stack');
+                        window._dashboardInstance = data; // Cache for future use
+                        return data.toggleAutomationResults(instanceId);
+                    }
+                }
+            }
+        }
+        
+        // Strategy 3: Try Alpine's global store
+        if (window.Alpine && window.Alpine.store) {
+            try {
+                const storeData = window.Alpine.store('dashboard');
+                if (storeData && storeData.toggleAutomationResults) {
+                    console.log('✅ Found dashboard instance via Alpine store');
+                    return storeData.toggleAutomationResults(instanceId);
+                }
+            } catch (e) {
+                console.log('Alpine store not available or no dashboard store');
+            }
+        }
+        
+        console.error('❌ Dashboard instance not found through any strategy');
+        console.error('Available elements:', document.querySelectorAll('[x-data]').length);
+        console.error('Alpine available:', !!window.Alpine);
+        
+        // Show user-friendly error
+        if (window.Alpine && window.Alpine.store) {
+            try {
+                const storeData = window.Alpine.store('dashboard');
+                if (storeData && storeData.showNotification) {
+                    storeData.showNotification('error', 'Function Error', 'Toggle automation results function not available. Please refresh the page.');
+                }
+            } catch (e) {
                 alert('Toggle automation results function not available. Please refresh the page.');
             }
-            
-            // Check if this might be a timing issue and retry once
-            if (!componentInstance && window.Alpine) {
-                console.log('🔄 Attempting retry for timing issue...');
-                setTimeout(() => {
-                    try {
-                        if (componentInstance && componentInstance.toggleAutomationResults) {
-                            console.log('✅ Retry successful, calling toggleAutomationResults');
-                            return componentInstance.toggleAutomationResults(instanceId);
-                        }
-                    } catch (retryError) {
-                        console.error('❌ Retry also failed:', retryError);
-                    }
-                }, 100);
-            }
-            
-            // Re-throw the error to prevent silent failure
-            throw error;
+        } else {
+            alert('Toggle automation results function not available. Please refresh the page.');
         }
     };
-    window.saveTestEvidence = (instanceId, modal) => componentInstance.saveTestEvidence(instanceId, modal);
+    // Helper function to get dashboard instance
+    function getDashboardInstance() {
+        // Strategy 1: Use stored dashboard instance
+        if (window._dashboardInstance) {
+            return window._dashboardInstance;
+        }
+        
+        // Strategy 2: Find Alpine data via multiple selectors
+        const selectors = ['[x-data*="dashboard"]', '[x-data="dashboard()"]', '.dashboard-container', 'body'];
+        for (const selector of selectors) {
+            const element = document.querySelector(selector);
+            if (element && element._x_dataStack) {
+                for (const data of element._x_dataStack) {
+                    if (data && data.saveTestEvidence) {
+                        window._dashboardInstance = data; // Cache for future use
+                        return data;
+                    }
+                }
+            }
+        }
+        
+        // Strategy 3: Try Alpine's global store
+        if (window.Alpine && window.Alpine.store) {
+            try {
+                const storeData = window.Alpine.store('dashboard');
+                if (storeData && storeData.saveTestEvidence) {
+                    window._dashboardInstance = storeData; // Cache for future use
+                    return storeData;
+                }
+            } catch (e) {
+                console.log('Alpine store not available or no dashboard store');
+            }
+        }
+        
+        console.error('❌ Dashboard instance not found through any strategy');
+        return null;
+    }
+
+    window.saveTestEvidence = (instanceId, modal) => {
+        const instance = getDashboardInstance();
+        return instance ? instance.saveTestEvidence(instanceId, modal) : null;
+    };
     
     // Navigation Global Functions
-    window.canNavigateRequirement = (direction) => componentInstance.canNavigateRequirement(direction);
-    window.navigateRequirement = (direction) => componentInstance.navigateRequirement(direction);
-    window.canNavigateTestResult = (direction) => componentInstance.canNavigateTestResult(direction);
-    window.navigateTestResult = (direction) => componentInstance.navigateTestResult(direction);
-    window.canNavigateTestInstance = (direction) => componentInstance.canNavigateTestInstance(direction);
-    window.navigateTestInstance = (direction) => componentInstance.navigateTestInstance(direction);
+    window.canNavigateRequirement = (direction) => {
+        const instance = getDashboardInstance();
+        return instance ? instance.canNavigateRequirement(direction) : false;
+    };
+    window.navigateRequirement = (direction) => {
+        const instance = getDashboardInstance();
+        return instance ? instance.navigateRequirement(direction) : null;
+    };
+    window.canNavigateTestResult = (direction) => {
+        const instance = getDashboardInstance();
+        return instance ? instance.canNavigateTestResult(direction) : false;
+    };
+    window.navigateTestResult = (direction) => {
+        const instance = getDashboardInstance();
+        return instance ? instance.navigateTestResult(direction) : null;
+    };
+    window.canNavigateTestInstance = (direction) => {
+        const instance = getDashboardInstance();
+        return instance ? instance.canNavigateTestInstance(direction) : false;
+    };
+    window.navigateTestInstance = (direction) => {
+        const instance = getDashboardInstance();
+        return instance ? instance.navigateTestInstance(direction) : null;
+    };
     
 
     

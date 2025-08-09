@@ -111,6 +111,21 @@
         </div>
     </div>
 
+    <!-- Session Capture Notification -->
+    <div x-show="selectedProject && getProjectSessionStatus(selectedProject) !== 'active'" class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <div class="flex items-start">
+            <i class="fas fa-info-circle text-blue-600 mr-3 mt-1"></i>
+            <div class="flex-1">
+                <h4 class="font-medium text-blue-900">Authentication Required for Testing</h4>
+                <p class="text-sm text-blue-700 mb-3">To test protected pages, you need to capture your login session first.</p>
+                <button @click="activeTab = 'authentication'; selectedAuthProject = selectedProject" 
+                        class="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors">
+                    <i class="fas fa-key mr-1"></i>Set Up Authentication
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Testing Sessions List -->
     <div x-show="selectedProject" class="bg-white rounded-lg shadow">
         <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">

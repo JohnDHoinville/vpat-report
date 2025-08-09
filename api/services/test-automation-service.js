@@ -496,30 +496,92 @@ class TestAutomationService {
         try {
             // Get authentication configuration for this session
             let authConfig = null;
+            let crawlerAuthSession = null;
             if (sessionId) {
                 try {
-                    const authResult = await this.pool.query(`
-                        SELECT ac.* FROM auth_configs ac
-                        JOIN test_sessions ts ON ts.auth_config_id = ac.id
-                        WHERE ts.id = $1 AND ac.status = 'active'
+                    // First, try to get the test session's project and find crawler auth sessions
+                    const sessionResult = await this.pool.query(`
+                        SELECT ts.project_id, p.primary_url 
+                        FROM test_sessions ts 
+                        JOIN projects p ON ts.project_id = p.id 
+                        WHERE ts.id = $1
                     `, [sessionId]);
                     
-                    if (authResult.rows.length > 0) {
-                        authConfig = authResult.rows[0];
-                        console.log(`🔐 Found authentication config for session ${sessionId}: ${authConfig.name}`);
-                    } else {
-                        console.log(`⚠️ No authentication config found for session ${sessionId}`);
+                    if (sessionResult.rows.length > 0) {
+                        const session = sessionResult.rows[0];
+                        
+                        // Look for active crawler authentication sessions for this project
+                        const crawlerAuthResult = await this.pool.query(`
+                            SELECT cas.*, wc.name as crawler_name, wc.base_url
+                            FROM crawler_auth_sessions cas
+                            JOIN web_crawlers wc ON cas.crawler_id = wc.id
+                            WHERE wc.project_id = $1 
+                            AND cas.is_active = true
+                            AND (cas.expires_at IS NULL OR cas.expires_at > CURRENT_TIMESTAMP)
+                            AND cas.cookies IS NOT NULL
+                            AND jsonb_array_length(cas.cookies) > 0
+                            ORDER BY cas.last_used_at DESC
+                            LIMIT 1
+                        `, [session.project_id]);
+                        
+                        if (crawlerAuthResult.rows.length > 0) {
+                            crawlerAuthSession = crawlerAuthResult.rows[0];
+                            console.log(`🔐 Found crawler auth session for project ${session.project_id}: ${crawlerAuthSession.crawler_name} (${crawlerAuthSession.cookie_count || 0} cookies)`);
+                        } else {
+                            console.log(`⚠️ No active crawler auth sessions found for project ${session.project_id}`);
+                        }
+                    }
+                    
+                    // Fallback to auth_configs if no crawler session found
+                    if (!crawlerAuthSession) {
+                        const authResult = await this.pool.query(`
+                            SELECT ac.* FROM auth_configs ac
+                            JOIN test_sessions ts ON ts.auth_config_id = ac.id
+                            WHERE ts.id = $1 AND ac.status = 'active'
+                        `, [sessionId]);
+                        
+                        if (authResult.rows.length > 0) {
+                            authConfig = authResult.rows[0];
+                            console.log(`🔐 Found authentication config for session ${sessionId}: ${authConfig.name}`);
+                        } else {
+                            console.log(`⚠️ No authentication config found for session ${sessionId}`);
+                        }
                     }
                 } catch (error) {
                     console.log(`❌ Error fetching auth config: ${error.message}`);
                 }
             }
 
-            // Create authenticated context if auth config exists
+            // Create authenticated context if auth config or crawler session exists
             let context = null;
-            if (authConfig) {
+            if (crawlerAuthSession) {
                 try {
-                    console.log(`🔐 Setting up authenticated browser context...`);
+                    console.log(`🔐 Setting up authenticated browser context using crawler session...`);
+                    
+                    // Create storage state from crawler session data
+                    const storageState = {
+                        cookies: crawlerAuthSession.cookies || [],
+                        localStorage: crawlerAuthSession.local_storage || [],
+                        sessionStorage: crawlerAuthSession.session_storage || []
+                    };
+                    
+                    console.log(`🔐 Using ${storageState.cookies.length} cookies from crawler session`);
+                    
+                    // Create context with stored authentication state
+                    context = await browser.createIncognitoContext({
+                        storageState: storageState
+                    });
+                    
+                    console.log(`🔐 Crawler authentication session loaded successfully`);
+                    
+                } catch (error) {
+                    console.error(`❌ Crawler authentication failed: ${error.message}`);
+                    console.log(`⚠️ Continuing without authentication...`);
+                    context = null;
+                }
+            } else if (authConfig) {
+                try {
+                    console.log(`🔐 Setting up authenticated browser context using auth config...`);
                     context = await browser.createIncognitoContext();
                     const authPage = await context.newPage();
                     
@@ -585,7 +647,8 @@ class TestAutomationService {
                 }
                 
                 try {
-                    console.log(`🔍 Testing page: ${page.url}${authConfig ? ' (authenticated)' : ' (unauthenticated)'}`);
+                    const authMethod = crawlerAuthSession ? 'crawler_session' : (authConfig ? 'auth_config' : 'none');
+                    console.log(`🔍 Testing page: ${page.url} (${authMethod})`);
                     
                     // Navigate to the page and wait for network to be idle
                     await browserPage.goto(page.url, { waitUntil: 'networkidle0', timeout: 30000 });
@@ -599,7 +662,7 @@ class TestAutomationService {
                                        pageTitle.toLowerCase().includes('login') ||
                                        pageTitle.toLowerCase().includes('sign in');
                     
-                    if (isLoginPage && authConfig) {
+                    if (isLoginPage && (crawlerAuthSession || authConfig)) {
                         console.log(`⚠️ Still on login page after authentication attempt: ${currentUrl}`);
                         console.log(`⚠️ Page title: ${pageTitle}`);
                         console.log(`⚠️ Authentication may have failed or page requires different auth method`);
@@ -777,22 +840,134 @@ class TestAutomationService {
 
         // Get authentication configuration for this session
         let authConfig = null;
+        let crawlerAuthSession = null;
         if (sessionId) {
             try {
-                const authResult = await this.pool.query(`
-                    SELECT ac.* FROM auth_configs ac
-                    JOIN test_sessions ts ON ts.auth_config_id = ac.id
-                    WHERE ts.id = $1 AND ac.status = 'active'
+                // First, try to get the test session's project and find crawler auth sessions
+                const sessionResult = await this.pool.query(`
+                    SELECT ts.project_id, p.primary_url 
+                    FROM test_sessions ts 
+                    JOIN projects p ON ts.project_id = p.id 
+                    WHERE ts.id = $1
                 `, [sessionId]);
                 
-                if (authResult.rows.length > 0) {
-                    authConfig = authResult.rows[0];
-                    console.log(`🔐 Found authentication config for Pa11y session ${sessionId}: ${authConfig.name}`);
-                } else {
-                    console.log(`⚠️ No authentication config found for Pa11y session ${sessionId}`);
+                if (sessionResult.rows.length > 0) {
+                    const session = sessionResult.rows[0];
+                    
+                    // Look for active crawler authentication sessions for this project
+                    const crawlerAuthResult = await this.pool.query(`
+                        SELECT cas.*, wc.name as crawler_name, wc.base_url
+                        FROM crawler_auth_sessions cas
+                        JOIN web_crawlers wc ON cas.crawler_id = wc.id
+                        WHERE wc.project_id = $1 
+                        AND cas.is_active = true
+                        AND (cas.expires_at IS NULL OR cas.expires_at > CURRENT_TIMESTAMP)
+                        AND cas.cookies IS NOT NULL
+                        AND jsonb_array_length(cas.cookies) > 0
+                        ORDER BY cas.last_used_at DESC
+                        LIMIT 1
+                    `, [session.project_id]);
+                    
+                    if (crawlerAuthResult.rows.length > 0) {
+                        crawlerAuthSession = crawlerAuthResult.rows[0];
+                        console.log(`🔐 Found crawler auth session for Pa11y project ${session.project_id}: ${crawlerAuthSession.crawler_name} (${crawlerAuthSession.cookie_count || 0} cookies)`);
+                    } else {
+                        console.log(`⚠️ No active crawler auth sessions found for Pa11y project ${session.project_id}`);
+                    }
+                }
+                
+                // Fallback to auth_configs if no crawler session found
+                if (!crawlerAuthSession) {
+                    const authResult = await this.pool.query(`
+                        SELECT ac.* FROM auth_configs ac
+                        JOIN test_sessions ts ON ts.auth_config_id = ac.id
+                        WHERE ts.id = $1 AND ac.status = 'active'
+                    `, [sessionId]);
+                    
+                    if (authResult.rows.length > 0) {
+                        authConfig = authResult.rows[0];
+                        console.log(`🔐 Found authentication config for Pa11y session ${sessionId}: ${authConfig.name}`);
+                    } else {
+                        console.log(`⚠️ No authentication config found for Pa11y session ${sessionId}`);
+                    }
                 }
             } catch (error) {
                 console.log(`❌ Error fetching auth config for Pa11y: ${error.message}`);
+            }
+        }
+
+        // Create authenticated context if auth config or crawler session exists
+        let context = null;
+        if (crawlerAuthSession) {
+            try {
+                console.log(`🔐 Setting up authenticated browser context for Pa11y using crawler session...`);
+                
+                // Create storage state from crawler session data
+                const storageState = {
+                    cookies: crawlerAuthSession.cookies || [],
+                    localStorage: crawlerAuthSession.local_storage || [],
+                    sessionStorage: crawlerAuthSession.session_storage || []
+                };
+                
+                console.log(`🔐 Using ${storageState.cookies.length} cookies from crawler session for Pa11y`);
+                
+                // Create context with stored authentication state
+                context = await browser.createIncognitoContext({
+                    storageState: storageState
+                });
+                
+                console.log(`🔐 Crawler authentication session loaded successfully for Pa11y`);
+                
+            } catch (error) {
+                console.error(`❌ Crawler authentication failed for Pa11y: ${error.message}`);
+                console.log(`⚠️ Continuing without authentication...`);
+                context = null;
+            }
+        } else if (authConfig) {
+            try {
+                console.log(`🔐 Setting up authenticated browser context for Pa11y using auth config...`);
+                context = await browser.createIncognitoContext();
+                const authPage = await context.newPage();
+                
+                // Navigate to login page
+                console.log(`🔐 Navigating to login page for Pa11y: ${authConfig.login_page}`);
+                await authPage.goto(authConfig.login_page, { waitUntil: 'networkidle0', timeout: 30000 });
+                
+                // Fill login form
+                console.log(`🔐 Filling login credentials for Pa11y...`);
+                if (authConfig.username_selector) {
+                    await authPage.waitForSelector(authConfig.username_selector, { timeout: 10000 });
+                    await authPage.fill(authConfig.username_selector, authConfig.username);
+                }
+                
+                if (authConfig.password_selector) {
+                    await authPage.waitForSelector(authConfig.password_selector, { timeout: 10000 });
+                    await authPage.fill(authConfig.password_selector, authConfig.password);
+                }
+                
+                // Submit form
+                if (authConfig.submit_selector) {
+                    console.log(`🔐 Submitting login form for Pa11y...`);
+                    await authPage.click(authConfig.submit_selector);
+                    
+                    // Wait for successful login
+                    if (authConfig.success_url) {
+                        await authPage.waitForURL(authConfig.success_url, { timeout: 15000 });
+                        console.log(`✅ Successfully logged in for Pa11y: ${authConfig.success_url}`);
+                    } else {
+                        // Wait for redirect or success indicator
+                        await authPage.waitForTimeout(3000);
+                        console.log(`✅ Login completed for Pa11y (no success URL specified)`);
+                    }
+                }
+                
+                await authPage.close();
+                console.log(`🔐 Authentication setup completed for Pa11y`);
+                
+            } catch (error) {
+                console.error(`❌ Authentication failed for Pa11y: ${error.message}`);
+                console.log(`⚠️ Continuing without authentication...`);
+                context = null;
             }
         }
 
@@ -803,7 +978,7 @@ class TestAutomationService {
             if (sessionId) {
                 this.emitProgress(sessionId, {
                     percentage: Math.round((pageIndex / pages.length) * 100),
-                    message: `Testing ${page.url} with Pa11y`,
+                    message: `Testing ${page.url} with Pa11y${crawlerAuthSession ? ' (crawler_auth)' : (authConfig ? ' (auth_config)' : '')}`,
                     stage: 'testing',
                     currentTool: 'pa11y',
                     currentPage: page.url,
@@ -816,7 +991,7 @@ class TestAutomationService {
             try {
                 // Use Puppeteer for better control over page loading
                 const browser = await puppeteer.launch({ headless: true });
-                const browserPage = await browser.newPage();
+                const browserPage = context ? await context.newPage() : await browser.newPage();
                 
                 try {
                     // Navigate to the page and wait for network to be idle
@@ -3047,13 +3222,96 @@ class TestAutomationService {
     async runTestForInstance(instanceId, options = {}) {
         const { tools = ['axe-core'], userId } = options;
 
-        // This is a simplified version - in practice, you'd get the specific page/requirement
-        // and run targeted tests
-        return {
-            results: { message: 'Instance-specific testing completed' },
-            status_updated: true,
-            evidence_created: true
-        };
+        try {
+            console.log(`🔍 Running automated test for instance: ${instanceId}`);
+            
+            // Get the test instance details
+            const { pool } = require('../../database/config');
+            const instanceQuery = `
+                SELECT 
+                    ti.id,
+                    ti.session_id,
+                    ti.page_id,
+                    ti.requirement_id,
+                    ti.test_method_used,
+                    dp.url as page_url,
+                    tr.criterion_number,
+                    tr.title as requirement_title
+                FROM test_instances ti
+                LEFT JOIN discovered_pages dp ON ti.page_id = dp.id
+                LEFT JOIN test_requirements tr ON ti.requirement_id = tr.id
+                WHERE ti.id = $1
+            `;
+            
+            const instanceResult = await pool.query(instanceQuery, [instanceId]);
+            
+            if (instanceResult.rows.length === 0) {
+                throw new Error(`Test instance ${instanceId} not found`);
+            }
+            
+            const instance = instanceResult.rows[0];
+            console.log(`🔍 Testing page: ${instance.page_url} for requirement: ${instance.requirement_title}`);
+            
+            // Update status to running
+            await this.updateTestInstanceStatus(instanceId, 'running', userId);
+            
+            // Run the automation tools against the specific page
+            const pages = [{ url: instance.page_url, id: instance.page_id }];
+            let allResults = [];
+            
+            for (const tool of tools) {
+                console.log(`🔧 Running ${tool} against ${instance.page_url}`);
+                
+                let toolResults;
+                switch (tool) {
+                    case 'axe-core':
+                        toolResults = await this.runAxe(pages, instance.session_id);
+                        break;
+                    case 'pa11y':
+                        toolResults = await this.runPa11y(pages, instance.session_id);
+                        break;
+                    case 'lighthouse':
+                        toolResults = await this.runLighthouse(pages);
+                        break;
+                    default:
+                        console.log(`⚠️ Unknown tool: ${tool}, skipping`);
+                        continue;
+                }
+                
+                if (toolResults && toolResults.length > 0) {
+                    allResults = allResults.concat(toolResults);
+                }
+            }
+            
+            // Map results to test instances
+            if (allResults.length > 0) {
+                await this.mapViolationsToTestInstances(instance.session_id, instance.page_url, allResults, tools.join(','));
+            }
+            
+            // Update test instance status to completed
+            await this.updateTestInstanceStatus(instanceId, 'passed', userId);
+            
+            console.log(`✅ Completed automated test for instance: ${instanceId}`);
+            
+            return {
+                results: { 
+                    message: 'Instance-specific testing completed',
+                    tools_used: tools,
+                    results_count: allResults.length,
+                    page_tested: instance.page_url
+                },
+                status_updated: true,
+                evidence_created: true
+            };
+            
+        } catch (error) {
+            console.error(`❌ Error running test for instance ${instanceId}:`, error);
+            
+            // Update status to failed
+            await this.updateTestInstanceStatus(instanceId, 'failed', userId, error.message);
+            
+            throw error;
+        }
     }
 
     /**
