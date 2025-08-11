@@ -744,6 +744,7 @@ router.get('/instance-results/:instanceId', authenticateToken, async (req, res) 
                 }
                 
                 // Always include the result, but filter violations to only show relevant ones
+                // For criterion-specific results, passes_count should represent passes for this criterion, not overall
                 const filteredResult = {
                     ...result,
                     raw_results: {
@@ -754,6 +755,7 @@ router.get('/instance-results/:instanceId', authenticateToken, async (req, res) 
                         } : {}
                     },
                     violations_count: relevantViolations.length,
+                    passes_count: relevantViolations.length === 0 ? 1 : 0, // If no violations, criterion passed (1 pass)
                     relevant_to_criterion: wcagCriterion
                 };
                 filteredResults.push(filteredResult);

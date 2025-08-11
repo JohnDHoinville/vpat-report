@@ -6960,13 +6960,17 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
             try {
                 if (!this.selectedProject) return;
                 
-                const response = await this.apiCall('/test-instances', {
+                // Filter by current session if available
+                const sessionId = this.selectedSessionDetails?.id;
+                const url = sessionId ? `/test-instances?session_id=${sessionId}` : '/test-instances';
+                
+                const response = await this.apiCall(url, {
                     method: 'GET'
                 });
                 
                 if (response.success) {
                     this.requirementsTestInstances = response.test_instances || [];
-                    console.log('✅ Loaded test instances for requirements view:', this.requirementsTestInstances.length);
+                    console.log('✅ Loaded test instances for requirements view:', this.requirementsTestInstances.length, sessionId ? `for session ${sessionId}` : 'for all sessions');
                 }
             } catch (error) {
                 console.error('Error loading test instances for requirements:', error);
