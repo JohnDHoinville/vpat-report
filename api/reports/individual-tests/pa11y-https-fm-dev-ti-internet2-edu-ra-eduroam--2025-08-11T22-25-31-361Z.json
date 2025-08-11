@@ -1,0 +1,21 @@
+{
+  "tool": "pa11y",
+  "pageUrl": "https://fm-dev.ti.internet2.edu/ra/eduroam#",
+  "pageId": "cfb5e7ba-e6df-4a39-bc16-c495e0504224",
+  "sessionId": "1c97c027-c983-47c2-89cc-1af59b0ee857",
+  "runId": "5ab8aab3-39a8-4d62-b0d7-9af2b02b098a",
+  "timestamp": "2025-08-11T22:25:31.361Z",
+  "violations": [
+    {
+      "code": "WCAG2AA.Principle2.Guideline2_4.2_4_2.H25.1.EmptyTitle",
+      "type": "error",
+      "typeCode": 1,
+      "message": "The title element in the head section should be non-empty.",
+      "context": "<title>\n  </title>",
+      "selector": "html > head > title",
+      "runner": "htmlcs",
+      "runnerExtras": {}
+    }
+  ],
+  "violationCount": 1
+}

@@ -116,7 +116,7 @@ class AutomatedTestingWorker {
                 atr.page_id,
                 atr.tool_name,
                 atr.status,
-                atr.started_at as created_at,
+                atr.started_at,
                 dp.url as page_url,
                 dp.title as page_title
             FROM automated_test_results atr

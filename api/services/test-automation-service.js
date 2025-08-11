@@ -4490,7 +4490,7 @@ class TestAutomationService {
 
             const query = `
                 INSERT INTO automated_test_results 
-                (test_session_id, page_id, tool_name, raw_results, violations_count, passes_count, status, created_at, completed_at)
+                (test_session_id, page_id, tool_name, raw_results, violations_count, passes_count, status, started_at, completed_at)
                 VALUES ($4, $5, $6, $1, $2, $3, 'completed', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
                 ON CONFLICT (test_session_id, page_id, tool_name) 
                 DO UPDATE SET 
@@ -4951,6 +4951,7 @@ class TestAutomationService {
      */
     async runAxeAgainstPage(pageUrl, pageInstances) {
         let browser;
+        let context = null;
         try {
             console.log(`🔧 Running Axe against: ${pageUrl}`);
             
@@ -4964,7 +4965,23 @@ class TestAutomationService {
                 ]
             });
 
-            const page = await browser.newPage();
+            // Get authentication context if available
+            if (pageInstances && pageInstances.length > 0) {
+                const sessionId = pageInstances[0].session_id;
+                if (sessionId) {
+                    const authContext = await this.getAuthContextForSession(sessionId);
+                    if (authContext) {
+                        // Create context with stored authentication state
+                        context = await browser.createIncognitoContext({
+                            storageState: authContext
+                        });
+                        console.log(`🔐 Crawler authentication session loaded successfully for Axe`);
+                    }
+                }
+            }
+
+            // Use authenticated context if available, otherwise create new page
+            const page = context ? await context.newPage() : await browser.newPage();
             await page.setViewport({ width: 1920, height: 1080 });
             
             // Set timeout and navigate
@@ -5027,11 +5044,79 @@ class TestAutomationService {
     }
 
     /**
+     * Get authentication context for a session
+     */
+    async getAuthContextForSession(sessionId) {
+        if (!sessionId) return null;
+        
+        try {
+            // Get the test session's project and find crawler auth sessions
+            const sessionResult = await this.pool.query(`
+                SELECT ts.project_id, p.primary_url 
+                FROM test_sessions ts 
+                JOIN projects p ON ts.project_id = p.id 
+                WHERE ts.id = $1
+            `, [sessionId]);
+            
+            if (sessionResult.rows.length === 0) {
+                console.log(`⚠️ No session found for ID: ${sessionId}`);
+                return null;
+            }
+            
+            const session = sessionResult.rows[0];
+            
+            // Look for active crawler authentication sessions for this project
+            const crawlerAuthResult = await this.pool.query(`
+                SELECT cas.*, wc.name as crawler_name, wc.base_url
+                FROM crawler_auth_sessions cas
+                JOIN web_crawlers wc ON cas.crawler_id = wc.id
+                WHERE wc.project_id = $1 
+                AND cas.is_active = true
+                AND (cas.expires_at IS NULL OR cas.expires_at > CURRENT_TIMESTAMP)
+                AND cas.cookies IS NOT NULL
+                AND jsonb_array_length(cas.cookies) > 0
+                ORDER BY cas.last_used_at DESC
+                LIMIT 1
+            `, [session.project_id]);
+            
+            if (crawlerAuthResult.rows.length > 0) {
+                const crawlerAuthSession = crawlerAuthResult.rows[0];
+                console.log(`🔐 Found crawler auth session for project ${session.project_id}: ${crawlerAuthSession.crawler_name} (${crawlerAuthSession.cookies ? Object.keys(crawlerAuthSession.cookies).length : 0} cookies)`);
+                
+                // Create storage state from crawler session data
+                const storageState = {
+                    cookies: crawlerAuthSession.cookies || [],
+                    localStorage: crawlerAuthSession.local_storage || [],
+                    sessionStorage: crawlerAuthSession.session_storage || []
+                };
+                
+                console.log(`🔐 Using ${storageState.cookies.length} cookies from crawler session`);
+                return storageState;
+            } else {
+                console.log(`⚠️ No active crawler auth sessions found for project ${session.project_id}`);
+                return null;
+            }
+        } catch (error) {
+            console.log(`❌ Error fetching auth config: ${error.message}`);
+            return null;
+        }
+    }
+
+    /**
      * Run Pa11y against a specific page
      */
     async runPa11yAgainstPage(pageUrl, pageInstances) {
         try {
             console.log(`🔧 Running Pa11y against: ${pageUrl}`);
+            
+            // Get authentication context if available
+            let authContext = null;
+            if (pageInstances && pageInstances.length > 0) {
+                const sessionId = pageInstances[0].session_id;
+                if (sessionId) {
+                    authContext = await this.getAuthContextForSession(sessionId);
+                }
+            }
             
             // Configure Pa11y for specific WCAG criteria
             const wcagCriteria = pageInstances.map(instance => instance.requirement_id);
@@ -5048,6 +5133,12 @@ class TestAutomationService {
                 },
                 rules: pa11yRules.length > 0 ? pa11yRules : undefined
             };
+
+            // Add authentication if available
+            if (authContext) {
+                console.log(`🔐 Using authenticated context for Pa11y`);
+                options.chromeLaunchConfig.storageState = authContext;
+            }
 
             const results = await pa11y(pageUrl, options);
             
@@ -5075,6 +5166,15 @@ class TestAutomationService {
         try {
             console.log(`🎨 Running contrast analyzer against page: ${pageUrl}`);
             
+            // Get authentication context if available
+            let authContext = null;
+            if (pageInstances && pageInstances.length > 0) {
+                const sessionId = pageInstances[0].session_id;
+                if (sessionId) {
+                    authContext = await this.getAuthContextForSession(sessionId);
+                }
+            }
+            
             const ContrastAnalyzer = require('../../scripts/contrast-analyzer.js');
             const analyzer = new ContrastAnalyzer();
             
@@ -5091,6 +5191,12 @@ class TestAutomationService {
                 analyzeGradients: true,
                 captureScreenshots: false
             };
+            
+            // Add authentication if available
+            if (authContext) {
+                console.log(`🔐 Using authenticated context for Contrast Analyzer`);
+                analysisOptions.authContext = authContext;
+            }
             
             const contrastResults = await analyzer.analyzeContrast(pageUrl, analysisOptions);
             
@@ -5130,14 +5236,52 @@ class TestAutomationService {
         try {
             console.log(`🔧 Running Lighthouse against: ${pageUrl}`);
             
+            // Get authentication context if available
+            let authContext = null;
+            if (pageInstances && pageInstances.length > 0) {
+                const sessionId = pageInstances[0].session_id;
+                if (sessionId) {
+                    authContext = await this.getAuthContextForSession(sessionId);
+                }
+            }
+            
             // Dynamic import for Lighthouse (ES module)
             if (!this.lighthouse) {
                 this.lighthouse = (await import('lighthouse')).default;
             }
             const chromeLauncher = require('chrome-launcher');
 
+            // Prepare Chrome flags
+            const chromeFlags = ['--headless', '--no-sandbox', '--disable-setuid-sandbox'];
+            
+            // Add authentication if available
+            if (authContext) {
+                console.log(`🔐 Using authenticated context for Lighthouse`);
+                // For Lighthouse, we need to use a different approach for authentication
+                // We'll use Puppeteer to set up the authenticated session first
+                const puppeteer = require('puppeteer');
+                const browser = await puppeteer.launch({ headless: true });
+                const context = await browser.createIncognitoContext({
+                    storageState: authContext
+                });
+                const page = await context.newPage();
+                
+                // Navigate to the page with authentication
+                await page.goto(pageUrl, { waitUntil: 'networkidle0', timeout: 30000 });
+                
+                // Get the authenticated cookies
+                const cookies = await page.context().cookies();
+                await browser.close();
+                
+                // Add cookies to Chrome flags
+                const cookieArgs = cookies.map(cookie => 
+                    `--cookie="${cookie.name}=${cookie.value}; Domain=${cookie.domain}; Path=${cookie.path}"`
+                );
+                chromeFlags.push(...cookieArgs);
+            }
+
             chrome = await chromeLauncher.launch({ 
-                chromeFlags: ['--headless', '--no-sandbox', '--disable-setuid-sandbox'] 
+                chromeFlags: chromeFlags
             });
             
             const lighthouseResults = await this.lighthouse(pageUrl, {

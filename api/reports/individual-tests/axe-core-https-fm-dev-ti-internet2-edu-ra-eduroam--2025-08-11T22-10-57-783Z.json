@@ -1,0 +1,81 @@
+{
+  "tool": "axe-core",
+  "pageUrl": "https://fm-dev.ti.internet2.edu/ra/eduroam#",
+  "pageId": "cfb5e7ba-e6df-4a39-bc16-c495e0504224",
+  "sessionId": "1c97c027-c983-47c2-89cc-1af59b0ee857",
+  "runId": "88feaf08-84c4-49fa-9130-ab8708b40596",
+  "timestamp": "2025-08-11T22:10:57.783Z",
+  "violations": [
+    {
+      "id": "document-title",
+      "impact": "serious",
+      "tags": [
+        "cat.text-alternatives",
+        "wcag2a",
+        "wcag242",
+        "TTv5",
+        "TT12.a",
+        "EN-301-549",
+        "EN-9.2.4.2",
+        "ACT"
+      ],
+      "description": "Ensure each HTML document contains a non-empty <title> element",
+      "help": "Documents must have <title> element to aid in navigation",
+      "helpUrl": "https://dequeuniversity.com/rules/axe/4.10/document-title?application=axeAPI",
+      "nodes": [
+        {
+          "any": [
+            {
+              "id": "doc-has-title",
+              "data": null,
+              "relatedNodes": [],
+              "impact": "serious",
+              "message": "Document does not have a non-empty <title> element"
+            }
+          ],
+          "all": [],
+          "none": [],
+          "impact": "serious",
+          "html": "<html lang=\"en\">",
+          "target": [
+            "html"
+          ],
+          "failureSummary": "Fix any of the following:\n  Document does not have a non-empty <title> element"
+        }
+      ]
+    },
+    {
+      "id": "page-has-heading-one",
+      "impact": "moderate",
+      "tags": [
+        "cat.semantics",
+        "best-practice"
+      ],
+      "description": "Ensure that the page, or at least one of its frames contains a level-one heading",
+      "help": "Page should contain a level-one heading",
+      "helpUrl": "https://dequeuniversity.com/rules/axe/4.10/page-has-heading-one?application=axeAPI",
+      "nodes": [
+        {
+          "any": [],
+          "all": [
+            {
+              "id": "page-has-heading-one",
+              "data": null,
+              "relatedNodes": [],
+              "impact": "moderate",
+              "message": "Page must have a level-one heading"
+            }
+          ],
+          "none": [],
+          "impact": "moderate",
+          "html": "<html lang=\"en\">",
+          "target": [
+            "html"
+          ],
+          "failureSummary": "Fix all of the following:\n  Page must have a level-one heading"
+        }
+      ]
+    }
+  ],
+  "violationCount": 2
+}
