@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Test & Authentication</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        button { padding: 10px 15px; margin: 5px; cursor: pointer; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>Dashboard Test & Authentication</h1>
+    
+    <div class="section info">
+        <h2>🔧 Fixes Applied</h2>
+        <ul>
+            <li>✅ Fixed JavaScript function registration for <code>toggleAutomationResults</code></li>
+            <li>✅ Backend server running on port 3001</li>
+            <li>✅ Frontend server running on port 8080</li>
+            <li>✅ Authentication token generated</li>
+        </ul>
+    </div>
+
+    <div class="section">
+        <h2>🔐 Authentication Setup</h2>
+        <p>Click the button below to set the authentication token:</p>
+        <button onclick="setAuthToken()">Set Authentication Token</button>
+        <button onclick="checkAuthToken()">Check Current Token</button>
+        <div id="auth-status"></div>
+    </div>
+
+    <div class="section">
+        <h2>🧪 Test Dashboard</h2>
+        <p>Test the dashboard functionality:</p>
+        <button onclick="openDashboard()">Open Dashboard</button>
+        <button onclick="testAPI()">Test API Connection</button>
+        <button onclick="testRequirement121()">Test Requirement 1.2.1</button>
+        <div id="test-results"></div>
+    </div>
+
+    <div class="section">
+        <h2>📊 Expected Results</h2>
+        <p><strong>Requirement 1.2.1 should show:</strong></p>
+        <ul>
+            <li>✅ Test Method: Manual</li>
+            <li>✅ Overall Status: Passed (not "Not Tested")</li>
+            <li>✅ Manual Status: Passed</li>
+            <li>✅ 2 test instances (both passed)</li>
+        </ul>
+    </div>
+
+    <script>
+        const AUTH_TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI0NjA4ODIzMC02MTMzLTQ1ZTMtOGEwNC0wNmZlZWEyOTgwOTQiLCJ1c2VybmFtZSI6ImFkbWluIiwicm9sZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBsb2NhbGhvc3QiLCJpYXQiOjE3NTQ5MzcxMjksImV4cCI6MTc1NTU0MTkyOX0.92AWSeFUoDEc6bV1I9gLwh5vcMEMFx8kIgoxBoYM0a0';
+
+        function setAuthToken() {
+            localStorage.setItem('authToken', AUTH_TOKEN);
+            sessionStorage.setItem('authToken', AUTH_TOKEN);
+            document.getElementById('auth-status').innerHTML = '<div class="success">✅ Authentication token set successfully!</div>';
+        }
+
+        function checkAuthToken() {
+            const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
+            const status = document.getElementById('auth-status');
+            if (token) {
+                status.innerHTML = '<div class="success">✅ Token found: ' + token.substring(0, 50) + '...</div>';
+            } else {
+                status.innerHTML = '<div class="error">❌ No token found</div>';
+            }
+        }
+
+        function openDashboard() {
+            window.open('http://localhost:8080/', '_blank');
+        }
+
+        async function testAPI() {
+            const results = document.getElementById('test-results');
+            try {
+                const response = await fetch('http://localhost:3001/api/health');
+                const data = await response.json();
+                results.innerHTML = '<div class="success">✅ API Health Check: ' + JSON.stringify(data, null, 2) + '</div>';
+            } catch (error) {
+                results.innerHTML = '<div class="error">❌ API Error: ' + error.message + '</div>';
+            }
+        }
+
+        async function testRequirement121() {
+            const results = document.getElementById('test-results');
+            try {
+                const response = await fetch('http://localhost:3001/api/unified-requirements/session/b4d036be-ef3b-4c0e-a4f3-84c593d48027', {
+                    headers: {
+                        'Authorization': 'Bearer ' + AUTH_TOKEN
+                    }
+                });
+                const data = await response.json();
+                
+                if (data.success && data.data.requirements) {
+                    const req121 = data.data.requirements.find(r => r.criterion_number === '1.2.1');
+                    if (req121) {
+                        results.innerHTML = `
+                            <div class="success">
+                                <h3>✅ Requirement 1.2.1 Data:</h3>
+                                <pre>${JSON.stringify(req121, null, 2)}</pre>
+                                <p><strong>Status Check:</strong></p>
+                                <ul>
+                                    <li>Overall Status: ${req121.overall_status} ${req121.overall_status === 'passed' ? '✅' : '❌'}</li>
+                                    <li>Manual Status: ${req121.manual_status} ${req121.manual_status === 'passed' ? '✅' : '❌'}</li>
+                                    <li>Total Instances: ${req121.total_test_instances}</li>
+                                    <li>Passed Instances: ${req121.passed_instances}</li>
+                                </ul>
+                            </div>
+                        `;
+                    } else {
+                        results.innerHTML = '<div class="error">❌ Requirement 1.2.1 not found in API response</div>';
+                    }
+                } else {
+                    results.innerHTML = '<div class="error">❌ API response error: ' + JSON.stringify(data, null, 2) + '</div>';
+                }
+            } catch (error) {
+                results.innerHTML = '<div class="error">❌ API Error: ' + error.message + '</div>';
+            }
+        }
+
+        // Auto-set token on page load
+        window.onload = function() {
+            setAuthToken();
+        };
+    </script>
+</body>
+</html> 

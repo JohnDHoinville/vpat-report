@@ -1738,6 +1738,12 @@ ${requirement.failure_examples}
             // Store dashboard instance globally for reliable access by global wrapper functions
             window._dashboardInstance = this;
             console.log('✅ Dashboard instance stored globally');
+            
+            // Register global functions immediately
+            window.toggleAutomationResults = (instanceId) => this.toggleAutomationResults(instanceId);
+            window.toggleTestHistory = (instanceId) => this.toggleTestHistory(instanceId);
+            window.loadAutomationResults = (instanceId) => this.loadAutomationResults(instanceId);
+            window.loadTestInstanceHistory = (instanceId) => this.loadTestInstanceHistory(instanceId);
         },
         
         setupNestedObjectProtection() {
