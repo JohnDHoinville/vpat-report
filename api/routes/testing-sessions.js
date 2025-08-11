@@ -418,8 +418,9 @@ router.post('/', authenticateToken, async (req, res) => {
         const mappedLevels = conformance_levels.map(level => dbLevelMapping[level] || level);
         const uniqueLevels = [...new Set(mappedLevels)]; // Remove duplicates
         
-        // Database constraint allows single values or 'combined' for multiple
-        const dbConformanceLevel = uniqueLevels.length > 1 ? 'combined' : uniqueLevels[0] || 'combined';
+        // Database constraint allows: 'A', 'AA', 'AAA', 'Section508', 'Custom'
+        // For multiple levels, default to 'AA' as it's the most common standard
+        const dbConformanceLevel = uniqueLevels.length > 1 ? 'AA' : uniqueLevels[0] || 'AA';
         
         console.log('📋 Mapped conformance levels:', conformance_levels, '->', dbConformanceLevel);
         
@@ -918,7 +919,6 @@ async function getSelectedPagesFromCrawlers(selectedPageIds, selectedCrawlerIds)
                 cdp.selected_for_testing
             FROM crawler_discovered_pages cdp
             WHERE cdp.id = ANY($1::uuid[])
-            AND cdp.selected_for_testing = true
             ORDER BY cdp.url
         `;
         
@@ -928,7 +928,7 @@ async function getSelectedPagesFromCrawlers(selectedPageIds, selectedCrawlerIds)
         console.log(`✅ Retrieved ${crawlerPages.length} pages from crawler data`);
         
         if (crawlerPages.length === 0) {
-            console.log('⚠️ No pages found with selected_for_testing = true');
+            console.log('⚠️ No pages found with the provided page IDs');
             return [];
         }
         
