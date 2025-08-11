@@ -440,7 +440,9 @@ router.post('/', authenticateToken, async (req, res) => {
         console.log('✅ Session created:', session.id);
         
         // Get requirements for selected conformance levels
+        console.log('🔍 DEBUG: About to call getRequirementsForWizardLevels');
         const requirements = await getRequirementsForWizardLevels(conformance_levels, smart_filtering, manual_requirements);
+        console.log('🔍 DEBUG: getRequirementsForWizardLevels completed');
         
         if (requirements.length === 0) {
             await client.query('ROLLBACK');
@@ -453,7 +455,9 @@ router.post('/', authenticateToken, async (req, res) => {
         console.log(`📋 Found ${requirements.length} requirements for conformance levels`);
         
         // Get selected pages from crawler data (cross-crawler deduplication)
+        console.log('🔍 DEBUG: About to call getSelectedPagesFromCrawlers');
         const pages = await getSelectedPagesFromCrawlers(selected_page_ids, selected_crawler_ids);
+        console.log('🔍 DEBUG: getSelectedPagesFromCrawlers completed');
         
         if (pages.length === 0) {
             await client.query('ROLLBACK');
@@ -899,8 +903,10 @@ async function getRequirementsForWizardLevels(conformanceLevels, smartFiltering 
  * Get selected pages from multiple crawlers with deduplication
  */
 async function getSelectedPagesFromCrawlers(selectedPageIds, selectedCrawlerIds) {
+    console.log('🚀 FUNCTION CALLED: getSelectedPagesFromCrawlers');
     try {
         console.log('🗂️ Getting pages from crawlers:', { selectedPageIds: selectedPageIds.length, selectedCrawlerIds });
+        console.log('🔍 DEBUG: Pool connection status:', pool.totalCount, 'total,', pool.idleCount, 'idle,', pool.waitingCount, 'waiting');
         
         if (selectedPageIds.length === 0) {
             return [];
@@ -922,10 +928,20 @@ async function getSelectedPagesFromCrawlers(selectedPageIds, selectedCrawlerIds)
             ORDER BY cdp.url
         `;
         
-        const result = await pool.query(query, [selectedPageIds]);
-        const crawlerPages = result.rows;
+        console.log(`🔍 DEBUG: Querying with page IDs:`, selectedPageIds);
+        let result, crawlerPages;
+        try {
+            result = await pool.query(query, [selectedPageIds]);
+            crawlerPages = result.rows;
+        } catch (error) {
+            console.error('🔍 DEBUG: Database query error:', error);
+            throw error;
+        }
         
         console.log(`✅ Retrieved ${crawlerPages.length} pages from crawler data`);
+        if (crawlerPages.length > 0) {
+            console.log(`🔍 DEBUG: First page:`, crawlerPages[0]);
+        }
         
         if (crawlerPages.length === 0) {
             console.log('⚠️ No pages found with the provided page IDs');
@@ -952,12 +968,12 @@ async function getSelectedPagesFromCrawlers(selectedPageIds, selectedCrawlerIds)
         for (const crawlerPage of deduplicatedCrawlerPages) {
             // Check if page already exists in discovered_pages
             const existingPageQuery = `
-                SELECT id, url, title, page_type
+                SELECT dp.id, dp.url, dp.title, dp.page_type
                 FROM discovered_pages dp
                 JOIN site_discovery sd ON dp.discovery_id = sd.id
                 WHERE dp.url = $1
                 AND sd.project_id = (
-                    SELECT project_id FROM web_crawlers WHERE id = $2
+                    SELECT project_id FROM web_crawlers wc WHERE wc.id = $2
                 )
                 LIMIT 1
             `;
