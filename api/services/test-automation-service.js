@@ -1710,6 +1710,9 @@ class TestAutomationService {
      * Update test instance status
      */
     async updateTestInstanceStatus(instanceId, status, userId, notes = null) {
+        // Map 'running' to 'in_process' to comply with database constraints
+        const mappedStatus = status === 'running' ? 'in_process' : status;
+        
         const query = `
             UPDATE test_instances 
             SET status = $1, assigned_tester = $2, updated_at = $3
@@ -1718,15 +1721,15 @@ class TestAutomationService {
         `;
 
         const values = notes 
-            ? [status, userId, new Date(), notes, instanceId]
-            : [status, userId, new Date(), instanceId];
+            ? [mappedStatus, userId, new Date(), notes, instanceId]
+            : [mappedStatus, userId, new Date(), instanceId];
 
         await pool.query(query, values);
 
         // Create audit log entry
         await this.createAuditLogEntry(instanceId, 'status_change', userId, {
-            new_status: status,
-            notes: notes || `Status changed to ${status}`
+            new_status: mappedStatus,
+            notes: notes || `Status changed to ${mappedStatus}`
         });
     }
 
@@ -2081,8 +2084,18 @@ class TestAutomationService {
      */
     generateEvidenceDescription(data) {
         try {
-            const resultData = typeof data.result === 'string' ? JSON.parse(data.result) : data.result;
-            if (resultData.automated_analysis) {
+            // Handle different data structures
+            let resultData = null;
+            
+            if (data.result) {
+                resultData = typeof data.result === 'string' ? JSON.parse(data.result) : data.result;
+            } else if (data.automated_analysis) {
+                resultData = { automated_analysis: data.automated_analysis };
+            } else if (data.tool_results) {
+                resultData = { automated_analysis: { tool_results: data.tool_results } };
+            }
+            
+            if (resultData && resultData.automated_analysis) {
                 const analysis = resultData.automated_analysis;
                 const toolsUsed = analysis.tools_used ? analysis.tools_used.join(', ') : 'automated tools';
                 const outcome = data.status === 'passed' || data.status === 'passed_review_required' ? 'PASSED' : 'FAILED';
@@ -2122,7 +2135,14 @@ class TestAutomationService {
             console.warn('Error generating evidence description:', e);
         }
         
-        return data.notes || `Automated test result: ${data.status}`;
+        // Fallback descriptions
+        if (data.status) {
+            return `Automated test result: ${data.status}`;
+        } else if (data.notes) {
+            return data.notes;
+        } else {
+            return 'Automated test completed';
+        }
     }
 
     /**
