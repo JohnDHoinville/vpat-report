@@ -4489,20 +4489,20 @@ class TestAutomationService {
             passesCount = Math.max(0, 50 - violationsCount); // Rough estimate
 
             const query = `
-                UPDATE automated_test_results 
-                SET 
-                    raw_results = $1,
-                    violations_count = $2,
-                    passes_count = $3,
+                INSERT INTO automated_test_results 
+                (test_session_id, page_id, tool_name, raw_results, violations_count, passes_count, status, created_at, completed_at)
+                VALUES ($4, $5, $6, $1, $2, $3, 'completed', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                ON CONFLICT (test_session_id, page_id, tool_name) 
+                DO UPDATE SET 
+                    raw_results = EXCLUDED.raw_results,
+                    violations_count = EXCLUDED.violations_count,
+                    passes_count = EXCLUDED.passes_count,
                     status = 'completed',
                     completed_at = CURRENT_TIMESTAMP
-                WHERE test_session_id = $4 
-                AND page_id = $5 
-                AND tool_name = $6
                 RETURNING id
             `;
 
-            console.log(`🔍 DEBUG: About to execute UPDATE query with:`, {
+            console.log(`🔍 DEBUG: About to execute UPSERT query with:`, {
                 tool,
                 sessionId,
                 pageId,
@@ -4520,7 +4520,7 @@ class TestAutomationService {
                 tool
             ]);
 
-            console.log(`🔍 DEBUG: UPDATE query result:`, {
+            console.log(`🔍 DEBUG: UPSERT query result:`, {
                 rowsAffected: result.rowCount,
                 rowsReturned: result.rows.length
             });
@@ -4529,7 +4529,7 @@ class TestAutomationService {
                 console.log(`💾 Stored ${tool} results: ${violationsCount} violations, ${passesCount} passes`);
                 return result.rows[0];
             } else {
-                console.error(`❌ Failed to store ${tool} results - no matching record found`);
+                console.error(`❌ Failed to store ${tool} results - unexpected error`);
                 console.error(`🔍 DEBUG: Query was:`, query);
                 console.error(`🔍 DEBUG: Parameters were:`, [JSON.stringify(toolResults), violationsCount, passesCount, sessionId, pageId, tool]);
                 return null;
