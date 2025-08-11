@@ -1,0 +1,66 @@
+{
+  "tool": "lighthouse",
+  "pageUrl": "https://fm-dev.ti.internet2.edu/ra",
+  "pageId": "1f1a1038-38ee-42b3-81aa-9e1b679b08de",
+  "sessionId": "2caaf7d0-e9c8-4be3-9604-d8aeed5fcc33",
+  "runId": "bda8419a-97bb-40c6-a333-bc524fa0d4fd",
+  "timestamp": "2025-08-11T01:14:14.033Z",
+  "violations": [
+    {
+      "id": "document-title",
+      "title": "Document doesn't have a `<title>` element",
+      "description": "The title gives screen reader users an overview of the page, and search engine users rely on it heavily to determine if a page is relevant to their search. [Learn more about document titles](https://dequeuniversity.com/rules/axe/4.9/document-title).",
+      "score": 0,
+      "details": {
+        "type": "table",
+        "headings": [
+          {
+            "key": "node",
+            "valueType": "node",
+            "subItemsHeading": {
+              "key": "relatedNode",
+              "valueType": "node"
+            },
+            "label": "Failing Elements"
+          }
+        ],
+        "items": [
+          {
+            "node": {
+              "type": "node",
+              "lhId": "1-0-HTML",
+              "path": "1,HTML",
+              "selector": "html",
+              "boundingRect": {
+                "top": 0,
+                "bottom": 823,
+                "left": 0,
+                "right": 412,
+                "width": 412,
+                "height": 823
+              },
+              "snippet": "<html lang=\"en\">",
+              "nodeLabel": "html",
+              "explanation": "Fix any of the following:\n  Document does not have a non-empty <title> element"
+            }
+          }
+        ],
+        "debugData": {
+          "type": "debugdata",
+          "impact": "serious",
+          "tags": [
+            "cat.text-alternatives",
+            "wcag2a",
+            "wcag242",
+            "TTv5",
+            "TT12.a",
+            "EN-301-549",
+            "EN-9.2.4.2",
+            "ACT"
+          ]
+        }
+      }
+    }
+  ],
+  "violationCount": 1
+}

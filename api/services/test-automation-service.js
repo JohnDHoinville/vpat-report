@@ -4930,6 +4930,9 @@ class TestAutomationService {
                 case 'pa11y':
                     return await this.runPa11yAgainstPage(pageUrl, pageInstances);
                 
+                case 'lighthouse':
+                    return await this.runLighthouseAgainstPage(pageUrl, pageInstances);
+                
                 default:
                     console.warn(`❌ Unsupported tool: ${tool}`);
                     return null;
@@ -5059,6 +5062,68 @@ class TestAutomationService {
         } catch (error) {
             console.error(`❌ Pa11y error for ${pageUrl}:`, error);
             return { violations: [], error: error.message };
+        }
+    }
+
+    /**
+     * Run Lighthouse against a specific page
+     */
+    async runLighthouseAgainstPage(pageUrl, pageInstances) {
+        let chrome;
+        try {
+            console.log(`🔧 Running Lighthouse against: ${pageUrl}`);
+            
+            // Dynamic import for Lighthouse (ES module)
+            if (!this.lighthouse) {
+                this.lighthouse = (await import('lighthouse')).default;
+            }
+            const chromeLauncher = require('chrome-launcher');
+
+            chrome = await chromeLauncher.launch({ 
+                chromeFlags: ['--headless', '--no-sandbox', '--disable-setuid-sandbox'] 
+            });
+            
+            const lighthouseResults = await this.lighthouse(pageUrl, {
+                port: chrome.port,
+                onlyCategories: ['accessibility'],
+                logLevel: 'error',
+                output: 'json'
+            });
+
+            const accessibilityScore = lighthouseResults.lhr.categories.accessibility.score * 100;
+            const audits = lighthouseResults.lhr.audits;
+            
+            // Extract failed accessibility audits as violations
+            const violations = Object.values(audits)
+                .filter(audit => audit.score !== null && audit.score < 1 && audit.details)
+                .map(audit => ({
+                    id: audit.id,
+                    title: audit.title,
+                    description: audit.description,
+                    score: audit.score,
+                    details: audit.details,
+                    helpText: audit.helpText,
+                    helpUrl: audit.helpUrl
+                }));
+
+            console.log(`✅ Lighthouse completed for ${pageUrl}: ${accessibilityScore}% score, ${violations.length} violations`);
+            
+            return {
+                violations: violations,
+                passes: Object.values(audits).filter(audit => audit.score === 1),
+                tool: 'lighthouse',
+                pageUrl,
+                accessibilityScore,
+                timestamp: new Date().toISOString()
+            };
+
+        } catch (error) {
+            console.error(`❌ Lighthouse error for ${pageUrl}:`, error);
+            return { violations: [], error: error.message };
+        } finally {
+            if (chrome) {
+                await chrome.kill();
+            }
         }
     }
 
@@ -5316,6 +5381,8 @@ class TestAutomationService {
             return this.mapAxeViolationToWcag(violation);
         } else if (tool === 'pa11y') {
             return this.mapPa11yViolationToWcag(violation);
+        } else if (tool === 'lighthouse') {
+            return this.mapLighthouseViolationToWcag(violation);
         }
         return [];
     }
@@ -5363,6 +5430,64 @@ class TestAutomationService {
         }
         
         return [];
+    }
+
+    mapLighthouseViolationToWcag(violation) {
+        // Map Lighthouse audit IDs to WCAG criteria
+        const lighthouseToWcagMapping = {
+            'document-title': '2.4.2',
+            'html-has-lang': '3.1.1',
+            'html-lang-valid': '3.1.1',
+            'image-alt': '1.1.1',
+            'label': '3.3.2',
+            'link-name': '2.4.4',
+            'list': '1.3.1',
+            'listitem': '1.3.1',
+            'meta-viewport': '1.3.4',
+            'object-alt': '1.1.1',
+            'video-caption': '1.2.2',
+            'video-description': '1.2.3',
+            'bypass': '2.4.1',
+            'color-contrast': '1.4.3',
+            'focus-order-semantics': '2.4.3',
+            'heading-order': '1.3.1',
+            'input-image-alt': '1.1.1',
+            'landmark-one-main': '1.3.1',
+            'page-has-heading-one': '2.4.6',
+            'region': '1.3.1',
+            'skip-link': '2.4.1',
+            'tabindex': '2.4.3',
+            'td-headers-attr': '1.3.1',
+            'th-has-data-cells': '1.3.1',
+            'valid-lang': '3.1.2',
+            'video-audio-caption': '1.2.2',
+            'aria-allowed-attr': '4.1.2',
+            'aria-allowed-role': '4.1.2',
+            'aria-hidden-body': '4.1.2',
+            'aria-hidden-focus': '4.1.2',
+            'aria-input-field-name': '4.1.2',
+            'aria-required-attr': '4.1.2',
+            'aria-required-children': '4.1.2',
+            'aria-required-parent': '4.1.2',
+            'aria-roles': '4.1.2',
+            'aria-valid-attr-value': '4.1.2',
+            'aria-valid-attr': '4.1.2',
+            'button-name': '4.1.2',
+            'duplicate-id-active': '4.1.1',
+            'duplicate-id-aria': '4.1.1',
+            'form-field-multiple-labels': '3.3.2',
+            'frame-title': '2.4.1',
+            'input-button-name': '4.1.2',
+            'layout-table': '1.3.1',
+            'meta-refresh': '2.2.1',
+            'presentation-role-conflict': '1.3.1',
+            'scope-attr-valid': '1.3.1',
+            'server-side-image-map': '1.1.1',
+            'td-has-header': '1.3.1',
+            'use-landmarks': '1.3.1'
+        };
+
+        return lighthouseToWcagMapping[violation.id] || [];
     }
 
     /**
