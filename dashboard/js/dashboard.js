@@ -13816,62 +13816,47 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
         try {
             console.log(`📊 Enhancing ${requirements.length} requirements with test data for session ${sessionId}`);
             
-            // Get automated test results with error handling
-            let automatedResults = [];
+            // Get test instances (which contain both automated and manual results)
+            let testInstances = [];
             try {
-                const automatedResponse = await this.apiCall(`/results/automated-test-results?session_id=${sessionId}`);
-                automatedResults = Array.isArray(automatedResponse.data) ? automatedResponse.data : [];
+                const testResponse = await this.apiCall(`/test-instances?session_id=${sessionId}&limit=1000`);
+                testInstances = Array.isArray(testResponse.data) ? testResponse.data : [];
+                console.log(`📊 Loaded ${testInstances.length} test instances for session ${sessionId}`);
             } catch (error) {
-                console.warn('Failed to load automated test results:', error);
-                automatedResults = [];
-            }
-            
-            // Get manual test instances with error handling  
-            let manualTests = [];
-            try {
-                const manualResponse = await this.apiCall(`/test-instances?session_id=${sessionId}`);
-                manualTests = Array.isArray(manualResponse.data) ? manualResponse.data : [];
-            } catch (error) {
-                console.warn('Failed to load manual test instances:', error);
-                manualTests = [];
+                console.warn('Failed to load test instances:', error);
+                testInstances = [];
             }
             
             // Group results by requirement
             const automatedByRequirement = {};
             const manualByRequirement = {};
             
-            // Safely process automated results
-            if (Array.isArray(automatedResults)) {
-                automatedResults.forEach(result => {
-                    const reqId = result.wcag_criterion || result.requirement_id;
-                    if (reqId) {
-                        if (!automatedByRequirement[reqId]) {
-                            automatedByRequirement[reqId] = [];
-                        }
-                        automatedByRequirement[reqId].push(result);
-                    }
-                });
-            }
-            
-            // Safely process test instances (both automated and manual)
-            if (Array.isArray(manualTests)) {
-                console.log(`📊 Processing ${manualTests.length} test instances`);
+            // Process test instances and categorize them based on automation results
+            if (Array.isArray(testInstances)) {
+                console.log(`📊 Processing ${testInstances.length} test instances`);
                 let automatedCount = 0;
                 let manualCount = 0;
                 
-                manualTests.forEach(test => {
+                testInstances.forEach(test => {
                     const reqId = test.requirement_id || test.criterion_number;
                     if (reqId) {
-                        // Categorize based on test_method_used
-                        if (test.test_method_used === 'automated') {
-                            // This is an automated test instance
+                        // Check if this test instance has automation results
+                        const hasAutomationResults = test.result && typeof test.result === 'object' && test.result.tool;
+                        
+                        if (hasAutomationResults) {
+                            // This test instance has automation results
                             if (!automatedByRequirement[reqId]) {
                                 automatedByRequirement[reqId] = [];
                             }
-                            automatedByRequirement[reqId].push(test);
+                            automatedByRequirement[reqId].push({
+                                ...test,
+                                result_status: test.result.status || 'completed',
+                                tool: test.result.tool,
+                                timestamp: test.result.timestamp
+                            });
                             automatedCount++;
                         } else {
-                            // This is a manual test instance
+                            // This is a manual test instance (no automation results)
                             if (!manualByRequirement[reqId]) {
                                 manualByRequirement[reqId] = [];
                             }
