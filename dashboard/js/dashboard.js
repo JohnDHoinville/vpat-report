@@ -2524,11 +2524,11 @@ ${requirement.failure_examples}
          */
         getAuthToken() {
             // Try to get token from localStorage first
-            let token = localStorage.getItem('authToken') || localStorage.getItem('accessToken');
+            let token = localStorage.getItem('authToken') || localStorage.getItem('accessToken') || localStorage.getItem('auth_token');
             
             // If no token in localStorage, try sessionStorage
             if (!token) {
-                token = sessionStorage.getItem('authToken') || sessionStorage.getItem('accessToken');
+                token = sessionStorage.getItem('authToken') || sessionStorage.getItem('accessToken') || sessionStorage.getItem('auth_token');
             }
             
             // If still no token, try to get from current session/user context
