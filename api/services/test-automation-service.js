@@ -3056,8 +3056,8 @@ class TestAutomationService {
                 SELECT atr.*, 
                        COUNT(te.id) as evidence_count
                 FROM automated_test_runs atr
-                LEFT JOIN test_evidence te ON te.metadata->>'run_id' = atr.id::text
-                WHERE atr.id = $1
+                LEFT JOIN test_evidence te ON te.metadata->>'run_id' = atr.run_id
+                WHERE atr.run_id = $1
                 GROUP BY atr.id
             `;
 
@@ -3128,8 +3128,53 @@ class TestAutomationService {
                 run.executed_at
             ]);
 
+            // Get detailed results from automated_test_results table
+            const detailedResultsQuery = `
+                SELECT 
+                    atr.tool_name,
+                    atr.violations_count,
+                    atr.warnings_count,
+                    atr.passes_count,
+                    atr.raw_results,
+                    atr.executed_at,
+                    dp.url as page_url,
+                    atr.id as result_id
+                FROM automated_test_results atr
+                JOIN discovered_pages dp ON atr.page_id = dp.id
+                WHERE atr.test_session_id = $1
+                ORDER BY atr.executed_at DESC
+            `;
+            
+            const detailedResults = await pool.query(detailedResultsQuery, [run.test_session_id]);
+            
+            // Filter results by requirement if this is a requirement-specific test
+            const filteredResults = [];
+            for (const result of detailedResults.rows) {
+                let filteredRawResults = result.raw_results;
+                
+                // Filter results by requirement for this session
+                try {
+                    const { filterResultsByRequirement } = require('./requirement-filtering');
+                    filteredRawResults = await filterResultsByRequirement(result.raw_results, run.test_session_id);
+                } catch (error) {
+                    console.error(`❌ Error filtering results:`, error);
+                    filteredRawResults = result.raw_results;
+                }
+                
+                // Update the counts based on filtered results
+                const parsedResults = typeof filteredRawResults === 'string' ? 
+                    JSON.parse(filteredRawResults) : filteredRawResults;
+                
+                result.violations_count = parsedResults.violations?.length || 0;
+                result.warnings_count = parsedResults.warnings?.length || 0;
+                result.passes_count = parsedResults.passes?.length || 0;
+                result.raw_results = filteredRawResults;
+                
+                filteredResults.push(result);
+            }
+            
             return {
-                detailed_results: run.raw_results || {},
+                detailed_results: filteredResults || [],
                 summary: {
                     tools_used: Array.isArray(run.tools_used) ? run.tools_used : 
                                (run.tools_used ? JSON.parse(run.tools_used) : []),
@@ -4409,22 +4454,19 @@ class TestAutomationService {
             
             if (toolResults && toolResults.violations_by_page) {
                 // Sum violations across all pages for this tool
-                Object.values(toolResults.violations_by_page).forEach(pageResult => {
-                    violationsCount += pageResult.violations || 0;
-                    console.log(`🔍 DEBUG: Page result violations: ${pageResult.violations || 0}`);
+                Object.values(toolResults.violations_by_page).forEach(pageViolations => {
+                    violationsCount += Array.isArray(pageViolations) ? pageViolations.length : 0;
+                    console.log(`🔍 DEBUG: Page violations count: ${Array.isArray(pageViolations) ? pageViolations.length : 0}`);
                 });
             }
             
-            // For axe results, we can count passes from the axe response
-            if (tool === 'axe' && toolResults && toolResults.pages_tested) {
-                toolResults.pages_tested.forEach(pageResult => {
-                    if (pageResult.details) {
-                        // Count actual passes (axe doesn't provide passes in our current structure)
-                        // We'll calculate this differently for now
-                        passesCount += Math.max(0, 50 - (pageResult.violations || 0)); // Rough estimate
-                    }
-                });
+            // Use total_violations if provided, otherwise calculate from violations_by_page
+            if (toolResults && typeof toolResults.total_violations === 'number') {
+                violationsCount = toolResults.total_violations;
             }
+            
+            // Estimate passes count (rough calculation)
+            passesCount = Math.max(0, 50 - violationsCount); // Rough estimate
 
             const query = `
                 UPDATE automated_test_results 
@@ -4600,9 +4642,31 @@ class TestAutomationService {
                                 results[tool].pages_tested.push(pageUrl);
                                 results[tool].violations_by_page[pageUrl] = toolResults.violations;
                                 
+                                // Store tool results in database
+                                const pageInstances = instancesByPage[pageUrl];
+                                if (pageInstances && pageInstances.length > 0) {
+                                    const pageId = pageInstances[0].page_id;
+                                    await this.storeToolResults(sessionId, pageId, tool, {
+                                        violations_by_page: { [pageUrl]: toolResults.violations },
+                                        pages_tested: [pageUrl],
+                                        total_violations: toolResults.violations.length
+                                    });
+                                }
+                                
                                 console.log(`✅ ${tool} tested ${pageUrl}: ${toolResults.violations.length} violations, updated ${mappingResults.updated} instances`);
                             } else {
                                 console.log(`✅ ${tool} tested ${pageUrl}: 0 violations`);
+                                
+                                // Store empty results in database for tools that found no violations
+                                const pageInstances = instancesByPage[pageUrl];
+                                if (pageInstances && pageInstances.length > 0) {
+                                    const pageId = pageInstances[0].page_id;
+                                    await this.storeToolResults(sessionId, pageId, tool, {
+                                        violations_by_page: { [pageUrl]: [] },
+                                        pages_tested: [pageUrl],
+                                        total_violations: 0
+                                    });
+                                }
                             }
                             
                         } catch (toolError) {

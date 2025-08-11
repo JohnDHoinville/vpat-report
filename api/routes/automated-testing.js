@@ -309,7 +309,7 @@ router.get('/results/:runId', authenticateToken, async (req, res) => {
             success: true,
             data: {
                 run_id: runId,
-                results: results.detailed_results,
+                detailed_results: results.detailed_results,
                 summary: results.summary,
                 evidence: results.evidence_files,
                 test_instances_updated: results.test_instances_updated,
