@@ -427,48 +427,79 @@ router.get('/session/:sessionId', async (req, res) => {
         // Map session conformance level to requirements filter
         let whereCondition = '';
         if (conformanceLevel === 'wcag_a') {
-            whereCondition = `WHERE requirement_type = 'wcag' AND level = 'a'`;
+            whereCondition = `WHERE ur.standard_type = 'wcag' AND ur.level = 'A'`;
         } else if (conformanceLevel === 'wcag_aa') {
-            whereCondition = `WHERE requirement_type = 'wcag' AND level IN ('a', 'aa')`;
+            whereCondition = `WHERE ur.standard_type = 'wcag' AND ur.level IN ('A', 'AA')`;
         } else if (conformanceLevel === 'wcag_aaa') {
-            whereCondition = `WHERE requirement_type = 'wcag' AND level IN ('a', 'aa', 'aaa')`;
+            whereCondition = `WHERE ur.standard_type = 'wcag' AND ur.level IN ('A', 'AA', 'AAA')`;
         } else if (conformanceLevel === 'section_508') {
-            whereCondition = `WHERE requirement_type = 'section_508'`;
+            whereCondition = `WHERE ur.standard_type = 'section508'`;
         } else if (conformanceLevel === 'combined') {
             // Combined includes all WCAG and Section 508 requirements
-            whereCondition = `WHERE requirement_type IN ('wcag', 'section_508')`;
+            whereCondition = `WHERE ur.standard_type IN ('wcag', 'section508')`;
         } else {
             // Default to WCAG AA
-            whereCondition = `WHERE requirement_type = 'wcag' AND level IN ('a', 'aa')`;
+            whereCondition = `WHERE ur.standard_type = 'wcag' AND ur.level IN ('A', 'AA')`;
         }
-        
-        // Add is_active condition to existing WHERE clause
-        whereCondition += ` AND is_active = true`;
 
+        // Get requirements with test instance statuses from unified_requirements (same table used in session creation)
         const result = await pool.query(`
             SELECT 
-                id,
-                requirement_type as standard_type,
-                criterion_number,
-                title,
-                description,
-                level,
-                test_method,
-                COALESCE(automated_tools, '[]'::jsonb) as automated_tools,
-                testing_instructions,
-                acceptance_criteria,
-                failure_examples,
-                is_active,
-                priority,
-                estimated_time_minutes,
-                wcag_url,
-                section_508_url,
-                created_at,
-                updated_at
-            FROM test_requirements 
+                ur.id,
+                ur.standard_type,
+                ur.requirement_id as criterion_number,
+                ur.title,
+                ur.description,
+                ur.level,
+                ur.test_method,
+                COALESCE(ur.tool_mappings, '[]'::jsonb) as automated_tools,
+                ur.manual_test_procedure as testing_instructions,
+                ur.understanding_url,
+                ur.applies_to_page_types,
+                ur.created_at,
+                -- Test instance statuses
+                COUNT(ti.id) as total_test_instances,
+                COUNT(CASE WHEN ti.status = 'passed' THEN 1 END) as passed_instances,
+                COUNT(CASE WHEN ti.status = 'failed' THEN 1 END) as failed_instances,
+                COUNT(CASE WHEN ti.status = 'in_progress' THEN 1 END) as in_progress_instances,
+                COUNT(CASE WHEN ti.status = 'pending' THEN 1 END) as pending_instances,
+                COUNT(CASE WHEN ti.status = 'needs_review' THEN 1 END) as needs_review_instances,
+                COUNT(CASE WHEN ti.status = 'not_applicable' THEN 1 END) as not_applicable_instances,
+                COUNT(CASE WHEN ti.test_method_used = 'automated' THEN 1 END) as automated_instances,
+                COUNT(CASE WHEN ti.test_method_used = 'manual' THEN 1 END) as manual_instances,
+                -- Overall status calculation
+                CASE 
+                    WHEN COUNT(ti.id) = 0 THEN 'not_tested'
+                    WHEN COUNT(CASE WHEN ti.status = 'failed' THEN 1 END) > 0 THEN 'failed'
+                    WHEN COUNT(CASE WHEN ti.status = 'passed' THEN 1 END) = COUNT(ti.id) THEN 'passed'
+                    WHEN COUNT(CASE WHEN ti.status IN ('in_progress', 'needs_review') THEN 1 END) > 0 THEN 'in_progress'
+                    WHEN COUNT(CASE WHEN ti.status = 'pending' THEN 1 END) > 0 THEN 'pending'
+                    ELSE 'partial'
+                END as overall_status,
+                -- Automated status
+                CASE 
+                    WHEN COUNT(CASE WHEN ti.test_method_used = 'automated' AND ti.status = 'failed' THEN 1 END) > 0 THEN 'failed'
+                    WHEN COUNT(CASE WHEN ti.test_method_used = 'automated' AND ti.status = 'passed' THEN 1 END) > 0 
+                         AND COUNT(CASE WHEN ti.test_method_used = 'automated' THEN 1 END) = COUNT(CASE WHEN ti.test_method_used = 'automated' AND ti.status = 'passed' THEN 1 END) THEN 'passed'
+                    WHEN COUNT(CASE WHEN ti.test_method_used = 'automated' AND ti.status IN ('in_progress', 'needs_review') THEN 1 END) > 0 THEN 'in_progress'
+                    WHEN COUNT(CASE WHEN ti.test_method_used = 'automated' THEN 1 END) > 0 THEN 'pending'
+                    ELSE 'not_tested'
+                END as automated_status,
+                -- Manual status
+                CASE 
+                    WHEN COUNT(CASE WHEN ti.test_method_used = 'manual' AND ti.status = 'failed' THEN 1 END) > 0 THEN 'failed'
+                    WHEN COUNT(CASE WHEN ti.test_method_used = 'manual' AND ti.status = 'passed' THEN 1 END) > 0 
+                         AND COUNT(CASE WHEN ti.test_method_used = 'manual' THEN 1 END) = COUNT(CASE WHEN ti.test_method_used = 'manual' AND ti.status = 'passed' THEN 1 END) THEN 'passed'
+                    WHEN COUNT(CASE WHEN ti.test_method_used = 'manual' AND ti.status IN ('in_progress', 'needs_review') THEN 1 END) > 0 THEN 'in_progress'
+                    WHEN COUNT(CASE WHEN ti.test_method_used = 'manual' THEN 1 END) > 0 THEN 'pending'
+                    ELSE 'not_tested'
+                END as manual_status
+            FROM unified_requirements ur
+            LEFT JOIN test_instances ti ON ur.id = ti.requirement_id AND ti.session_id = $1
             ${whereCondition}
-            ORDER BY requirement_type, criterion_number
-        `);
+            GROUP BY ur.id, ur.standard_type, ur.requirement_id, ur.title, ur.description, ur.level, ur.test_method, ur.tool_mappings, ur.manual_test_procedure, ur.understanding_url, ur.applies_to_page_types, ur.created_at
+            ORDER BY ur.standard_type, ur.requirement_id
+        `, [sessionId]);
 
         res.json({
             success: true,
