@@ -984,33 +984,83 @@ window.dashboard = function() {
             const hybridRequirements = this.sessionRequirements.filter(r => r.test_method === 'both').length;
             const manualRequirements = this.sessionRequirements.filter(r => r.test_method === 'manual').length;
             
-            // Count requirements by actual test status
+            // Count requirements by actual test status using the correct field names from API
             const automatedPassed = this.sessionRequirements.filter(r => r.automated_status === 'passed').length;
             const automatedFailed = this.sessionRequirements.filter(r => r.automated_status === 'failed').length;
             const automatedPending = this.sessionRequirements.filter(r => r.automated_status === 'pending').length;
             const automatedInProgress = this.sessionRequirements.filter(r => r.automated_status === 'in_progress').length;
             const automatedRunning = this.sessionRequirements.filter(r => r.automated_status === 'running').length;
             const automatedNeedsReview = this.sessionRequirements.filter(r => r.automated_status === 'needs_review').length;
-            const manualCompleted = this.sessionRequirements.filter(r => r.manual_status === 'completed').length;
+            const manualCompleted = this.sessionRequirements.filter(r => r.manual_status === 'passed').length; // Changed from 'completed' to 'passed'
             const manualPending = this.sessionRequirements.filter(r => r.manual_status === 'pending').length;
             const manualInProgress = this.sessionRequirements.filter(r => r.manual_status === 'in_progress').length;
-            const notTested = this.sessionRequirements.filter(r => r.status === 'not_tested').length;
+            const notTested = this.sessionRequirements.filter(r => r.overall_status === 'not_tested').length; // Changed from 'status' to 'overall_status'
+            
+            // Alternative approach: Count based on test instance data if available
+            let automatedPassedAlt = 0;
+            let automatedFailedAlt = 0;
+            let manualCompletedAlt = 0;
+            let manualPendingAlt = 0;
+            let notTestedAlt = 0;
+            let inProgressAlt = 0;
+            
+            this.sessionRequirements.forEach(r => {
+                // Count based on test instance data
+                if (r.passed_instances && parseInt(r.passed_instances) > 0) {
+                    if (r.automated_instances && parseInt(r.automated_instances) > 0) {
+                        automatedPassedAlt++;
+                    } else if (r.manual_instances && parseInt(r.manual_instances) > 0) {
+                        manualCompletedAlt++;
+                    }
+                }
+                if (r.failed_instances && parseInt(r.failed_instances) > 0) {
+                    automatedFailedAlt++;
+                }
+                if (r.in_progress_instances && parseInt(r.in_progress_instances) > 0) {
+                    inProgressAlt++;
+                }
+                if (r.pending_instances && parseInt(r.pending_instances) > 0) {
+                    if (r.manual_instances && parseInt(r.manual_instances) > 0) {
+                        manualPendingAlt++;
+                    }
+                }
+                if (r.total_test_instances && parseInt(r.total_test_instances) === 0) {
+                    notTestedAlt++;
+                }
+            });
+            
+            // Use the alternative counts if they provide better data
+            if (automatedPassedAlt > automatedPassed) {
+                console.log(`🔧 Using alternative count for automated passed: ${automatedPassedAlt} vs ${automatedPassed}`);
+            }
+            if (automatedFailedAlt > automatedFailed) {
+                console.log(`🔧 Using alternative count for automated failed: ${automatedFailedAlt} vs ${automatedFailed}`);
+            }
+            if (manualCompletedAlt > manualCompleted) {
+                console.log(`🔧 Using alternative count for manual completed: ${manualCompletedAlt} vs ${manualCompleted}`);
+            }
+            if (notTestedAlt !== notTested) {
+                console.log(`🔧 Using alternative count for not tested: ${notTestedAlt} vs ${notTested}`);
+            }
+            if (inProgressAlt > 0) {
+                console.log(`🔧 Found ${inProgressAlt} requirements with in-progress instances`);
+            }
             
             this.requirementStats = {
                 total: this.sessionRequirements.length,
                 automated_requirements: automatedRequirements,
                 hybrid_requirements: hybridRequirements,
                 manual_requirements: manualRequirements,
-                automated_passed: automatedPassed,
-                automated_failed: automatedFailed,
+                automated_passed: Math.max(automatedPassed, automatedPassedAlt),
+                automated_failed: Math.max(automatedFailed, automatedFailedAlt),
                 automated_pending: automatedPending,
-                automated_in_progress: automatedInProgress,
+                automated_in_progress: Math.max(automatedInProgress, inProgressAlt),
                 automated_running: automatedRunning,
                 automated_needs_review: automatedNeedsReview,
-                manual_completed: manualCompleted,
-                manual_pending: manualPending,
+                manual_completed: Math.max(manualCompleted, manualCompletedAlt),
+                manual_pending: Math.max(manualPending, manualPendingAlt),
                 manual_in_progress: manualInProgress,
-                not_tested: notTested
+                not_tested: notTestedAlt > 0 ? notTestedAlt : notTested
             };
             
             console.log(`📊 Requirements stats calculated:`, {
@@ -1019,12 +1069,25 @@ window.dashboard = function() {
                 hybrid: this.requirementStats.hybrid_requirements,
                 manual: this.requirementStats.manual_requirements,
                 automated_total: this.requirementStats.automated_requirements + this.requirementStats.hybrid_requirements,
+                automated_passed: this.requirementStats.automated_passed,
+                automated_failed: this.requirementStats.automated_failed,
                 automated_pending: this.requirementStats.automated_pending,
                 automated_in_progress: this.requirementStats.automated_in_progress,
                 automated_running: this.requirementStats.automated_running,
                 automated_needs_review: this.requirementStats.automated_needs_review,
-                manual_pending: this.requirementStats.manual_pending
+                manual_completed: this.requirementStats.manual_completed,
+                manual_pending: this.requirementStats.manual_pending,
+                manual_in_progress: this.requirementStats.manual_in_progress,
+                not_tested: this.requirementStats.not_tested
             });
+            
+            // Debug: Show sample status values from first few requirements
+            if (this.sessionRequirements && this.sessionRequirements.length > 0) {
+                console.log('🔍 Sample requirement statuses:');
+                this.sessionRequirements.slice(0, 3).forEach((req, index) => {
+                    console.log(`  ${index + 1}. ${req.criterion_number}: overall_status="${req.overall_status}", automated_status="${req.automated_status}", manual_status="${req.manual_status}"`);
+                });
+            }
         },
         
         updateRequirementsPagination: function() {
@@ -7788,13 +7851,48 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
             
             let tools = [];
             
-            // First, try to get tools from the requirement's automated_tools (shows all available tools)
+            // First, try to get tools from the requirement's automated_tools
             if (requirement.automated_tools) {
                 try {
                     if (typeof requirement.automated_tools === 'string') {
-                        tools = JSON.parse(requirement.automated_tools);
+                        const parsed = JSON.parse(requirement.automated_tools);
+                        if (Array.isArray(parsed)) {
+                            tools = parsed;
+                        } else if (parsed.automated_tools && Array.isArray(parsed.automated_tools)) {
+                            tools = parsed.automated_tools;
+                        } else if (typeof parsed === 'object') {
+                            // Extract tool names from complex object structure
+                            if (parsed.automated_tools && Array.isArray(parsed.automated_tools)) {
+                                tools = parsed.automated_tools;
+                            } else {
+                                // Extract from object keys that represent tools
+                                const toolKeys = Object.keys(parsed).filter(key => 
+                                    key !== 'principle' && 
+                                    key !== 'automated_rules' && 
+                                    key !== 'automation_confidence' && 
+                                    key !== 'manual_verification_needed' &&
+                                    key !== 'manual'
+                                );
+                                tools = toolKeys;
+                            }
+                        }
                     } else if (Array.isArray(requirement.automated_tools)) {
                         tools = requirement.automated_tools;
+                    } else if (typeof requirement.automated_tools === 'object') {
+                        // Handle complex object structure
+                        if (requirement.automated_tools.automated_tools && Array.isArray(requirement.automated_tools.automated_tools)) {
+                            tools = requirement.automated_tools.automated_tools;
+                        } else {
+                            // Extract from object keys that represent tools
+                            const toolKeys = Object.keys(requirement.automated_tools).filter(key => 
+                                key !== 'principle' && 
+                                key !== 'automated_rules' && 
+                                key !== 'automation_confidence' && 
+                                key !== 'manual_verification_needed' &&
+                                key !== 'manual'
+                            );
+                            tools = toolKeys;
+                        }
                     }
                 } catch (e) {
                     console.warn('Error parsing automated_tools for requirement:', requirement.criterion_number, e);
