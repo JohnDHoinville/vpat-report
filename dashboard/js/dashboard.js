@@ -14614,7 +14614,17 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
             return window._dashboardInstance.toggleAutomationResults(instanceId);
         }
         
-        // Strategy 2: Find Alpine data via multiple selectors
+        // Strategy 2: Wait for initialization and retry (with recursion limit)
+        if (!window._dashboardInstance && (!window._toggleRecursionCount || window._toggleRecursionCount < 5)) {
+            window._toggleRecursionCount = (window._toggleRecursionCount || 0) + 1;
+            console.log(`⏳ Dashboard not initialized yet, waiting... (attempt ${window._toggleRecursionCount}/5)`);
+            setTimeout(() => {
+                window.toggleAutomationResults(instanceId);
+            }, 500);
+            return;
+        }
+        
+        // Strategy 3: Find Alpine data via multiple selectors
         const selectors = ['[x-data*="dashboard"]', '[x-data="dashboard()"]', '.dashboard-container', 'body'];
         for (const selector of selectors) {
             const element = document.querySelector(selector);
@@ -14623,23 +14633,34 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                     if (data && data.toggleAutomationResults) {
                         console.log('✅ Found dashboard instance via Alpine data stack');
                         window._dashboardInstance = data; // Cache for future use
+                        window._toggleRecursionCount = 0; // Reset recursion counter on success
                         return data.toggleAutomationResults(instanceId);
                     }
                 }
             }
         }
         
-        // Strategy 3: Try Alpine's global store
+        // Strategy 4: Try Alpine's global store
         if (window.Alpine && window.Alpine.store) {
             try {
                 const storeData = window.Alpine.store('dashboard');
                 if (storeData && storeData.toggleAutomationResults) {
                     console.log('✅ Found dashboard instance via Alpine store');
+                    window._dashboardInstance = storeData; // Cache for future use
+                    window._toggleRecursionCount = 0; // Reset recursion counter on success
                     return storeData.toggleAutomationResults(instanceId);
                 }
             } catch (e) {
                 console.log('Alpine store not available or no dashboard store');
             }
+        }
+        
+        // If we've exceeded recursion attempts, show error and stop
+        if (window._toggleRecursionCount >= 5) {
+            console.error('❌ Maximum recursion attempts reached. Dashboard initialization failed.');
+            window._toggleRecursionCount = 0; // Reset for future attempts
+            alert('Dashboard initialization failed. Please refresh the page and try again.');
+            return;
         }
         
         console.error('❌ Dashboard instance not found through any strategy');
