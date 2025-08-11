@@ -10818,14 +10818,47 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                 return '<em class="text-gray-500">No detailed results available</em>';
             }
 
+            // Handle violations_by_page structure (new format)
+            if (rawResults.violations_by_page && typeof rawResults.violations_by_page === 'object') {
+                let html = '<div class="space-y-3">';
+                let totalViolations = 0;
+                
+                Object.entries(rawResults.violations_by_page).forEach(([pageUrl, violations]) => {
+                    if (Array.isArray(violations) && violations.length > 0) {
+                        totalViolations += violations.length;
+                        html += `<div class="border-l-4 border-red-500 pl-3 mb-3">
+                            <div class="text-sm font-medium text-red-700 mb-2">${pageUrl}</div>
+                            <ul class="list-disc list-inside space-y-1">`;
+                        
+                        violations.slice(0, 5).forEach(violation => {
+                            const description = violation.description || violation.help || violation.message || violation.title || 'Accessibility violation';
+                            html += `<li class="text-red-600 text-sm">${description}</li>`;
+                        });
+                        
+                        if (violations.length > 5) {
+                            html += `<li class="text-gray-500 italic text-sm">... and ${violations.length - 5} more</li>`;
+                        }
+                        
+                        html += '</ul></div>';
+                    }
+                });
+                
+                if (totalViolations === 0) {
+                    html += '<div class="text-green-600 text-sm">✓ No violations detected</div>';
+                }
+                
+                html += '</div>';
+                return html;
+            }
             // Handle different result formats (axe, pa11y, lighthouse, etc.)
-            if (rawResults.violations && Array.isArray(rawResults.violations)) {
+            else if (rawResults.violations && Array.isArray(rawResults.violations)) {
                 // axe-core format
                 let html = '<div class="space-y-3">';
                 if (rawResults.violations.length > 0) {
                     html += '<div><strong class="text-red-700">Violations:</strong><ul class="list-disc list-inside mt-1 space-y-1">';
                     rawResults.violations.slice(0, 5).forEach(violation => {
-                        html += `<li class="text-red-600">${violation.description || violation.help || 'Accessibility violation'}</li>`;
+                        const description = violation.description || violation.help || 'Accessibility violation';
+                        html += `<li class="text-red-600">${description}</li>`;
                     });
                     if (rawResults.violations.length > 5) {
                         html += `<li class="text-gray-500 italic">... and ${rawResults.violations.length - 5} more</li>`;
@@ -10843,7 +10876,8 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                 const issues = rawResults.issues.slice(0, 10);
                 issues.forEach(issue => {
                     const typeClass = issue.type === 'error' ? 'text-red-600' : issue.type === 'warning' ? 'text-yellow-600' : 'text-blue-600';
-                    html += `<div class="${typeClass}"><strong>${issue.type.toUpperCase()}:</strong> ${issue.message || 'Accessibility issue detected'}</div>`;
+                    const message = issue.message || 'Accessibility issue detected';
+                    html += `<div class="${typeClass}"><strong>${issue.type.toUpperCase()}:</strong> ${message}</div>`;
                 });
                 if (rawResults.issues.length > 10) {
                     html += `<div class="text-gray-500 italic">... and ${rawResults.issues.length - 10} more issues</div>`;
