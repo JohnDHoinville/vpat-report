@@ -617,11 +617,11 @@ router.get('/instance-results/:instanceId', authenticateToken, async (req, res) 
                 ti.status,
                 ti.result,
                 ti.updated_at,
-                tr.criterion_number,
-                tr.title as requirement_title,
+                wr.criterion_number,
+                wr.title as requirement_title,
                 dp.url as page_url
             FROM test_instances ti
-            LEFT JOIN test_requirements tr ON ti.requirement_id = tr.id
+            LEFT JOIN wcag_requirements wr ON ti.requirement_id = wr.id
             LEFT JOIN discovered_pages dp ON ti.page_id = dp.id
             WHERE ti.id = $1
         `;
@@ -647,36 +647,34 @@ router.get('/instance-results/:instanceId', authenticateToken, async (req, res) 
                     ? JSON.parse(testInstance.result) 
                     : testInstance.result;
                 
-                // Convert the stored violation data to the expected format
-                if (resultData.violation) {
-                    automationResults.push({
-                        id: `instance-${instanceId}`,
-                        test_session_id: testInstance.test_session_id,
-                        tool_name: resultData.tool || 'unknown',
-                        tool_version: '1.0',
-                        raw_results: {
-                            violation: resultData.violation,
-                            status: resultData.status,
-                            pageUrl: resultData.pageUrl
-                        },
-                        violations_count: 1,
-                        warnings_count: 0,
-                        passes_count: 0,
-                        test_duration_ms: 0,
-                        executed_at: resultData.timestamp || testInstance.updated_at,
-                        browser_name: 'chrome',
-                        viewport_width: null,
-                        viewport_height: null,
-                        test_environment: 'desktop',
-                        test_suite: 'per-instance',
-                        
-                        // Additional metadata for frontend
-                        criterion_number: testInstance.criterion_number,
-                        requirement_title: testInstance.requirement_title,
-                        page_url: testInstance.page_url,
-                        instance_status: testInstance.status
-                    });
-                }
+                // Always include the result from test_instances.result, whether it's a violation or passed
+                automationResults.push({
+                    id: `instance-${instanceId}`,
+                    test_session_id: testInstance.test_session_id,
+                    tool_name: resultData.tool || 'unknown',
+                    tool_version: '1.0',
+                    raw_results: {
+                        violation: resultData.violation || null,
+                        status: resultData.status || testInstance.status,
+                        pageUrl: resultData.pageUrl || testInstance.page_url
+                    },
+                    violations_count: resultData.violation ? 1 : 0,
+                    warnings_count: 0,
+                    passes_count: resultData.violation ? 0 : 1,
+                    test_duration_ms: 0,
+                    executed_at: resultData.timestamp || testInstance.updated_at,
+                    browser_name: 'chrome',
+                    viewport_width: null,
+                    viewport_height: null,
+                    test_environment: 'desktop',
+                    test_suite: 'per-instance',
+                    
+                    // Additional metadata for frontend
+                    criterion_number: testInstance.criterion_number,
+                    requirement_title: testInstance.requirement_title,
+                    page_url: testInstance.page_url,
+                    instance_status: testInstance.status
+                });
             } catch (error) {
                 console.error('Error parsing test instance result:', error);
             }
@@ -702,12 +700,11 @@ router.get('/instance-results/:instanceId', authenticateToken, async (req, res) 
                 atr.test_environment,
                 atr.test_suite
             FROM automated_test_results atr
-            JOIN test_instances ti ON ti.session_id = atr.test_session_id
-            WHERE ti.id = $1
+            WHERE atr.test_session_id = $1
             ORDER BY atr.executed_at DESC
         `;
         
-        const legacyResult = await pool.query(legacyQuery, [instanceId]);
+        const legacyResult = await pool.query(legacyQuery, [testInstance.test_session_id]);
         
         // FILTER RESULTS BY WCAG CRITERION - Only show violations relevant to this test instance
         const filteredResults = [];
@@ -746,22 +743,20 @@ router.get('/instance-results/:instanceId', authenticateToken, async (req, res) 
                     }
                 }
                 
-                // Only include results that have relevant violations or if no violations were found
-                if (relevantViolations.length > 0 || result.violations_count === 0) {
-                    const filteredResult = {
-                        ...result,
-                        raw_results: {
-                            ...rawResults,
-                            violations: relevantViolations,
-                            violations_by_page: relevantViolations.length > 0 ? {
-                                [testInstance.page_url]: relevantViolations
-                            } : {}
-                        },
-                        violations_count: relevantViolations.length,
-                        relevant_to_criterion: wcagCriterion
-                    };
-                    filteredResults.push(filteredResult);
-                }
+                // Always include the result, but filter violations to only show relevant ones
+                const filteredResult = {
+                    ...result,
+                    raw_results: {
+                        ...rawResults,
+                        violations: relevantViolations,
+                        violations_by_page: relevantViolations.length > 0 ? {
+                            [testInstance.page_url]: relevantViolations
+                        } : {}
+                    },
+                    violations_count: relevantViolations.length,
+                    relevant_to_criterion: wcagCriterion
+                };
+                filteredResults.push(filteredResult);
                 
             } catch (error) {
                 console.error('Error filtering result:', error);
