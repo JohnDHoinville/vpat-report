@@ -9,6 +9,108 @@ module.exports = function(wsService) {
     // Initialize automation service with websocket support
     const automationService = new TestAutomationService(wsService);
 
+    // Helper functions to map violations to WCAG criteria
+    function mapViolationToWcagCriteria(violation, tool) {
+        if (tool === 'axe-core' || tool === 'axe') {
+            return mapAxeViolationToWcag(violation);
+        } else if (tool === 'pa11y') {
+            return mapPa11yViolationToWcag(violation);
+        } else if (tool === 'lighthouse') {
+            return mapLighthouseViolationToWcag(violation);
+        }
+        return [];
+    }
+
+    function mapAxeViolationToWcag(violation) {
+        const axeToWcagMapping = {
+            'image-alt': ['1.1.1'],
+            'input-image-alt': ['1.1.1'],
+            'area-alt': ['1.1.1'],
+            'svg-img-alt': ['1.1.1'],
+            'color-contrast': ['1.4.3', '1.4.11'],
+            'color-contrast-enhanced': ['1.4.6'],
+            'heading-order': ['1.3.1', '2.4.6'],
+            'list': ['1.3.1'],
+            'table-headers': ['1.3.1'],
+            'label': ['3.3.2'],
+            'button-name': ['4.1.2'],
+            'link-name': ['2.4.4', '4.1.2'],
+            'document-title': ['2.4.2'],
+            'html-has-lang': ['3.1.1'],
+            'html-lang-valid': ['3.1.2'],
+            'keyboard': ['2.1.1'],
+            'focus-order-semantics': ['2.4.3'],
+            'bypass': ['2.4.1'],
+            'meta-viewport': ['1.3.4', '1.4.4'],
+            'page-has-heading-one': ['2.4.6']
+        };
+
+        const ruleId = violation.id || violation.rule;
+        return axeToWcagMapping[ruleId] || [];
+    }
+
+    function mapPa11yViolationToWcag(violation) {
+        const code = violation.code || '';
+        
+        // Extract WCAG criterion from Pa11y code
+        const wcagMatch = code.match(/(\d+)_(\d+)_(\d+)/);
+        if (wcagMatch) {
+            return [`${wcagMatch[1]}.${wcagMatch[2]}.${wcagMatch[3]}`];
+        }
+        
+        return [];
+    }
+
+    function mapLighthouseViolationToWcag(violation) {
+        const lighthouseToWcagMapping = {
+            'document-title': '2.4.2',
+            'html-has-lang': '3.1.1',
+            'html-lang-valid': '3.1.1',
+            'image-alt': '1.1.1',
+            'label': '3.3.2',
+            'link-name': '2.4.4',
+            'list': '1.3.1',
+            'listitem': '1.3.1',
+            'meta-viewport': '1.3.4',
+            'object-alt': '1.1.1',
+            'video-caption': '1.2.2',
+            'video-description': '1.2.3',
+            'bypass': '2.4.1',
+            'color-contrast': '1.4.3',
+            'focus-order-semantics': '2.4.3',
+            'heading-order': '1.3.1',
+            'input-image-alt': '1.1.1',
+            'landmark-one-main': '1.3.1',
+            'page-has-heading-one': '2.4.6',
+            'region': '1.3.1',
+            'skip-link': '2.4.1',
+            'tabindex': '2.4.3',
+            'td-headers-attr': '1.3.1',
+            'th-has-data-cells': '1.3.1',
+            'valid-lang': '3.1.2',
+            'video-audio-caption': '1.2.2',
+            'aria-allowed-attr': '4.1.2',
+            'aria-allowed-role': '4.1.2',
+            'aria-hidden-body': '4.1.2',
+            'aria-hidden-focus': '4.1.2',
+            'aria-input-field-name': '4.1.2',
+            'aria-required-attr': '4.1.2',
+            'aria-required-children': '4.1.2',
+            'aria-required-parent': '4.1.2',
+            'aria-roles': '4.1.2',
+            'aria-valid-attr-value': '4.1.2',
+            'aria-valid-attr': '4.1.2',
+            'button-name': '4.1.2',
+            'duplicate-id-active': '4.1.1',
+            'duplicate-id-aria': '4.1.1',
+            'form-field-multiple-labels': '3.3.2'
+        };
+
+        const auditId = violation.id || violation.auditId;
+        const wcagCriterion = lighthouseToWcagMapping[auditId];
+        return wcagCriterion ? [wcagCriterion] : [];
+    }
+
 /**
  * Trigger automated tests for a testing session
  * POST /api/automated-testing/run/:sessionId
@@ -581,6 +683,7 @@ router.get('/instance-results/:instanceId', authenticateToken, async (req, res) 
         }
         
         // Fallback: also check old automated_test_results table for compatibility
+        // BUT FILTER BY WCAG CRITERION to only show relevant violations
         const legacyQuery = `
             SELECT 
                 atr.id,
@@ -606,8 +709,69 @@ router.get('/instance-results/:instanceId', authenticateToken, async (req, res) 
         
         const legacyResult = await pool.query(legacyQuery, [instanceId]);
         
+        // FILTER RESULTS BY WCAG CRITERION - Only show violations relevant to this test instance
+        const filteredResults = [];
+        const wcagCriterion = testInstance.criterion_number;
+        
+        console.log(`🔍 Filtering automation results for WCAG ${wcagCriterion} (${testInstance.requirement_title})`);
+        
+        for (const result of legacyResult.rows) {
+            try {
+                const rawResults = typeof result.raw_results === 'string' 
+                    ? JSON.parse(result.raw_results) 
+                    : result.raw_results;
+                
+                // Filter violations to only include those relevant to this WCAG criterion
+                const relevantViolations = [];
+                const relevantPasses = [];
+                
+                if (rawResults.violations_by_page) {
+                    // New format with violations_by_page
+                    for (const [pageUrl, violations] of Object.entries(rawResults.violations_by_page)) {
+                        for (const violation of violations) {
+                            // Map violation to WCAG criteria and check if it matches
+                            const violationWcagCriteria = mapViolationToWcagCriteria(violation, result.tool_name);
+                            if (violationWcagCriteria.includes(wcagCriterion)) {
+                                relevantViolations.push(violation);
+                            }
+                        }
+                    }
+                } else if (rawResults.violations) {
+                    // Old format with direct violations array
+                    for (const violation of rawResults.violations) {
+                        const violationWcagCriteria = mapViolationToWcagCriteria(violation, result.tool_name);
+                        if (violationWcagCriteria.includes(wcagCriterion)) {
+                            relevantViolations.push(violation);
+                        }
+                    }
+                }
+                
+                // Only include results that have relevant violations or if no violations were found
+                if (relevantViolations.length > 0 || result.violations_count === 0) {
+                    const filteredResult = {
+                        ...result,
+                        raw_results: {
+                            ...rawResults,
+                            violations: relevantViolations,
+                            violations_by_page: relevantViolations.length > 0 ? {
+                                [testInstance.page_url]: relevantViolations
+                            } : {}
+                        },
+                        violations_count: relevantViolations.length,
+                        relevant_to_criterion: wcagCriterion
+                    };
+                    filteredResults.push(filteredResult);
+                }
+                
+            } catch (error) {
+                console.error('Error filtering result:', error);
+                // Include unfiltered result if filtering fails
+                filteredResults.push(result);
+            }
+        }
+        
         // Combine new and legacy results
-        const allResults = [...automationResults, ...legacyResult.rows];
+        const allResults = [...automationResults, ...filteredResults];
         
         res.json({
             success: true,
