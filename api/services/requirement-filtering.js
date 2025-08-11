@@ -15,6 +15,9 @@ const WCAG_1_1_1_RULES = [
 const WCAG_TO_AXE_RULES = {
     '1.1.1': WCAG_1_1_1_RULES,
     '1.4.1': ['color-contrast', 'color-contrast-enhanced'],
+    '1.4.3': ['color-contrast', 'color-contrast-enhanced'], // Contrast (Minimum)
+    '1.4.6': ['color-contrast-enhanced'], // Contrast (Enhanced) - AAA level
+    '1.4.11': ['color-contrast', 'color-contrast-enhanced'], // Non-text Contrast
     '2.1.1': ['keyboard'],
     '2.4.1': ['bypass', 'page-has-heading-one'],
     '2.4.2': ['page-title'],

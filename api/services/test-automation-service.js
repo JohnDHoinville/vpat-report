@@ -4933,6 +4933,9 @@ class TestAutomationService {
                 case 'lighthouse':
                     return await this.runLighthouseAgainstPage(pageUrl, pageInstances);
                 
+                case 'contrast-analyzer':
+                    return await this.runContrastAnalyzerAgainstPage(pageUrl, pageInstances);
+                
                 default:
                     console.warn(`❌ Unsupported tool: ${tool}`);
                     return null;
@@ -5062,6 +5065,60 @@ class TestAutomationService {
         } catch (error) {
             console.error(`❌ Pa11y error for ${pageUrl}:`, error);
             return { violations: [], error: error.message };
+        }
+    }
+
+    /**
+     * Run Contrast Analyzer against a specific page
+     */
+    async runContrastAnalyzerAgainstPage(pageUrl, pageInstances) {
+        try {
+            console.log(`🎨 Running contrast analyzer against page: ${pageUrl}`);
+            
+            const ContrastAnalyzer = require('../../scripts/contrast-analyzer.js');
+            const analyzer = new ContrastAnalyzer();
+            
+            // Determine WCAG level based on page instances
+            const wcagCriteria = pageInstances.map(instance => instance.requirement_id);
+            const hasAAARequirements = wcagCriteria.some(criterion => 
+                criterion === '1.4.6' || criterion === '1.4.11'
+            );
+            
+            const analysisOptions = {
+                level: hasAAARequirements ? 'AAA' : 'AA',
+                includeAAA: hasAAARequirements,
+                analyzeBackgroundImages: true,
+                analyzeGradients: true,
+                captureScreenshots: false
+            };
+            
+            const contrastResults = await analyzer.analyzeContrast(pageUrl, analysisOptions);
+            
+            const violations = contrastResults.violations || [];
+            const passes = contrastResults.passes || [];
+            
+            console.log(`✅ Contrast analyzer completed for ${pageUrl}: ${violations.length} violations, ${passes.length} passes`);
+            
+            return {
+                violations: violations,
+                passes: passes,
+                tool: 'contrast-analyzer',
+                pageUrl,
+                timestamp: new Date().toISOString(),
+                analysisOptions: analysisOptions,
+                statistics: contrastResults.statistics || {}
+            };
+            
+        } catch (error) {
+            console.error(`❌ Contrast analyzer error for ${pageUrl}:`, error);
+            return { 
+                violations: [], 
+                passes: [],
+                error: error.message,
+                tool: 'contrast-analyzer',
+                pageUrl,
+                timestamp: new Date().toISOString()
+            };
         }
     }
 
@@ -5433,6 +5490,8 @@ class TestAutomationService {
             return this.mapPa11yViolationToWcag(violation);
         } else if (tool === 'lighthouse') {
             return this.mapLighthouseViolationToWcag(violation);
+        } else if (tool === 'contrast-analyzer') {
+            return this.mapContrastAnalyzerViolationToWcag(violation);
         }
         return [];
     }
@@ -5480,6 +5539,24 @@ class TestAutomationService {
         }
         
         return [];
+    }
+
+    /**
+     * Map Contrast Analyzer violation to WCAG criteria
+     */
+    mapContrastAnalyzerViolationToWcag(violation) {
+        // Map contrast analyzer violations to WCAG criteria
+        const contrastToWcagMapping = {
+            'insufficient-contrast': ['1.4.3'], // Contrast (Minimum) - AA level
+            'insufficient-contrast-aaa': ['1.4.6'], // Contrast (Enhanced) - AAA level
+            'non-text-contrast': ['1.4.11'], // Non-text Contrast
+            'color-alone': ['1.4.1'], // Use of Color
+            'gradient-contrast': ['1.4.3', '1.4.11'], // Gradients and backgrounds
+            'background-image-contrast': ['1.4.3', '1.4.11'] // Background images
+        };
+
+        const violationType = violation.type || violation.violation_type || violation.rule;
+        return contrastToWcagMapping[violationType] || ['1.4.3']; // Default to 1.4.3 if unknown
     }
 
     mapLighthouseViolationToWcag(violation) {
@@ -5756,13 +5833,14 @@ class TestAutomationService {
             '1.3.5': ['axe-core', 'pa11y', 'lighthouse'], // Identify Input Purpose
             
             // Color and contrast
-            '1.4.1': ['axe-core', 'pa11y', 'lighthouse'], // Use of Color
+            '1.4.1': ['axe-core', 'pa11y', 'lighthouse', 'contrast-analyzer'], // Use of Color
             '1.4.2': ['axe-core', 'pa11y', 'lighthouse'], // Audio Control
-            '1.4.3': ['axe-core', 'pa11y', 'lighthouse'], // Contrast (Minimum)
+            '1.4.3': ['contrast-analyzer', 'axe-core', 'pa11y', 'lighthouse'], // Contrast (Minimum) - PRIMARY: contrast-analyzer
             '1.4.4': ['axe-core', 'pa11y', 'lighthouse'], // Resize Text
             '1.4.5': ['axe-core', 'pa11y', 'lighthouse'], // Images of Text
+            '1.4.6': ['contrast-analyzer', 'axe-core', 'pa11y', 'lighthouse'], // Contrast (Enhanced) - PRIMARY: contrast-analyzer
             '1.4.10': ['axe-core', 'pa11y', 'lighthouse'], // Reflow
-            '1.4.11': ['axe-core', 'pa11y', 'lighthouse'], // Non-text Contrast
+            '1.4.11': ['contrast-analyzer', 'axe-core', 'pa11y', 'lighthouse'], // Non-text Contrast - PRIMARY: contrast-analyzer
             '1.4.12': ['axe-core', 'pa11y', 'lighthouse'], // Text Spacing
             '1.4.13': ['axe-core', 'pa11y', 'lighthouse'], // Content on Hover or Focus
             
