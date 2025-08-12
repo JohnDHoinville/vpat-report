@@ -14665,7 +14665,7 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
     window.formatTestResult = (result) => componentInstance.formatTestResult(result);
     window.viewRequirementDetails = (requirement) => componentInstance.viewRequirementDetails(requirement);
     window.closeRequirementDetailsModal = () => componentInstance.closeRequirementDetailsModal();
-    window.runAutomatedTestForRequirement = (requirement) => componentInstance.runAutomatedTestForRequirement(requirement);
+    // window.runAutomatedTestForRequirement is set by the robust global wrapper below
     window.filterRequirements = () => componentInstance.filterRequirements();
     window.updateRequirementsPagination = () => componentInstance.updateRequirementsPagination();
     window.triggerAutomatedTest = (sessionId) => componentInstance.triggerAutomatedTest(sessionId);
@@ -15049,9 +15049,11 @@ window.runAutomatedTestForRequirement = function(requirement) {
     }
     
     // Strategy 4: Wait for initialization and retry (WITH RECURSION LIMIT)
-    if (!window._dashboardInitialized && window._recursionCount < window._maxRecursionAttempts) {
+    if (window._recursionCount < window._maxRecursionAttempts) {
         window._recursionCount++;
-        console.log(`⏳ Dashboard not initialized yet, waiting... (attempt ${window._recursionCount}/${window._maxRecursionAttempts})`);
+        console.log(`⏳ Dashboard instance not found, retrying... (attempt ${window._recursionCount}/${window._maxRecursionAttempts})`);
+        console.log(`🔍 Dashboard initialized: ${window._dashboardInitialized}`);
+        console.log(`🔍 Instance stored: ${!!window._dashboardInstance}`);
         setTimeout(() => {
             window.runAutomatedTestForRequirement(requirement);
         }, 1000);
