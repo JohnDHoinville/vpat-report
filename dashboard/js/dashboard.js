@@ -11517,8 +11517,24 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                 html += '</div>';
                 return html;
             } else {
-                // Generic object format
-                return `<pre class="text-xs overflow-x-auto whitespace-pre-wrap">${JSON.stringify(rawResults, null, 2)}</pre>`;
+                // Generic object format - check if it contains violation data that should be highlighted
+                const jsonString = JSON.stringify(rawResults, null, 2);
+                const containsViolation = jsonString.includes('"violation"') || 
+                                        jsonString.includes('"message"') && (
+                                            jsonString.includes('Documents must have') ||
+                                            jsonString.includes('dequeuniversity.com') ||
+                                            jsonString.includes('accessibility') ||
+                                            jsonString.includes('WCAG') ||
+                                            jsonString.includes('aria-')
+                                        );
+                
+                if (containsViolation) {
+                    // Style as violation data with red background
+                    return `<pre class="text-xs overflow-x-auto whitespace-pre-wrap bg-red-50 border border-red-200 text-red-700 p-3 rounded">${jsonString}</pre>`;
+                } else {
+                    // Normal JSON display
+                    return `<pre class="text-xs overflow-x-auto whitespace-pre-wrap">${jsonString}</pre>`;
+                }
             }
         },
 
@@ -14656,10 +14672,10 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
             }
             
             if (response.success) {
-                // Refresh requirements data after starting tests
-                setTimeout(() => {
-                    this.loadSessionRequirements(sessionId);
-                }, 5000);
+            // Refresh requirements data after starting tests
+            setTimeout(() => {
+                this.loadSessionRequirements(sessionId);
+            }, 5000);
             }
             
             return response;
