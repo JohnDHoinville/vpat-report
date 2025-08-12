@@ -69,6 +69,14 @@ export const API_ENDPOINTS = {
     // Testing endpoints
     TESTING: {
         AUTOMATED: {
+            // New Unified Automation Endpoints (v2.0)
+            UNIFIED_RUN: (sessionId) => `/api/automated-testing/unified-run/${sessionId}`,
+            UNIFIED_STATUS: (sessionId, runId) => `/api/automated-testing/unified-run/${sessionId}/status/${runId}`,
+            UNIFIED_CANCEL: (sessionId, runId) => `/api/automated-testing/unified-run/${sessionId}/${runId}`,
+            UNIFIED_PREVIEW: (sessionId) => `/api/automated-testing/unified-run/${sessionId}/preview`,
+            UNIFIED_CAPABILITIES: '/api/automated-testing/unified-run/capabilities',
+            
+            // Legacy endpoints (deprecated, use unified endpoints instead)
             SPECIALIZED_ANALYSIS: (instanceId) => `/api/automated-testing/specialized-analysis/${instanceId}`,
             REMEDIATION_GUIDANCE: (sessionId, page = 1, limit = 50) => 
                 `/api/automated-testing/remediation-guidance/${sessionId}?page=${page}&limit=${limit}`,

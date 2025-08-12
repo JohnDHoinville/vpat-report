@@ -3672,6 +3672,108 @@ ${requirement.failure_examples}
             }
         },
 
+        // Automation Preview Functions
+        showAutomationPreviewModal: false,
+        loadingAutomationPreview: false,
+        automationPreviewData: null,
+        automationPreviewTab: 'pages',
+        automationPreviewConfig: null,
+
+        async openAutomationPreview(sessionId, targetMode, targetIds = [], tools = ['axe-core', 'pa11y']) {
+            try {
+                this.showAutomationPreviewModal = true;
+                this.loadingAutomationPreview = true;
+                this.automationPreviewTab = 'pages';
+                
+                // Initialize unified automation service if not already done
+                if (!this.unifiedAutomation) {
+                    this.unifiedAutomation = new UnifiedAutomationService(
+                        this.apiCall.bind(this),
+                        this.showNotification.bind(this)
+                    );
+                }
+                
+                // Store config for later execution
+                this.automationPreviewConfig = {
+                    sessionId,
+                    targetMode,
+                    targetIds,
+                    tools
+                };
+                
+                // Generate preview
+                const preview = await this.unifiedAutomation.generatePreview(sessionId, targetMode, targetIds, tools);
+                
+                if (preview.success) {
+                    this.automationPreviewData = preview;
+                } else {
+                    throw new Error(preview.error || 'Failed to generate preview');
+                }
+                
+            } catch (error) {
+                console.error('❌ Error generating automation preview:', error);
+                this.showNotification('error', 'Preview Failed', error.message);
+                this.closeAutomationPreviewModal();
+            } finally {
+                this.loadingAutomationPreview = false;
+            }
+        },
+
+        closeAutomationPreviewModal() {
+            this.showAutomationPreviewModal = false;
+            this.automationPreviewData = null;
+            this.automationPreviewConfig = null;
+        },
+
+        async executeAutomationFromPreview() {
+            try {
+                if (!this.automationPreviewConfig) {
+                    throw new Error('No automation configuration available');
+                }
+
+                const { sessionId, targetMode, targetIds, tools } = this.automationPreviewConfig;
+                
+                // Close preview modal
+                this.closeAutomationPreviewModal();
+                
+                // Initialize unified automation service if not already done
+                if (!this.unifiedAutomation) {
+                    this.unifiedAutomation = new UnifiedAutomationService(
+                        this.apiCall.bind(this),
+                        this.showNotification.bind(this)
+                    );
+                }
+                
+                // Execute automation based on target mode
+                let response;
+                switch (targetMode) {
+                    case 'session':
+                        response = await this.unifiedAutomation.runSessionAutomation(sessionId, { tools });
+                        break;
+                    case 'requirements':
+                        response = await this.unifiedAutomation.runRequirementAutomation(sessionId, targetIds, { tools });
+                        break;
+                    case 'instances':
+                        response = await this.unifiedAutomation.runInstanceAutomation(sessionId, targetIds, { tools });
+                        break;
+                    default:
+                        throw new Error(`Unsupported target mode: ${targetMode}`);
+                }
+                
+                if (response.success) {
+                    // Refresh relevant data
+                    setTimeout(() => {
+                        this.loadSessionRequirements(sessionId);
+                        this.loadAutomationSummary(sessionId);
+                    }, 3000);
+                }
+                
+            } catch (error) {
+                console.error('❌ Error executing automation from preview:', error);
+                this.showNotification('error', 'Automation Failed', error.message);
+            }
+        },
+
         showNotification(type, title, message) {
             this.notification = {
                 show: true,
@@ -9493,35 +9595,27 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
             }
         },
 
-        // Start automated testing for selected tests
+        // Start automated testing for selected tests (UPDATED to use Unified Automation)
         async startAutomatedTesting(sessionId) {
             try {
-                console.log(`🤖 Starting automated testing for session: ${sessionId}`);
+                console.log(`🤖 Starting unified automated testing for session: ${sessionId}`);
                 
-                // Show notification that automation is starting
-                this.showNotification('info', 'Starting automated testing...', 'Tests are being queued for automation.');
+                // Initialize unified automation service if not already done
+                if (!this.unifiedAutomation) {
+                    this.unifiedAutomation = new UnifiedAutomationService(
+                        this.apiCall.bind(this),
+                        this.showNotification.bind(this)
+                    );
+                }
                 
-                // Call the correct API endpoint to start automation
-                const response = await this.apiCall(`/automated-testing/run-per-instance/${sessionId}`, {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        tools: ['axe-core', 'pa11y', 'lighthouse'],
-                        run_async: true,
-                        clientMetadata: {
-                            trigger: 'session_automation',
-                            ip: 'dashboard',
-                            userAgent: navigator.userAgent,
-                            timestamp: new Date().toISOString()
-                        }
-                    })
+                // Use unified session automation
+                const response = await this.unifiedAutomation.runSessionAutomation(sessionId, {
+                    tools: ['axe-core', 'pa11y', 'lighthouse']
                 });
                 
                 if (response.success) {
                     // Refresh the test selection status to show updated counts
                     await this.getTestSelectionStatus(sessionId);
-                    
-                    // Show success message
-                    this.showNotification('success', 'Automation Started', 'Automated tests have been queued and will start running shortly.');
                     
                     return { success: true, message: 'Automation started successfully' };
                 } else {
@@ -9529,7 +9623,6 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                 }
             } catch (error) {
                 console.error('❌ Error starting automated testing:', error);
-                this.showNotification('error', 'Automation Error', 'Failed to start automated testing: ' + error.message);
                 return { success: false, error: error.message };
             }
         },
@@ -9720,33 +9813,32 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
             }
         },
         
-        // Trigger automated test
+        // Trigger automated test (UPDATED to use Unified Automation)
         async triggerAutomatedTest(sessionId) {
             try {
-                console.log('🤖 Triggering automated tests for session:', sessionId);
+                console.log('🤖 Triggering unified automated tests for session:', sessionId);
                 
-                const response = await this.apiCall(`/automated-testing/run-per-instance/${sessionId}`, {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        tools: ['axe-core', 'pa11y'], // Updated parameter name and tool names
-                        run_async: true
-                    })
+                // Initialize unified automation service if not already done
+                if (!this.unifiedAutomation) {
+                    this.unifiedAutomation = new UnifiedAutomationService(
+                        this.apiCall.bind(this),
+                        this.showNotification.bind(this)
+                    );
+                }
+                
+                // Use unified session automation
+                const response = await this.unifiedAutomation.runSessionAutomation(sessionId, {
+                    tools: ['axe-core', 'pa11y']
                 });
                 
                 if (response.success) {
-                    this.showNotification('success', 'Automated Tests Started', 
-                        `Running ${response.tools?.join(', ')} tests in background. Check status for updates.`);
-                    
                     // Refresh automation summary after a delay
                     setTimeout(() => {
                         this.loadAutomationSummary(sessionId);
                     }, 5000);
-                } else {
-                    throw new Error(response.error || 'Failed to start automated tests');
                 }
             } catch (error) {
                 console.error('Error triggering automated tests:', error);
-                this.showNotification('error', 'Automation Failed', error.message);
             }
         },
         
@@ -11220,39 +11312,30 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                     throw new Error('No test session selected. Please open a test session first.');
                 }
                 
-                this.showNotification('info', 'Automated Test Starting',
-                    `Running automated test for requirement ${testInstance.criterion_number}...`);
+                // Initialize unified automation service if not already done
+                if (!this.unifiedAutomation) {
+                    this.unifiedAutomation = new UnifiedAutomationService(
+                        this.apiCall.bind(this),
+                        this.showNotification.bind(this)
+                    );
+                }
                 
-                // Call the PER-INSTANCE automation API (CORRECT APPROACH)
-                const response = await this.apiCall(`/automated-testing/run-per-instance/${sessionId}`, {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        tools: ['axe-core', 'pa11y'], // Updated tool names
-                        run_async: true,
-                        specific_instances: [testInstance.id], // Target specific test instance
-                        clientMetadata: {
-                            trigger: 'individual_test_instance',
-                            testInstanceId: testInstance.id,
-                            criterionNumber: testInstance.criterion_number
-                        }
-                    })
+                console.log(`🎯 Running unified instance automation for: ${testInstance.criterion_number}`);
+                
+                // Use unified instance automation
+                const response = await this.unifiedAutomation.runInstanceAutomation(sessionId, [testInstance.id], {
+                    tools: ['axe-core', 'pa11y']
                 });
                 
                 if (response.success) {
-                    this.showNotification('success', 'Automated Test Started',
-                        `Automated test started for requirement ${testInstance.criterion_number}`);
-                    
                     // Refresh the test grid to show updated results
                     setTimeout(() => {
                         this.loadTestInstancesForGrid(sessionId, this.testGridPagination.currentPage, true);
                     }, 2000);
-                } else {
-                    throw new Error(response.error || 'Failed to run automated test');
                 }
                 
             } catch (error) {
                 console.error('Error running automated test for instance:', error);
-                this.showNotification('error', 'Automation Failed', error.message);
             }
         },
         
@@ -14219,36 +14302,42 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                 throw new Error('No session selected');
             }
             
-            console.log(`🚀 Starting automated testing for session: ${this.selectedSessionDetails.name}`);
+            console.log(`🚀 Starting unified automated testing for session: ${this.selectedSessionDetails.name}`);
             
-            // Start PER-INSTANCE automated testing for the session (UPDATED APPROACH)
-            const response = await this.apiCall(`/automated-testing/run-per-instance/${sessionId}`, {
-                method: 'POST',
-                body: JSON.stringify({
-                    tools: ['axe-core', 'pa11y'], // Updated tool names for per-instance testing
-                    run_async: true,
-                    clientMetadata: {
-                        trigger: 'session_automation',
-                        ip: 'dashboard',
-                        userAgent: navigator.userAgent,
-                        timestamp: new Date().toISOString()
-                    }
-                })
-            });
+            // Initialize unified automation service if not already done
+            if (!this.unifiedAutomation) {
+                this.unifiedAutomation = new UnifiedAutomationService(
+                    this.apiCall.bind(this),
+                    this.showNotification.bind(this)
+                );
+            }
             
-            this.showNotification('success', 'Testing Started', 'Automated testing started successfully!');
+            // Use unified automation based on whether specific requirements were provided
+            let response;
+            if (requirements && requirements.length > 0) {
+                // Test specific requirements
+                const requirementIds = requirements.map(req => req.id);
+                response = await this.unifiedAutomation.runRequirementAutomation(sessionId, requirementIds, {
+                    tools: ['axe-core', 'pa11y']
+                });
+            } else {
+                // Test entire session
+                response = await this.unifiedAutomation.runSessionAutomation(sessionId, {
+                    tools: ['axe-core', 'pa11y']
+                });
+            }
             
-            // Refresh requirements data after starting tests
-            setTimeout(() => {
-                this.loadSessionRequirements(sessionId);
-            }, 5000);
+            if (response.success) {
+                // Refresh requirements data after starting tests
+                setTimeout(() => {
+                    this.loadSessionRequirements(sessionId);
+                }, 5000);
+            }
             
             return response;
             
         } catch (error) {
             console.error('❌ Error starting automated testing:', error);
-            this.showNotification('error', 'Testing Failed', `Failed to start automated testing: ${error.message}`);
-            throw error;
         } finally {
             this.loading = false;
         }

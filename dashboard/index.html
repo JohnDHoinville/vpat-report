@@ -29,6 +29,9 @@
     <!-- Dashboard API Service - Load before dashboard.js -->
     <script src="js/services/apiService.js"></script>
     
+    <!-- Unified Automation Service - Load before dashboard.js -->
+    <script src="js/services/unifiedAutomationService.js"></script>
+    
     <!-- Fixed Global Fallback Functions - Load before dashboard.js -->
     <script src="js/fixed-fallback.js"></script>
     
@@ -333,6 +336,7 @@
         <div id="audit-timeline-modal-component"></div>
         <div id="user-management-modals-component"></div>
         <div id="admin-backup-modals-component"></div>
+        <div id="automation-scope-preview-component"></div>
         
         <!-- Global Progress Indicator (Bottom Right) -->
         <div x-show="crawlerInProgress" 
@@ -452,7 +456,8 @@
         loadComponent('test-grid-component', 'components/test-grid.html'),
         loadComponent('audit-timeline-modal-component', 'components/audit-timeline-modal.html'),
         loadComponent('user-management-modals-component', 'components/user-management-modals.html'),
-        loadComponent('admin-backup-modals-component', 'components/admin-backup-modals.html')
+        loadComponent('admin-backup-modals-component', 'components/admin-backup-modals.html'),
+        loadComponent('automation-scope-preview-component', 'components/automation-scope-preview.html')
             ]);
             
             // Load views
