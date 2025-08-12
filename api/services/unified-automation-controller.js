@@ -442,24 +442,159 @@ class UnifiedAutomationController {
     }
 
     /**
+     * Update automation run status
+     * @param {string} runId - Automation run ID
+     * @param {string} status - New status ('running', 'completed', 'failed', 'cancelled')
+     * @param {Object} data - Additional data to update
+     * @returns {Object} Update result
+     */
+    async updateRunStatus(runId, status, data = {}) {
+        try {
+            console.log(`📊 Updating unified automation run ${runId} status to ${status}`);
+
+            // Calculate completion data for finished runs
+            let updateData = { status };
+            
+            if (status === 'completed' || status === 'failed') {
+                updateData.completed_at = new Date();
+                
+                // Get summary statistics from test results
+                const statsQuery = `
+                    SELECT 
+                        COUNT(*) as total_tests,
+                        COUNT(CASE WHEN status = 'completed' THEN 1 END) as completed_tests,
+                        COALESCE(SUM(violations_count), 0) as total_violations,
+                        COALESCE(SUM(CASE WHEN violations_count > 5 THEN violations_count ELSE 0 END), 0) as critical_violations,
+                        COUNT(DISTINCT page_id) as pages_tested,
+                        COUNT(DISTINCT test_session_id) as test_sessions
+                    FROM automated_test_results 
+                    WHERE automation_run_id = $1
+                `;
+                
+                const statsResult = await pool.query(statsQuery, [runId]);
+                const stats = statsResult.rows[0];
+                
+                updateData.total_violations = stats.total_violations;
+                updateData.critical_violations = stats.critical_violations;
+                updateData.pages_tested = stats.pages_tested;
+                updateData.test_instances_updated = stats.completed_tests;
+                
+                // Set error message if provided
+                if (status === 'failed' && data.error) {
+                    updateData.error_message = data.error;
+                }
+            }
+
+            // Build dynamic update query
+            const setClause = Object.keys(updateData).map((key, i) => 
+                `${key} = $${i + 2}`
+            ).join(', ');
+            
+            const query = `
+                UPDATE automation_runs_v2 
+                SET ${setClause}, updated_at = NOW()
+                WHERE id = $1
+                RETURNING *
+            `;
+
+            const values = [runId, ...Object.values(updateData)];
+            const result = await pool.query(query, values);
+            
+            if (result.rows.length === 0) {
+                return { success: false, error: 'Automation run not found' };
+            }
+
+            const updatedRun = result.rows[0];
+            
+            // Emit WebSocket event for status change
+            if (this.wsService && status === 'completed') {
+                this.wsService.emitToProject(updatedRun.project_id || 'unknown', 'automation_completed', {
+                    run_id: runId,
+                    session_id: updatedRun.session_id,
+                    status: status,
+                    summary: {
+                        total_violations: updatedRun.total_violations,
+                        critical_violations: updatedRun.critical_violations,
+                        pages_tested: updatedRun.pages_tested,
+                        test_instances_updated: updatedRun.test_instances_updated
+                    },
+                    completed_at: updatedRun.completed_at
+                });
+            }
+
+            // Remove from running tests tracking
+            this.runningTests.delete(runId);
+
+            console.log(`✅ Automation run ${runId} updated to ${status} successfully`);
+            return { success: true, run: updatedRun };
+
+        } catch (error) {
+            console.error('❌ Error updating automation run status:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    /**
+     * Check if automation run is complete and update status
+     * @param {string} runId - Automation run ID
+     * @returns {Object} Check result
+     */
+    async checkAndUpdateRunCompletion(runId) {
+        try {
+            // Check if all tests for this run are complete
+            const statusQuery = `
+                SELECT 
+                    COUNT(*) as total_tests,
+                    COUNT(CASE WHEN status = 'completed' THEN 1 END) as completed_tests,
+                    COUNT(CASE WHEN status = 'pending' THEN 1 END) as pending_tests,
+                    COUNT(CASE WHEN status = 'running' THEN 1 END) as running_tests,
+                    COUNT(CASE WHEN status = 'failed' THEN 1 END) as failed_tests
+                FROM automated_test_results 
+                WHERE automation_run_id = $1
+            `;
+            
+            const result = await pool.query(statusQuery, [runId]);
+            const stats = result.rows[0];
+            
+            console.log(`🔍 Run ${runId} status: ${stats.completed_tests}/${stats.total_tests} complete, ${stats.pending_tests} pending, ${stats.running_tests} running, ${stats.failed_tests} failed`);
+            
+            // If all tests are complete (no pending or running), mark run as complete
+            if (stats.total_tests > 0 && stats.pending_tests === 0 && stats.running_tests === 0) {
+                const finalStatus = stats.failed_tests > 0 ? 'completed' : 'completed'; // All completed regardless of failures
+                const updateResult = await this.updateRunStatus(runId, finalStatus);
+                
+                return { 
+                    success: true, 
+                    completed: true, 
+                    status: finalStatus,
+                    stats 
+                };
+            }
+            
+            return { 
+                success: true, 
+                completed: false, 
+                stats 
+            };
+            
+        } catch (error) {
+            console.error('❌ Error checking automation run completion:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    /**
      * Cancel a running automation
      * @param {string} runId - Automation run ID
      * @returns {Object} Cancellation result
      */
     async cancelAutomation(runId) {
         try {
-            // Update run status to cancelled
-            const query = `
-                UPDATE automation_runs_v2 
-                SET status = 'cancelled', updated_at = NOW()
-                WHERE id = $1 AND status = 'running'
-                RETURNING *
-            `;
-
-            const result = await pool.query(query, [runId]);
+            // Use the new updateRunStatus method
+            const result = await this.updateRunStatus(runId, 'cancelled');
             
-            if (result.rows.length === 0) {
-                return { success: false, error: 'Automation run not found or not running' };
+            if (!result.success) {
+                return result;
             }
 
             // Cancel pending automated test results
@@ -470,9 +605,6 @@ class UnifiedAutomationController {
             `;
 
             await pool.query(cancelTestsQuery, [runId]);
-
-            // Remove from running tests tracking
-            this.runningTests.delete(runId);
 
             console.log(`✅ Automation run ${runId} cancelled successfully`);
             return { success: true, message: 'Automation cancelled' };

@@ -2980,8 +2980,8 @@ class TestAutomationService {
         const { limit = 10, offset = 0 } = options;
 
         try {
-            // Get automation runs from the correct table
-            const query = `
+            // Query both legacy automated_test_runs and new automation_runs_v2 tables
+            const legacyQuery = `
                 SELECT 
                     id::text as id,
                     run_id,
@@ -3002,26 +3002,59 @@ class TestAutomationService {
                         WHEN status = 'failed' THEN 'danger'
                         ELSE 'pending'
                     END as result_type,
-                    0 as total_passes -- Placeholder since we don't track passes in this table
-                FROM automated_test_runs 
-                WHERE test_session_id = $1 
-                ORDER BY started_at DESC 
-                LIMIT $2 OFFSET $3
-            `;
-
-            const countQuery = `
-                SELECT COUNT(*) as total 
+                    0 as total_passes, -- Placeholder since we don't track passes in this table
+                    'legacy' as source_table
                 FROM automated_test_runs 
                 WHERE test_session_id = $1
             `;
 
-            const [runsResult, countResult] = await Promise.all([
-                pool.query(query, [sessionId, limit, offset]),
-                pool.query(countQuery, [sessionId])
+            const unifiedQuery = `
+                SELECT 
+                    id::text as id,
+                    id as run_id, -- Use id as run_id for unified runs
+                    created_at as started_at,
+                    completed_at,
+                    status,
+                    COALESCE(total_violations, 0) as total_issues,
+                    COALESCE(critical_violations, 0) as critical_violations,
+                    COALESCE(test_instances_updated, 0) as test_instances_updated,
+                    COALESCE(pages_tested, 0) as pages_tested,
+                    tools_used,
+                    error_message as error,
+                    EXTRACT(EPOCH FROM (completed_at - created_at)) * 1000 as duration_ms,
+                    CASE 
+                        WHEN status = 'completed' AND COALESCE(total_violations, 0) = 0 THEN 'success'
+                        WHEN status = 'completed' AND COALESCE(total_violations, 0) <= 5 THEN 'warning'
+                        WHEN status = 'completed' AND COALESCE(total_violations, 0) > 5 THEN 'danger'
+                        WHEN status = 'failed' THEN 'danger'
+                        ELSE 'pending'
+                    END as result_type,
+                    COALESCE(total_passes, 0) as total_passes,
+                    'unified' as source_table
+                FROM automation_runs_v2 
+                WHERE session_id = $1
+            `;
+
+            // Execute both queries in parallel
+            const [legacyResult, unifiedResult] = await Promise.all([
+                pool.query(legacyQuery, [sessionId]),
+                pool.query(unifiedQuery, [sessionId])
             ]);
 
+            // Combine and sort all runs by started_at/created_at
+            const allRuns = [
+                ...legacyResult.rows,
+                ...unifiedResult.rows
+            ].sort((a, b) => new Date(b.started_at) - new Date(a.started_at));
+
+            // Apply pagination to combined results
+            const paginatedRuns = allRuns.slice(offset, offset + limit);
+
+            // Count total from both tables
+            const totalCount = allRuns.length;
+
             // Enhance run data with additional details
-            const enhancedRuns = runsResult.rows.map(run => {
+            const enhancedRuns = paginatedRuns.map(run => {
                 const toolsArray = Array.isArray(run.tools_used) ? run.tools_used : 
                     (run.tools_used ? JSON.parse(run.tools_used) : []);
                 
@@ -3035,17 +3068,20 @@ class TestAutomationService {
                     formatted_duration: this.formatDuration(run.duration_ms),
                     tools_display: toolsArray.map(tool => 
                         tool.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())
-                    ).join(', ') || 'Unknown'
+                    ).join(', ') || 'Unknown',
+                    source: run.source_table // Add source info for debugging
                 };
             });
+
+            console.log(`📊 Loaded ${totalCount} total automation runs: ${legacyResult.rows.length} legacy + ${unifiedResult.rows.length} unified`);
 
             return {
                 runs: enhancedRuns,
                 pagination: {
-                    total: parseInt(countResult.rows[0].total),
+                    total: totalCount,
                     limit: limit,
                     offset: offset,
-                    has_more: (offset + enhancedRuns.length) < parseInt(countResult.rows[0].total)
+                    has_more: (offset + enhancedRuns.length) < totalCount
                 }
             };
 

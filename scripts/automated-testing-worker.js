@@ -8,6 +8,7 @@
 
 const { Pool } = require('pg');
 const TestAutomationService = require('../api/services/test-automation-service');
+const UnifiedAutomationController = require('../api/services/unified-automation-controller');
 const WebSocketClient = require('./websocket-client');
 
 // Mock WebSocket service for the worker (fallback)
@@ -33,6 +34,7 @@ class AutomatedTestingWorker {
         });
 
         this.automationService = new TestAutomationService(new MockWebSocketService());
+        this.unifiedController = new UnifiedAutomationController(new MockWebSocketService());
         this.wsClient = new WebSocketClient();
         this.isRunning = false;
         this.pollInterval = 10000; // 10 seconds
@@ -173,6 +175,9 @@ class AutomatedTestingWorker {
             
             // Update test result
             await this.updateTestResult(test.id, result);
+            
+            // Check if this test is part of a unified automation run and update completion status
+            await this.checkUnifiedAutomationCompletion(test);
             
             // Map violations to test instances
             if (result.violations && result.violations.length > 0) {
@@ -413,6 +418,31 @@ class AutomatedTestingWorker {
             testDuration,
             testId
         ]);
+    }
+
+    /**
+     * Check if test completion should trigger unified automation run completion
+     */
+    async checkUnifiedAutomationCompletion(test) {
+        try {
+            // Only check if this test has an automation_run_id (unified automation)
+            if (!test.automation_run_id) {
+                return;
+            }
+
+            console.log(`🔍 Checking unified automation run completion for run: ${test.automation_run_id}`);
+            
+            // Check if all tests in this automation run are complete
+            const completionResult = await this.unifiedController.checkAndUpdateRunCompletion(test.automation_run_id);
+            
+            if (completionResult.success && completionResult.completed) {
+                console.log(`✅ Unified automation run ${test.automation_run_id} completed with status: ${completionResult.status}`);
+            }
+            
+        } catch (error) {
+            console.error(`❌ Error checking unified automation completion:`, error);
+            // Don't throw - this is a non-critical operation
+        }
     }
 
     async mapViolationsToTestInstances(sessionId, pageUrl, violations, toolName) {
