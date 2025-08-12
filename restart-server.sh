@@ -1,31 +1,23 @@
 #!/bin/bash
 
-echo "🔄 Restarting Accessibility Testing Platform..."
-
-# Find and kill any existing Node.js processes for this project
 echo "🛑 Stopping existing server processes..."
-pkill -f "node.*server.js" || echo "No existing server processes found"
-
-# Wait a moment for processes to fully terminate
+pkill -f "node.*server.js" || true
 sleep 2
 
-# Check for any remaining processes
-REMAINING=$(pgrep -f "node.*server.js" | wc -l)
-if [ $REMAINING -gt 0 ]; then
-    echo "⚠️  Force killing remaining processes..."
-    pkill -9 -f "node.*server.js"
-    sleep 1
-fi
+echo "🚀 Starting backend server..."
+cd api
+node server.js > ../logs/backend.log 2>&1 &
+SERVER_PID=$!
 
-# Start the server
-echo "🚀 Starting server..."
-cd "$(dirname "$0")/api"
+echo "Server started with PID: $SERVER_PID"
+sleep 3
 
-# Check if we're in development or production
-if [ "$NODE_ENV" = "production" ]; then
-    echo "🏭 Starting in production mode..."
-    node server.js
+echo "🔍 Checking server status..."
+if ps -p $SERVER_PID > /dev/null; then
+    echo "✅ Server is running"
+    curl -f http://localhost:3001/health >/dev/null 2>&1 && echo "✅ Health check passed" || echo "❌ Health check failed"
 else
-    echo "🔧 Starting in development mode..."
-    node server.js
-fi 
+    echo "❌ Server failed to start"
+    echo "Backend logs:"
+    tail -10 ../logs/backend.log
+fi

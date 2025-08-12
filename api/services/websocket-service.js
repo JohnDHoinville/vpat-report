@@ -558,6 +558,21 @@ class WebSocketService {
     }
 
     /**
+     * Emit event to all users in a project (wrapper for compatibility)
+     */
+    emitToProject(projectId, eventType, data) {
+        const message = {
+            type: eventType,
+            projectId,
+            ...data,
+            timestamp: new Date().toISOString()
+        };
+
+        this.io.to(`project_${projectId}`).emit(eventType, message);
+        console.log(`📡 Project event broadcast: ${projectId} - ${eventType}`);
+    }
+
+    /**
      * Close WebSocket service
      */
     close() {

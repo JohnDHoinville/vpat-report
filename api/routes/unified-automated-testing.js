@@ -41,8 +41,7 @@ router.post('/unified-run/:sessionId', authenticateToken, async (req, res) => {
         console.log(`🔧 Options:`, options);
         console.log(`👤 User: ${req.user?.id || 'unknown'}`);
 
-        // Get WebSocket service
-        const wsService = req.app.get('wsService');
+        // Use WebSocket service passed to this module
         
         // Initialize unified automation controller
         const controller = new UnifiedAutomationController(wsService);
@@ -144,7 +143,6 @@ router.get('/unified-run/:sessionId/status/:runId', authenticateToken, async (re
         
         console.log(`📊 Getting status for automation run: ${runId}`);
 
-        const wsService = req.app.get('wsService');
         const controller = new UnifiedAutomationController(wsService);
         
         const status = await controller.getAutomationStatus(runId);
@@ -176,7 +174,6 @@ router.delete('/unified-run/:sessionId/:runId', authenticateToken, async (req, r
         
         console.log(`🛑 Cancelling automation run: ${runId}`);
 
-        const wsService = req.app.get('wsService');
         const controller = new UnifiedAutomationController(wsService);
         
         const result = await controller.cancelAutomation(runId);
@@ -220,7 +217,6 @@ router.post('/unified-run/:sessionId/preview', authenticateToken, async (req, re
 
         console.log(`🔍 Preview request: ${target_mode} mode for session ${sessionId}`);
 
-        const wsService = req.app.get('wsService');
         const controller = new UnifiedAutomationController(wsService);
         
         const preview = await controller.previewAutomationScope(sessionId, target_mode, target_ids, tools);

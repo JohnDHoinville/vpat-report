@@ -56,12 +56,20 @@ class UnifiedAutomationService {
                         `Testing ${response.summary?.targets_resolved || 0} targets across ${response.summary?.pages_affected || 0} pages`);
                     
                     // Start progress tracking if dashboard instance is available
-                    if (window.dashboardInstance?.startProgressTracking && response.run_id) {
-                        window.dashboardInstance.startProgressTracking(response.run_id, sessionId, {
-                            estimatedTests: response.summary?.estimated_tests || response.summary?.targets_resolved || 0,
-                            targetMode: 'session',
-                            tools: options.tools || ['axe-core', 'pa11y', 'lighthouse']
-                        });
+                    if (response.run_id) {
+                        // Try multiple ways to access dashboard instance
+                        const dashboardInstance = window.dashboardInstance || window._dashboardInstance || 
+                                                (window.Alpine && window.Alpine.store && window.Alpine.store('dashboard'));
+                        
+                        if (dashboardInstance?.startProgressTracking) {
+                            dashboardInstance.startProgressTracking(response.run_id, sessionId, {
+                                estimatedTests: response.summary?.estimated_tests || response.summary?.targets_resolved || 0,
+                                targetMode: 'session',
+                                tools: options.tools || ['axe-core', 'pa11y', 'lighthouse']
+                            });
+                        } else {
+                            console.warn('⚠️ Dashboard instance not available for progress tracking');
+                        }
                     }
                 }
                 return response;
@@ -120,13 +128,21 @@ class UnifiedAutomationService {
                         `Testing ${response.summary?.targets_resolved || 0} instances`);
                     
                     // Start progress tracking if dashboard instance is available
-                    if (window.dashboardInstance?.startProgressTracking && response.run_id) {
-                        window.dashboardInstance.startProgressTracking(response.run_id, sessionId, {
-                            estimatedTests: response.summary?.estimated_tests || response.summary?.targets_resolved || 0,
-                            targetMode: 'requirements',
-                            tools: options.tools || ['axe-core', 'pa11y'],
-                            targetIds: requirementIds
-                        });
+                    if (response.run_id) {
+                        // Try multiple ways to access dashboard instance
+                        const dashboardInstance = window.dashboardInstance || window._dashboardInstance || 
+                                                (window.Alpine && window.Alpine.store && window.Alpine.store('dashboard'));
+                        
+                        if (dashboardInstance?.startProgressTracking) {
+                            dashboardInstance.startProgressTracking(response.run_id, sessionId, {
+                                estimatedTests: response.summary?.estimated_tests || response.summary?.targets_resolved || 0,
+                                targetMode: 'requirements',
+                                tools: options.tools || ['axe-core', 'pa11y'],
+                                targetIds: requirementIds
+                            });
+                        } else {
+                            console.warn('⚠️ Dashboard instance not available for progress tracking');
+                        }
                     }
                 }
                 return response;
@@ -185,13 +201,21 @@ class UnifiedAutomationService {
                         `Testing ${response.summary?.targets_resolved || 0} instances`);
                     
                     // Start progress tracking if dashboard instance is available
-                    if (window.dashboardInstance?.startProgressTracking && response.run_id) {
-                        window.dashboardInstance.startProgressTracking(response.run_id, sessionId, {
-                            estimatedTests: response.summary?.estimated_tests || response.summary?.targets_resolved || 0,
-                            targetMode: 'instances',
-                            tools: options.tools || ['axe-core', 'pa11y'],
-                            targetIds: instanceIds
-                        });
+                    if (response.run_id) {
+                        // Try multiple ways to access dashboard instance
+                        const dashboardInstance = window.dashboardInstance || window._dashboardInstance || 
+                                                (window.Alpine && window.Alpine.store && window.Alpine.store('dashboard'));
+                        
+                        if (dashboardInstance?.startProgressTracking) {
+                            dashboardInstance.startProgressTracking(response.run_id, sessionId, {
+                                estimatedTests: response.summary?.estimated_tests || response.summary?.targets_resolved || 0,
+                                targetMode: 'instances',
+                                tools: options.tools || ['axe-core', 'pa11y'],
+                                targetIds: instanceIds
+                            });
+                        } else {
+                            console.warn('⚠️ Dashboard instance not available for progress tracking');
+                        }
                     }
                 }
                 return response;
@@ -296,10 +320,7 @@ class UnifiedAutomationService {
     }
 }
 
-// Export for ES6 modules
-export { UnifiedAutomationService };
-
-// Also make available globally for Alpine.js components
+// Make available globally for Alpine.js components (no ES6 export in browser)
 window.UnifiedAutomationService = UnifiedAutomationService;
 
 console.log('✅ Unified Automation Service loaded');
