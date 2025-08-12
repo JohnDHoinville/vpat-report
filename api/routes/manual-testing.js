@@ -596,6 +596,38 @@ router.post('/session/:sessionId/result', authenticateToken, async (req, res) =>
             // Update session progress (outside transaction)
             await updateSessionProgress(sessionId);
             
+            // Emit WebSocket event for real-time requirement status updates
+            const wsService = req.app.get('wsService');
+            if (wsService) {
+                // Get session and project info
+                const sessionQuery = `
+                    SELECT ts.project_id, ur.requirement_id as criterion_number, ur.title
+                    FROM test_sessions ts
+                    JOIN unified_requirements ur ON ur.id = $2
+                    WHERE ts.id = $1
+                `;
+                const sessionResult = await pool.query(sessionQuery, [sessionId, requirement_id]);
+                
+                if (sessionResult.rows.length > 0) {
+                    const sessionInfo = sessionResult.rows[0];
+                    
+                    // Emit to project room for real-time updates
+                    wsService.emitToProject(sessionInfo.project_id, 'manual_test_updated', {
+                        session_id: sessionId,
+                        requirement_id: requirement_id,
+                        criterion_number: sessionInfo.criterion_number,
+                        requirement_title: sessionInfo.title,
+                        page_id: page_id,
+                        result: result,
+                        confidence_level: confidence_level,
+                        updated_at: new Date().toISOString(),
+                        tester_name: tester_name || req.user?.username
+                    });
+                    
+                    console.log(`🔔 WebSocket: Manual test result updated for requirement ${sessionInfo.criterion_number}`);
+                }
+            }
+            
             res.json({
                 success: true,
                 message: 'Test result recorded successfully',

@@ -1881,6 +1881,110 @@ ${requirement.failure_examples}
                 console.log('🔔 Notification:', data);
                 this.showNotification(data.type || 'info', data.title || 'Update', data.message);
             });
+            
+            // Real-time requirement status updates
+            this.socket.on('test_instance_updated', (data) => {
+                console.log('🔔 Test instance updated:', data);
+                this.handleTestInstanceUpdate(data);
+            });
+            
+            this.socket.on('manual_test_updated', (data) => {
+                console.log('🔔 Manual test updated:', data);
+                this.handleManualTestUpdate(data);
+            });
+        },
+        
+        // Handle real-time test instance updates
+        handleTestInstanceUpdate(data) {
+            if (!data) return;
+            
+            console.log(`🔄 Handling test instance update for requirement ${data.criterion_number}`);
+            
+            // If this is for the current session, refresh the requirements
+            if (this.selectedTestSession?.id === data.session_id) {
+                this.refreshRequirementStatus(data.criterion_number);
+                
+                // Show notification for status change
+                this.showNotification('info', 'Test Updated', 
+                    `Requirement ${data.criterion_number} test status updated to ${data.new_status}`);
+                
+                // If test grid is open, refresh it
+                if (this.showTestGrid) {
+                    this.refreshTestGridStatuses();
+                }
+                
+                // If requirements modal is open, refresh the specific requirement
+                if (this.showRequirementsModal) {
+                    this.refreshRequirementDetails(data.requirement_id);
+                }
+            }
+        },
+        
+        // Handle real-time manual test updates
+        handleManualTestUpdate(data) {
+            if (!data) return;
+            
+            console.log(`🔄 Handling manual test update for requirement ${data.criterion_number}`);
+            
+            // If this is for the current session, refresh the requirements
+            if (this.selectedTestSession?.id === data.session_id) {
+                this.refreshRequirementStatus(data.criterion_number);
+                
+                // Show notification for status change
+                this.showNotification('info', 'Manual Test Updated', 
+                    `Manual test result for ${data.criterion_number}: ${data.result}`);
+                
+                // If requirements modal is open, refresh the specific requirement
+                if (this.showRequirementsModal) {
+                    this.refreshRequirementDetails(data.requirement_id);
+                }
+            }
+        },
+        
+        // Refresh a specific requirement's status
+        async refreshRequirementStatus(criterionNumber) {
+            if (!this.selectedTestSession?.id) return;
+            
+            try {
+                console.log(`🔄 Refreshing status for requirement ${criterionNumber}`);
+                
+                // Reload session requirements to get updated status
+                await this.loadSessionRequirements(this.selectedTestSession.id);
+                
+                // Update the specific requirement in the current display
+                const requirement = this.sessionRequirements.find(req => 
+                    req.criterion_number === criterionNumber || req.requirement_id === criterionNumber);
+                
+                if (requirement) {
+                    console.log(`✅ Updated requirement ${criterionNumber} status:`, {
+                        automated_status: requirement.automated_status,
+                        manual_status: requirement.manual_status,
+                        overall_status: requirement.overall_status
+                    });
+                }
+                
+            } catch (error) {
+                console.error('Error refreshing requirement status:', error);
+            }
+        },
+        
+        // Refresh requirement details if modal is open
+        async refreshRequirementDetails(requirementId) {
+            if (!this.currentRequirement || this.currentRequirement.id !== requirementId) return;
+            
+            try {
+                // Reload the current requirement details
+                const response = await this.apiCall(`/unified-requirements/session/${this.selectedTestSession.id}`);
+                if (response.success) {
+                    const updatedRequirement = response.data.requirements.find(req => req.id === requirementId);
+                    if (updatedRequirement) {
+                        this.currentRequirement = updatedRequirement;
+                        console.log(`✅ Refreshed requirement details for ${updatedRequirement.criterion_number}`);
+                    }
+                }
+            } catch (error) {
+                console.error('Error refreshing requirement details:', error);
+            }
         },
         
         // Handle automation progress updates

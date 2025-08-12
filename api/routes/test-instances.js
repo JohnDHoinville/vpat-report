@@ -608,6 +608,43 @@ router.put('/:id', authenticateToken, async (req, res) => {
         
         await client.query('COMMIT');
         
+        // Emit WebSocket event for real-time requirement status updates
+        const wsService = req.app.get('wsService');
+        if (wsService && updatedInstance) {
+            // Get requirement details for the updated test instance
+            const requirementQuery = `
+                SELECT 
+                    ur.id as requirement_id,
+                    ur.requirement_id as criterion_number,
+                    ur.title,
+                    ti.session_id,
+                    ts.project_id
+                FROM test_instances ti
+                JOIN unified_requirements ur ON ti.requirement_id = ur.id
+                JOIN test_sessions ts ON ti.session_id = ts.id
+                WHERE ti.id = $1
+            `;
+            const requirementResult = await client.query(requirementQuery, [id]);
+            
+            if (requirementResult.rows.length > 0) {
+                const requirementInfo = requirementResult.rows[0];
+                
+                // Emit to project room for real-time updates
+                wsService.emitToProject(requirementInfo.project_id, 'test_instance_updated', {
+                    test_instance_id: id,
+                    requirement_id: requirementInfo.requirement_id,
+                    criterion_number: requirementInfo.criterion_number,
+                    requirement_title: requirementInfo.title,
+                    session_id: requirementInfo.session_id,
+                    new_status: updatedInstance.status,
+                    updated_at: new Date().toISOString(),
+                    updated_by: req.user.id
+                });
+                
+                console.log(`🔔 WebSocket: Test instance ${id} updated for requirement ${requirementInfo.criterion_number}`);
+            }
+        }
+        
         res.json({
             success: true,
             test_instance: updatedInstance
