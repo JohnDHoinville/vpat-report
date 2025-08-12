@@ -11336,6 +11336,22 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                 return `<pre class="text-xs overflow-x-auto">${JSON.stringify(value, null, 2)}</pre>`;
             }
             if (typeof value === 'string' && value.length > 100) {
+                // Check if this is a violation message - exempt from truncation
+                const isViolationMessage = value.includes('Documents must have') || 
+                                         value.includes('dequeuniversity.com') ||
+                                         value.includes('violation') ||
+                                         value.includes('accessibility') ||
+                                         value.includes('WCAG') ||
+                                         value.includes('aria-') ||
+                                         value.includes('element to aid') ||
+                                         value.includes('screen reader');
+                
+                if (isViolationMessage) {
+                    // Display violation messages in full without truncation
+                    return `<div class="text-sm text-red-700 bg-red-50 p-2 rounded border border-red-200">${value}</div>`;
+                }
+                
+                // Normal truncation for other long strings
                 return `<div class="text-sm">${value.substring(0, 100)}...</div><details class="mt-1"><summary class="text-xs text-blue-600 cursor-pointer">Show full value</summary><div class="mt-1 text-xs">${value}</div></details>`;
             }
             return `<span class="font-mono">${value}</span>`;
@@ -11392,7 +11408,7 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                     violation.nodes.slice(0, 3).forEach(node => {
                         html += `<li class="font-mono text-red-600">${node.target ? node.target.join(', ') : 'Element'}</li>`;
                         if (node.html) {
-                            html += `<li class="text-gray-600 ml-4">${node.html.substring(0, 100)}${node.html.length > 100 ? '...' : ''}</li>`;
+                            html += `<li class="text-gray-600 ml-4 break-all">${node.html}</li>`;
                         }
                     });
                     if (violation.nodes.length > 3) {
@@ -11415,7 +11431,7 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                 if (violation.context) {
                     html += `<div class="bg-red-50 p-2 rounded text-xs">
                         <strong>Element:</strong>
-                        <div class="mt-1 font-mono text-red-600">${violation.context.substring(0, 200)}${violation.context.length > 200 ? '...' : ''}</div>
+                        <div class="mt-1 font-mono text-red-600">${violation.context}</div>
                     </div>`;
                 }
                 if (violation.selector) {
