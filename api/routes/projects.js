@@ -639,8 +639,8 @@ router.get('/:id/sessions', async (req, res) => {
                 ts.*,
                 (
                     SELECT COUNT(*) 
-                    FROM automated_test_results atr 
-                    WHERE atr.test_session_id = ts.id
+                    FROM automation_runs_v2 ar 
+                    WHERE ar.session_id = ts.id
                 ) as result_count
             FROM test_sessions ts 
             ${whereClause}

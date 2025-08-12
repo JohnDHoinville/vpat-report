@@ -137,15 +137,15 @@ async function calculateSessionProgress(sessionId) {
         WHERE session_id = $1
     `;
     
-    // Get last automation run info
+    // Get last automation run info from unified table
     const automationQuery = `
         SELECT 
-            MAX(atr.completed_at) as last_automation_run,
-            COUNT(DISTINCT atr.id) as automation_runs_count,
-            SUM(atr.total_violations) as total_violations_found,
-            SUM(atr.test_instances_updated) as total_instances_updated
-        FROM automated_test_runs atr
-        WHERE atr.test_session_id = $1 AND atr.status = 'completed'
+            MAX(ar.completed_at) as last_automation_run,
+            COUNT(DISTINCT ar.id) as automation_runs_count,
+            COUNT(DISTINCT ar.id) as total_violations_found,
+            COUNT(DISTINCT ar.id) as total_instances_updated
+        FROM automation_runs_v2 ar
+        WHERE ar.session_id = $1 AND ar.status = 'completed'
     `;
     
     const result = await pool.query(query, [sessionId]);
