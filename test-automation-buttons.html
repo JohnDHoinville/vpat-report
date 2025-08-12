@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Automation Buttons</title>
+</head>
+<body>
+    <h1>Debug Automation Buttons</h1>
+    
+    <script>
+        // Open browser console to see the logs
+        console.log('🧪 Testing automation button functionality...');
+        
+        // Test if classes are available
+        console.log('UnifiedAutomationService available:', typeof UnifiedAutomationService !== 'undefined');
+        
+        // Test dashboard instance
+        console.log('Dashboard instance available:', typeof window.dashboardInstance !== 'undefined');
+        
+        // Test specific functions
+        if (window.dashboardInstance) {
+            console.log('startAutomatedTesting method:', typeof window.dashboardInstance.startAutomatedTesting);
+            console.log('triggerAutomatedTest method:', typeof window.dashboardInstance.triggerAutomatedTest);
+            console.log('apiCall method:', typeof window.dashboardInstance.apiCall);
+            console.log('showNotification method:', typeof window.dashboardInstance.showNotification);
+        }
+        
+        // Try to create a UnifiedAutomationService
+        if (typeof UnifiedAutomationService !== 'undefined' && window.dashboardInstance) {
+            try {
+                const service = new UnifiedAutomationService(
+                    window.dashboardInstance.apiCall.bind(window.dashboardInstance),
+                    window.dashboardInstance.showNotification.bind(window.dashboardInstance)
+                );
+                console.log('✅ Successfully created UnifiedAutomationService instance');
+                
+                // Test session automation with a mock session ID
+                service.runSessionAutomation('test-session', { preview_mode: true })
+                    .then(result => console.log('✅ Test automation successful:', result))
+                    .catch(error => console.error('❌ Test automation failed:', error));
+                    
+            } catch (error) {
+                console.error('❌ Failed to create UnifiedAutomationService:', error);
+            }
+        }
+    </script>
+</body>
+</html>

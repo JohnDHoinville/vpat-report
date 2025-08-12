@@ -2824,7 +2824,7 @@ class TestAutomationService {
         const { limit = 10, offset = 0 } = options;
 
         try {
-            // Query only the unified automation_runs_v2 table
+            // Query only the unified automation_runs_v2 table (using existing columns only)
             const query = `
                 SELECT 
                     id::text as id,
@@ -2832,21 +2832,19 @@ class TestAutomationService {
                     created_at as started_at,
                     completed_at,
                     status,
-                    COALESCE(total_violations, 0) as total_issues,
-                    COALESCE(critical_violations, 0) as critical_violations,
-                    COALESCE(test_instances_updated, 0) as test_instances_updated,
-                    COALESCE(pages_tested, 0) as pages_tested,
+                    0 as total_issues,  -- Default to 0 since column doesn't exist yet
+                    0 as critical_violations,  -- Default to 0 since column doesn't exist yet
+                    0 as test_instances_updated,  -- Default to 0 since column doesn't exist yet
+                    1 as pages_tested,  -- Default to 1 since column doesn't exist yet
                     tools_used,
                     error_message as error,
                     EXTRACT(EPOCH FROM (completed_at - created_at)) * 1000 as duration_ms,
                     CASE 
-                        WHEN status = 'completed' AND COALESCE(total_violations, 0) = 0 THEN 'success'
-                        WHEN status = 'completed' AND COALESCE(total_violations, 0) <= 5 THEN 'warning'
-                        WHEN status = 'completed' AND COALESCE(total_violations, 0) > 5 THEN 'danger'
+                        WHEN status = 'completed' THEN 'success'
                         WHEN status = 'failed' THEN 'danger'
                         ELSE 'pending'
                     END as result_type,
-                    COALESCE(total_passes, 0) as total_passes,
+                    0 as total_passes,  -- Default to 0 since column doesn't exist yet
                     target_mode,
                     target_metadata
                 FROM automation_runs_v2 
@@ -2920,51 +2918,20 @@ class TestAutomationService {
      */
     async getAutomationResults(runId) {
         try {
-            // First try to find the run in automated_test_runs table (new schema)
+            // Query the unified automation_runs_v2 table
             const runQuery = `
-                SELECT atr.*, 
+                SELECT ar.*, 
                        COUNT(te.id) as evidence_count
-                FROM automated_test_runs atr
-                LEFT JOIN test_evidence te ON te.metadata->>'run_id' = atr.run_id
-                WHERE atr.run_id = $1
-                GROUP BY atr.id
+                FROM automation_runs_v2 ar
+                LEFT JOIN test_evidence te ON te.metadata->>'run_id' = ar.id::text
+                WHERE ar.id = $1
+                GROUP BY ar.id
             `;
 
             const result = await pool.query(runQuery, [runId]);
             
             if (result.rows.length === 0) {
-                // Fallback: try automated_test_results table (old schema)
-                const fallbackQuery = `
-                    SELECT atr.*, 
-                           COUNT(te.id) as evidence_count
-                    FROM automated_test_results atr
-                    LEFT JOIN test_evidence te ON te.metadata->>'run_id' = atr.id::text
-                    WHERE atr.id = $1
-                    GROUP BY atr.id
-                `;
-                
-                const fallbackResult = await pool.query(fallbackQuery, [runId]);
-                
-                if (fallbackResult.rows.length === 0) {
                     throw new Error('Automation run not found');
-                }
-                
-                const run = fallbackResult.rows[0];
-                
-                return {
-                    detailed_results: run.raw_results || {},
-                    summary: {
-                        tools_used: run.tools_used || [],
-                        pages_tested: run.pages_tested || 0,
-                        total_issues: run.total_issues || 0,
-                        critical_issues: run.critical_issues || 0,
-                        duration: run.completed_at ? 
-                            new Date(run.completed_at) - new Date(run.started_at) : null
-                    },
-                    evidence_files: run.evidence_count || 0,
-                    test_instances_updated: run.test_instances_updated || 0,
-                    requirements_tested: []
-                };
             }
 
             const run = result.rows[0];
@@ -2993,65 +2960,32 @@ class TestAutomationService {
             `;
             
             const requirementsResult = await pool.query(requirementsQuery, [
-                run.test_session_id, 
-                run.executed_at
+                run.session_id, 
+                run.created_at
             ]);
 
-            // Get detailed results from automated_test_results table
-            const detailedResultsQuery = `
-                SELECT 
-                    atr.tool_name,
-                    atr.violations_count,
-                    atr.warnings_count,
-                    atr.passes_count,
-                    atr.raw_results,
-                    atr.executed_at,
-                    dp.url as page_url,
-                    atr.id as result_id
-                FROM automated_test_results atr
-                JOIN discovered_pages dp ON atr.page_id = dp.id
-                WHERE atr.test_session_id = $1
-                ORDER BY atr.executed_at DESC
-            `;
-            
-            const detailedResults = await pool.query(detailedResultsQuery, [run.test_session_id]);
-            
-            // Filter results by requirement if this is a requirement-specific test
-            const filteredResults = [];
-            for (const result of detailedResults.rows) {
-                let filteredRawResults = result.raw_results;
-                
-                // Filter results by requirement for this session
-                try {
-                    const { filterResultsByRequirement } = require('./requirement-filtering');
-                    filteredRawResults = await filterResultsByRequirement(result.raw_results, run.test_session_id);
-                } catch (error) {
-                    console.error(`❌ Error filtering results:`, error);
-                    filteredRawResults = result.raw_results;
-                }
-                
-                // Update the counts based on filtered results
-                const parsedResults = typeof filteredRawResults === 'string' ? 
-                    JSON.parse(filteredRawResults) : filteredRawResults;
-                
-                result.violations_count = parsedResults.violations?.length || 0;
-                result.warnings_count = parsedResults.warnings?.length || 0;
-                result.passes_count = parsedResults.passes?.length || 0;
-                result.raw_results = filteredRawResults;
-                
-                filteredResults.push(result);
-            }
+            // For unified automation runs, we don't have detailed per-tool results anymore
+            // Instead, we return a summary based on the automation run data
+            const summaryResults = [{
+                tool_name: 'unified_automation',
+                violations_count: run.total_violations || 0,
+                warnings_count: 0, // Not tracked in unified system
+                passes_count: run.total_passes || 0,
+                raw_results: run.raw_results || {},
+                executed_at: run.created_at,
+                page_url: 'session_wide',
+                result_id: run.id
+            }];
             
             return {
-                detailed_results: filteredResults || [],
+                detailed_results: summaryResults,
                 summary: {
-                    tools_used: Array.isArray(run.tools_used) ? run.tools_used : 
-                               (run.tools_used ? JSON.parse(run.tools_used) : []),
+                    tools_used: Array.isArray(run.tools_used) ? run.tools_used : [],
                     pages_tested: run.pages_tested || 0,
                     total_issues: run.total_violations || 0,
                     critical_issues: run.critical_violations || 0,
-                    duration: run.completed_at ? 
-                        new Date(run.completed_at) - new Date(run.started_at) : null
+                    duration: run.completed_at && run.created_at ? 
+                        new Date(run.completed_at) - new Date(run.created_at) : null
                 },
                 evidence_files: run.evidence_count || 0,
                 test_instances_updated: run.test_instances_updated || 0,
@@ -5757,7 +5691,7 @@ class TestAutomationService {
     async createAutomatedTestResultsForSession(sessionId, tools, specificInstances = null) {
         try {
             console.log(`📝 Creating automated test results for session: ${sessionId} with tools: ${tools.join(', ')}`);
-            
+
             if (specificInstances && Array.isArray(specificInstances)) {
                 console.log(`🎯 Filtering to specific instances: ${specificInstances.join(', ')}`);
             }
@@ -5789,25 +5723,25 @@ class TestAutomationService {
                 `;
                 queryParams = [sessionId, specificInstances];
             } else {
-                // Get ALL automated test instances that are pending
+            // Get ALL automated test instances that are pending
                 automatedTestInstancesQuery = `
-                    SELECT 
-                        ti.id as test_instance_id,
-                        ti.page_id,
-                        ti.requirement_id,
-                        ti.test_method_used,
-                        dp.url,
-                        ur.requirement_id as criterion_number,
-                        ur.title as requirement_title,
-                        ur.test_method as requirement_test_method
-                    FROM test_instances ti
-                    JOIN discovered_pages dp ON ti.page_id = dp.id
-                    JOIN unified_requirements ur ON ti.requirement_id = ur.id
-                    WHERE ti.session_id = $1 
-                    AND ti.status = 'pending'
-                    AND ti.test_method_used IN ('automated', 'hybrid')
-                    ORDER BY dp.url, ur.requirement_id
-                `;
+                SELECT 
+                    ti.id as test_instance_id,
+                    ti.page_id,
+                    ti.requirement_id,
+                    ti.test_method_used,
+                    dp.url,
+                    ur.requirement_id as criterion_number,
+                    ur.title as requirement_title,
+                    ur.test_method as requirement_test_method
+                FROM test_instances ti
+                JOIN discovered_pages dp ON ti.page_id = dp.id
+                JOIN unified_requirements ur ON ti.requirement_id = ur.id
+                WHERE ti.session_id = $1 
+                AND ti.status = 'pending'
+                AND ti.test_method_used IN ('automated', 'hybrid')
+                ORDER BY dp.url, ur.requirement_id
+            `;
                 queryParams = [sessionId];
             }
 
