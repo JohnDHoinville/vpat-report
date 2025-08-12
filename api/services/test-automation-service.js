@@ -5869,7 +5869,9 @@ class TestAutomationService {
             const runData = await this.createAutomationRun(sessionId, runId, tools, userId);
 
             // Create automated test results entries for the worker to pick up
-            await this.createAutomatedTestResultsForSession(sessionId, tools);
+            console.log(`🔧 DEBUG: About to create automated test results for session ${sessionId}`);
+            const testResultsCreated = await this.createAutomatedTestResultsForSession(sessionId, tools);
+            console.log(`✅ DEBUG: Created automated test results: ${testResultsCreated}`);
 
             if (runAsync) {
                 // Run per-instance tests in background
@@ -5955,9 +5957,29 @@ class TestAutomationService {
             }
 
             console.log(`✅ Created ${createdCount} automated test results for ${automatedTestInstances.rows.length} test instances`);
+            
+            // Verify entries were actually created
+            const verifyQuery = `SELECT COUNT(*) as count FROM automated_test_results WHERE test_session_id = $1 AND status = 'pending'`;
+            const verifyResult = await pool.query(verifyQuery, [sessionId]);
+            const actualCount = parseInt(verifyResult.rows[0].count);
+            
+            if (actualCount === 0) {
+                throw new Error(`Failed to create automated test results - no pending entries found after creation`);
+            }
+            
+            console.log(`🔍 VERIFICATION: ${actualCount} pending automated test results confirmed in database`);
+            return actualCount;
 
         } catch (error) {
             console.error('❌ Error creating automated test results:', error);
+            // Log additional debug info
+            try {
+                const debugQuery = `SELECT COUNT(*) as total_instances, COUNT(DISTINCT page_id) as unique_pages FROM test_instances WHERE session_id = $1 AND status = 'pending'`;
+                const debugResult = await pool.query(debugQuery, [sessionId]);
+                console.error(`🔍 DEBUG INFO: Session ${sessionId} has ${debugResult.rows[0].total_instances} pending instances across ${debugResult.rows[0].unique_pages} unique pages`);
+            } catch (debugError) {
+                console.error('Failed to get debug info:', debugError);
+            }
             throw error;
         }
     }
