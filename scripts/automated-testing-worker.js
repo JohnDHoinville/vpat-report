@@ -442,22 +442,79 @@ class AutomatedTestingWorker {
             
             let updatedCount = 0;
             
-            for (const violation of violations) {
-                // Map violation to WCAG criteria
-                const wcagCriteria = this.mapViolationToWcagCriteria(violation, toolName);
+            // If violations were found, update matching test instances to failed
+            if (violations.length > 0) {
+                for (const violation of violations) {
+                    // Map violation to WCAG criteria
+                    const wcagCriteria = this.mapViolationToWcagCriteria(violation, toolName);
+                    
+                    // Find matching test instances
+                    const matchingInstances = testInstances.filter(instance => 
+                        wcagCriteria.includes(instance.criterion_number)
+                    );
+                    
+                    console.log(`🔍 Violation "${violation.id || violation.code}" maps to WCAG ${wcagCriteria}, found ${matchingInstances.length} matching instances`);
+                    
+                    // Update matching test instances
+                    for (const instance of matchingInstances) {
+                        const updateQuery = `
+                            UPDATE test_instances 
+                            SET status = 'failed',
+                                automated_result_id = (
+                                    SELECT id FROM automated_test_results 
+                                    WHERE test_session_id = $1 
+                                    AND page_id = $2 
+                                    AND tool_name = $3 
+                                    AND status = 'completed'
+                                    ORDER BY executed_at DESC 
+                                    LIMIT 1
+                                ),
+                                notes = $4,
+                                evidence = $5,
+                                result = $6,
+                                updated_at = CURRENT_TIMESTAMP
+                            WHERE id = $7
+                        `;
+                        
+                        const notes = `Automated test failed: ${violation.description || violation.help || violation.message}`;
+                        const evidence = JSON.stringify({
+                            tool: toolName,
+                            violation: violation,
+                            timestamp: new Date().toISOString()
+                        });
+                        
+                        // Create result object that matches the status
+                        const result = JSON.stringify({
+                            tool: toolName,
+                            status: 'failed',
+                            message: `Automated test failed: ${violation.description || violation.help || violation.message}`,
+                            pageUrl: pageUrl,
+                            timestamp: new Date().toISOString(),
+                            automation_status: 'completed',
+                            violation: violation
+                        });
+                        
+                        await this.pool.query(updateQuery, [
+                            sessionId, 
+                            instance.page_id, 
+                            toolName, 
+                            notes, 
+                            evidence, 
+                            result,
+                            instance.test_instance_id
+                        ]);
+                        
+                        updatedCount++;
+                    }
+                }
+            } else {
+                // No violations found - update all test instances for this page to passed
+                console.log(`✅ No violations found for ${pageUrl}, updating all test instances to passed`);
                 
-                // Find matching test instances
-                const matchingInstances = testInstances.filter(instance => 
-                    wcagCriteria.includes(instance.criterion_number)
-                );
-                
-                console.log(`🔍 Violation "${violation.id || violation.code}" maps to WCAG ${wcagCriteria}, found ${matchingInstances.length} matching instances`);
-                
-                // Update matching test instances
-                for (const instance of matchingInstances) {
+                for (const instance of testInstances) {
                     const updateQuery = `
                         UPDATE test_instances 
-                        SET status = 'failed',
+                        SET status = 'passed',
                             automated_result_id = (
                                 SELECT id FROM automated_test_results 
                                 WHERE test_session_id = $1 
@@ -469,15 +526,26 @@ class AutomatedTestingWorker {
                             ),
                             notes = $4,
                             evidence = $5,
+                            result = $6,
                             updated_at = CURRENT_TIMESTAMP
-                        WHERE id = $6
+                        WHERE id = $7
                     `;
                     
-                    const notes = `Automated test failed: ${violation.description || violation.help || violation.message}`;
+                    const notes = `Automated test passed: No violations found for this requirement`;
                     const evidence = JSON.stringify({
                         tool: toolName,
-                        violation: violation,
-                        timestamp: new Date().toISOString()
+                        timestamp: new Date().toISOString(),
+                        status: 'passed'
+                    });
+                    
+                    // Create result object that matches the status
+                    const result = JSON.stringify({
+                        tool: toolName,
+                        status: 'passed',
+                        message: `Automated test completed by ${toolName}. No violations found for this requirement.`,
+                        pageUrl: pageUrl,
+                        timestamp: new Date().toISOString(),
+                        automation_status: 'completed'
                     });
                     
                     await this.pool.query(updateQuery, [
@@ -486,6 +554,7 @@ class AutomatedTestingWorker {
                         toolName, 
                         notes, 
                         evidence, 
+                        result,
                         instance.test_instance_id
                     ]);
                     
@@ -493,7 +562,7 @@ class AutomatedTestingWorker {
                 }
             }
             
-            console.log(`✅ Updated ${updatedCount} test instances with violations for ${pageUrl}`);
+            console.log(`✅ Updated ${updatedCount} test instances with ${violations.length > 0 ? 'violations' : 'passed status'} for ${pageUrl}`);
             
         } catch (error) {
             console.error(`❌ Error mapping violations to test instances:`, error);
