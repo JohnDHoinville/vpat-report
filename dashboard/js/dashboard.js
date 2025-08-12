@@ -1830,9 +1830,14 @@ ${requirement.failure_examples}
                 this.wsConnected = false; // For header compatibility
             });
             
+            // DEBUG: Listen for all WebSocket events
+            this.socket.onAny((eventName, ...args) => {
+                console.log(`🔥 WEBSOCKET EVENT: ${eventName}`, args);
+            });
+            
             // Automation progress events
             this.socket.on('session_progress', (data) => {
-                console.log('📊 Automation progress update received:', data);
+                console.log('🔥 WEBSOCKET: session_progress event received:', data);
                 this.handleAutomationProgress(data);
                 
                 // Refresh test grid to show status changes if it's open
@@ -1989,13 +1994,26 @@ ${requirement.failure_examples}
         
         // Handle automation progress updates
         handleAutomationProgress(data) {
-            if (!data || !data.progress) return;
+            console.log('🔍 DEBUG: handleAutomationProgress received:', data);
             
-            const progress = data.progress;
+            if (!data) {
+                console.log('❌ No data received in handleAutomationProgress');
+                return;
+            }
+            
+            // Handle both old and new formats
+            const progress = data.progress || data;
+            
+            if (!progress) {
+                console.log('❌ No progress data found in handleAutomationProgress');
+                return;
+            }
+            
+            console.log('🔍 DEBUG: Progress data:', progress);
             
             // Update automation progress state with enhanced information
             this.automationProgress = {
-                sessionId: data.sessionId,
+                sessionId: data.sessionId || progress.sessionId,
                 percentage: progress.percentage || 0,
                 completedTests: progress.completedTests || 0,
                 totalTests: progress.totalTests || 0,
@@ -2013,6 +2031,8 @@ ${requirement.failure_examples}
                 lastResult: progress.lastResult || null,
                 lastError: progress.lastError || null
             };
+            
+            console.log('✅ Updated automationProgress:', this.automationProgress);
             
             // Show enhanced real-time notification with detailed information
             if (this.realtimeUpdates) {
@@ -9319,11 +9339,19 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                 this.automationChartPeriod = period;
                 console.log('📊 Updating automation chart for period:', period);
 
+                // Skip chart updates if there have been recent errors
+                if (this.chartErrorCount && this.chartErrorCount > 3) {
+                    console.log('📊 Skipping chart update due to repeated errors');
+                    this.isUpdatingChart = false;
+                    return;
+                }
+
                 // Safety check for chart initialization
                 if (!this.automationChart) {
                     console.log('Chart not initialized, initializing now...');
                     this.initAutomationChart();
                     // Don't call updateAutomationChart recursively - let the caller handle it
+                    this.isUpdatingChart = false;
                     return;
                 }
 
@@ -9452,7 +9480,12 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                         // Use animation: false to prevent chart.js conflicts
                         this.automationChart.update('none');
                     } catch (updateError) {
-                        console.error('Error updating chart data:', updateError);
+                        console.error('Error updating automation chart:', updateError);
+                        
+                        // Track errors to prevent infinite loops
+                        this.chartErrorCount = (this.chartErrorCount || 0) + 1;
+                        
+                        if (this.chartErrorCount <= 3) {
                         // If chart update fails, try to destroy and recreate
                         try {
                             this.automationChart.destroy();
@@ -9461,6 +9494,9 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                             console.log('Chart destroyed due to errors, will reinitialize on next update');
                         } catch (destroyError) {
                             console.error('Error destroying chart:', destroyError);
+                            }
+                        } else {
+                            console.log('📊 Chart error limit reached, disabling chart updates');
                         }
                     }
                 }

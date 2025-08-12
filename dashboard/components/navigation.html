@@ -70,6 +70,20 @@
                 class="whitespace-nowrap py-2 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 font-medium text-sm focus:outline-none transition-colors">
                 <i class="fas fa-users-cog mr-2"></i>User Management
             </button>
+            
+            <!-- Automation Progress Indicator -->
+            <div x-show="automationProgress && automationProgress.percentage > 0" 
+                 class="flex items-center space-x-2 ml-auto text-sm">
+                <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+                <span class="text-blue-600 font-medium">
+                    <span x-text="automationProgress?.currentTool || 'Testing'"></span>
+                    <span x-text="`${automationProgress?.percentage || 0}%`"></span>
+                </span>
+                <div class="w-20 bg-blue-200 rounded-full h-2">
+                    <div class="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+                         :style="`width: ${automationProgress?.percentage || 0}%`"></div>
+                </div>
+            </div>
         </div>
     </div>
 </nav> 
