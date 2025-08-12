@@ -11347,8 +11347,8 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                                          value.includes('screen reader');
                 
                 if (isViolationMessage) {
-                    // Display violation messages in full without truncation
-                    return `<div class="text-sm text-red-700 bg-red-50 p-2 rounded border border-red-200">${value}</div>`;
+                    // Display violation messages in full without truncation - HTML escape to prevent tag interpretation
+                    return `<div class="text-sm text-red-700 bg-red-50 p-2 rounded border border-red-200">${this.escapeHtml(value)}</div>`;
                 }
                 
                 // Normal truncation for other long strings
@@ -11384,6 +11384,12 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
         },
 
         // Format individual violation result for display
+        // Helper function to escape HTML entities
+        escapeHtml(text) {
+            if (!text || typeof text !== 'string') return text || '';
+            return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        },
+
         formatViolationResult(violation) {
             if (!violation || typeof violation !== 'object') {
                 return '<em class="text-gray-500">No violation details available</em>';
@@ -11398,8 +11404,8 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                         <span class="px-2 py-1 text-xs font-medium rounded bg-red-100 text-red-800">${violation.impact || 'ERROR'}</span>
                         <strong class="text-red-700">${violation.id || 'Axe Violation'}</strong>
                     </div>
-                    <p class="text-sm text-gray-700 mb-2">${violation.help}</p>
-                    <p class="text-xs text-gray-600 mb-2">${violation.description}</p>`;
+                    <p class="text-sm text-gray-700 mb-2">${this.escapeHtml(violation.help)}</p>
+                    <p class="text-xs text-gray-600 mb-2">${this.escapeHtml(violation.description)}</p>`;
                     
                 if (violation.nodes && violation.nodes.length > 0) {
                     html += `<div class="bg-red-50 p-2 rounded text-xs">
@@ -11408,7 +11414,7 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                     violation.nodes.slice(0, 3).forEach(node => {
                         html += `<li class="font-mono text-red-600">${node.target ? node.target.join(', ') : 'Element'}</li>`;
                         if (node.html) {
-                            html += `<li class="text-gray-600 ml-4 break-all">${node.html}</li>`;
+                            html += `<li class="text-gray-600 ml-4 break-all">${this.escapeHtml(node.html)}</li>`;
                         }
                     });
                     if (violation.nodes.length > 3) {
@@ -11426,16 +11432,16 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                         <span class="px-2 py-1 text-xs font-medium rounded bg-red-100 text-red-800">${violation.type || 'ERROR'}</span>
                         <strong class="text-red-700">${violation.code}</strong>
                     </div>
-                    <p class="text-sm text-gray-700 mb-2">${violation.message}</p>`;
+                    <p class="text-sm text-gray-700 mb-2">${this.escapeHtml(violation.message)}</p>`;
                     
                 if (violation.context) {
                     html += `<div class="bg-red-50 p-2 rounded text-xs">
                         <strong>Element:</strong>
-                        <div class="mt-1 font-mono text-red-600">${violation.context}</div>
+                        <div class="mt-1 font-mono text-red-600">${this.escapeHtml(violation.context)}</div>
                     </div>`;
                 }
                 if (violation.selector) {
-                    html += `<div class="mt-2 text-xs text-gray-600"><strong>Selector:</strong> <code>${violation.selector}</code></div>`;
+                    html += `<div class="mt-2 text-xs text-gray-600"><strong>Selector:</strong> <code>${this.escapeHtml(violation.selector)}</code></div>`;
                 }
                 html += '</div>';
             }
@@ -11529,11 +11535,11 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                                         );
                 
                 if (containsViolation) {
-                    // Style as violation data with red background
-                    return `<pre class="text-xs overflow-x-auto whitespace-pre-wrap bg-red-50 border border-red-200 text-red-700 p-3 rounded">${jsonString}</pre>`;
+                    // Style as violation data with red background - HTML escape to prevent tag interpretation
+                    return `<pre class="text-xs overflow-x-auto whitespace-pre-wrap bg-red-50 border border-red-200 text-red-700 p-3 rounded">${this.escapeHtml(jsonString)}</pre>`;
                 } else {
-                    // Normal JSON display
-                    return `<pre class="text-xs overflow-x-auto whitespace-pre-wrap">${jsonString}</pre>`;
+                    // Normal JSON display - HTML escape to prevent tag interpretation
+                    return `<pre class="text-xs overflow-x-auto whitespace-pre-wrap">${this.escapeHtml(jsonString)}</pre>`;
                 }
             }
         },
