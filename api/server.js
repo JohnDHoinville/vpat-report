@@ -115,6 +115,7 @@ const wsService = new WebSocketService(server);
 
 // Initialize automated testing routes with websocket support
 const automatedTestingRoutes = require('./routes/automated-testing')(wsService);
+const unifiedAutomatedTestingRoutes = require('./routes/unified-automated-testing')(wsService);
 
 // Initialize testing services
 const testingService = new SimpleTestingService(wsService);
@@ -236,6 +237,7 @@ app.use('/api/web-crawlers', webCrawlersRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/audit-trail', auditTrailRoutes);
 app.use('/api/automated-testing', automatedTestingRoutes);
+app.use('/api/automated-testing', unifiedAutomatedTestingRoutes);
 app.use('/api/test-auth', testAuthRoutes);
 
 // Add API health check endpoint
