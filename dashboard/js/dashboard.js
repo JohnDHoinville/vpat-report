@@ -14267,17 +14267,29 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
 
                 this.loading = true;
                 
-                // Run PER-INSTANCE automated test (CORRECT APPROACH)
+                // Get test instances for this specific requirement
+                const testInstancesQuery = await this.apiCall(`/test-instances/session/${this.selectedSessionDetails.id}/requirement/${requirement.id}`);
+                if (!testInstancesQuery.success || !testInstancesQuery.data.length) {
+                    throw new Error(`No test instances found for requirement ${requirement.criterion_number}`);
+                }
+                
+                const specificInstances = testInstancesQuery.data.map(ti => ti.id);
+                console.log(`🔍 Found ${specificInstances.length} test instances for requirement ${requirement.criterion_number}`);
+                
+                // Run PER-INSTANCE automated test targeting ONLY this requirement's test instances
                 const response = await this.apiCall(`/automated-testing/run-per-instance/${this.selectedSessionDetails.id}`, {
                     method: 'POST',
                     body: JSON.stringify({
                         tools: ['axe-core', 'pa11y'], // Updated to use new parameter name
                         run_async: true,
+                        specific_instances: specificInstances, // Target only this requirement's test instances
                         clientMetadata: {
                             ip: 'dashboard',
                             userAgent: navigator.userAgent,
                             timestamp: new Date().toISOString(),
-                            trigger: 'individual_requirement_test'
+                            trigger: 'individual_requirement_test',
+                            requirement_id: requirement.id,
+                            criterion_number: requirement.criterion_number
                         }
                     })
                 });

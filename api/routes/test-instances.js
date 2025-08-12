@@ -1141,6 +1141,55 @@ async function createAutomatedTestResults(sessionId) {
 }
 
 /**
+ * Get test instances for a specific requirement in a session
+ * GET /api/test-instances/session/:sessionId/requirement/:requirementId
+ */
+router.get('/session/:sessionId/requirement/:requirementId', authenticateToken, async (req, res) => {
+    try {
+        const { sessionId, requirementId } = req.params;
+        
+        console.log(`🔍 Getting test instances for session ${sessionId}, requirement ${requirementId}`);
+        
+        const query = `
+            SELECT 
+                ti.id,
+                ti.page_id,
+                ti.requirement_id,
+                ti.status,
+                ti.test_method_used,
+                dp.url as page_url,
+                dp.title as page_title,
+                ur.requirement_id as criterion_number,
+                ur.title as requirement_title
+            FROM test_instances ti
+            JOIN discovered_pages dp ON ti.page_id = dp.id
+            JOIN unified_requirements ur ON ti.requirement_id = ur.id
+            WHERE ti.session_id = $1 
+            AND ti.requirement_id = $2
+            AND ur.test_method IN ('automated', 'both', 'hybrid')
+            ORDER BY dp.url
+        `;
+        
+        const result = await pool.query(query, [sessionId, requirementId]);
+        
+        console.log(`✅ Found ${result.rows.length} test instances for requirement`);
+        
+        res.json({
+            success: true,
+            data: result.rows,
+            count: result.rows.length
+        });
+        
+    } catch (error) {
+        console.error('Error getting test instances for requirement:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+/**
  * Get test selection status for a session
  */
 router.get('/:sessionId/selection-status', authenticateToken, async (req, res) => {

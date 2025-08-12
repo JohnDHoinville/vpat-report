@@ -5870,7 +5870,7 @@ class TestAutomationService {
 
             // Create automated test results entries for the worker to pick up
             console.log(`🔧 DEBUG: About to create automated test results for session ${sessionId}`);
-            const testResultsCreated = await this.createAutomatedTestResultsForSession(sessionId, tools);
+            const testResultsCreated = await this.createAutomatedTestResultsForSession(sessionId, tools, specificInstances);
             console.log(`✅ DEBUG: Created automated test results: ${testResultsCreated}`);
 
             if (runAsync) {
@@ -5905,31 +5905,64 @@ class TestAutomationService {
     /**
      * Create automated test results entries for a session
      */
-    async createAutomatedTestResultsForSession(sessionId, tools) {
+    async createAutomatedTestResultsForSession(sessionId, tools, specificInstances = null) {
         try {
             console.log(`📝 Creating automated test results for session: ${sessionId} with tools: ${tools.join(', ')}`);
+            
+            if (specificInstances && Array.isArray(specificInstances)) {
+                console.log(`🎯 Filtering to specific instances: ${specificInstances.join(', ')}`);
+            }
 
-            // Get ALL automated test instances that are pending
-            const automatedTestInstancesQuery = `
-                SELECT 
-                    ti.id as test_instance_id,
-                    ti.page_id,
-                    ti.requirement_id,
-                    ti.test_method_used,
-                    dp.url,
-                    ur.requirement_id as criterion_number,
-                    ur.title as requirement_title,
-                    ur.test_method as requirement_test_method
-                FROM test_instances ti
-                JOIN discovered_pages dp ON ti.page_id = dp.id
-                JOIN unified_requirements ur ON ti.requirement_id = ur.id
-                WHERE ti.session_id = $1 
-                AND ti.status = 'pending'
-                AND ti.test_method_used IN ('automated', 'hybrid')
-                ORDER BY dp.url, ur.requirement_id
-            `;
+            // Get automated test instances that are pending (optionally filtered by specific instances)
+            let automatedTestInstancesQuery;
+            let queryParams;
 
-            const automatedTestInstances = await pool.query(automatedTestInstancesQuery, [sessionId]);
+            if (specificInstances && Array.isArray(specificInstances)) {
+                // Filter by specific test instances
+                automatedTestInstancesQuery = `
+                    SELECT 
+                        ti.id as test_instance_id,
+                        ti.page_id,
+                        ti.requirement_id,
+                        ti.test_method_used,
+                        dp.url,
+                        ur.requirement_id as criterion_number,
+                        ur.title as requirement_title,
+                        ur.test_method as requirement_test_method
+                    FROM test_instances ti
+                    JOIN discovered_pages dp ON ti.page_id = dp.id
+                    JOIN unified_requirements ur ON ti.requirement_id = ur.id
+                    WHERE ti.session_id = $1 
+                    AND ti.id = ANY($2)
+                    AND ti.status = 'pending'
+                    AND ti.test_method_used IN ('automated', 'hybrid')
+                    ORDER BY dp.url, ur.requirement_id
+                `;
+                queryParams = [sessionId, specificInstances];
+            } else {
+                // Get ALL automated test instances that are pending
+                automatedTestInstancesQuery = `
+                    SELECT 
+                        ti.id as test_instance_id,
+                        ti.page_id,
+                        ti.requirement_id,
+                        ti.test_method_used,
+                        dp.url,
+                        ur.requirement_id as criterion_number,
+                        ur.title as requirement_title,
+                        ur.test_method as requirement_test_method
+                    FROM test_instances ti
+                    JOIN discovered_pages dp ON ti.page_id = dp.id
+                    JOIN unified_requirements ur ON ti.requirement_id = ur.id
+                    WHERE ti.session_id = $1 
+                    AND ti.status = 'pending'
+                    AND ti.test_method_used IN ('automated', 'hybrid')
+                    ORDER BY dp.url, ur.requirement_id
+                `;
+                queryParams = [sessionId];
+            }
+
+            const automatedTestInstances = await pool.query(automatedTestInstancesQuery, queryParams);
             console.log(`📄 Found ${automatedTestInstances.rows.length} automated test instances to process`);
 
             // Create pending automated test results for each test instance and appropriate tools
