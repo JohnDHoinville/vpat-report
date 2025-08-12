@@ -30,15 +30,17 @@ fi
 
 # Start frontend server
 echo "🌐 Starting frontend web server (port 8081)..."
-nohup python3 -m http.server 8081 > logs/frontend.log 2>&1 &
+cd dashboard
+nohup python3 -m http.server 8081 > ../logs/frontend.log 2>&1 &
 FRONTEND_PID=$!
+cd ..
 
 # Wait for frontend to start
 echo "⏳ Waiting for frontend to initialize..."
 sleep 3
 
 # Check if frontend started successfully
-if curl -s http://localhost:8081/dashboard/ > /dev/null; then
+if curl -s http://localhost:8081/ > /dev/null; then
     echo "✅ Frontend web server is running on port 8081"
 else
     echo "❌ Frontend failed to start! Check logs/frontend.log"
@@ -49,7 +51,7 @@ echo ""
 echo "🎉 ALL SERVERS STARTED SUCCESSFULLY!"
 echo "========================================"
 echo "Backend API:  http://localhost:3001"
-echo "Frontend UI:  http://localhost:8081/dashboard/"
+echo "Frontend UI:  http://localhost:8081/"
 echo "Health Check: http://localhost:3001/health"
 echo ""
 echo "📋 Server Process IDs:"
