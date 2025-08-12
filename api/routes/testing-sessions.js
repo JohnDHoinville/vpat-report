@@ -632,11 +632,43 @@ router.delete('/:id', authenticateToken, async (req, res) => {
         
         const session = sessionCheck.rows[0];
         
-        // Delete test instances (will cascade delete audit logs)
-        const deleteInstancesResult = await client.query(
-            'DELETE FROM test_instances WHERE session_id = $1',
+        // Delete related data in correct order to respect foreign key constraints
+        
+        // 1. Delete automated test results for this session
+        const deleteAutomatedResults = await client.query(
+            'DELETE FROM automated_test_results WHERE test_session_id = $1',
             [id]
         );
+        console.log(`Deleted ${deleteAutomatedResults.rowCount} automated test results`);
+        
+        // 2. Delete manual test results that reference test instances in this session
+        const deleteManualResults = await client.query(
+            'DELETE FROM manual_test_results WHERE id IN (SELECT manual_result_id FROM test_instances WHERE session_id = $1 AND manual_result_id IS NOT NULL)',
+            [id]
+        );
+        console.log(`Deleted ${deleteManualResults.rowCount} manual test results`);
+        
+        // 3. Delete test instances in batches to handle large datasets
+        let totalDeleted = 0;
+        let batchSize = 1000;
+        let hasMoreRows = true;
+        
+        while (hasMoreRows) {
+            const deleteInstancesResult = await client.query(
+                'DELETE FROM test_instances WHERE session_id = $1 AND id IN (SELECT id FROM test_instances WHERE session_id = $1 LIMIT $2)',
+                [id, batchSize]
+            );
+            
+            totalDeleted += deleteInstancesResult.rowCount;
+            hasMoreRows = deleteInstancesResult.rowCount === batchSize;
+            
+            console.log(`Deleted batch of ${deleteInstancesResult.rowCount} test instances (${totalDeleted} total)`);
+            
+            // Small delay to prevent overwhelming the database
+            if (hasMoreRows) {
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+        }
         
         // Delete the session
         await client.query('DELETE FROM test_sessions WHERE id = $1', [id]);
@@ -647,7 +679,9 @@ router.delete('/:id', authenticateToken, async (req, res) => {
             success: true,
             message: 'Testing session deleted successfully',
             deleted_session: session,
-            deleted_test_instances: deleteInstancesResult.rowCount
+            deleted_test_instances: totalDeleted,
+            deleted_automated_results: deleteAutomatedResults.rowCount,
+            deleted_manual_results: deleteManualResults.rowCount
         });
         
     } catch (error) {

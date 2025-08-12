@@ -419,26 +419,28 @@ class AutomatedTestingWorker {
         try {
             console.log(`🔗 Mapping ${violations.length} violations to test instances for ${pageUrl}`);
             
-            // Get test instances for this page and session
+            // Get test instances for this page and session - ONLY for automated/hybrid requirements
             const instancesQuery = `
                 SELECT 
                     ti.id as test_instance_id,
                     ti.page_id,
                     ti.requirement_id,
                     ur.requirement_id as criterion_number,
-                    ur.title as requirement_title
+                    ur.title as requirement_title,
+                    ur.test_method
                 FROM test_instances ti
                 JOIN discovered_pages dp ON ti.page_id = dp.id
                 JOIN unified_requirements ur ON ti.requirement_id = ur.id
                 WHERE ti.session_id = $1
                 AND dp.url = $2
                 AND ur.requirement_id IS NOT NULL
+                AND (ur.test_method = 'automated' OR ur.test_method = 'both' OR ur.test_method = 'hybrid')
             `;
             
             const instancesResult = await this.pool.query(instancesQuery, [sessionId, pageUrl]);
             const testInstances = instancesResult.rows;
             
-            console.log(`🔍 Found ${testInstances.length} test instances for page ${pageUrl}`);
+            console.log(`🔍 Found ${testInstances.length} automated/hybrid test instances for page ${pageUrl} (manual-only requirements excluded)`);
             
             let updatedCount = 0;
             

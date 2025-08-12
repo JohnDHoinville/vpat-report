@@ -880,7 +880,7 @@ router.post('/configs', async (req, res) => {
         } = req.body;
         
         // Get user ID from JWT token (assuming it's available in req.user)
-        const created_by = req.user?.id || 'ef726585-0873-44a9-99e5-d8f81fd4ef35'; // fallback to admin
+        const created_by = req.user?.id || '6822ec53-df14-4e58-908c-f2e7398819c8'; // fallback to John Hoinville admin
         
         // Check if a config with the same role already exists for this domain/project
         const existingConfig = await db.query(`
@@ -1349,7 +1349,7 @@ router.post('/auth-configs', authenticateToken, async (req, res) => {
         const values = [
             name, type, domain, project_id, username, password, url,
             login_page, success_url, auth_role, auth_description,
-            priority, is_default, req.user.userId
+            priority, is_default, req.user?.id || '6822ec53-df14-4e58-908c-f2e7398819c8'
         ];
         
         const result = await pool.query(query, values);
