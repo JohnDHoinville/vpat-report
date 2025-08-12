@@ -3774,6 +3774,318 @@ ${requirement.failure_examples}
             }
         },
 
+        // Real-time Progress Tracking
+        showAutomationProgressModal: false,
+        showMinimizedProgress: false,
+        automationProgress: null,
+        activeAutomationRuns: new Map(),
+
+        startProgressTracking(runId, sessionId, config = {}) {
+            console.log(`📊 Starting progress tracking for run: ${runId}`);
+            
+            // Initialize progress data
+            this.automationProgress = {
+                run_id: runId,
+                session_id: sessionId,
+                status: 'running',
+                percentage: 0,
+                message: 'Initializing automation...',
+                stage: 'starting',
+                completedTests: 0,
+                totalTests: config.estimatedTests || 0,
+                runningTests: 0,
+                violationsFound: 0,
+                events: [],
+                currentActivity: null,
+                estimatedTimeRemaining: null,
+                lastUpdate: new Date().toISOString(),
+                startTime: new Date()
+            };
+
+            // Store run info
+            this.activeAutomationRuns.set(runId, {
+                sessionId,
+                startTime: new Date(),
+                config
+            });
+
+            // Show progress modal
+            this.showAutomationProgressModal = true;
+            this.showMinimizedProgress = false;
+
+            // Set up real-time event listeners if WebSocket is available
+            this.setupProgressEventListeners(runId, sessionId);
+        },
+
+        setupProgressEventListeners(runId, sessionId) {
+            if (!this.socket) {
+                console.warn('⚠️ WebSocket not available for progress tracking');
+                return;
+            }
+
+            // Listen for automation-specific events
+            this.socket.on('automation_progress', (data) => {
+                if (data.run_id === runId) {
+                    this.updateAutomationProgress(data);
+                }
+            });
+
+            this.socket.on('automation_completed', (data) => {
+                if (data.run_id === runId) {
+                    this.completeAutomationProgress(data);
+                }
+            });
+
+            this.socket.on('automation_failed', (data) => {
+                if (data.run_id === runId) {
+                    this.failAutomationProgress(data);
+                }
+            });
+
+            // Listen for test instance updates from existing events
+            this.socket.on('test_instance_updated', (data) => {
+                if (data.session_id === sessionId && this.automationProgress) {
+                    this.handleTestInstanceUpdate(data);
+                }
+            });
+
+            console.log(`📡 Progress tracking listeners set up for run ${runId}`);
+        },
+
+        updateAutomationProgress(data) {
+            if (!this.automationProgress) return;
+
+            console.log('📊 Automation progress update:', data);
+
+            // Update progress data
+            Object.assign(this.automationProgress, {
+                percentage: data.percentage || this.automationProgress.percentage,
+                message: data.message || this.automationProgress.message,
+                stage: data.stage || this.automationProgress.stage,
+                completedTests: data.completedTests || this.automationProgress.completedTests,
+                totalTests: data.totalTests || this.automationProgress.totalTests,
+                runningTests: data.runningTests || this.automationProgress.runningTests,
+                violationsFound: data.violationsFound || this.automationProgress.violationsFound,
+                currentActivity: data.currentActivity || this.automationProgress.currentActivity,
+                estimatedTimeRemaining: data.estimatedTimeRemaining || this.automationProgress.estimatedTimeRemaining,
+                lastUpdate: new Date().toISOString()
+            });
+
+            // Add event to timeline
+            this.addProgressEvent({
+                id: Date.now(),
+                type: data.eventType || 'progress',
+                message: data.message || 'Progress update',
+                timestamp: new Date().toISOString(),
+                data: data
+            });
+
+            // Update browser title with progress
+            if (data.percentage !== undefined) {
+                document.title = `(${Math.round(data.percentage)}%) Accessibility Testing`;
+            }
+        },
+
+        completeAutomationProgress(data) {
+            if (!this.automationProgress) return;
+
+            console.log('✅ Automation completed:', data);
+
+            // Update to completed state
+            Object.assign(this.automationProgress, {
+                status: 'completed',
+                percentage: 100,
+                message: data.message || 'Automation completed successfully',
+                stage: 'completed',
+                completedTests: data.totalTests || this.automationProgress.totalTests,
+                runningTests: 0,
+                violationsFound: data.violationsFound || this.automationProgress.violationsFound,
+                currentActivity: null,
+                estimatedTimeRemaining: null,
+                lastUpdate: new Date().toISOString(),
+                duration: Date.now() - this.automationProgress.startTime.getTime()
+            });
+
+            // Add completion event
+            this.addProgressEvent({
+                id: Date.now(),
+                type: 'completed',
+                message: `Automation completed - ${data.violationsFound || 0} issues found`,
+                timestamp: new Date().toISOString(),
+                data: data
+            });
+
+            // Reset browser title
+            document.title = 'Accessibility Testing Platform';
+
+            // Show completion notification
+            this.showNotification('success', 'Automation Complete', 
+                `Found ${data.violationsFound || 0} accessibility issues`);
+
+            // Auto-refresh relevant data
+            setTimeout(() => {
+                if (this.automationProgress?.session_id) {
+                    this.loadSessionRequirements(this.automationProgress.session_id);
+                    this.loadAutomationSummary(this.automationProgress.session_id);
+                }
+            }, 2000);
+        },
+
+        failAutomationProgress(data) {
+            if (!this.automationProgress) return;
+
+            console.error('❌ Automation failed:', data);
+
+            // Update to failed state
+            Object.assign(this.automationProgress, {
+                status: 'failed',
+                message: data.message || 'Automation failed',
+                stage: 'failed',
+                currentActivity: null,
+                estimatedTimeRemaining: null,
+                lastUpdate: new Date().toISOString(),
+                error: data.error
+            });
+
+            // Add failure event
+            this.addProgressEvent({
+                id: Date.now(),
+                type: 'error',
+                message: data.message || 'Automation failed',
+                timestamp: new Date().toISOString(),
+                data: data
+            });
+
+            // Reset browser title
+            document.title = 'Accessibility Testing Platform';
+
+            // Show error notification
+            this.showNotification('error', 'Automation Failed', data.message || 'Automation encountered an error');
+        },
+
+        addProgressEvent(event) {
+            if (!this.automationProgress) return;
+
+            // Add to events array
+            this.automationProgress.events = this.automationProgress.events || [];
+            this.automationProgress.events.push(event);
+
+            // Keep only last 50 events
+            if (this.automationProgress.events.length > 50) {
+                this.automationProgress.events = this.automationProgress.events.slice(-50);
+            }
+        },
+
+        minimizeProgressTracker() {
+            this.showAutomationProgressModal = false;
+            this.showMinimizedProgress = true;
+        },
+
+        closeProgressTracker() {
+            this.showAutomationProgressModal = false;
+            this.showMinimizedProgress = false;
+            
+            // Clean up event listeners
+            if (this.socket && this.automationProgress) {
+                this.socket.off('automation_progress');
+                this.socket.off('automation_completed');
+                this.socket.off('automation_failed');
+            }
+            
+            // Reset browser title
+            document.title = 'Accessibility Testing Platform';
+            
+            this.automationProgress = null;
+        },
+
+        async cancelAutomationRun() {
+            if (!this.automationProgress?.run_id) return;
+
+            try {
+                // Initialize unified automation service if not already done
+                if (!this.unifiedAutomation) {
+                    this.unifiedAutomation = new UnifiedAutomationService(
+                        this.apiCall.bind(this),
+                        this.showNotification.bind(this)
+                    );
+                }
+
+                await this.unifiedAutomation.cancelRun(
+                    this.automationProgress.session_id, 
+                    this.automationProgress.run_id
+                );
+
+                // Update progress to cancelled
+                this.automationProgress.status = 'cancelled';
+                this.automationProgress.message = 'Automation cancelled by user';
+                this.addProgressEvent({
+                    id: Date.now(),
+                    type: 'cancelled',
+                    message: 'Automation cancelled by user',
+                    timestamp: new Date().toISOString()
+                });
+
+            } catch (error) {
+                console.error('❌ Error cancelling automation:', error);
+                this.showNotification('error', 'Cancellation Failed', error.message);
+            }
+        },
+
+        viewAutomationResults() {
+            if (this.automationProgress?.session_id) {
+                // Close progress tracker
+                this.closeProgressTracker();
+                
+                // Navigate to results view
+                this.currentView = 'results';
+                this.loadSessionResults(this.automationProgress.session_id);
+            }
+        },
+
+        // Helper functions for progress tracking
+        getEventIcon(type) {
+            const icons = {
+                'progress': 'fa-info-circle',
+                'completed': 'fa-check-circle',
+                'error': 'fa-exclamation-circle',
+                'cancelled': 'fa-times-circle',
+                'started': 'fa-play-circle'
+            };
+            return icons[type] || 'fa-info-circle';
+        },
+
+        getEventColor(type) {
+            const colors = {
+                'progress': 'text-blue-500',
+                'completed': 'text-green-500',
+                'error': 'text-red-500',
+                'cancelled': 'text-yellow-500',
+                'started': 'text-green-500'
+            };
+            return colors[type] || 'text-gray-500';
+        },
+
+        formatEventTime(timestamp) {
+            if (!timestamp) return '';
+            const date = new Date(timestamp);
+            return date.toLocaleTimeString();
+        },
+
+        formatDuration(milliseconds) {
+            if (!milliseconds) return '';
+            const seconds = Math.floor(milliseconds / 1000);
+            const minutes = Math.floor(seconds / 60);
+            const hours = Math.floor(minutes / 60);
+            
+            if (hours > 0) {
+                return `${hours}h ${minutes % 60}m`;
+            } else if (minutes > 0) {
+                return `${minutes}m ${seconds % 60}s`;
+            } else {
+                return `${seconds}s`;
+            }
+        },
+
         showNotification(type, title, message) {
             this.notification = {
                 show: true,

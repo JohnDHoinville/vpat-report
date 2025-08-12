@@ -1,0 +1,224 @@
+<!-- Automation Progress Tracker -->
+<div x-show="showAutomationProgressModal" 
+     x-transition:enter="transition ease-out duration-300"
+     x-transition:enter-start="opacity-0"
+     x-transition:enter-end="opacity-100"
+     x-transition:leave="transition ease-in duration-200"
+     x-transition:leave-start="opacity-100"
+     x-transition:leave-end="opacity-0"
+     class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+    
+    <div x-show="showAutomationProgressModal"
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="opacity-0 transform scale-95"
+         x-transition:enter-end="opacity-100 transform scale-100"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-start="opacity-100 transform scale-100"
+         x-transition:leave-end="opacity-0 transform scale-95"
+         @click.away="minimizeProgressTracker()"
+         class="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
+        
+        <!-- Header -->
+        <div class="bg-gradient-to-r from-green-600 to-green-700 px-6 py-4 text-white">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="animate-pulse mr-3">
+                        <i class="fas fa-cog fa-spin text-xl"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-xl font-bold">Automation Progress</h3>
+                        <p class="text-green-100 text-sm mt-1" x-text="automationProgress?.run_id ? `Run ID: ${automationProgress.run_id}` : 'Initializing...'"></p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <button @click="minimizeProgressTracker()" 
+                            class="text-white hover:text-green-200 transition-colors"
+                            title="Minimize">
+                        <i class="fas fa-minus text-lg"></i>
+                    </button>
+                    <button @click="closeProgressTracker()" 
+                            class="text-white hover:text-green-200 transition-colors"
+                            title="Close">
+                        <i class="fas fa-times text-lg"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Progress Content -->
+        <div class="max-h-[60vh] overflow-y-auto">
+            
+            <!-- Overall Progress Bar -->
+            <div class="p-6 border-b bg-gray-50">
+                <div class="mb-4">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-sm font-medium text-gray-700">Overall Progress</span>
+                        <span class="text-sm font-medium text-gray-900" 
+                              x-text="`${automationProgress?.percentage || 0}%`"></span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-3">
+                        <div class="bg-gradient-to-r from-green-500 to-green-600 h-3 rounded-full transition-all duration-500 ease-out"
+                             :style="`width: ${automationProgress?.percentage || 0}%`"></div>
+                    </div>
+                </div>
+                
+                <!-- Status Message -->
+                <div class="text-center">
+                    <p class="text-gray-700 font-medium" x-text="automationProgress?.message || 'Starting automation...'"></p>
+                    <p class="text-sm text-gray-500 mt-1" 
+                       x-text="automationProgress?.stage ? `Stage: ${automationProgress.stage}` : ''"></p>
+                </div>
+            </div>
+
+            <!-- Statistics Grid -->
+            <div class="p-6 border-b">
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="bg-blue-50 rounded-lg p-4 text-center">
+                        <div class="text-2xl font-bold text-blue-600" 
+                             x-text="automationProgress?.completedTests || 0"></div>
+                        <div class="text-sm text-blue-700">Completed</div>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-4 text-center">
+                        <div class="text-2xl font-bold text-gray-600" 
+                             x-text="automationProgress?.totalTests || 0"></div>
+                        <div class="text-sm text-gray-700">Total Tests</div>
+                    </div>
+                    <div class="bg-yellow-50 rounded-lg p-4 text-center">
+                        <div class="text-2xl font-bold text-yellow-600" 
+                             x-text="automationProgress?.runningTests || 0"></div>
+                        <div class="text-sm text-yellow-700">Running</div>
+                    </div>
+                    <div class="bg-red-50 rounded-lg p-4 text-center">
+                        <div class="text-2xl font-bold text-red-600" 
+                             x-text="automationProgress?.violationsFound || 0"></div>
+                        <div class="text-sm text-red-700">Issues Found</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Current Activity -->
+            <div class="p-6 border-b" x-show="automationProgress?.currentActivity">
+                <h4 class="text-lg font-semibold mb-3 flex items-center">
+                    <i class="fas fa-play-circle mr-2 text-green-600"></i>
+                    Current Activity
+                </h4>
+                <div class="bg-green-50 border-l-4 border-green-400 p-4 rounded">
+                    <div class="flex items-start">
+                        <i class="fas fa-sync-alt fa-spin text-green-600 mt-1 mr-3"></i>
+                        <div>
+                            <p class="text-green-800 font-medium" x-text="automationProgress?.currentActivity?.description || 'Processing...'"></p>
+                            <p class="text-green-600 text-sm mt-1" x-text="automationProgress?.currentActivity?.details || ''"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Events Timeline -->
+            <div class="p-6" x-show="automationProgress?.events?.length">
+                <h4 class="text-lg font-semibold mb-3 flex items-center">
+                    <i class="fas fa-clock mr-2 text-blue-600"></i>
+                    Recent Events
+                </h4>
+                <div class="space-y-3 max-h-60 overflow-y-auto">
+                    <template x-for="event in (automationProgress?.events || []).slice(-10)" :key="event.id">
+                        <div class="flex items-start space-x-3 p-3 bg-gray-50 rounded-lg">
+                            <div class="flex-shrink-0">
+                                <i :class="`fas ${getEventIcon(event.type)} ${getEventColor(event.type)}`"></i>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm font-medium text-gray-900" x-text="event.message"></p>
+                                <p class="text-xs text-gray-500" x-text="formatEventTime(event.timestamp)"></p>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- Estimated Time Remaining -->
+            <div class="p-6 bg-blue-50" x-show="automationProgress?.estimatedTimeRemaining">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center">
+                        <i class="fas fa-clock mr-2 text-blue-600"></i>
+                        <span class="text-blue-800 font-medium">Estimated Time Remaining</span>
+                    </div>
+                    <span class="text-blue-900 font-bold" x-text="formatDuration(automationProgress?.estimatedTimeRemaining)"></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer Actions -->
+        <div class="bg-gray-50 px-6 py-4 border-t">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <div class="flex items-center text-sm text-gray-600">
+                        <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse mr-2"></div>
+                        Live Updates Active
+                    </div>
+                    <div class="text-sm text-gray-500" x-text="automationProgress?.lastUpdate ? `Last update: ${formatEventTime(automationProgress.lastUpdate)}` : ''"></div>
+                </div>
+                <div class="flex space-x-3">
+                    <button @click="cancelAutomationRun()" 
+                            x-show="automationProgress?.status === 'running'"
+                            class="px-4 py-2 text-red-700 bg-red-100 rounded-lg hover:bg-red-200 transition-colors">
+                        <i class="fas fa-stop mr-2"></i>Cancel
+                    </button>
+                    <button @click="viewAutomationResults()" 
+                            x-show="automationProgress?.status === 'completed'"
+                            class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                        <i class="fas fa-chart-bar mr-2"></i>View Results
+                    </button>
+                    <button @click="closeProgressTracker()" 
+                            class="px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors">
+                        <i class="fas fa-times mr-2"></i>Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Minimized Progress Indicator (bottom-right) -->
+<div x-show="showMinimizedProgress && !showAutomationProgressModal" 
+     x-transition:enter="transition ease-out duration-300"
+     x-transition:enter-start="opacity-0 transform translate-y-4"
+     x-transition:enter-end="opacity-100 transform translate-y-0"
+     x-transition:leave="transition ease-in duration-200"
+     x-transition:leave-start="opacity-100 transform translate-y-0"
+     x-transition:leave-end="opacity-0 transform translate-y-4"
+     @click="showAutomationProgressModal = true; showMinimizedProgress = false"
+     class="fixed bottom-4 right-4 z-40 cursor-pointer">
+    
+    <div class="bg-white rounded-lg shadow-lg border border-gray-200 p-4 min-w-[300px]">
+        <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center">
+                <div class="animate-pulse mr-2">
+                    <i class="fas fa-cog fa-spin text-green-600"></i>
+                </div>
+                <span class="font-medium text-gray-900">Automation Running</span>
+            </div>
+            <button @click.stop="closeProgressTracker()" 
+                    class="text-gray-400 hover:text-gray-600 transition-colors">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        
+        <div class="mb-2">
+            <div class="flex justify-between items-center mb-1">
+                <span class="text-xs text-gray-600">Progress</span>
+                <span class="text-xs font-medium text-gray-900" 
+                      x-text="`${automationProgress?.percentage || 0}%`"></span>
+            </div>
+            <div class="w-full bg-gray-200 rounded-full h-2">
+                <div class="bg-gradient-to-r from-green-500 to-green-600 h-2 rounded-full transition-all duration-500 ease-out"
+                     :style="`width: ${automationProgress?.percentage || 0}%`"></div>
+            </div>
+        </div>
+        
+        <p class="text-sm text-gray-600" x-text="automationProgress?.message || 'Processing...'"></p>
+        
+        <div class="flex justify-between text-xs text-gray-500 mt-2">
+            <span x-text="`${automationProgress?.completedTests || 0} / ${automationProgress?.totalTests || 0} tests`"></span>
+            <span x-text="`${automationProgress?.violationsFound || 0} issues`"></span>
+        </div>
+    </div>
+</div>

@@ -54,6 +54,15 @@ class UnifiedAutomationService {
                 } else {
                     this.showNotification('success', 'Session Automation Started', 
                         `Testing ${response.summary?.targets_resolved || 0} targets across ${response.summary?.pages_affected || 0} pages`);
+                    
+                    // Start progress tracking if dashboard instance is available
+                    if (window.dashboardInstance?.startProgressTracking && response.run_id) {
+                        window.dashboardInstance.startProgressTracking(response.run_id, sessionId, {
+                            estimatedTests: response.summary?.estimated_tests || response.summary?.targets_resolved || 0,
+                            targetMode: 'session',
+                            tools: options.tools || ['axe-core', 'pa11y', 'lighthouse']
+                        });
+                    }
                 }
                 return response;
             } else {
@@ -109,6 +118,16 @@ class UnifiedAutomationService {
                 } else {
                     this.showNotification('success', 'Requirement Tests Started', 
                         `Testing ${response.summary?.targets_resolved || 0} instances`);
+                    
+                    // Start progress tracking if dashboard instance is available
+                    if (window.dashboardInstance?.startProgressTracking && response.run_id) {
+                        window.dashboardInstance.startProgressTracking(response.run_id, sessionId, {
+                            estimatedTests: response.summary?.estimated_tests || response.summary?.targets_resolved || 0,
+                            targetMode: 'requirements',
+                            tools: options.tools || ['axe-core', 'pa11y'],
+                            targetIds: requirementIds
+                        });
+                    }
                 }
                 return response;
             } else {
@@ -164,6 +183,16 @@ class UnifiedAutomationService {
                 } else {
                     this.showNotification('success', 'Instance Tests Started', 
                         `Testing ${response.summary?.targets_resolved || 0} instances`);
+                    
+                    // Start progress tracking if dashboard instance is available
+                    if (window.dashboardInstance?.startProgressTracking && response.run_id) {
+                        window.dashboardInstance.startProgressTracking(response.run_id, sessionId, {
+                            estimatedTests: response.summary?.estimated_tests || response.summary?.targets_resolved || 0,
+                            targetMode: 'instances',
+                            tools: options.tools || ['axe-core', 'pa11y'],
+                            targetIds: instanceIds
+                        });
+                    }
                 }
                 return response;
             } else {
