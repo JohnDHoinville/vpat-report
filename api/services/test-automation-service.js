@@ -1447,175 +1447,19 @@ class TestAutomationService {
     /**
      * Create automation run record
      */
+    /**
+     * Legacy createAutomationRun method - REMOVED
+     * Use UnifiedAutomationController and ScopedTestResultsCreator for all new automation runs
+     * This method previously created entries in automated_test_runs table which has been deprecated
+     */
     async createAutomationRun(sessionId, runId, tools, userId) {
-        // Get page_id from test instances (same source as storeToolResults uses)
-        const pageQuery = `
-            SELECT DISTINCT dp.id as page_id
-            FROM test_instances ti
-            JOIN discovered_pages dp ON ti.page_id = dp.id
-            WHERE ti.session_id = $1
-            LIMIT 1
-        `;
-        
-        console.log('🔍 DEBUG: Running page query for session:', sessionId);
-        const pageResult = await pool.query(pageQuery, [sessionId]);
-        console.log('🔍 DEBUG: Page query result:', pageResult.rows.length, 'rows');
-        
-        let pageId;
-        
-        if (pageResult.rows.length === 0) {
-            console.warn('⚠️ No discovered pages found for session, creating fallback page entry');
-            
-            // Get project info for fallback
-            const projectQuery = `
-                SELECT p.id as project_id, p.primary_url, p.name
-                FROM test_sessions ts
-                JOIN projects p ON ts.project_id = p.id
-                WHERE ts.id = $1
-            `;
-            
-            const projectResult = await pool.query(projectQuery, [sessionId]);
-            if (projectResult.rows.length === 0) {
-                throw new Error('Session not found or not associated with a project');
-            }
-            
-            const project = projectResult.rows[0];
-            
-            // Create a default discovered page entry for the project's primary URL
-            const createPageQuery = `
-                INSERT INTO discovered_pages (id, discovery_id, url, title, discovered_at)
-                VALUES (gen_random_uuid(), 
-                        (SELECT id FROM site_discovery WHERE project_id = $1 LIMIT 1),
-                        $2, $3, NOW())
-                ON CONFLICT (discovery_id, url) DO UPDATE SET 
-                    url = EXCLUDED.url
-                RETURNING id
-            `;
-            
-            const fallbackUrl = project.primary_url || 'http://localhost:3000';
-            const fallbackTitle = `${project.name} - Primary Page`;
-            
-            try {
-                const createPageResult = await pool.query(createPageQuery, [
-                    project.project_id, fallbackUrl, fallbackTitle
-                ]);
-                pageId = createPageResult.rows[0].id;
-                console.log('✅ Created fallback page entry with ID:', pageId);
-            } catch (createError) {
-                console.error('❌ Failed to create fallback page:', createError);
-                throw new Error('No pages available for testing and failed to create fallback page');
-            }
-        } else {
-            pageId = pageResult.rows[0].page_id;
-            console.log('🔍 DEBUG: Selected existing page_id:', pageId);
-        }
-        
-        // Create main automation run record
-        const runQuery = `
-            INSERT INTO automated_test_runs (
-                id, test_session_id, run_id, tools_used, pages_tested, 
-                started_at, status, created_by
-            ) VALUES ($1, $2, $3, $4, 1, CURRENT_TIMESTAMP, 'pending', $5)
-            ON CONFLICT (run_id) 
-            DO UPDATE SET 
-                test_session_id = EXCLUDED.test_session_id,
-                tools_used = EXCLUDED.tools_used,
-                started_at = EXCLUDED.started_at,
-                status = EXCLUDED.status
-            RETURNING *
-        `;
-
-        const runResult = await pool.query(runQuery, [
-            runId, sessionId, runId, JSON.stringify(tools), userId
-        ]);
-        
-        console.log(`✅ Created automation run record: ${runId}`);
-
-        // Create entries for all tools
-        const results = [];
-        for (const tool of tools) {
-        const query = `
-                INSERT INTO automated_test_results (
-                    test_session_id, page_id, tool_name, tool_version, raw_results, 
-                    violations_count, warnings_count, passes_count, test_duration_ms, 
-                    executed_at, browser_name, test_environment, test_suite
-                ) VALUES ($1, $2, $3, '1.0', '{}', 0, 0, 0, 0, $4, 'chrome', 'desktop', 'default')
-                ON CONFLICT (test_session_id, page_id, tool_name) 
-                DO UPDATE SET 
-                    executed_at = EXCLUDED.executed_at,
-                    tool_version = EXCLUDED.tool_version,
-                    raw_results = EXCLUDED.raw_results,
-                    violations_count = EXCLUDED.violations_count,
-                    warnings_count = EXCLUDED.warnings_count,
-                    passes_count = EXCLUDED.passes_count,
-                    test_duration_ms = EXCLUDED.test_duration_ms,
-                    browser_name = EXCLUDED.browser_name,
-                    test_environment = EXCLUDED.test_environment,
-                    test_suite = EXCLUDED.test_suite
-            RETURNING *
-        `;
-
-        const result = await pool.query(query, [
-                sessionId, pageId, tool, new Date()
-        ]);
-            results.push(result.rows[0]);
-        }
-
-        return runResult.rows[0]; // Return the automation run record
+        throw new Error('Legacy createAutomationRun is deprecated. Use UnifiedAutomationController instead.');
     }
 
     /**
-     * Update automation run status - FIXED to actually update database
+     * Legacy updateRunStatus method - REMOVED
+     * Use UnifiedAutomationController.updateRunStatus() instead for unified automation runs
      */
-    async updateRunStatus(runId, status, data = {}) {
-        console.log(`📊 Automation Run ${runId}: Status changed to ${status}`, data);
-        
-        try {
-            // Update the automated_test_runs record using run_id (FIXED)
-            const updateQuery = `
-                UPDATE automated_test_runs 
-                SET 
-                    status = $2::character varying,
-                    completed_at = CASE WHEN $2::character varying = 'completed' THEN CURRENT_TIMESTAMP ELSE completed_at END,
-                    error = CASE WHEN $2::character varying = 'failed' THEN $3::text ELSE error END,
-                    total_violations = COALESCE($4::integer, total_violations),
-                    critical_violations = COALESCE($5::integer, critical_violations),
-                    pages_tested = COALESCE($6::integer, pages_tested),
-                    test_instances_updated = COALESCE($7::integer, test_instances_updated)
-                WHERE run_id = $1
-            `;
-            
-            const values = [
-                runId,
-                status,
-                data.error || null,
-                data.total_issues || null,
-                data.critical_issues || null, 
-                data.pages_tested || null,
-                data.test_instances_updated || null
-            ];
-            
-            const result = await pool.query(updateQuery, values);
-            
-            if (result.rowCount > 0) {
-                console.log(`✅ Updated automation run ${runId} status to ${status}`);
-            } else {
-                console.warn(`⚠️ No automation run found with ID ${runId}`);
-            }
-            
-        } catch (error) {
-            console.error(`❌ Error updating automation run status:`, error);
-            throw error;
-        }
-        
-        if (status === 'failed' && data.error) {
-            console.error(`❌ Automation Run ${runId} failed:`, data.error);
-        }
-        
-        if (status === 'completed') {
-            console.log(`✅ Automation Run ${runId} completed successfully`);
-        }
-    }
 
     /**
      * Map automation results to test instances
@@ -2974,44 +2818,17 @@ class TestAutomationService {
     }
 
     /**
-     * Get automation history for a session
+     * Get automation history for a session - UNIFIED ONLY
      */
     async getAutomationHistory(sessionId, options = {}) {
         const { limit = 10, offset = 0 } = options;
 
         try {
-            // Query both legacy automated_test_runs and new automation_runs_v2 tables
-            const legacyQuery = `
+            // Query only the unified automation_runs_v2 table
+            const query = `
                 SELECT 
                     id::text as id,
-                    run_id,
-                    started_at,
-                    completed_at,
-                    status,
-                    total_violations as total_issues,
-                    critical_violations,
-                    test_instances_updated,
-                    pages_tested,
-                    tools_used,
-                    error,
-                    EXTRACT(EPOCH FROM (completed_at - started_at)) * 1000 as duration_ms,
-                    CASE 
-                        WHEN status = 'completed' AND total_violations = 0 THEN 'success'
-                        WHEN status = 'completed' AND total_violations <= 5 THEN 'warning'
-                        WHEN status = 'completed' AND total_violations > 5 THEN 'danger'
-                        WHEN status = 'failed' THEN 'danger'
-                        ELSE 'pending'
-                    END as result_type,
-                    0 as total_passes, -- Placeholder since we don't track passes in this table
-                    'legacy' as source_table
-                FROM automated_test_runs 
-                WHERE test_session_id = $1
-            `;
-
-            const unifiedQuery = `
-                SELECT 
-                    id::text as id,
-                    id as run_id, -- Use id as run_id for unified runs
+                    id as run_id,
                     created_at as started_at,
                     completed_at,
                     status,
@@ -3030,31 +2847,27 @@ class TestAutomationService {
                         ELSE 'pending'
                     END as result_type,
                     COALESCE(total_passes, 0) as total_passes,
-                    'unified' as source_table
+                    target_mode,
+                    target_metadata
+                FROM automation_runs_v2 
+                WHERE session_id = $1
+                ORDER BY created_at DESC 
+                LIMIT $2 OFFSET $3
+            `;
+
+            const countQuery = `
+                SELECT COUNT(*) as total 
                 FROM automation_runs_v2 
                 WHERE session_id = $1
             `;
 
-            // Execute both queries in parallel
-            const [legacyResult, unifiedResult] = await Promise.all([
-                pool.query(legacyQuery, [sessionId]),
-                pool.query(unifiedQuery, [sessionId])
+            const [runsResult, countResult] = await Promise.all([
+                pool.query(query, [sessionId, limit, offset]),
+                pool.query(countQuery, [sessionId])
             ]);
 
-            // Combine and sort all runs by started_at/created_at
-            const allRuns = [
-                ...legacyResult.rows,
-                ...unifiedResult.rows
-            ].sort((a, b) => new Date(b.started_at) - new Date(a.started_at));
-
-            // Apply pagination to combined results
-            const paginatedRuns = allRuns.slice(offset, offset + limit);
-
-            // Count total from both tables
-            const totalCount = allRuns.length;
-
             // Enhance run data with additional details
-            const enhancedRuns = paginatedRuns.map(run => {
+            const enhancedRuns = runsResult.rows.map(run => {
                 const toolsArray = Array.isArray(run.tools_used) ? run.tools_used : 
                     (run.tools_used ? JSON.parse(run.tools_used) : []);
                 
@@ -3062,26 +2875,26 @@ class TestAutomationService {
                     ...run,
                     tools_used: toolsArray,
                     summary: `${toolsArray.length} tools, ${run.pages_tested || 0} pages, ${run.total_issues || 0} issues found`,
-                    success_rate: run.total_issues > 0 ? '0' : '100', // Simple: 0 issues = 100% success
+                    success_rate: run.total_issues > 0 ? '0' : '100',
                     avg_issues_per_page: (run.pages_tested && run.pages_tested > 0) ? 
                         (run.total_issues / run.pages_tested).toFixed(1) : '0',
                     formatted_duration: this.formatDuration(run.duration_ms),
                     tools_display: toolsArray.map(tool => 
                         tool.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())
                     ).join(', ') || 'Unknown',
-                    source: run.source_table // Add source info for debugging
+                    target_display: run.target_mode || 'session' // Show what was targeted
                 };
             });
 
-            console.log(`📊 Loaded ${totalCount} total automation runs: ${legacyResult.rows.length} legacy + ${unifiedResult.rows.length} unified`);
+            console.log(`📊 Loaded ${enhancedRuns.length} unified automation runs for session ${sessionId}`);
 
             return {
                 runs: enhancedRuns,
                 pagination: {
-                    total: totalCount,
+                    total: parseInt(countResult.rows[0].total),
                     limit: limit,
                     offset: offset,
-                    has_more: (offset + enhancedRuns.length) < totalCount
+                    has_more: (offset + enhancedRuns.length) < parseInt(countResult.rows[0].total)
                 }
             };
 

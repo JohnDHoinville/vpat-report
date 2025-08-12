@@ -12512,10 +12512,10 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
             }
         },
 
-        // Run tests for a specific requirement
+        // Run tests for a specific requirement - UNIFIED AUTOMATION
         async runTestsForRequirement(criterionNumber) {
             try {
-                console.log(`🚀 Running tests for requirement ${criterionNumber}`);
+                console.log(`🚀 Running unified automation for requirement ${criterionNumber}`);
                 
                 if (!criterionNumber) {
                     throw new Error('No criterion number provided');
@@ -12529,49 +12529,45 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                     instance.test_method_used === 'automated' || instance.test_method_used === 'hybrid'
                 );
                 
-                console.log(`🤖 Found ${automatedInstances.length} automated/hybrid test instances for requirement ${criterionNumber}:`, 
-                    automatedInstances.map(inst => ({
-                        id: inst.id || inst.test_instance_id || inst.instance_id,
-                        page_url: inst.page_url,
-                        test_method: inst.test_method_used
-                    }))
-                );
+                console.log(`🤖 Found ${automatedInstances.length} automated/hybrid test instances for requirement ${criterionNumber}`);
 
                 if (automatedInstances.length === 0) {
                     this.showNotification('info', 'No Automated Tests', 'No automated tests found for this requirement');
                     return;
                 }
 
+                // Get the requirement ID for this criterion number
+                const requirement = this.sessionRequirements.find(req => 
+                    req.criterion_number === criterionNumber || req.requirement_id === criterionNumber
+                );
+                
+                if (!requirement) {
+                    throw new Error(`Could not find requirement for criterion ${criterionNumber}`);
+                }
+
                 // Show progress notification
-                this.showNotification('info', 'Starting Tests', `Running ${automatedInstances.length} automated tests for requirement ${criterionNumber}...`);
+                this.showNotification('info', 'Starting Tests', `Running unified automation for requirement ${criterionNumber} (${automatedInstances.length} instances)...`);
 
-                // Call the automation API for each test instance
-                const promises = automatedInstances.map(async (instance) => {
-                    try {
-                        const instanceId = instance.id || instance.test_instance_id || instance.instance_id;
-                        if (!instanceId) {
-                            console.error('No valid instance ID found for instance:', instance);
-                            return { instance, success: false, error: 'No valid instance ID found' };
+                // Use UnifiedAutomationService for requirement-specific automation
+                const unifiedService = new window.UnifiedAutomationService();
+                const response = await unifiedService.runRequirementAutomation(
+                    this.selectedSessionDetails.id,
+                    [requirement.id], // Target this specific requirement
+                    {
+                        tools: ['axe-core', 'pa11y', 'lighthouse'],
+                        run_async: true,
+                        options: {
+                            force_retest: false
                         }
-                        
-                        const response = await this.apiCall(`/automated-testing/run-instance/${instanceId}`, {
-                            method: 'POST'
-                        });
-                        return { instance, success: response.success, error: response.error };
-                    } catch (error) {
-                        return { instance, success: false, error: error.message };
                     }
-                });
-
-                const results = await Promise.all(promises);
-                const successful = results.filter(r => r.success).length;
-                const failed = results.filter(r => !r.success).length;
+                );
 
                 // Show results notification
-                if (failed === 0) {
-                    this.showNotification('success', 'Tests Started', `Successfully started ${successful} automated tests for requirement ${criterionNumber}`);
+                if (response.success) {
+                    this.showNotification('success', 'Tests Started', 
+                        `Unified automation started for ${criterionNumber} (${response.summary?.targets_resolved || automatedInstances.length} targets)`);
                 } else {
-                    this.showNotification('warning', 'Partial Success', `Started ${successful} tests, ${failed} failed for requirement ${criterionNumber}`);
+                    throw new Error(response.error || 'Unknown error');
                 }
 
                 // Refresh the requirement details to show updated status
@@ -14731,10 +14727,10 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
 
 
 
-            // Run automated test for a specific requirement
+            // Run automated test for a specific requirement - UNIFIED AUTOMATION
         componentInstance.runAutomatedTestForRequirement = async function(requirement) {
             try {
-                console.log(`🎯 Running automated test for requirement: ${requirement.criterion_number}`);
+                console.log(`🎯 Running unified automated test for requirement: ${requirement.criterion_number}`);
                 
                 if (!this.selectedSessionDetails) {
                     throw new Error('No session selected');
@@ -14742,34 +14738,26 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
 
                 this.loading = true;
                 
-                // Get test instances for this specific requirement
-                const testInstancesQuery = await this.apiCall(`/test-instances/session/${this.selectedSessionDetails.id}/requirement/${requirement.id}`);
-                if (!testInstancesQuery.success || !testInstancesQuery.data.length) {
-                    throw new Error(`No test instances found for requirement ${requirement.criterion_number}`);
-                }
-                
-                const specificInstances = testInstancesQuery.data.map(ti => ti.id);
-                console.log(`🔍 Found ${specificInstances.length} test instances for requirement ${requirement.criterion_number}`);
-                
-                // Run PER-INSTANCE automated test targeting ONLY this requirement's test instances
-                const response = await this.apiCall(`/automated-testing/run-per-instance/${this.selectedSessionDetails.id}`, {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        tools: ['axe-core', 'pa11y'], // Updated to use new parameter name
+                // Use UnifiedAutomationService for requirement-specific automation
+                const unifiedService = new window.UnifiedAutomationService();
+                const response = await unifiedService.runRequirementAutomation(
+                    this.selectedSessionDetails.id,
+                    [requirement.id], // Target this specific requirement
+                    {
+                        tools: ['axe-core', 'pa11y', 'lighthouse'],
                         run_async: true,
-                        specific_instances: specificInstances, // Target only this requirement's test instances
-                        clientMetadata: {
-                            ip: 'dashboard',
-                            userAgent: navigator.userAgent,
-                            timestamp: new Date().toISOString(),
-                            trigger: 'individual_requirement_test',
-                            requirement_id: requirement.id,
-                            criterion_number: requirement.criterion_number
+                        options: {
+                            force_retest: false
                         }
-                    })
-                });
+                    }
+                );
                 
-                this.showNotification('success', 'Test Started', `Automated test started for ${requirement.criterion_number}`);
+                if (response.success) {
+                    this.showNotification('success', 'Test Started', 
+                        `Unified automation started for ${requirement.criterion_number} (${response.summary?.targets_resolved || 0} targets)`);
+                } else {
+                    throw new Error(response.error || 'Unknown error');
+                }
                 
                 // Refresh this specific requirement's data
                 setTimeout(() => {
@@ -14777,7 +14765,7 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                 }, 3000);
                 
             } catch (error) {
-                console.error('❌ Error running automated test:', error);
+                console.error('❌ Error running unified automated test:', error);
                 this.showNotification('error', 'Test Failed', `Failed to run automated test: ${error.message}`);
             } finally {
                 this.loading = false;

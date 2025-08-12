@@ -112,67 +112,26 @@ module.exports = function(wsService) {
     }
 
 /**
- * Trigger automated tests for a testing session
+ * DEPRECATED: Legacy automated tests endpoint
+ * Use /api/automated-testing/unified-run/:sessionId instead
  * POST /api/automated-testing/run/:sessionId
  */
 router.post('/run/:sessionId', authenticateToken, async (req, res) => {
-    try {
-        const { sessionId } = req.params;
-        const { 
-            tools = ['axe', 'pa11y'], // Default tools
-            run_async = true,
-            pages = null, // Specific pages to test, null = all pages
-            requirements = null, // Specific requirements to test, null = all requirements
-            update_test_instances = true,
-            create_evidence = true,
-            max_pages = 100 // Maximum number of pages to test
-        } = req.body;
-
-        console.log(`🤖 Starting automated tests for session ${sessionId} with tools: ${tools.join(', ')}`);
-
-        // Validate tools
-        const validTools = ['axe', 'pa11y', 'lighthouse', 'contrast-analyzer', 'mobile-accessibility', 'wave', 'form-accessibility', 'heading-structure', 'aria-testing', 'migrated_data', 'playwright', 'playwright-axe', 'playwright-lighthouse', 'cypress', 'selenium', 'webdriver'];
-        const invalidTools = tools.filter(tool => !validTools.includes(tool));
-        if (invalidTools.length > 0) {
-            return res.status(400).json({
-                success: false,
-                error: `Invalid tools: ${invalidTools.join(', ')}. Valid tools: ${validTools.join(', ')}`
-            });
-        }
-
-        // Start automation run
-        const result = await automationService.runAutomatedTests(sessionId, {
-            tools,
-            runAsync: run_async,
-            pages,
-            requirements,
-            updateTestInstances: update_test_instances,
-            createEvidence: create_evidence,
-            maxPages: max_pages,
-            userId: req.user.id, // Fixed: use req.user.id instead of req.user.userId
-            clientMetadata: {
-                client_ip: req.ip || req.connection.remoteAddress || 'unknown',
-                user_agent: req.get('User-Agent') || 'unknown',
-                request_timestamp: new Date().toISOString()
-            }
-        });
-
-        res.json({
-            success: true,
-            message: 'Automated tests started successfully',
-            data: result,
-            tools: tools,
-            session_id: sessionId,
-            run_id: result.run_id
-        });
-
-    } catch (error) {
-        console.error('Error running automated tests:', error);
-        res.status(500).json({
-            success: false,
-            error: error.message || 'Failed to start automated tests'
-        });
-    }
+    return res.status(410).json({
+        success: false,
+        error: 'This endpoint has been deprecated',
+        message: 'Please use /api/automated-testing/unified-run/:sessionId instead',
+        migration_guide: {
+            old_endpoint: '/api/automated-testing/run/:sessionId',
+            new_endpoint: '/api/automated-testing/unified-run/:sessionId',
+            changes: [
+                'Use target_mode: "session" for session-wide automation',
+                'Tool names updated: axe → axe-core, pa11y → pa11y',
+                'Enhanced targeting options available'
+            ]
+        },
+        deprecated_since: '2025-08-12'
+    });
 });
 
 /**
