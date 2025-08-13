@@ -328,9 +328,28 @@
                 element.innerHTML = html;
                 
                 // Force Alpine.js to re-scan this newly loaded content
-                if (window.Alpine && window.Alpine.initTree) {
+                if (window.Alpine) {
                     console.log(`🏔️ Re-initializing Alpine.js for component: ${componentId}`);
-                    window.Alpine.initTree(element);
+                    
+                    // Try multiple methods to ensure Alpine.js processes the new content
+                    if (window.Alpine.initTree) {
+                        window.Alpine.initTree(element);
+                    }
+                    
+                    // Alternative: Find all Alpine elements in the loaded content and init them
+                    const alpineElements = element.querySelectorAll('[x-data]');
+                    alpineElements.forEach(el => {
+                        if (window.Alpine.initTree) {
+                            window.Alpine.initTree(el);
+                        }
+                    });
+                    
+                    // Last resort: Schedule a complete Alpine restart
+                    setTimeout(() => {
+                        if (window.Alpine && window.Alpine.initTree) {
+                            window.Alpine.initTree(document.body);
+                        }
+                    }, 100);
                 }
             } catch (error) {
                 console.error(`Failed to load component ${componentId}:`, error);
