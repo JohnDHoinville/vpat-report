@@ -5,6 +5,8 @@
   "main": "index.html",
   "scripts": {
     "start": "npx http-server . -p 8080 -o",
+    "server": "./start-server.sh",
+    "start:all": "./start-all.sh",
     "backend:start": "bash scripts/start-backend.sh start",
     "backend:stop": "bash scripts/start-backend.sh stop",
     "backend:restart": "bash scripts/start-backend.sh restart",

@@ -75,7 +75,7 @@ class TestAutomationService {
             } catch (error) {
                 console.error(`❌ Background test execution failed for run ${runId}:`, error);
                 // Update run status to failed
-                await this.updateRunStatus(runId, 'failed', { error: error.message });
+                // Note: Run status updates handled by UnifiedAutomationController
             }
         });
     }
@@ -106,6 +106,37 @@ class TestAutomationService {
             // Mark test instances as in-progress before starting automation
             const testInstancesMarked = await this.markTestInstancesInProgress(sessionId, userId, null, requirements);
             console.log(`📝 Marked ${testInstancesMarked} test instances as "in_progress"`);
+            
+            // Announce requirements being tested
+            if (requirements && requirements.length > 0) {
+                const uniqueRequirements = new Map();
+                requirements.forEach(req => {
+                    const key = req.criterion_number || req.requirement_id;
+                    if (!uniqueRequirements.has(key)) {
+                        uniqueRequirements.set(key, {
+                            criterion: key,
+                            title: req.requirement_title || req.title,
+                            level: req.conformance_level || req.level
+                        });
+                    }
+                });
+                
+                console.log(`🎯 Will test ${uniqueRequirements.size} WCAG requirements:`);
+                for (const [criterion, info] of uniqueRequirements) {
+                    console.log(`   📋 WCAG ${info.level} - ${criterion}: ${info.title}`);
+                    
+                    // WebSocket announcement for each requirement
+                    this.emitProgress(sessionId, {
+                        percentage: 0,
+                        message: `Starting requirement WCAG ${info.level} - ${criterion}: ${info.title}`,
+                        stage: 'requirement_start',
+                        currentRequirement: criterion,
+                        requirementTitle: info.title,
+                        requirementLevel: info.level,
+                        status: 'starting_requirement'
+                    });
+                }
+            }
             
             // Create session-level audit entry for status change
             await this.createSessionAuditLogEntry(
@@ -376,16 +407,15 @@ class TestAutomationService {
                 }
             }
 
-            // Update run completion
+            // Note: Run completion handled by UnifiedAutomationController
             const completedAt = new Date();
-            await this.updateRunStatus(runId, 'completed', {
+            console.log(`✅ Test automation completed for run ${runId}:`, {
                 completed_at: completedAt,
                 pages_tested: pages.length,
                 total_issues: totalIssues,
                 critical_issues: criticalIssues,
                 test_instances_updated: testInstancesUpdated,
-                evidence_files_created: evidenceCreated,
-                raw_results: results
+                evidence_files_created: evidenceCreated
             });
             
             // Emit completion progress
@@ -3052,7 +3082,8 @@ class TestAutomationService {
     async cancelAutomationRun(runId, userId) {
         const cancelledAt = new Date();
         
-        await this.updateRunStatus(runId, 'cancelled', {
+        // Note: Run status updates handled by UnifiedAutomationController
+        console.log(`🚫 Automation run ${runId} cancelled`, {
             completed_at: cancelledAt,
             metadata: JSON.stringify({
                 cancelled_by: userId,
@@ -4390,7 +4421,7 @@ class TestAutomationService {
 
         try {
             // Update run status to running
-            await this.updateRunStatus(runId, 'running', { started_at: startTime });
+            // Note: Run status updates handled by UnifiedAutomationController
             
             console.log(`🎯 Starting per-instance execution: ${testInstances.length} instances, ${tools.length} tools`);
 
@@ -4509,7 +4540,8 @@ class TestAutomationService {
 
             // Update run status to completed
             const completedAt = new Date();
-            await this.updateRunStatus(runId, 'completed', {
+            // Note: Run status updates handled by UnifiedAutomationController
+            console.log(`✅ Per-instance automation completed for run ${runId}:`, {
                 completed_at: completedAt,
                 pages_tested: pageUrls.length,
                 total_issues: totalIssues,

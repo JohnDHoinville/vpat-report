@@ -666,8 +666,8 @@ class UnifiedAutomationController {
             if (!pageMap.has(target.page_id)) {
                 pageMap.set(target.page_id, {
                     page_id: target.page_id,
-                    url: target.page_url,
-                    title: target.page_title || target.page_url
+                    url: target.url || target.page_url, // Handle both column names
+                    title: target.page_title || target.url || target.page_url || 'Untitled Page'
                 });
             }
         }
