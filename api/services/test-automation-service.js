@@ -1515,6 +1515,18 @@ class TestAutomationService {
         let updatedCount = 0;
 
         try {
+            // Debug the results structure
+            console.log(`🔍 DEBUG: Mapping results to test instances for session ${sessionId}`);
+            console.log(`🔍 DEBUG: Results structure:`, {
+                keys: Object.keys(results),
+                hasAxe: !!results.axe,
+                hasPa11y: !!results.pa11y,
+                hasLighthouse: !!results.lighthouse,
+                axeType: results.axe ? typeof results.axe : 'none',
+                pa11yType: results.pa11y ? typeof results.pa11y : 'none',
+                lighthouseType: results.lighthouse ? typeof results.lighthouse : 'none'
+            });
+
             // Get test instances for this session
             const instancesQuery = `
                 SELECT ti.*, tr.criterion_number, tr.level, tr.test_method
@@ -1526,13 +1538,22 @@ class TestAutomationService {
 
             const instancesResult = await pool.query(instancesQuery, [sessionId]);
             const testInstances = instancesResult.rows;
+            console.log(`🔍 DEBUG: Found ${testInstances.length} test instances to potentially update`);
 
             for (const instance of testInstances) {
                 const mappedResults = this.mapResultToRequirement(instance, results);
                 
+                console.log(`🔍 DEBUG: Instance ${instance.id} mapped results:`, {
+                    shouldUpdate: mappedResults.shouldUpdate,
+                    totalViolations: mappedResults.totalViolations || 0
+                });
+                
                 if (mappedResults.shouldUpdate) {
                     await this.updateTestInstanceFromAutomation(instance.id, mappedResults, userId);
                     updatedCount++;
+                    console.log(`🔍 DEBUG: ✅ Updated test instance ${instance.id}`);
+                } else {
+                    console.log(`🔍 DEBUG: ❌ Skipped test instance ${instance.id} - shouldUpdate = false`);
                 }
             }
 
@@ -1630,10 +1651,16 @@ class TestAutomationService {
     mapResultToRequirement(testInstance, results) {
         const { requirement_id } = testInstance;
         
+        console.log(`🔍 DEBUG: Mapping requirement ${requirement_id} for test instance ${testInstance.id}`);
+        console.log(`🔍 DEBUG: Available results keys:`, Object.keys(results));
+        
         // Get the actual tools that were run from the results object
         const toolsRun = Object.keys(results).filter(key => results[key] && typeof results[key] === 'object');
         
+        console.log(`🔍 DEBUG: Tools run:`, toolsRun);
+        
         if (!toolsRun || toolsRun.length === 0) {
+            console.log(`🔍 DEBUG: No tools run, shouldUpdate = false`);
             return { shouldUpdate: false };
         }
 
