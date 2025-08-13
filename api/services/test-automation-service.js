@@ -1529,11 +1529,11 @@ class TestAutomationService {
 
             // Get test instances for this session
             const instancesQuery = `
-                SELECT ti.*, tr.criterion_number, tr.level, tr.test_method
+                SELECT ti.*, ur.requirement_id as criterion_number, ur.level, ur.test_method
                 FROM test_instances ti
-                JOIN test_requirements tr ON ti.requirement_id = tr.id
+                JOIN unified_requirements ur ON ti.requirement_id = ur.id
                 WHERE ti.session_id = $1
-                AND (tr.test_method = 'automated' OR tr.test_method = 'both')
+                AND (ur.test_method = 'automated' OR ur.test_method = 'both' OR ur.test_method = 'hybrid')
             `;
 
             const instancesResult = await pool.query(instancesQuery, [sessionId]);
@@ -1649,12 +1649,13 @@ class TestAutomationService {
      * Map automation result to specific requirement
      */
     mapResultToRequirement(testInstance, results) {
-        const { requirement_id } = testInstance;
+        const { requirement_id, criterion_number, page_id } = testInstance;
         
-        console.log(`🔍 DEBUG: Mapping requirement ${requirement_id} for test instance ${testInstance.id}`);
+        console.log(`🔍 DEBUG: Mapping requirement ${requirement_id} (${criterion_number}) for test instance ${testInstance.id}, page ${page_id}`);
         console.log(`🔍 DEBUG: Available results keys:`, Object.keys(results));
         
-        // Get the actual tools that were run from the results object
+        // For now, we'll update ALL automated test instances if ANY violations were found
+        // since the automation tests the whole page, not specific requirements
         const toolsRun = Object.keys(results).filter(key => results[key] && typeof results[key] === 'object');
         
         console.log(`🔍 DEBUG: Tools run:`, toolsRun);
@@ -1669,23 +1670,50 @@ class TestAutomationService {
         let toolResults = {};
         let specializedAnalysis = {};
         let remediationGuidance = [];
+        let foundAnyViolations = false;
 
-        // Check each tool's results
+        // Check each tool's results for ANY violations on this page
         for (const toolKey of toolsRun) {
             const toolResult = results[toolKey];
             
-            if (toolResult) {
+            if (toolResult && typeof toolResult === 'object') {
+                console.log(`🔍 DEBUG: Checking ${toolKey} results:`, toolResult);
+                
+                // Check if this tool found violations on any page
+                let toolViolations = 0;
+                let toolCritical = 0;
+                
+                // Look for violations in the standardized format
+                if (typeof toolResult === 'object') {
+                    // Check each page in the results
+                    Object.keys(toolResult).forEach(pageUrl => {
+                        const pageResults = toolResult[pageUrl];
+                        if (pageResults && typeof pageResults === 'object') {
+                            const violations = pageResults.violations || 0;
+                            const critical = pageResults.critical || 0;
+                            
+                            toolViolations += violations;
+                            toolCritical += critical;
+                            
+                            if (violations > 0) {
+                                foundAnyViolations = true;
+                                console.log(`🔍 DEBUG: Found ${violations} violations for ${toolKey} on ${pageUrl}`);
+                            }
+                        }
+                    });
+                }
+                
                 // Convert tool key back to full name for display
                 const toolName = toolKey === 'axe' ? 'axe-core' : toolKey;
                 
                 toolResults[toolName] = {
-                    violations: toolResult.total_violations || 0,
-                    critical: toolResult.critical_violations || 0,
-                    pages: toolResult.pages_tested || []
+                    violations: toolViolations,
+                    critical: toolCritical,
+                    pages: Object.keys(toolResult)
                 };
                 
-                totalViolations += toolResult.total_violations || 0;
-                criticalViolations += toolResult.critical_violations || 0;
+                totalViolations += toolViolations;
+                criticalViolations += toolCritical;
 
                 // Handle specialized tool results
                 if (toolKey === 'color-contrast-analyzer' && toolResult.contrast_analysis) {
@@ -1754,22 +1782,30 @@ class TestAutomationService {
             }
         }
 
+        console.log(`🔍 DEBUG: Final results - foundAnyViolations: ${foundAnyViolations}, totalViolations: ${totalViolations}, criticalViolations: ${criticalViolations}`);
+        
+        // Only update test instances if violations were found
+        // (We don't mark everything as "passed" automatically since that would be presumptuous)
+        if (!foundAnyViolations && totalViolations === 0) {
+            console.log(`🔍 DEBUG: No violations found for any tool, shouldUpdate = false`);
+            return { shouldUpdate: false };
+        }
+        
         // Determine status based on violations
-        let newStatus = 'human_review'; // Default for automated tests
+        let newStatus = 'failed'; // Default for automated tests with violations
         let confidence = 'high';
         
         if (criticalViolations > 0) {
             newStatus = 'failed'; // Critical violations = failed
             confidence = 'high';
         } else if (totalViolations > 0) {
-            newStatus = 'human_review'; // Non-critical violations = review required
-            confidence = 'medium';
-        } else {
-            newStatus = 'passed'; // No violations = passed
+            newStatus = 'failed'; // Any violations = failed (since automation found specific issues)
             confidence = 'high';
         }
 
         const toolsUsedList = toolsRun.map(key => key === 'axe' ? 'axe-core' : key);
+
+        console.log(`🔍 DEBUG: Will update test instance with status: ${newStatus}, violations: ${totalViolations}`);
 
         return {
             shouldUpdate: true,
@@ -2867,14 +2903,14 @@ class TestAutomationService {
                 summary: {
                     total_runs: summary.total_runs || 0,
                     last_run_date: summary.last_run_date,
-                    total_issues_found: summary.total_issues_found || 0,
-                    critical_issues_found: summary.critical_issues_found || 0,
+                    total_issues_found: summary.total_violations || 0,
+                    critical_issues_found: summary.critical_violations || 0,
                     test_instances_updated: summary.test_instances_updated || 0,
                     tools_used: summary.tools_used || []
                 },
                 latest_run: summary.last_run_date ? {
                     date: summary.last_run_date,
-                    issues: summary.total_issues_found,
+                    issues: summary.total_violations,
                     tools: summary.tools_used
                 } : null,
                 total_runs: summary.total_runs || 0
@@ -4421,7 +4457,14 @@ class TestAutomationService {
             });
 
             if (result.rows.length > 0) {
+                const automatedResultId = result.rows[0].id;
                 console.log(`💾 Stored ${tool} results: ${violationsCount} violations, ${passesCount} passes`);
+                
+                // Parse and store individual violations
+                if (violationsCount > 0) {
+                    await this.parseAndStoreViolations(automatedResultId, tool, toolResults);
+                }
+                
                 return result.rows[0];
             } else {
                 console.error(`❌ Failed to store ${tool} results - unexpected error`);
@@ -5993,6 +6036,223 @@ class TestAutomationService {
         
         // Filter to only include tools that are available
         return applicableTools.filter(tool => availableTools.includes(tool));
+    }
+
+    /**
+     * Parse individual violations from tool results and store in violations table
+     */
+    async parseAndStoreViolations(automatedResultId, tool, toolResults) {
+        try {
+            console.log(`🔍 Parsing individual violations for ${tool} result ${automatedResultId}`);
+            
+            let violations = [];
+            
+            // Parse violations based on tool format
+            if (tool === 'axe-core') {
+                violations = this.parseAxeViolations(toolResults);
+            } else if (tool === 'pa11y') {
+                violations = this.parsePa11yViolations(toolResults);
+            } else if (tool === 'lighthouse') {
+                violations = this.parseLighthouseViolations(toolResults);
+            }
+            
+            console.log(`📝 Found ${violations.length} individual violations to store for ${tool}`);
+            
+            // Store each violation in the database
+            for (const violation of violations) {
+                await this.storeIndividualViolation(automatedResultId, violation);
+            }
+            
+            console.log(`✅ Stored ${violations.length} individual violations for ${tool}`);
+            
+        } catch (error) {
+            console.error(`❌ Error parsing violations for ${tool}:`, error);
+        }
+    }
+
+    /**
+     * Parse Axe-core violations
+     */
+    parseAxeViolations(toolResults) {
+        const violations = [];
+        
+        if (toolResults.violations_by_page) {
+            Object.values(toolResults.violations_by_page).forEach(pageData => {
+                if (pageData.details && Array.isArray(pageData.details)) {
+                    pageData.details.forEach(violation => {
+                        violations.push({
+                            violation_type: violation.id || 'unknown',
+                            severity: this.mapAxeSeverity(violation.impact),
+                            wcag_criterion: this.extractWcagCriterion(violation.tags),
+                            element_selector: this.extractElementSelector(violation.nodes),
+                            element_html: this.extractElementHtml(violation.nodes),
+                            description: violation.description || violation.help,
+                            remediation_guidance: violation.help,
+                            help_url: violation.helpUrl
+                        });
+                    });
+                }
+            });
+        }
+        
+        return violations;
+    }
+
+    /**
+     * Parse Pa11y violations
+     */
+    parsePa11yViolations(toolResults) {
+        const violations = [];
+        
+        if (toolResults.violations_by_page) {
+            Object.values(toolResults.violations_by_page).forEach(pageData => {
+                if (pageData.details && Array.isArray(pageData.details)) {
+                    pageData.details.forEach(violation => {
+                        violations.push({
+                            violation_type: violation.code || 'pa11y-issue',
+                            severity: this.mapPa11ySeverity(violation.type),
+                            wcag_criterion: this.extractWcagFromPa11y(violation.code),
+                            element_selector: violation.selector,
+                            element_html: violation.context,
+                            description: violation.message,
+                            remediation_guidance: `Pa11y issue: ${violation.type}`,
+                            help_url: null
+                        });
+                    });
+                }
+            });
+        }
+        
+        return violations;
+    }
+
+    /**
+     * Parse Lighthouse violations
+     */
+    parseLighthouseViolations(toolResults) {
+        const violations = [];
+        
+        if (toolResults.violations_by_page) {
+            Object.values(toolResults.violations_by_page).forEach(pageData => {
+                if (pageData.details && typeof pageData.details === 'object') {
+                    // Lighthouse results have different structure
+                    Object.entries(pageData.details).forEach(([auditId, auditResult]) => {
+                        if (auditResult.score !== null && auditResult.score < 1) {
+                            violations.push({
+                                violation_type: auditId,
+                                severity: 'moderate',
+                                wcag_criterion: this.mapLighthouseToWcag(auditId),
+                                element_selector: null,
+                                element_html: null,
+                                description: auditResult.title || auditId,
+                                remediation_guidance: auditResult.description,
+                                help_url: null
+                            });
+                        }
+                    });
+                }
+            });
+        }
+        
+        return violations;
+    }
+
+    /**
+     * Store individual violation in database
+     */
+    async storeIndividualViolation(automatedResultId, violation) {
+        const query = `
+            INSERT INTO violations 
+            (automated_result_id, violation_type, severity, wcag_criterion, 
+             element_selector, element_html, description, remediation_guidance, help_url)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        `;
+        
+        await pool.query(query, [
+            automatedResultId,
+            violation.violation_type,
+            violation.severity,
+            violation.wcag_criterion,
+            violation.element_selector,
+            violation.element_html,
+            violation.description,
+            violation.remediation_guidance,
+            violation.help_url
+        ]);
+    }
+
+    /**
+     * Helper methods for parsing violations
+     */
+    mapAxeSeverity(impact) {
+        const severityMap = {
+            'critical': 'critical',
+            'serious': 'serious', 
+            'moderate': 'moderate',
+            'minor': 'minor'
+        };
+        return severityMap[impact] || 'moderate';
+    }
+
+    mapPa11ySeverity(type) {
+        const severityMap = {
+            'error': 'serious',
+            'warning': 'moderate',
+            'notice': 'minor'
+        };
+        return severityMap[type] || 'moderate';
+    }
+
+    extractWcagCriterion(tags) {
+        if (!Array.isArray(tags)) return null;
+        
+        // Look for WCAG criteria in tags like "wcag242" 
+        const wcagTag = tags.find(tag => tag.match(/wcag\d+/));
+        if (wcagTag) {
+            const match = wcagTag.match(/wcag(\d)(\d)(\d)/);
+            if (match) {
+                return `${match[1]}.${match[2]}.${match[3]}`;
+            }
+        }
+        return null;
+    }
+
+    extractWcagFromPa11y(code) {
+        // Pa11y codes sometimes include WCAG references
+        if (code && code.includes('WCAG2AA.Principle')) {
+            const match = code.match(/Principle(\d)\.Guideline(\d)_(\d)/);
+            if (match) {
+                return `${match[1]}.${match[2]}.${match[3]}`;
+            }
+        }
+        return null;
+    }
+
+    mapLighthouseToWcag(auditId) {
+        const mapping = {
+            'document-title': '2.4.2',
+            'color-contrast': '1.4.3',
+            'image-alt': '1.1.1',
+            'link-name': '2.4.4',
+            'button-name': '4.1.2',
+            'form-field-multiple-labels': '3.3.2'
+        };
+        return mapping[auditId] || null;
+    }
+
+    extractElementSelector(nodes) {
+        if (!nodes || !Array.isArray(nodes) || nodes.length === 0) return null;
+        const firstNode = nodes[0];
+        if (firstNode.target && Array.isArray(firstNode.target)) {
+            return firstNode.target.join(', ');
+        }
+        return null;
+    }
+
+    extractElementHtml(nodes) {
+        if (!nodes || !Array.isArray(nodes) || nodes.length === 0) return null;
+        const firstNode = nodes[0];
+        return firstNode.html || null;
     }
 }
 
