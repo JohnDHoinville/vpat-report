@@ -12,14 +12,14 @@
 
 const { v4: uuidv4 } = require('uuid');
 const AutomationTargetResolver = require('./automation-target-resolver');
-const ScopedTestResultsCreator = require('./scoped-test-results-creator');
+const TestAutomationService = require('./test-automation-service');
 const { pool } = require('../../database/config');
 
 class UnifiedAutomationController {
     constructor(wsService = null) {
         this.wsService = wsService;
         this.targetResolver = new AutomationTargetResolver();
-        this.resultsCreator = new ScopedTestResultsCreator();
+        this.testAutomationService = new TestAutomationService(wsService);
         this.runningTests = new Map();
     }
 
@@ -293,9 +293,9 @@ class UnifiedAutomationController {
                 clientMetadata
             });
 
-            // Create scoped test results for the worker to pick up
-            const testResultsCreated = await this.resultsCreator.createForTargets(sessionId, tools, targets, runId);
-            console.log(`✅ Created ${testResultsCreated} automated test results for worker processing`);
+            // Get unique pages from targets for test execution
+            const uniquePages = this.getUniquePages(targets);
+            console.log(`📄 Identified ${uniquePages.length} unique pages for testing`);
 
             // Emit WebSocket events
             if (this.wsService) {
@@ -304,7 +304,7 @@ class UnifiedAutomationController {
                     session_id: sessionId,
                     target_mode,
                     target_count: targets.length,
-                    page_count: new Set(targets.map(t => t.page_id)).size,
+                    page_count: uniquePages.length,
                     tools,
                     started_at: new Date().toISOString()
                 });
@@ -319,23 +319,45 @@ class UnifiedAutomationController {
                 status: 'running'
             });
 
-            const result = {
-                success: true,
-                run_id: runId,
-                mode: target_mode,
-                summary: {
-                    targets_resolved: targets.length,
-                    pages_affected: new Set(targets.map(t => t.page_id)).size,
-                    requirements_affected: new Set(targets.map(t => t.requirement_id)).size,
-                    test_results_created: testResultsCreated,
-                    tools_used: tools
-                },
-                status: run_async ? 'started' : 'completed',
-                estimated_duration: `${Math.ceil(new Set(targets.map(t => t.page_id)).size * tools.length / 3)} minutes`
-            };
-
-            console.log(`✅ Automation execution started successfully: ${result.run_id}`);
-            return result;
+            if (run_async) {
+                // Execute tests asynchronously
+                console.log(`🔄 Starting asynchronous test execution for run ${runId}`);
+                this.executeTestsAsync(runId, sessionId, tools, uniquePages, userId, targets);
+                
+                return {
+                    success: true,
+                    run_id: runId,
+                    mode: target_mode,
+                    summary: {
+                        targets_resolved: targets.length,
+                        pages_affected: uniquePages.length,
+                        requirements_affected: new Set(targets.map(t => t.requirement_id)).size,
+                        tools_used: tools
+                    },
+                    status: 'started',
+                    estimated_duration: `${Math.ceil(uniquePages.length * tools.length / 3)} minutes`
+                };
+            } else {
+                // Execute tests synchronously
+                console.log(`⚡ Starting synchronous test execution for run ${runId}`);
+                const testResults = await this.testAutomationService.executeAutomatedTests(
+                    runId, sessionId, tools, uniquePages, true, true, userId, null, {}
+                );
+                
+                return {
+                    success: true,
+                    run_id: runId,
+                    mode: target_mode,
+                    summary: {
+                        targets_resolved: targets.length,
+                        pages_affected: uniquePages.length,
+                        requirements_affected: new Set(targets.map(t => t.requirement_id)).size,
+                        tools_used: tools
+                    },
+                    status: 'completed',
+                    results: testResults
+                };
+            }
 
         } catch (error) {
             console.error('❌ Error executing automation:', error);
@@ -584,6 +606,53 @@ class UnifiedAutomationController {
     }
 
     /**
+     * Execute tests asynchronously without blocking
+     * @param {string} runId - Automation run ID
+     * @param {string} sessionId - Test session ID
+     * @param {Array} tools - Array of tool names
+     * @param {Array} pages - Array of page objects
+     * @param {string} userId - User ID
+     * @param {Array} targets - Array of resolved targets
+     */
+    executeTestsAsync(runId, sessionId, tools, pages, userId, targets) {
+        // Execute tests in background without blocking
+        setImmediate(async () => {
+            try {
+                console.log(`🚀 Background execution started for run ${runId}`);
+                await this.testAutomationService.executeAutomatedTests(
+                    runId, sessionId, tools, pages, true, true, userId, null, {}
+                );
+                console.log(`✅ Background execution completed for run ${runId}`);
+            } catch (error) {
+                console.error(`❌ Background test execution failed for run ${runId}:`, error);
+                // Update run status to failed
+                await this.updateRunStatus(runId, 'failed', { error: error.message });
+            }
+        });
+    }
+
+    /**
+     * Get unique pages from targets
+     * @param {Array} targets - Array of resolved targets
+     * @returns {Array} Array of unique page objects
+     */
+    getUniquePages(targets) {
+        const pageMap = new Map();
+        
+        for (const target of targets) {
+            if (!pageMap.has(target.page_id)) {
+                pageMap.set(target.page_id, {
+                    page_id: target.page_id,
+                    url: target.page_url,
+                    title: target.page_title || target.page_url
+                });
+            }
+        }
+        
+        return Array.from(pageMap.values());
+    }
+
+    /**
      * Cancel a running automation
      * @param {string} runId - Automation run ID
      * @returns {Object} Cancellation result
@@ -597,14 +666,8 @@ class UnifiedAutomationController {
                 return result;
             }
 
-            // Cancel pending automated test results
-            const cancelTestsQuery = `
-                UPDATE automated_test_results 
-                SET status = 'cancelled'
-                WHERE automation_run_id = $1 AND status = 'pending'
-            `;
-
-            await pool.query(cancelTestsQuery, [runId]);
+            // Remove from running tests tracking
+            this.runningTests.delete(runId);
 
             console.log(`✅ Automation run ${runId} cancelled successfully`);
             return { success: true, message: 'Automation cancelled' };
