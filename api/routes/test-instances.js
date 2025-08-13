@@ -1233,8 +1233,9 @@ router.get('/:sessionId/selection-status', authenticateToken, async (req, res) =
             }
             status.byStatus[row.status] += parseInt(row.count);
 
-            // Ready for automation (automated/hybrid tests that are not_started)
-            if ((row.test_method_used === 'automated' || row.test_method_used === 'hybrid') && row.status === 'not_started') {
+            // Ready for automation (automated/hybrid tests that are not_started OR pending)
+            if ((row.test_method_used === 'automated' || row.test_method_used === 'hybrid') && 
+                (row.status === 'not_started' || row.status === 'pending')) {
                 status.readyForAutomation += parseInt(row.count);
             }
 

@@ -100,8 +100,8 @@ class TestAutomationService {
         const results = {};
 
         try {
-            // Update run status to in progress
-            await this.updateRunStatus(runId, 'running', { started_at: startTime });
+            // Note: Run status updates are handled by UnifiedAutomationController
+            console.log(`🚀 Starting test automation execution for run ${runId}`);
             
             // Mark test instances as in-progress before starting automation
             const testInstancesMarked = await this.markTestInstancesInProgress(sessionId, userId, null, requirements);
@@ -455,10 +455,7 @@ class TestAutomationService {
 
         } catch (error) {
             console.error(`❌ Error executing automation run ${runId}:`, error);
-            await this.updateRunStatus(runId, 'failed', { 
-                error: error.message,
-                pages_tested: pages.length
-            });
+            // Note: Run status updates are handled by UnifiedAutomationController
             
             // Create session-level audit entry for automation failure
             await this.createSessionAuditLogEntry(
