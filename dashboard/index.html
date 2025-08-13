@@ -324,7 +324,14 @@
             try {
                 const response = await fetch(filePath);
                 const html = await response.text();
-                document.getElementById(componentId).innerHTML = html;
+                const element = document.getElementById(componentId);
+                element.innerHTML = html;
+                
+                // Force Alpine.js to re-scan this newly loaded content
+                if (window.Alpine && window.Alpine.initTree) {
+                    console.log(`🏔️ Re-initializing Alpine.js for component: ${componentId}`);
+                    window.Alpine.initTree(element);
+                }
             } catch (error) {
                 console.error(`Failed to load component ${componentId}:`, error);
             }
