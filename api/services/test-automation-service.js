@@ -105,7 +105,7 @@ class TestAutomationService {
             
             // Mark test instances as in-progress before starting automation
             const testInstancesMarked = await this.markTestInstancesInProgress(sessionId, userId, null, requirements);
-            console.log(`📝 Marked ${testInstancesMarked} test instances as "in_progress"`);
+            console.log(`📝 Marked ${testInstancesMarked} test instances as "in_process"`);
             
             // Announce requirements being tested
             if (requirements && requirements.length > 0) {
@@ -143,12 +143,12 @@ class TestAutomationService {
                 sessionId, 
                 'status_change', 
                 userId, 
-                `${testInstancesMarked} test instances marked as "in_progress" for automation`,
+                `${testInstancesMarked} test instances marked as "in_process" for automation`,
                 {
                     run_id: runId,
                     field_changed: 'status',
                     old_value: 'not_tested',
-                    new_value: 'in_progress',
+                    new_value: 'in_process',
                     instances_affected: testInstancesMarked,
                     change_reason: 'automation_preparation',
                     ...clientMetadata
@@ -361,7 +361,7 @@ class TestAutomationService {
                     {
                         run_id: runId,
                         field_changed: 'status_and_results',
-                        old_value: 'in_progress',
+                        old_value: 'in_process',
                         new_value: 'automated_results_available',
                         instances_affected: testInstancesUpdated,
                         change_reason: 'automation_completion',
@@ -923,8 +923,13 @@ class TestAutomationService {
             }
         }
 
-        // Create authenticated context if auth config or crawler session exists
+        // Create browser instance first if authentication is needed
+        let browser = null;
         let context = null;
+        if (crawlerAuthSession || authConfig) {
+            browser = await puppeteer.launch({ headless: true });
+        }
+        
         if (crawlerAuthSession) {
             try {
                 console.log(`🔐 Setting up authenticated browser context for Pa11y using crawler session...`);
@@ -1016,8 +1021,10 @@ class TestAutomationService {
                 });
             }
             try {
-                // Use Puppeteer for better control over page loading
-                const browser = await puppeteer.launch({ headless: true });
+                // Use existing browser or create new one if needed
+                if (!browser) {
+                    browser = await puppeteer.launch({ headless: true });
+                }
                 const browserPage = context ? await context.newPage() : await browser.newPage();
                 
                 try {
@@ -1072,7 +1079,6 @@ class TestAutomationService {
                     const finalTitle = await browserPage.title();
                     
                     await browserPage.close();
-                    await browser.close();
                     
                     // Now run pa11y with the fully loaded page
                     const pa11yResults = await pa11y(page.url, {
@@ -1174,7 +1180,6 @@ class TestAutomationService {
                 } finally {
                     try {
                         await browserPage.close();
-                        await browser.close();
                     } catch (e) {
                         // Ignore cleanup errors
                     }
@@ -1188,6 +1193,15 @@ class TestAutomationService {
                     violations: 0,
                     critical: 0
                 });
+            }
+        }
+
+        // Clean up browser if we created one
+        if (browser) {
+            try {
+                await browser.close();
+            } catch (e) {
+                // Ignore cleanup errors
             }
         }
 
@@ -1568,13 +1582,13 @@ class TestAutomationService {
             const instancesResult = await pool.query(instancesQuery, queryParams);
             const testInstances = instancesResult.rows;
 
-            // Update each instance to in_progress status
+            // Update each instance to in_process status
             for (const instance of testInstances) {
-                await this.updateTestInstanceStatus(instance.id, 'in_progress', userId, 'Automation started');
+                await this.updateTestInstanceStatus(instance.id, 'in_process', userId, 'Automation started');
                 markedCount++;
             }
 
-            console.log(`📊 Marked ${markedCount} test instances as "in_progress" for automation`);
+            console.log(`📊 Marked ${markedCount} test instances as "in_process" for automation`);
             return markedCount;
 
         } catch (error) {

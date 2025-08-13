@@ -1044,7 +1044,7 @@ router.post('/:sessionId/select-for-automation', authenticateToken, async (req, 
             // Select all automated tests that are pending (ready for automation)
             query = `
                 UPDATE test_instances 
-                SET status = 'in_progress', updated_at = CURRENT_TIMESTAMP
+                SET status = 'in_process', updated_at = CURRENT_TIMESTAMP
                 WHERE session_id = $1 
                 AND test_method_used IN ('automated', 'hybrid')
                 AND status = 'pending'
@@ -1055,7 +1055,7 @@ router.post('/:sessionId/select-for-automation', authenticateToken, async (req, 
             const placeholders = testInstanceIds.map((_, index) => `$${index + 2}`).join(',');
             query = `
                 UPDATE test_instances 
-                SET status = 'in_progress', updated_at = CURRENT_TIMESTAMP
+                SET status = 'in_process', updated_at = CURRENT_TIMESTAMP
                 WHERE session_id = $1 
                 AND id IN (${placeholders})
                 AND test_method_used IN ('automated', 'hybrid')
@@ -1098,13 +1098,13 @@ async function createAutomatedTestResults(sessionId) {
     try {
         console.log(`📝 Creating automated test results for session: ${sessionId}`);
 
-        // Get the selected test instances that are now in_progress
+        // Get the selected test instances that are now in_process
         const selectedTestsQuery = `
             SELECT DISTINCT ti.page_id, dp.url
             FROM test_instances ti
             JOIN discovered_pages dp ON ti.page_id = dp.id
             WHERE ti.session_id = $1 
-            AND ti.status = 'in_progress'
+            AND ti.status = 'in_process'
             AND ti.test_method_used IN ('automated', 'hybrid')
         `;
 
