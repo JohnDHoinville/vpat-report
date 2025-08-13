@@ -2964,14 +2964,16 @@ class TestAutomationService {
                 run.created_at
             ]);
 
-            // For unified automation runs, we don't have detailed per-tool results anymore
-            // Instead, we return a summary based on the automation run data
+            // Extract results data from target_metadata
+            const resultsData = run.target_metadata?.results || {};
+            
+            // For unified automation runs, we return a summary based on the stored results data
             const summaryResults = [{
                 tool_name: 'unified_automation',
-                violations_count: run.total_violations || 0,
+                violations_count: resultsData.total_issues || 0,
                 warnings_count: 0, // Not tracked in unified system
-                passes_count: run.total_passes || 0,
-                raw_results: run.raw_results || {},
+                passes_count: 0, // Not tracked separately in unified system
+                raw_results: resultsData || {},
                 executed_at: run.created_at,
                 page_url: 'session_wide',
                 result_id: run.id
@@ -2981,14 +2983,17 @@ class TestAutomationService {
                 detailed_results: summaryResults,
                 summary: {
                     tools_used: Array.isArray(run.tools_used) ? run.tools_used : [],
-                    pages_tested: run.pages_tested || 0,
-                    total_issues: run.total_violations || 0,
-                    critical_issues: run.critical_violations || 0,
+                    pages_tested: resultsData.pages_tested || 0,
+                    total_issues: resultsData.total_issues || 0,
+                    critical_issues: resultsData.critical_issues || 0,
+                    test_instances_updated: resultsData.test_instances_updated || 0,
+                    evidence_files_created: resultsData.evidence_files_created || 0,
                     duration: run.completed_at && run.created_at ? 
-                        new Date(run.completed_at) - new Date(run.created_at) : null
+                        new Date(run.completed_at) - new Date(run.created_at) : null,
+                    duration_ms: resultsData.duration_ms || null
                 },
                 evidence_files: run.evidence_count || 0,
-                test_instances_updated: run.test_instances_updated || 0,
+                test_instances_updated: resultsData.test_instances_updated || 0,
                 requirements_tested: requirementsResult.rows || []
             };
 

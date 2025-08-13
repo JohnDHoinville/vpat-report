@@ -344,6 +344,9 @@ class UnifiedAutomationController {
                     runId, sessionId, tools, uniquePages, true, true, userId, null, {}
                 );
                 
+                // Update run status with test results
+                await this.updateRunStatus(runId, 'completed', { testResults });
+                
                 return {
                     success: true,
                     run_id: runId,
@@ -352,7 +355,11 @@ class UnifiedAutomationController {
                         targets_resolved: targets.length,
                         pages_affected: uniquePages.length,
                         requirements_affected: new Set(targets.map(t => t.requirement_id)).size,
-                        tools_used: tools
+                        tools_used: tools,
+                        total_issues: testResults.total_issues || 0,
+                        critical_issues: testResults.critical_issues || 0,
+                        pages_tested: testResults.pages_tested || 0,
+                        test_instances_updated: testResults.test_instances_updated || 0
                     },
                     status: 'completed',
                     results: testResults
@@ -474,36 +481,43 @@ class UnifiedAutomationController {
         try {
             console.log(`📊 Updating unified automation run ${runId} status to ${status}`);
 
-            // Calculate completion data for finished runs
+            // Only update columns that actually exist in automation_runs_v2
             let updateData = { status };
             
             if (status === 'completed' || status === 'failed') {
                 updateData.completed_at = new Date();
                 
-                // Get summary statistics from test results
-                const statsQuery = `
-                    SELECT 
-                        COUNT(*) as total_tests,
-                        COUNT(CASE WHEN status = 'completed' THEN 1 END) as completed_tests,
-                        COALESCE(SUM(violations_count), 0) as total_violations,
-                        COALESCE(SUM(CASE WHEN violations_count > 5 THEN violations_count ELSE 0 END), 0) as critical_violations,
-                        COUNT(DISTINCT page_id) as pages_tested,
-                        COUNT(DISTINCT test_session_id) as test_sessions
-                    FROM automated_test_results 
-                    WHERE automation_run_id = $1
-                `;
-                
-                const statsResult = await pool.query(statsQuery, [runId]);
-                const stats = statsResult.rows[0];
-                
-                updateData.total_violations = stats.total_violations;
-                updateData.critical_violations = stats.critical_violations;
-                updateData.pages_tested = stats.pages_tested;
-                updateData.test_instances_updated = stats.completed_tests;
-                
-                // Set error message if provided
+                // Set error message if provided and status is failed
                 if (status === 'failed' && data.error) {
                     updateData.error_message = data.error;
+                }
+                
+                // Set progress to 100% when completed
+                if (status === 'completed') {
+                    updateData.progress_percentage = 100;
+                }
+                
+                // Store additional test results data in target_metadata
+                if (data.testResults) {
+                    const resultsMetadata = {
+                        total_issues: data.testResults.total_issues || 0,
+                        critical_issues: data.testResults.critical_issues || 0,
+                        pages_tested: data.testResults.pages_tested || 0,
+                        test_instances_updated: data.testResults.test_instances_updated || 0,
+                        evidence_files_created: data.testResults.evidence_files_created || 0,
+                        duration_ms: data.testResults.duration || 0,
+                        tools_used: data.testResults.tools_used || [],
+                        completed_at: new Date().toISOString()
+                    };
+                    
+                    // Merge with existing target_metadata
+                    const currentRun = await pool.query('SELECT target_metadata FROM automation_runs_v2 WHERE id = $1', [runId]);
+                    const existingMetadata = currentRun.rows[0]?.target_metadata || {};
+                    
+                    updateData.target_metadata = {
+                        ...existingMetadata,
+                        results: resultsMetadata
+                    };
                 }
             }
 
@@ -530,17 +544,23 @@ class UnifiedAutomationController {
             
             // Emit WebSocket event for status change
             if (this.wsService && status === 'completed') {
+                const results = updatedRun.target_metadata?.results || {};
                 this.wsService.emitToProject(updatedRun.project_id || 'unknown', 'automation_completed', {
                     run_id: runId,
                     session_id: updatedRun.session_id,
                     status: status,
+                    target_mode: updatedRun.target_mode,
+                    tools_used: updatedRun.tools_used,
+                    progress_percentage: updatedRun.progress_percentage,
+                    completed_at: updatedRun.completed_at,
                     summary: {
-                        total_violations: updatedRun.total_violations,
-                        critical_violations: updatedRun.critical_violations,
-                        pages_tested: updatedRun.pages_tested,
-                        test_instances_updated: updatedRun.test_instances_updated
-                    },
-                    completed_at: updatedRun.completed_at
+                        total_issues: results.total_issues || 0,
+                        critical_issues: results.critical_issues || 0,
+                        pages_tested: results.pages_tested || 0,
+                        test_instances_updated: results.test_instances_updated || 0,
+                        evidence_files_created: results.evidence_files_created || 0,
+                        duration_ms: results.duration_ms || 0
+                    }
                 });
             }
 
@@ -619,10 +639,13 @@ class UnifiedAutomationController {
         setImmediate(async () => {
             try {
                 console.log(`🚀 Background execution started for run ${runId}`);
-                await this.testAutomationService.executeAutomatedTests(
+                const testResults = await this.testAutomationService.executeAutomatedTests(
                     runId, sessionId, tools, pages, true, true, userId, null, {}
                 );
                 console.log(`✅ Background execution completed for run ${runId}`);
+                
+                // Update run status with test results
+                await this.updateRunStatus(runId, 'completed', { testResults });
             } catch (error) {
                 console.error(`❌ Background test execution failed for run ${runId}:`, error);
                 // Update run status to failed
