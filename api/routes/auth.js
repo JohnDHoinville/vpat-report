@@ -120,7 +120,7 @@ router.post('/login', authLimiter, async (req, res) => {
             token,
             refresh_token: refreshToken,
             session_id: sessionId,
-            expires_in: '7d'
+            expires_in: '2h'
         });
         
     } catch (error) {
@@ -231,7 +231,7 @@ router.post('/refresh', async (req, res) => {
                 full_name: user.full_name,
                 role: user.role
             },
-            expires_in: '7d'
+            expires_in: '2h'
         });
         
     } catch (error) {

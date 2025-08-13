@@ -71,6 +71,27 @@
                 <i class="fas fa-users-cog mr-2"></i>User Management
             </button>
             
+            <!-- Token Status Indicator -->
+            <div x-data="{ 
+                tokenStatus: null,
+                updateTokenStatus() {
+                    if (window.AuthTokenService) {
+                        this.tokenStatus = window.AuthTokenService.getStatus();
+                    }
+                }
+            }"
+            x-init="updateTokenStatus(); setInterval(() => updateTokenStatus(), 30000)"
+            x-show="user && tokenStatus?.hasToken" 
+            class="flex items-center space-x-2 text-xs">
+                <i class="fas fa-clock text-gray-500"></i>
+                <span :class="tokenStatus?.shouldRefresh ? 'text-yellow-600' : 'text-green-600'" 
+                      class="font-medium"
+                      :title="`Token expires: ${tokenStatus?.expiryTime ? new Date(tokenStatus.expiryTime).toLocaleTimeString() : 'Unknown'}`">
+                    <span x-text="tokenStatus?.timeUntilExpiry || 'Unknown'"></span>
+                </span>
+                <div x-show="tokenStatus?.isRefreshing" class="animate-spin rounded-full h-3 w-3 border-b border-blue-500"></div>
+            </div>
+
             <!-- Automation Progress Indicator -->
             <div x-show="automationProgress && automationProgress.percentage > 0" 
                  class="flex items-center space-x-2 ml-auto text-sm">

@@ -15594,4 +15594,45 @@ window.runAutomatedTestForInstance = function(testInstance) {
     console.error('Alpine available:', !!window.Alpine);
 };
 
+// ===== AUTH TOKEN SERVICE INTEGRATION =====
+// Add global handlers for token refresh integration
+window.handleTokenRefresh = function(newToken) {
+    console.log('🔄 Token refreshed, updating dashboard state');
+    
+    // Update stored token
+    localStorage.setItem('authToken', newToken);
+    
+    // Update dashboard instance if available
+    if (window._dashboardInstance) {
+        // Trigger a notification or UI update if needed
+        if (window._dashboardInstance.showNotification) {
+            window._dashboardInstance.showNotification('Token refreshed successfully', 'success');
+        }
+    }
+};
+
+window.handleAuthError = function() {
+    console.log('🔐 Auth error, clearing dashboard state');
+    
+    // Clear tokens and user state
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('tokenExpiry');
+    
+    // Update dashboard instance if available
+    if (window._dashboardInstance) {
+        window._dashboardInstance.user = null;
+        window._dashboardInstance.isAuthenticated = false;
+        
+        if (window._dashboardInstance.showNotification) {
+            window._dashboardInstance.showNotification('Session expired. Please log in again.', 'warning');
+        }
+        
+        // Show login modal if available
+        if (window._dashboardInstance.showLogin !== undefined) {
+            window._dashboardInstance.showLogin = true;
+        }
+    }
+};
+
 console.log('📦 Dashboard module loaded successfully');

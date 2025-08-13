@@ -42,6 +42,12 @@ window.DashboardAPI.client = {
     handleAuthError() {
         console.log('🔐 Authentication error - clearing auth state');
         localStorage.removeItem('authToken');
+        
+        // Use AuthTokenService if available
+        if (window.AuthTokenService) {
+            window.AuthTokenService.handleTokenExpired();
+        }
+        
         if (window.dashboard && typeof window.dashboard === 'function') {
             const dashboardInstance = window.dashboard();
             if (dashboardInstance.handleAuthError) {
@@ -50,9 +56,15 @@ window.DashboardAPI.client = {
         }
     },
 
-    // Core API call method
+    // Core API call method with automatic token refresh
     async apiCall(endpoint, options = {}) {
         try {
+            // Check if token needs refresh before making request
+            if (window.AuthTokenService && window.AuthTokenService.shouldRefreshToken()) {
+                console.log('🔄 Token needs refresh before API call, refreshing...');
+                await window.AuthTokenService.refreshToken();
+            }
+            
             const headers = {
                 'Content-Type': 'application/json',
                 ...options.headers
@@ -66,15 +78,40 @@ window.DashboardAPI.client = {
             
             const finalUrl = `${window.DashboardAPI.config.baseUrl}/api${endpoint}`;
             
-            const response = await fetch(finalUrl, {
+            let response = await fetch(finalUrl, {
                 headers,
                 ...options
             });
             
-            // Handle auth errors
+            // Handle auth errors with automatic retry after token refresh
             if (response.status === 401) {
-                this.handleAuthError();
-                throw new Error('Authentication required');
+                console.log('🔐 Got 401, attempting token refresh...');
+                
+                // Try to refresh token
+                if (window.AuthTokenService && await window.AuthTokenService.refreshToken()) {
+                    console.log('🔄 Token refreshed, retrying API call...');
+                    
+                    // Retry with new token
+                    const newToken = this.getAuthToken();
+                    if (newToken) {
+                        headers['Authorization'] = `Bearer ${newToken}`;
+                    }
+                    
+                    response = await fetch(finalUrl, {
+                        headers,
+                        ...options
+                    });
+                    
+                    if (response.status === 401) {
+                        console.log('❌ Still getting 401 after refresh, auth failed');
+                        this.handleAuthError();
+                        throw new Error('Authentication required');
+                    }
+                } else {
+                    console.log('❌ Token refresh failed, handling auth error');
+                    this.handleAuthError();
+                    throw new Error('Authentication required');
+                }
             }
             
             if (!response.ok) {
@@ -93,16 +130,37 @@ window.DashboardAPI.client = {
 // ===== AUTHENTICATION SERVICES =====
 window.DashboardAPI.auth = {
     async login(credentials) {
-        return window.DashboardAPI.client.apiCall('/auth/login', {
+        const result = await window.DashboardAPI.client.apiCall('/auth/login', {
             method: 'POST',
             body: JSON.stringify(credentials)
+        });
+        
+        // Store tokens in AuthTokenService if available
+        if (window.AuthTokenService && result.token && result.refresh_token) {
+            window.AuthTokenService.handleLogin(result.token, result.refresh_token, result.expires_in);
+        }
+        
+        return result;
+    },
+
+    async refreshToken(refreshToken) {
+        return window.DashboardAPI.client.apiCall('/auth/refresh', {
+            method: 'POST',
+            body: JSON.stringify({ refresh_token: refreshToken })
         });
     },
 
     async logout() {
-        return window.DashboardAPI.client.apiCall('/auth/logout', {
+        const result = await window.DashboardAPI.client.apiCall('/auth/logout', {
             method: 'POST'
         });
+        
+        // Clear tokens in AuthTokenService if available
+        if (window.AuthTokenService) {
+            window.AuthTokenService.handleLogout();
+        }
+        
+        return result;
     },
 
     async getProfile() {

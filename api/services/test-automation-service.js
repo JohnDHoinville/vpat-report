@@ -527,7 +527,7 @@ class TestAutomationService {
             if (sessionId) {
                 try {
                     // First, try to get the test session's project and find crawler auth sessions
-                    const sessionResult = await this.pool.query(`
+                    const sessionResult = await pool.query(`
                         SELECT ts.project_id, p.primary_url 
                         FROM test_sessions ts 
                         JOIN projects p ON ts.project_id = p.id 
@@ -538,7 +538,7 @@ class TestAutomationService {
                         const session = sessionResult.rows[0];
                         
                         // Look for active crawler authentication sessions for this project
-                        const crawlerAuthResult = await this.pool.query(`
+                        const crawlerAuthResult = await pool.query(`
                             SELECT cas.*, wc.name as crawler_name, wc.base_url
                             FROM crawler_auth_sessions cas
                             JOIN web_crawlers wc ON cas.crawler_id = wc.id
@@ -561,7 +561,7 @@ class TestAutomationService {
                     
                     // Fallback to auth_configs if no crawler session found
                     if (!crawlerAuthSession) {
-                        const authResult = await this.pool.query(`
+                        const authResult = await pool.query(`
                             SELECT ac.* FROM auth_configs ac
                             JOIN test_sessions ts ON ts.auth_config_id = ac.id
                             WHERE ts.id = $1 AND ac.status = 'active'
@@ -595,7 +595,7 @@ class TestAutomationService {
                     console.log(`🔐 Using ${storageState.cookies.length} cookies from crawler session`);
                     
                     // Create context with stored authentication state
-                    context = await browser.createIncognitoContext({
+                    context = await browser.createBrowserContext({
                         storageState: storageState
                     });
                     
@@ -609,7 +609,7 @@ class TestAutomationService {
             } else if (authConfig) {
                 try {
                     console.log(`🔐 Setting up authenticated browser context using auth config...`);
-                    context = await browser.createIncognitoContext();
+                    context = await browser.createBrowserContext();
                     const authPage = await context.newPage();
                     
                     // Navigate to login page
@@ -871,7 +871,7 @@ class TestAutomationService {
         if (sessionId) {
             try {
                 // First, try to get the test session's project and find crawler auth sessions
-                const sessionResult = await this.pool.query(`
+                const sessionResult = await pool.query(`
                     SELECT ts.project_id, p.primary_url 
                     FROM test_sessions ts 
                     JOIN projects p ON ts.project_id = p.id 
@@ -882,7 +882,7 @@ class TestAutomationService {
                     const session = sessionResult.rows[0];
                     
                     // Look for active crawler authentication sessions for this project
-                    const crawlerAuthResult = await this.pool.query(`
+                    const crawlerAuthResult = await pool.query(`
                         SELECT cas.*, wc.name as crawler_name, wc.base_url
                         FROM crawler_auth_sessions cas
                         JOIN web_crawlers wc ON cas.crawler_id = wc.id
@@ -905,7 +905,7 @@ class TestAutomationService {
                 
                 // Fallback to auth_configs if no crawler session found
                 if (!crawlerAuthSession) {
-                    const authResult = await this.pool.query(`
+                    const authResult = await pool.query(`
                         SELECT ac.* FROM auth_configs ac
                         JOIN test_sessions ts ON ts.auth_config_id = ac.id
                         WHERE ts.id = $1 AND ac.status = 'active'
@@ -939,7 +939,7 @@ class TestAutomationService {
                 console.log(`🔐 Using ${storageState.cookies.length} cookies from crawler session for Pa11y`);
                 
                 // Create context with stored authentication state
-                context = await browser.createIncognitoContext({
+                context = await browser.createBrowserContext({
                     storageState: storageState
                 });
                 
@@ -953,7 +953,7 @@ class TestAutomationService {
         } else if (authConfig) {
             try {
                 console.log(`🔐 Setting up authenticated browser context for Pa11y using auth config...`);
-                context = await browser.createIncognitoContext();
+                context = await browser.createBrowserContext();
                 const authPage = await context.newPage();
                 
                 // Navigate to login page
@@ -1391,7 +1391,13 @@ class TestAutomationService {
                     }
 
                     results.total_violations += pageResults.violations;
-                    results.violations_by_page[page.url] = pageResults.violations;
+                    results.violations_by_page[page.url] = {
+                        url: page.url,
+                        violations: pageResults.violations,
+                        critical: pageResults.critical || 0,
+                        details: pageResults.details || [],
+                        title_at_test_time: pageResults.title_at_test_time || ""
+                    };
                     results.pages_tested.push(pageResults);
                     
                     await browserPage.close();
@@ -3261,16 +3267,20 @@ class TestAutomationService {
     countViolationsFromResults(toolResults) {
         if (!toolResults) return 0;
         
-        if (Array.isArray(toolResults)) {
-            return toolResults.reduce((total, result) => {
-                if (result.violations) return total + result.violations.length;
-                if (result.violationCount) return total + result.violationCount;
+        // Use standardized total_violations field
+        if (typeof toolResults.total_violations === 'number') {
+            return toolResults.total_violations;
+        }
+        
+        // Fallback: count from violations_by_page object format
+        if (toolResults.violations_by_page) {
+            return Object.values(toolResults.violations_by_page).reduce((total, pageViolations) => {
+                if (pageViolations && typeof pageViolations.violations === 'number') {
+                    return total + pageViolations.violations;
+                }
                 return total;
             }, 0);
         }
-        
-        if (toolResults.violations) return toolResults.violations.length;
-        if (toolResults.violationCount) return toolResults.violationCount;
         
         return 0;
     }
@@ -3373,7 +3383,13 @@ class TestAutomationService {
                 
                 results.total_violations += waveResults.summary.totalIssues;
                 results.critical_violations += waveResults.summary.criticalIssues;
-                results.violations_by_page[page.url] = waveResults.summary.totalIssues;
+                results.violations_by_page[page.url] = {
+                    url: page.url,
+                    violations: waveResults.summary.totalIssues,
+                    critical: waveResults.summary.criticalIssues,
+                    details: waveResults.violations || [],
+                    title_at_test_time: ""
+                };
                 results.rate_limit_status.requests_made = waveApi.requestCount;
                 results.rate_limit_status.credits_remaining = waveApi.getRemainingCredits();
 
@@ -3495,7 +3511,13 @@ class TestAutomationService {
                 
                 results.total_violations += formResults.summary.totalIssues;
                 results.critical_violations += formResults.summary.criticalIssues;
-                results.violations_by_page[page.url] = formResults.summary.totalIssues;
+                results.violations_by_page[page.url] = {
+                    url: page.url,
+                    violations: formResults.summary.totalIssues,
+                    critical: formResults.summary.criticalIssues,
+                    details: formResults.violations || [],
+                    title_at_test_time: ""
+                };
                 results.form_statistics.total_forms_analyzed += formResults.summary.totalForms;
                 results.form_statistics.forms_with_issues += formResults.summary.formsWithIssues;
                 results.form_statistics.total_inputs_analyzed += formResults.summary.totalInputs;
@@ -3569,7 +3591,13 @@ class TestAutomationService {
                 
                 results.total_violations += headingResults.summary.totalIssues;
                 results.critical_violations += headingResults.summary.criticalIssues;
-                results.violations_by_page[page.url] = headingResults.summary.totalIssues;
+                results.violations_by_page[page.url] = {
+                    url: page.url,
+                    violations: headingResults.summary.totalIssues,
+                    critical: headingResults.summary.criticalIssues,
+                    details: headingResults.violations || [],
+                    title_at_test_time: ""
+                };
                 results.heading_statistics.total_headings_analyzed += headingResults.summary.totalHeadings;
                 results.heading_statistics.total_hierarchy_violations += headingResults.summary.hierarchyViolations;
                 results.heading_statistics.total_missing_levels += headingResults.summary.missingLevels;
@@ -3656,7 +3684,13 @@ class TestAutomationService {
                 
                 results.total_violations += ariaResults.summary.totalIssues;
                 results.critical_violations += ariaResults.summary.criticalIssues;
-                results.violations_by_page[page.url] = ariaResults.summary.totalIssues;
+                results.violations_by_page[page.url] = {
+                    url: page.url,
+                    violations: ariaResults.summary.totalIssues,
+                    critical: ariaResults.summary.criticalIssues,
+                    details: ariaResults.violations || [],
+                    title_at_test_time: ""
+                };
                 results.aria_statistics.total_aria_elements += ariaResults.summary.totalAriaElements;
                 results.aria_statistics.total_widgets += ariaResults.summary.totalWidgets;
                 results.aria_statistics.total_live_regions += ariaResults.summary.totalLiveRegions;
@@ -4291,8 +4325,12 @@ class TestAutomationService {
             if (toolResults && toolResults.violations_by_page) {
                 // Sum violations across all pages for this tool
                 Object.values(toolResults.violations_by_page).forEach(pageViolations => {
-                    violationsCount += Array.isArray(pageViolations) ? pageViolations.length : 0;
-                    console.log(`🔍 DEBUG: Page violations count: ${Array.isArray(pageViolations) ? pageViolations.length : 0}`);
+                    if (pageViolations && typeof pageViolations === 'object' && typeof pageViolations.violations === 'number') {
+                        violationsCount += pageViolations.violations;
+                        console.log(`🔍 DEBUG: Page violations count: ${pageViolations.violations} for ${pageViolations.url}`);
+                    } else {
+                        console.log(`🔍 DEBUG: Invalid page violations format:`, pageViolations);
+                    }
                 });
             }
             
@@ -4476,7 +4514,13 @@ class TestAutomationService {
                                 // Store in results
                                 if (!results[tool]) results[tool] = { pages_tested: [], violations_by_page: {} };
                                 results[tool].pages_tested.push(pageUrl);
-                                results[tool].violations_by_page[pageUrl] = toolResults.violations;
+                                results[tool].violations_by_page[pageUrl] = {
+                                    url: pageUrl,
+                                    violations: toolResults.violations || 0,
+                                    critical: toolResults.critical || 0,
+                                    details: toolResults.details || [],
+                                    title_at_test_time: toolResults.title || ""
+                                };
                                 
                                 // Store tool results in database
                                 const pageInstances = instancesByPage[pageUrl];
@@ -4789,7 +4833,7 @@ class TestAutomationService {
                     const authContext = await this.getAuthContextForSession(sessionId);
                     if (authContext) {
                         // Create context with stored authentication state
-                        context = await browser.createIncognitoContext({
+                        context = await browser.createBrowserContext({
                             storageState: authContext
                         });
                         console.log(`🔐 Crawler authentication session loaded successfully for Axe`);
@@ -4868,7 +4912,7 @@ class TestAutomationService {
         
         try {
             // Get the test session's project and find crawler auth sessions
-            const sessionResult = await this.pool.query(`
+            const sessionResult = await pool.query(`
                 SELECT ts.project_id, p.primary_url 
                 FROM test_sessions ts 
                 JOIN projects p ON ts.project_id = p.id 
@@ -4883,7 +4927,7 @@ class TestAutomationService {
             const session = sessionResult.rows[0];
             
             // Look for active crawler authentication sessions for this project
-            const crawlerAuthResult = await this.pool.query(`
+            const crawlerAuthResult = await pool.query(`
                 SELECT cas.*, wc.name as crawler_name, wc.base_url
                 FROM crawler_auth_sessions cas
                 JOIN web_crawlers wc ON cas.crawler_id = wc.id
@@ -5078,7 +5122,7 @@ class TestAutomationService {
                 // We'll use Puppeteer to set up the authenticated session first
                 const puppeteer = require('puppeteer');
                 const browser = await puppeteer.launch({ headless: true });
-                const context = await browser.createIncognitoContext({
+                const context = await browser.createBrowserContext({
                     storageState: authContext
                 });
                 const page = await context.newPage();

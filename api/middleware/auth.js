@@ -17,7 +17,7 @@ const pool = new Pool({
 
 // JWT configuration
 const JWT_SECRET = process.env.JWT_SECRET || 'accessibility-testing-secret-key-change-in-production';
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '2h'; // Reduced from 7d to 2h for security
 const REFRESH_TOKEN_EXPIRES_IN = '30d';
 
 /**
@@ -66,7 +66,7 @@ async function storeSession(userId, token, refreshToken, deviceInfo) {
     const refreshTokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
     
     const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7); // 7 days for JWT
+    expiresAt.setHours(expiresAt.getHours() + 2); // 2 hours for JWT (matches token expiry)
     
     const query = `
         INSERT INTO user_sessions (user_id, token_hash, refresh_token_hash, device_info, ip_address, user_agent, expires_at)
