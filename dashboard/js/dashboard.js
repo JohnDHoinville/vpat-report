@@ -1752,18 +1752,39 @@ ${requirement.failure_examples}
             // Assign this Alpine component instance to the componentInstance variable
             componentInstance = this;
             console.log('✅ componentInstance assigned to Alpine component', componentInstance);
-            console.log('🔍 Testing componentInstance.filterRequirements:', typeof componentInstance.filterRequirements);
             
-            // Immediately update the global function
-            window.filterRequirements = () => {
-                console.log('🔍 Updated Global filterRequirements called');
-                if (componentInstance && componentInstance.filterRequirements) {
-                    console.log('🔍 Calling componentInstance.filterRequirements');
-                    return componentInstance.filterRequirements();
-                } else {
-                    console.error('❌ componentInstance.filterRequirements STILL not available');
-                }
-            };
+            // Delay the global function setup to ensure all methods are available
+            setTimeout(() => {
+                console.log('🔍 Testing componentInstance.filterRequirements after delay:', typeof componentInstance.filterRequirements);
+                
+                // Update the global function after methods are available
+                window.filterRequirements = () => {
+                    console.log('🔍 Updated Global filterRequirements called');
+                    console.log('🔍 componentInstance type:', typeof componentInstance);
+                    console.log('🔍 componentInstance.filterRequirements type:', typeof componentInstance?.filterRequirements);
+                    
+                    // Try to find the Alpine component instance with filterRequirements
+                    const alpineInstance = componentInstance || window._dashboardInstance;
+                    
+                    if (alpineInstance && alpineInstance.filterRequirements) {
+                        console.log('🔍 Calling alpineInstance.filterRequirements');
+                        return alpineInstance.filterRequirements();
+                    } else {
+                        console.log('🔍 Searching for filterRequirements in DOM elements...');
+                        // Fallback: search for Alpine component in DOM
+                        const elements = document.querySelectorAll('[x-data]');
+                        for (const element of elements) {
+                            const data = element._x_dataStack?.[0];
+                            if (data && data.filterRequirements) {
+                                console.log('🔍 Found filterRequirements in DOM element');
+                                return data.filterRequirements();
+                            }
+                        }
+                        console.error('❌ filterRequirements not found anywhere');
+                    }
+                };
+                console.log('✅ Global filterRequirements function updated with delay');
+            }, 100);
             
             // Call async initialization
             this.initAsync();
@@ -1771,6 +1792,85 @@ ${requirement.failure_examples}
 
         async initAsync() {
             await this.loadInitialData();
+        },
+
+        // Add filterRequirements method directly to Alpine component
+        filterRequirements() {
+            console.log('🔍 ALPINE filterRequirements called');
+            if (!this.sessionRequirements) {
+                this.filteredRequirements = [];
+                this.updateRequirementsPagination();
+                return;
+            }
+
+            let filtered = [...this.sessionRequirements];
+
+            // Apply filters
+            if (this.requirementFilters.testStatus) {
+                const status = this.requirementFilters.testStatus;
+                console.log(`🔍 FILTER DEBUG: Filtering by status "${status}"`);
+                
+                filtered = filtered.filter(req => {
+                    // Check automated status for automated/both requirements
+                    const hasAutomatedMatch = (req.test_method === 'automated' || req.test_method === 'both') && 
+                                             req.automated_status === status;
+                    
+                    // Check manual status for manual/both requirements  
+                    const hasManualMatch = (req.test_method === 'manual' || req.test_method === 'both') && 
+                                          req.manual_status === status;
+                    
+                    // Debug first few requirements when filtering by "failed"
+                    if (status === 'failed' && (req.criterion_number === '1.3.6' || req.criterion_number === '1.4.6' || req.criterion_number === '2.4.12' || req.criterion_number === '2.4.13')) {
+                        console.log(`🔍 FILTER CHECK: ${req.criterion_number} - test_method="${req.test_method}", automated_status="${req.automated_status}", manual_status="${req.manual_status}" - hasAutomatedMatch=${hasAutomatedMatch}, hasManualMatch=${hasManualMatch}`);
+                    }
+                    
+                    // Return true if either automated or manual status matches
+                    return hasAutomatedMatch || hasManualMatch;
+                });
+                
+                console.log(`🔍 FILTER RESULT: Found ${filtered.length} requirements matching "${status}"`);
+            }
+
+            if (this.requirementFilters.wcagLevel) {
+                filtered = filtered.filter(req => req.level === this.requirementFilters.wcagLevel);
+            }
+
+            if (this.requirementFilters.testMethod) {
+                filtered = filtered.filter(req => req.test_method === this.requirementFilters.testMethod);
+            }
+
+            if (this.requirementFilters.searchTerm) {
+                const term = this.requirementFilters.searchTerm.toLowerCase();
+                filtered = filtered.filter(req => 
+                    req.criterion_number.toLowerCase().includes(term) ||
+                    req.title.toLowerCase().includes(term) ||
+                    req.description.toLowerCase().includes(term)
+                );
+            }
+
+            this.filteredRequirements = filtered;
+            this.updateRequirementsPagination();
+            console.log(`🔍 Filtered requirements: ${filtered.length}/${this.sessionRequirements.length}`);
+        },
+
+        // Add updateRequirementsPagination method directly to Alpine component
+        updateRequirementsPagination() {
+            if (!this.filteredRequirements) return;
+            
+            const totalItems = this.filteredRequirements.length;
+            this.requirementTotalPages = Math.ceil(totalItems / this.requirementPageSize) || 1;
+            
+            // Ensure current page is valid
+            if (this.requirementCurrentPage > this.requirementTotalPages) {
+                this.requirementCurrentPage = 1;
+            }
+
+            // Calculate paginated results
+            const startIndex = (this.requirementCurrentPage - 1) * this.requirementPageSize;
+            const endIndex = startIndex + this.requirementPageSize;
+            this.paginatedRequirements = this.filteredRequirements.slice(startIndex, endIndex);
+            
+            console.log(`🔍 Pagination: Page ${this.requirementCurrentPage}/${this.requirementTotalPages}, showing ${this.paginatedRequirements.length} items`);
         },
         
         // ===== WEBSOCKET METHODS =====
