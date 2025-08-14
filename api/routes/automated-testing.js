@@ -683,16 +683,22 @@ router.get('/instance-results/:instanceId', authenticateToken, async (req, res) 
                 
                 if (rawResults.violations_by_page) {
                     // New format with violations_by_page
-                    for (const [pageUrl, violations] of Object.entries(rawResults.violations_by_page)) {
-                        for (const violation of violations) {
-                            // Map violation to WCAG criteria and check if it matches
-                            const violationWcagCriteria = mapViolationToWcagCriteria(violation, result.tool_name);
-                            if (violationWcagCriteria.includes(wcagCriterion)) {
-                                relevantViolations.push(violation);
+                    for (const [pageUrl, pageData] of Object.entries(rawResults.violations_by_page)) {
+                        // pageData contains: { url, details: [...], critical, violations, title_at_test_time }
+                        // The actual violations array is in pageData.details
+                        if (pageData && pageData.details && Array.isArray(pageData.details)) {
+                            for (const violation of pageData.details) {
+                                // Map violation to WCAG criteria and check if it matches
+                                const violationWcagCriteria = mapViolationToWcagCriteria(violation, result.tool_name);
+                                if (violationWcagCriteria.includes(wcagCriterion)) {
+                                    relevantViolations.push(violation);
+                                }
                             }
+                        } else {
+                            console.log(`🔍 DEBUG: No details array found for ${pageUrl}:`, pageData);
                         }
                     }
-                } else if (rawResults.violations) {
+                } else if (rawResults.violations && Array.isArray(rawResults.violations)) {
                     // Old format with direct violations array
                     for (const violation of rawResults.violations) {
                         const violationWcagCriteria = mapViolationToWcagCriteria(violation, result.tool_name);
