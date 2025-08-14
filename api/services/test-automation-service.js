@@ -1784,11 +1784,29 @@ class TestAutomationService {
 
         console.log(`🔍 DEBUG: Final results - foundAnyViolations: ${foundAnyViolations}, totalViolations: ${totalViolations}, criticalViolations: ${criticalViolations}`);
         
-        // Only update test instances if violations were found
-        // (We don't mark everything as "passed" automatically since that would be presumptuous)
+        // Update test instances for both violations found AND no violations found
+        // If no violations found, mark as passed; if violations found, mark as failed
         if (!foundAnyViolations && totalViolations === 0) {
-            console.log(`🔍 DEBUG: No violations found for any tool, shouldUpdate = false`);
-            return { shouldUpdate: false };
+            console.log(`🔍 DEBUG: No violations found for any tool, shouldUpdate = true with status = passed`);
+            
+            // Return passed status when no violations are found
+            return {
+                shouldUpdate: true,
+                status: 'passed',
+                confidence_level: 'high',
+                tool_name: toolsRun.length > 0 ? (toolsRun[0] === 'axe' ? 'axe-core' : toolsRun[0]) : 'axe-core',
+                result: JSON.stringify({
+                    automated_analysis: {
+                        total_violations: 0,
+                        critical_violations: 0,
+                        tools_used: toolsRun.map(key => key === 'axe' ? 'axe-core' : key),
+                        tool_results: {},
+                        test_timestamp: new Date().toISOString(),
+                        test_duration_ms: results.test_duration_ms || 0,
+                        notes: 'Automated testing completed with no violations found'
+                    }
+                })
+            };
         }
         
         // Determine status based on violations
