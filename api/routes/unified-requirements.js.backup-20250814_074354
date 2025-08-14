@@ -426,9 +426,9 @@ router.get('/session/:sessionId', async (req, res) => {
         
         // Map session conformance level to requirements filter
         let whereCondition = '';
-        if (conformanceLevel === 'wcag_a') {
+        if (conformanceLevel === 'wcag_a' || conformanceLevel === 'A') {
             whereCondition = `WHERE ur.standard_type = 'wcag' AND ur.level = 'A'`;
-        } else if (conformanceLevel === 'wcag_aa') {
+        } else if (conformanceLevel === 'wcag_aa' || conformanceLevel === 'AA') {
             whereCondition = `WHERE ur.standard_type = 'wcag' AND ur.level IN ('A', 'AA')`;
         } else if (conformanceLevel === 'wcag_aaa' || conformanceLevel === 'AAA') {
             whereCondition = `WHERE ur.standard_type = 'wcag' AND ur.level IN ('A', 'AA', 'AAA')`;
@@ -441,7 +441,7 @@ router.get('/session/:sessionId', async (req, res) => {
             // Default to WCAG AA
             whereCondition = `WHERE ur.standard_type = 'wcag' AND ur.level IN ('A', 'AA')`;
         }
-
+        
         // Get requirements with test instance statuses from unified_requirements (same table used in session creation)
         const result = await pool.query(`
             SELECT 
@@ -500,6 +500,11 @@ router.get('/session/:sessionId', async (req, res) => {
             GROUP BY ur.id, ur.standard_type, ur.requirement_id, ur.title, ur.description, ur.level, ur.test_method, ur.tool_mappings, ur.manual_test_procedure, ur.understanding_url, ur.applies_to_page_types, ur.created_at
             ORDER BY ur.standard_type, ur.requirement_id
         `, [sessionId]);
+
+        // Debug: Check for our expected failed requirements
+        const failedReqs = result.rows.filter(r => ['1.3.6', '1.4.6', '2.4.12', '2.4.13'].includes(r.criterion_number));
+        console.log(`🔍 DEBUG API: Found ${failedReqs.length} expected failed requirements:`, 
+            failedReqs.map(r => ({id: r.criterion_number, automated_status: r.automated_status, failed_instances: r.failed_instances})));
 
         res.json({
             success: true,

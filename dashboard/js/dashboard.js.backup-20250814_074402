@@ -882,6 +882,11 @@ window.dashboard = function() {
                         if (requirementsResponse.success && requirementsResponse.data?.requirements) {
                             requirementsData = requirementsResponse.data.requirements;
                             console.log(`✅ Successfully loaded ${requirementsData.length} requirements for session`);
+                            console.log(`🔍 DEBUG: Sample requirement automated_status:`, requirementsData.slice(0, 5).map(r => ({id: r.criterion_number, automated_status: r.automated_status, manual_status: r.manual_status, failed_instances: r.failed_instances})));
+                            
+                            // Check specifically for our failed requirements
+                            const failedReqs = requirementsData.filter(r => ['1.3.6', '1.4.6', '2.4.12', '2.4.13'].includes(r.criterion_number));
+                            console.log(`🔍 DEBUG: Our expected failed requirements:`, failedReqs.map(r => ({id: r.criterion_number, automated_status: r.automated_status, failed_instances: r.failed_instances})));
                         } else {
                             // Fallback to conformance level endpoint
                             console.log(`📋 Trying conformance level endpoint for ${conformanceLevel}`);
@@ -977,7 +982,28 @@ window.dashboard = function() {
         
         // ===== REQUIREMENTS HELPER FUNCTIONS =====
         calculateRequirementStats: function() {
-            if (!this.sessionRequirements) return;
+            console.log(`🔍 DEBUG: calculateRequirementStats called, sessionRequirements length:`, this.sessionRequirements?.length);
+            
+            if (!this.sessionRequirements) {
+                console.log(`🔍 DEBUG: No sessionRequirements found, setting empty stats`);
+                this.requirementStats = {
+                    total: 0,
+                    automated_requirements: 0,
+                    hybrid_requirements: 0,
+                    manual_requirements: 0,
+                    automated_passed: 0,
+                    automated_failed: 0,
+                    automated_pending: 0,
+                    automated_in_progress: 0,
+                    automated_running: 0,
+                    automated_needs_review: 0,
+                    manual_completed: 0,
+                    manual_pending: 0,
+                    manual_in_progress: 0,
+                    not_tested: 0
+                };
+                return;
+            }
             
             // Count requirements by test method (this is what determines if they can be automated)
             const automatedRequirements = this.sessionRequirements.filter(r => r.test_method === 'automated').length;
@@ -985,16 +1011,43 @@ window.dashboard = function() {
             const manualRequirements = this.sessionRequirements.filter(r => r.test_method === 'manual').length;
             
             // Count requirements by actual test status using the correct field names from API
-            const automatedPassed = this.sessionRequirements.filter(r => r.automated_status === 'passed').length;
-            const automatedFailed = this.sessionRequirements.filter(r => r.automated_status === 'failed').length;
-            const automatedPending = this.sessionRequirements.filter(r => r.automated_status === 'pending').length;
-            const automatedInProgress = this.sessionRequirements.filter(r => r.automated_status === 'in_progress').length;
-            const automatedRunning = this.sessionRequirements.filter(r => r.automated_status === 'running').length;
-            const automatedNeedsReview = this.sessionRequirements.filter(r => r.automated_status === 'needs_review').length;
-            const manualCompleted = this.sessionRequirements.filter(r => r.manual_status === 'passed').length; // Changed from 'completed' to 'passed'
-            const manualPending = this.sessionRequirements.filter(r => r.manual_status === 'pending').length;
-            const manualInProgress = this.sessionRequirements.filter(r => r.manual_status === 'in_progress').length;
-            const notTested = this.sessionRequirements.filter(r => r.overall_status === 'not_tested').length; // Changed from 'status' to 'overall_status'
+            // For automated status - only count requirements that can be automated (automated or both)
+            const automatedPassed = this.sessionRequirements.filter(r => 
+                (r.test_method === 'automated' || r.test_method === 'both') && r.automated_status === 'passed'
+            ).length;
+            const automatedFailed = this.sessionRequirements.filter(r => 
+                (r.test_method === 'automated' || r.test_method === 'both') && r.automated_status === 'failed'
+            ).length;
+            const automatedPending = this.sessionRequirements.filter(r => 
+                (r.test_method === 'automated' || r.test_method === 'both') && r.automated_status === 'pending'
+            ).length;
+            const automatedInProgress = this.sessionRequirements.filter(r => 
+                (r.test_method === 'automated' || r.test_method === 'both') && r.automated_status === 'in_progress'
+            ).length;
+            const automatedRunning = this.sessionRequirements.filter(r => 
+                (r.test_method === 'automated' || r.test_method === 'both') && r.automated_status === 'running'
+            ).length;
+            const automatedNeedsReview = this.sessionRequirements.filter(r => 
+                (r.test_method === 'automated' || r.test_method === 'both') && r.automated_status === 'needs_review'
+            ).length;
+            
+            // For manual status - only count requirements that can be manual (manual or both)
+            const manualCompleted = this.sessionRequirements.filter(r => 
+                (r.test_method === 'manual' || r.test_method === 'both') && 
+                (r.manual_status === 'passed' || r.manual_status === 'completed')
+            ).length;
+            const manualPending = this.sessionRequirements.filter(r => 
+                (r.test_method === 'manual' || r.test_method === 'both') && r.manual_status === 'pending'
+            ).length;
+            const manualInProgress = this.sessionRequirements.filter(r => 
+                (r.test_method === 'manual' || r.test_method === 'both') && r.manual_status === 'in_progress'
+            ).length;
+            
+            // Not tested - requirements that have no testing done
+            const notTested = this.sessionRequirements.filter(r => 
+                r.overall_status === 'not_tested' || 
+                (r.automated_status === 'not_tested' && r.manual_status === 'not_tested')
+            ).length;
             
             // Alternative approach: Count based on test instance data if available
             let automatedPassedAlt = 0;
@@ -1062,6 +1115,13 @@ window.dashboard = function() {
                 manual_in_progress: manualInProgress,
                 not_tested: notTestedAlt > 0 ? notTestedAlt : notTested
             };
+            
+            if (automatedFailed > 0) {
+                console.log(`🔍 DEBUG: Found ${automatedFailed} failed automated requirements`);
+            }
+            
+            console.log(`📊 DEBUG: Final stats from main function:`, this.requirementStats);
+            console.log(`🔍 DEBUG: Breakdown - Can Auto: ${automatedRequirements + hybridRequirements}, Manual: ${manualRequirements + hybridRequirements}`);
             
             console.log(`📊 Requirements stats calculated:`, {
                 total: this.requirementStats.total,
@@ -14352,141 +14412,9 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
 
     // ===== REQUIREMENTS FUNCTIONALITY =====
     
-    // Load session requirements
-    componentInstance.loadSessionRequirements = async function(sessionId) {
-        console.log(`🚀 loadSessionRequirements called with sessionId: ${sessionId}`);
-        console.log(`📊 Current state - sessionRequirements length:`, this.sessionRequirements?.length || 0);
-        
-        if (!sessionId) {
-            console.error('❌ No session ID provided to loadSessionRequirements');
-            this.showNotification('error', 'Requirements Error', 'Session ID is required');
-            return;
-        }
-        
-        try {
-            console.log(`🔍 Loading requirements for session ${sessionId}`);
-            this.loading = true;
-            
-            // Initialize requirements arrays if they don't exist
-            if (!this.sessionRequirements) this.sessionRequirements = [];
-            if (!this.filteredRequirements) this.filteredRequirements = [];
-            if (!this.paginatedRequirements) this.paginatedRequirements = [];
-            if (!this.requirementFilters) {
-                this.requirementFilters = {
-                    testStatus: '',
-                    wcagLevel: '',
-                    testMethod: '',
-                    searchTerm: ''
-                };
-            }
-            if (!this.requirementStats) {
-                this.requirementStats = {
-                    total: 0,
-                    automated_passed: 0,
-                    automated_failed: 0,
-                    manual_completed: 0,
-                    manual_pending: 0,
-                    not_tested: 0
-                };
-            }
-            if (!this.requirementCurrentPage) this.requirementCurrentPage = 1;
-            if (!this.requirementPageSize) this.requirementPageSize = 20;
-            if (!this.requirementTotalPages) this.requirementTotalPages = 1;
-            
-            // Load requirements directly from the requirements API
-            let requirementsData = [];
-            
-            try {
-                console.log(`📋 Loading requirements from API for session ${sessionId}`);
-                
-                let requirementsResponse;
-                
-                try {
-                    // Try authenticated endpoint first
-                    requirementsResponse = await this.apiCall(`/requirements?limit=100`);
-                } catch (authError) {
-                    console.warn('🔓 Authenticated API failed, trying test endpoint:', authError.message);
-                    
-                    // Fallback to test endpoint for development/testing
-                    try {
-                        const testResponse = await fetch(`${this.config.apiBaseUrl}/api/requirements/test`);
-                        if (testResponse.ok) {
-                            const testData = await testResponse.json();
-                            // Transform test response to match expected format
-                            requirementsResponse = {
-                                success: true,
-                                data: {
-                                    requirements: testData.data.sample_requirements || []
-                                }
-                            };
-                            console.log('📋 Using test endpoint data');
-                        } else {
-                            throw new Error('Test endpoint also failed');
-                        }
-                    } catch (testError) {
-                        console.error('❌ Test endpoint failed:', testError);
-                        throw authError; // Re-throw original auth error
-                    }
-                }
-                
-                if (requirementsResponse.success && requirementsResponse.data?.requirements) {
-                    requirementsData = requirementsResponse.data.requirements;
-                    console.log(`✅ Successfully loaded ${requirementsData.length} requirements from API`);
-                } else {
-                    console.error('❌ Requirements API returned no data:', requirementsResponse);
-                    throw new Error('No requirements data available from API');
-                }
-                
-            } catch (error) {
-                console.error('❌ Failed to load requirements from API:', error);
-                requirementsData = [];
-                this.showNotification('error', 'Requirements Loading Failed', `Failed to load requirements: ${error.message}. Please check authentication.`);
-                return; // Exit early if we can't load requirements
-            }
-            
-            // Transform data to match expected format (based on test_requirements table structure)
-            const transformedRequirements = requirementsData.map(req => {
-                console.log('🔍 Processing requirement:', req);
-                return {
-                    id: req.requirement_id || req.id,
-                    criterion_number: req.criterion_number || req.requirement_id,
-                    title: req.title,
-                    description: req.description || '',
-                    level: req.level,
-                    test_method: req.test_method || 'manual',
-                    requirement_type: req.requirement_type || 'wcag',
-                    automated_tests: [],
-                    manual_tests: [],
-                    automated_status: req.automated_status || 'not_tested',
-                    manual_status: req.manual_status || 'not_tested',
-                    overall_status: req.overall_status || 'not_tested'
-                };
-            });
-            
-            console.log(`🔄 Transformed ${transformedRequirements.length} requirements:`, transformedRequirements.slice(0, 2));
-            
-            // Enhance requirements with test data
-            this.sessionRequirements = await this.enhanceRequirementsWithTestData(transformedRequirements, sessionId);
-            
-            console.log(`✅ Session requirements loaded: ${this.sessionRequirements.length} requirements`);
-            console.log(`📊 First few requirements:`, this.sessionRequirements.slice(0, 3));
-            console.log(`📊 Filtered requirements:`, this.filteredRequirements?.length || 0);
-            console.log(`📊 Paginated requirements:`, this.paginatedRequirements?.length || 0);
-            
-            // Apply initial filtering and pagination
-            this.filterRequirements();
-            this.calculateRequirementStats();
-            
-            console.log(`📊 Requirements stats calculated:`, this.requirementStats);
-            console.log(`📄 Paginated requirements: ${this.paginatedRequirements.length} on page ${this.requirementCurrentPage}`);
-            
-        } catch (error) {
-            console.error('❌ Error loading session requirements:', error);
-            this.showNotification('error', 'Loading Failed', 'Failed to load requirements: ' + error.message);
-        } finally {
-            this.loading = false;
-        }
-    };
+    // REMOVED: Duplicate loadSessionRequirements function that was overriding the correct one
+    // This function was loading from the wrong API endpoint and not preserving status data
+    // The correct loadSessionRequirements function is in the main component definition (around line 819)
 
     // Enhance requirements with test data
     componentInstance.enhanceRequirementsWithTestData = async function(requirements, sessionId) {
@@ -14555,9 +14483,10 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                     ...req,
                     automated_tests: automated,
                     manual_tests: manual,
-                    automated_status: this.getAutomatedTestStatus(automated),
-                    manual_status: this.getManualTestStatus(manual),
-                    overall_status: this.getRequirementOverallStatus(automated, manual)
+                    // Preserve existing statuses from API if they exist, otherwise calculate from test instances
+                    automated_status: req.automated_status || this.getAutomatedTestStatus(automated),
+                    manual_status: req.manual_status || this.getManualTestStatus(manual),
+                    overall_status: req.overall_status || this.getRequirementOverallStatus(automated, manual)
                 };
             });
             
@@ -14577,28 +14506,79 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
 
     // Filter requirements based on current filters
     componentInstance.filterRequirements = function() {
+        console.log(`🚨 FILTER FUNCTION CALLED! 🚨`);
+        console.log(`🔍 DEBUG: this.requirementFilters:`, this.requirementFilters);
+        
         if (!this.sessionRequirements) {
+            console.log(`❌ No sessionRequirements found`);
             this.filteredRequirements = [];
             this.updateRequirementsPagination();
             return;
         }
 
+        console.log(`🔍 DEBUG: filterRequirements called with status filter:`, this.requirementFilters.testStatus);
+        console.log(`🔍 DEBUG: Full requirementFilters object:`, this.requirementFilters);
+        
+        // Check what statuses actually exist in our data
+        const statusBreakdown = {
+            automated_statuses: [...new Set(this.sessionRequirements.map(r => r.automated_status))],
+            manual_statuses: [...new Set(this.sessionRequirements.map(r => r.manual_status))]
+        };
+        console.log(`🔍 DEBUG: Available statuses in data:`, statusBreakdown);
+
         let filtered = [...this.sessionRequirements];
 
         // Apply filters
         if (this.requirementFilters.testStatus) {
-            const status = this.requirementFilters.testStatus;
+            const targetStatus = this.requirementFilters.testStatus;
+            
+            console.log(`🔍 DEBUG: Filtering by status: ${targetStatus}`);
+            
             filtered = filtered.filter(req => {
-                // Check automated status for automated/both requirements
-                const hasAutomatedMatch = (req.test_method === 'automated' || req.test_method === 'both') && 
-                                         req.automated_status === status;
+                // Map filter values to actual status checks
+                let matches = false;
+                switch (targetStatus) {
+                    case 'failed':
+                        matches = req.automated_status === 'failed' || req.manual_status === 'failed';
+                        break;
+                    case 'passed':
+                        matches = req.automated_status === 'passed' || req.manual_status === 'passed';
+                        break;
+                    case 'completed':
+                        matches = req.manual_status === 'completed' || req.manual_status === 'passed';
+                        break;
+                    case 'pending':
+                        matches = req.automated_status === 'pending' || req.manual_status === 'pending';
+                        break;
+                    case 'in_progress':
+                        matches = req.automated_status === 'in_progress' || req.manual_status === 'in_progress';
+                        break;
+                    case 'running':
+                        matches = req.automated_status === 'running';
+                        break;
+                    case 'needs_review':
+                        matches = req.automated_status === 'needs_review' || req.manual_status === 'needs_review';
+                        break;
+                    case 'not_tested':
+                        matches = (req.automated_status === 'not_tested' || !req.automated_status) && 
+                               (req.manual_status === 'not_tested' || !req.manual_status);
+                        break;
+                    case 'manual_pending':
+                        matches = req.manual_status === 'pending';
+                        break;
+                    default:
+                        matches = req.overall_status === targetStatus;
+                }
                 
-                // Check manual status for manual/both requirements  
-                const hasManualMatch = (req.test_method === 'manual' || req.test_method === 'both') && 
-                                      req.manual_status === status;
+                if (targetStatus === 'passed' && matches) {
+                    console.log(`🔍 DEBUG: Found passed requirement:`, {
+                        id: req.criterion_number,
+                        automated_status: req.automated_status,
+                        manual_status: req.manual_status
+                    });
+                }
                 
-                // Return true if either automated or manual status matches
-                return hasAutomatedMatch || hasManualMatch;
+                return matches;
             });
         }
 
@@ -14620,6 +14600,25 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
         }
 
         this.filteredRequirements = filtered;
+        
+        console.log(`🔍 DEBUG: Filter applied - ${filtered.length} of ${this.sessionRequirements.length} requirements match`);
+        if (this.requirementFilters.testStatus === 'failed') {
+            console.log(`🔍 DEBUG: Failed filter - found requirements:`, filtered.map(r => ({
+                id: r.criterion_number,
+                automated_status: r.automated_status,
+                manual_status: r.manual_status
+            })));
+        }
+        
+        // Debug what's actually being shown in the table
+        console.log(`📋 DEBUG: Currently displaying these requirements:`, filtered.slice(0, 3).map(r => ({
+            id: r.criterion_number,
+            title: r.title?.substring(0, 30) + '...',
+            automated_status: r.automated_status,
+            manual_status: r.manual_status,
+            test_method: r.test_method
+        })));
+        
         this.updateRequirementsPagination();
     };
 
@@ -14639,41 +14638,7 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
         this.paginatedRequirements = this.filteredRequirements.slice(startIndex, endIndex);
     };
 
-    // Calculate requirement statistics
-    componentInstance.calculateRequirementStats = function() {
-        if (!this.sessionRequirements) {
-            this.requirementStats = {
-                total: 0,
-                automated_passed: 0,
-                automated_failed: 0,
-                manual_completed: 0,
-                manual_pending: 0,
-                not_tested: 0
-            };
-            return;
-        }
 
-        const stats = {
-            total: this.sessionRequirements.length,
-            automated_passed: 0,
-            automated_failed: 0,
-            manual_completed: 0,
-            manual_pending: 0,
-            not_tested: 0
-        };
-
-        this.sessionRequirements.forEach(req => {
-            if (req.automated_status === 'passed') stats.automated_passed++;
-            else if (req.automated_status === 'failed') stats.automated_failed++;
-            
-            if (req.manual_status === 'completed') stats.manual_completed++;
-            else if (req.manual_status === 'pending') stats.manual_pending++;
-            
-            if (req.overall_status === 'not_tested') stats.not_tested++;
-        });
-
-        this.requirementStats = stats;
-    };
 
     // View requirement details
     componentInstance.viewRequirementDetails = function(requirement) {
