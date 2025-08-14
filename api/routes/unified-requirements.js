@@ -433,7 +433,7 @@ router.get('/session/:sessionId', async (req, res) => {
         } else if (conformanceLevel === 'wcag_aaa' || conformanceLevel === 'AAA') {
             whereCondition = `WHERE ur.standard_type = 'wcag' AND ur.level IN ('A', 'AA', 'AAA')`;
         } else if (conformanceLevel === 'section_508') {
-            whereCondition = `WHERE ur.standard_type = 'section508'`;
+            whereCondition = `WHERE ur.standard_type = 'section508'`;where 
         } else if (conformanceLevel === 'combined') {
             // Combined includes all WCAG and Section 508 requirements
             whereCondition = `WHERE ur.standard_type IN ('wcag', 'section508')`;
@@ -452,7 +452,7 @@ router.get('/session/:sessionId', async (req, res) => {
                 ur.description,
                 ur.level,
                 ur.test_method,
-                COALESCE(ur.tool_mappings, '[]'::jsonb) as automated_tools,
+                COALESCE(ur.tool_mappings->'automated_tools', '[]'::jsonb) as automated_tools,
                 ur.manual_test_procedure as testing_instructions,
                 ur.understanding_url,
                 ur.applies_to_page_types,

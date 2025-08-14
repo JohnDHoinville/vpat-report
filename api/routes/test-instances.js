@@ -162,14 +162,14 @@ router.get('/', authenticateToken, async (req, res) => {
         
         let query = `
             SELECT ti.*,
-                   wr.criterion_number, wr.title as requirement_title, wr.level as requirement_level,
-                   wr.test_method as test_method,
-                   COALESCE(wr.tool_mappings, '{}'::jsonb) as automated_tools,
+                   ur.requirement_id as criterion_number, ur.title as requirement_title, ur.level as requirement_level,
+                   ur.test_method as test_method,
+                   COALESCE(ur.tool_mappings->'automated_tools', '[]'::jsonb) as automated_tools,
                    dp.url as page_url, dp.title as page_title,
                    tester.username as assigned_tester_username,
                    reviewer.username as reviewer_username
             FROM test_instances ti
-            LEFT JOIN wcag_requirements wr ON ti.requirement_id = wr.id
+            LEFT JOIN unified_requirements ur ON ti.requirement_id = ur.id
             LEFT JOIN discovered_pages dp ON ti.page_id = dp.id
             LEFT JOIN users tester ON ti.assigned_tester = tester.id
             LEFT JOIN users reviewer ON ti.reviewer = reviewer.id

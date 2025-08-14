@@ -12641,7 +12641,7 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                 console.log(`📋 Found ${testInstances.length} total test instances for requirement ${criterionNumber}`);
                 
                 const automatedInstances = testInstances.filter(instance => 
-                    instance.test_method_used === 'automated' || instance.test_method_used === 'hybrid'
+                    instance.test_method === 'automated' || instance.test_method === 'both' || instance.test_method === 'hybrid'
                 );
                 
                 console.log(`🤖 Found ${automatedInstances.length} automated/hybrid test instances for requirement ${criterionNumber}`);
@@ -12664,7 +12664,10 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                 this.showNotification('info', 'Starting Tests', `Running unified automation for requirement ${criterionNumber} (${automatedInstances.length} instances)...`);
 
                 // Use UnifiedAutomationService for requirement-specific automation
-                const unifiedService = new window.UnifiedAutomationService();
+                const unifiedService = new window.UnifiedAutomationService(
+                    this.apiCall.bind(this),
+                    this.showNotification.bind(this)
+                );
                 const response = await unifiedService.runRequirementAutomation(
                     this.selectedSessionDetails.id,
                     [requirement.id], // Target this specific requirement
