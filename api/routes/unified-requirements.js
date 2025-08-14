@@ -501,6 +501,11 @@ router.get('/session/:sessionId', async (req, res) => {
             ORDER BY ur.standard_type, ur.requirement_id
         `, [sessionId]);
 
+        // Debug: Check for our expected failed requirements
+        const failedReqs = result.rows.filter(r => ['1.3.6', '1.4.6', '2.4.12', '2.4.13'].includes(r.criterion_number));
+        console.log(`🔍 DEBUG API: Found ${failedReqs.length} expected failed requirements:`, 
+            failedReqs.map(r => ({id: r.criterion_number, automated_status: r.automated_status, failed_instances: r.failed_instances})));
+
         res.json({
             success: true,
             data: {

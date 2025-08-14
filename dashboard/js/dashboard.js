@@ -882,6 +882,11 @@ window.dashboard = function() {
                         if (requirementsResponse.success && requirementsResponse.data?.requirements) {
                             requirementsData = requirementsResponse.data.requirements;
                             console.log(`✅ Successfully loaded ${requirementsData.length} requirements for session`);
+                            console.log(`🔍 DEBUG: Sample API response automated_status:`, requirementsData.slice(0, 5).map(r => ({
+                                id: r.criterion_number, 
+                                automated_status: r.automated_status, 
+                                manual_status: r.manual_status
+                            })));
                         } else {
                             // Fallback to conformance level endpoint
                             console.log(`📋 Trying conformance level endpoint for ${conformanceLevel}`);
@@ -934,9 +939,9 @@ window.dashboard = function() {
                         test_method: req.test_method || 'both',
                         automated_tools: req.automated_tools || [],
                         automation_confidence: req.automation_confidence || 'none',
-                        status: req.status || 'not_tested',
-                        automated_status: req.automated_status || 'not_tested',
-                        manual_status: req.manual_status || 'not_tested',
+                        status: req.status !== undefined && req.status !== null ? req.status : 'not_tested',
+                        automated_status: req.automated_status !== undefined && req.automated_status !== null ? req.automated_status : 'not_tested',
+                        manual_status: req.manual_status !== undefined && req.manual_status !== null ? req.manual_status : 'not_tested',
                         notes: req.notes || '',
                         created_at: req.created_at,
                         updated_at: req.updated_at
@@ -1538,6 +1543,14 @@ ${requirement.failure_examples}
         
             };
 
+    // ===== EARLY GLOBAL FUNCTION DEFINITIONS FOR ALPINE.JS =====
+    window.filterRequirements = window.filterRequirements || function() {
+        console.log('🔍 Early filterRequirements called - component not ready yet');
+    };
+
+    // Declare componentInstance variable
+    let componentInstance;
+
     // ===== MERGE WITH ORGANIZED STATE STRUCTURE =====
     return {
         // Apply all defaults first
@@ -1731,6 +1744,29 @@ ${requirement.failure_examples}
                 childList: true,
                 subtree: true
             });
+        },
+
+        // Alpine.js init function (called automatically)
+        init() {
+            console.log('🚀 ALPINE INIT CALLED - Starting component initialization');
+            // Assign this Alpine component instance to the componentInstance variable
+            componentInstance = this;
+            console.log('✅ componentInstance assigned to Alpine component', componentInstance);
+            console.log('🔍 Testing componentInstance.filterRequirements:', typeof componentInstance.filterRequirements);
+            
+            // Immediately update the global function
+            window.filterRequirements = () => {
+                console.log('🔍 Updated Global filterRequirements called');
+                if (componentInstance && componentInstance.filterRequirements) {
+                    console.log('🔍 Calling componentInstance.filterRequirements');
+                    return componentInstance.filterRequirements();
+                } else {
+                    console.error('❌ componentInstance.filterRequirements STILL not available');
+                }
+            };
+            
+            // Call async initialization
+            this.initAsync();
         },
 
         async initAsync() {
@@ -14372,8 +14408,8 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                 let requirementsResponse;
                 
                 try {
-                    // Try authenticated endpoint first
-                    requirementsResponse = await this.apiCall(`/requirements?limit=100`);
+                    // Try authenticated endpoint first - use session-specific unified requirements
+                    requirementsResponse = await this.apiCall(`/unified-requirements/session/${sessionId}?_t=${Date.now()}`);
                 } catch (authError) {
                     console.warn('🔓 Authenticated API failed, trying test endpoint:', authError.message);
                     
@@ -14427,9 +14463,9 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                     requirement_type: req.requirement_type || 'wcag',
                     automated_tests: [],
                     manual_tests: [],
-                    automated_status: req.automated_status || 'not_tested',
-                    manual_status: req.manual_status || 'not_tested',
-                    overall_status: req.overall_status || 'not_tested'
+                    automated_status: req.automated_status !== undefined && req.automated_status !== null ? req.automated_status : 'not_tested',
+                    manual_status: req.manual_status !== undefined && req.manual_status !== null ? req.manual_status : 'not_tested',
+                    overall_status: req.overall_status !== undefined && req.overall_status !== null ? req.overall_status : 'not_tested'
                 };
             });
             
@@ -14538,9 +14574,9 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                 ...req,
                 automated_tests: [],
                 manual_tests: [],
-                automated_status: req.automated_status || 'not_tested',
-                manual_status: req.manual_status || 'not_tested',
-                overall_status: req.overall_status || 'not_tested'
+                automated_status: req.automated_status !== undefined && req.automated_status !== null ? req.automated_status : 'not_tested',
+                manual_status: req.manual_status !== undefined && req.manual_status !== null ? req.manual_status : 'not_tested',
+                overall_status: req.overall_status !== undefined && req.overall_status !== null ? req.overall_status : 'not_tested'
             }));
         }
     };
@@ -15120,7 +15156,15 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
     window.viewRequirementDetails = (requirement) => componentInstance.viewRequirementDetails(requirement);
     window.closeRequirementDetailsModal = () => componentInstance.closeRequirementDetailsModal();
     // window.runAutomatedTestForRequirement is set by the robust global wrapper below
-    window.filterRequirements = () => componentInstance.filterRequirements();
+    window.filterRequirements = () => {
+        console.log('🔍 Global filterRequirements called');
+        if (componentInstance && componentInstance.filterRequirements) {
+            console.log('🔍 Calling componentInstance.filterRequirements');
+            return componentInstance.filterRequirements();
+        } else {
+            console.error('❌ componentInstance.filterRequirements not available');
+        }
+    };
     window.updateRequirementsPagination = () => componentInstance.updateRequirementsPagination();
     window.triggerAutomatedTest = (sessionId) => componentInstance.triggerAutomatedTest(sessionId);
     window.loadAutomationRuns = (sessionId) => componentInstance.loadAutomationRuns(sessionId);
