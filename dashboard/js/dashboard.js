@@ -1100,37 +1100,7 @@ window.dashboard = function() {
             this.requirementTotalPages = Math.ceil(this.filteredRequirements.length / this.requirementPageSize);
         },
         
-        filterRequirements: function() {
-            if (!this.sessionRequirements) return;
-            
-            let filtered = [...this.sessionRequirements];
-            
-            // Apply filters
-            if (this.requirementFilters.testStatus) {
-                filtered = filtered.filter(r => r.status === this.requirementFilters.testStatus);
-            }
-            
-            if (this.requirementFilters.wcagLevel) {
-                filtered = filtered.filter(r => r.wcag_level === this.requirementFilters.wcagLevel);
-            }
-            
-            if (this.requirementFilters.testMethod) {
-                filtered = filtered.filter(r => r.test_method === this.requirementFilters.testMethod);
-            }
-            
-            if (this.requirementFilters.searchTerm) {
-                const search = this.requirementFilters.searchTerm.toLowerCase();
-                filtered = filtered.filter(r => 
-                    r.title.toLowerCase().includes(search) ||
-                    r.description.toLowerCase().includes(search) ||
-                    r.criterion_number.toLowerCase().includes(search)
-                );
-            }
-            
-            this.filteredRequirements = filtered;
-            this.requirementCurrentPage = 1; // Reset to first page
-            this.updateRequirementsPagination();
-        },
+        // filterRequirements function moved to the correct location later in the file (line ~14579)
         
         viewRequirementDetails: function(requirement) {
             // First show the modal with basic info
@@ -14588,6 +14558,8 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
         // Apply filters
         if (this.requirementFilters.testStatus) {
             const status = this.requirementFilters.testStatus;
+            console.log(`🔍 FILTER DEBUG: Filtering by status "${status}"`);
+            
             filtered = filtered.filter(req => {
                 // Check automated status for automated/both requirements
                 const hasAutomatedMatch = (req.test_method === 'automated' || req.test_method === 'both') && 
@@ -14597,9 +14569,16 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                 const hasManualMatch = (req.test_method === 'manual' || req.test_method === 'both') && 
                                       req.manual_status === status;
                 
+                // Debug first few requirements when filtering by "failed"
+                if (status === 'failed' && (req.criterion_number === '1.3.6' || req.criterion_number === '1.4.6' || req.criterion_number === '2.4.12' || req.criterion_number === '2.4.13')) {
+                    console.log(`🔍 FILTER CHECK: ${req.criterion_number} - test_method="${req.test_method}", automated_status="${req.automated_status}", manual_status="${req.manual_status}" - hasAutomatedMatch=${hasAutomatedMatch}, hasManualMatch=${hasManualMatch}`);
+                }
+                
                 // Return true if either automated or manual status matches
                 return hasAutomatedMatch || hasManualMatch;
             });
+            
+            console.log(`🔍 FILTER RESULT: Found ${filtered.length} requirements matching "${status}"`);
         }
 
         if (this.requirementFilters.wcagLevel) {
