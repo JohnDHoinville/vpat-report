@@ -1810,6 +1810,14 @@ ${requirement.failure_examples}
                 const status = this.requirementFilters.testStatus;
                 console.log(`🔍 FILTER DEBUG: Filtering by status "${status}"`);
                 
+                // Debug status distribution before filtering
+                const statusDistribution = {};
+                this.sessionRequirements.forEach(req => {
+                    const key = `${req.test_method}:auto=${req.automated_status},manual=${req.manual_status}`;
+                    statusDistribution[key] = (statusDistribution[key] || 0) + 1;
+                });
+                console.log(`🔍 STATUS DISTRIBUTION:`, statusDistribution);
+                
                 filtered = filtered.filter(req => {
                     // Check automated status for automated/both requirements
                     const hasAutomatedMatch = (req.test_method === 'automated' || req.test_method === 'both') && 
@@ -1819,8 +1827,9 @@ ${requirement.failure_examples}
                     const hasManualMatch = (req.test_method === 'manual' || req.test_method === 'both') && 
                                           req.manual_status === status;
                     
-                    // Debug first few requirements when filtering by "failed"
-                    if (status === 'failed' && (req.criterion_number === '1.3.6' || req.criterion_number === '1.4.6' || req.criterion_number === '2.4.12' || req.criterion_number === '2.4.13')) {
+                    // Debug first few requirements when filtering by "failed" or when filtering by passed and we get unexpected results
+                    if ((status === 'failed' && (req.criterion_number === '1.3.6' || req.criterion_number === '1.4.6' || req.criterion_number === '2.4.12' || req.criterion_number === '2.4.13')) ||
+                        (status === 'passed' && hasAutomatedMatch)) {
                         console.log(`🔍 FILTER CHECK: ${req.criterion_number} - test_method="${req.test_method}", automated_status="${req.automated_status}", manual_status="${req.manual_status}" - hasAutomatedMatch=${hasAutomatedMatch}, hasManualMatch=${hasManualMatch}`);
                     }
                     
