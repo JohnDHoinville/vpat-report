@@ -452,7 +452,7 @@ router.get('/session/:sessionId', async (req, res) => {
                 ur.description,
                 ur.level,
                 ur.test_method,
-                COALESCE(ur.tool_mappings->'automated_tools', '[]'::jsonb) as automated_tools,
+                COALESCE(ur.tool_mappings->'automated_tools', '[]'::jsonb) as automated_tools, -- Fixed: Extract tools array from JSONB
                 ur.manual_test_procedure as testing_instructions,
                 ur.understanding_url,
                 ur.applies_to_page_types,

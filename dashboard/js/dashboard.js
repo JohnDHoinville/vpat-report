@@ -12670,7 +12670,7 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                 );
                 const response = await unifiedService.runRequirementAutomation(
                     this.selectedSessionDetails.id,
-                    [requirement.id], // Target this specific requirement
+                    [requirement.id], // Fixed: Target this specific requirement by ID
                     {
                         tools: ['axe-core', 'pa11y', 'lighthouse'],
                         run_async: true,

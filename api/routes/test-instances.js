@@ -164,7 +164,7 @@ router.get('/', authenticateToken, async (req, res) => {
             SELECT ti.*,
                    ur.requirement_id as criterion_number, ur.title as requirement_title, ur.level as requirement_level,
                    ur.test_method as test_method,
-                   COALESCE(ur.tool_mappings->'automated_tools', '[]'::jsonb) as automated_tools,
+                   COALESCE(ur.tool_mappings->'automated_tools', '[]'::jsonb) as automated_tools, -- Fixed: Extract tools from JSONB
                    dp.url as page_url, dp.title as page_title,
                    tester.username as assigned_tester_username,
                    reviewer.username as reviewer_username

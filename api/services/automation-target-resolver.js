@@ -101,6 +101,7 @@ class AutomationTargetResolver {
                 ORDER BY ur.requirement_id, dp.url
             `;
 
+            // Fixed: Use PostgreSQL array syntax for UUID matching
             const result = await pool.query(query, [sessionId, requirementIds]);
             
             // Validate that we found targets for the requested requirements
