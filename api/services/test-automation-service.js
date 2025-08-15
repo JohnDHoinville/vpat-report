@@ -1520,7 +1520,20 @@ class TestAutomationService {
 
             // Get all test instances for this session
             const instancesQuery = `
-                SELECT ti.*, ur.requirement_id as criterion_number, ur.level, ur.test_method
+                SELECT 
+                    ti.id as test_instance_id,
+                    ti.page_id,
+                    ti.requirement_id,
+                    ti.session_id,
+                    ti.status,
+                    ti.test_method_used,
+                    ti.result,
+                    ti.notes,
+                    ti.created_at,
+                    ti.updated_at,
+                    ur.requirement_id as criterion_number, 
+                    ur.level, 
+                    ur.test_method
                 FROM test_instances ti
                 JOIN unified_requirements ur ON ti.requirement_id = ur.id
                 WHERE ti.session_id = $1
@@ -1834,7 +1847,7 @@ class TestAutomationService {
                 })
             };
         }
-        
+
         // Determine status based on violations
         let newStatus = 'failed'; // Default for automated tests with violations
         let confidence = 'high';
@@ -5705,6 +5718,77 @@ class TestAutomationService {
         // Contrast analyzer violations typically map to color contrast criteria
         return ['1.4.3', '1.4.6', '1.4.11'];
     }
+
+    /**
+     * Parse and store individual violations for detailed tracking
+     */
+    async parseAndStoreViolations(automatedResultId, tool, toolResults) {
+        try {
+            console.log(`🔍 DEBUG: parseAndStoreViolations called for ${tool} result ${automatedResultId}`);
+            
+            // For now, this is a placeholder - individual violation tracking could be added here
+            // The main results are already stored in the automated_test_results table
+            
+            return true;
+        } catch (error) {
+            console.error(`❌ Error parsing individual violations for ${tool}:`, error);
+            return false;
+        }
+    }
+
+    /**
+     * Update test instance with automation result
+     */
+    async updateTestInstanceWithResult(testInstanceId, result) {
+        try {
+            console.log(`🔍 DEBUG: Updating test instance ${testInstanceId} with result:`, {
+                tool: result.tool,
+                status: result.status,
+                pageUrl: result.pageUrl
+            });
+
+            const updateQuery = `
+                UPDATE test_instances 
+                SET 
+                    status = $2,
+                    test_method_used = 'automated',
+                    result = $3,
+                    updated_at = CURRENT_TIMESTAMP,
+                    notes = COALESCE(notes, '') || $4
+                WHERE id = $1
+                RETURNING id, status
+            `;
+
+            const updateResult = JSON.stringify({
+                tool: result.tool,
+                pageUrl: result.pageUrl,
+                violation: result.violation,
+                timestamp: result.timestamp,
+                automated: true
+            });
+
+            const notes = `\n[${new Date().toISOString()}] Automated ${result.tool} result: ${result.status}`;
+
+            const queryResult = await pool.query(updateQuery, [
+                testInstanceId,
+                result.status,
+                updateResult,
+                notes
+            ]);
+
+            if (queryResult.rows.length > 0) {
+                console.log(`✅ Updated test instance ${testInstanceId} status to ${result.status}`);
+                return true;
+            } else {
+                console.log(`⚠️ No test instance found with ID ${testInstanceId}`);
+                return false;
+            }
+
+        } catch (error) {
+            console.error(`❌ Error updating test instance ${testInstanceId}:`, error);
+            return false;
+        }
+    }
 }
 
-module.exports = TestAutomationService;
+module.exports = TestAutomationService; 

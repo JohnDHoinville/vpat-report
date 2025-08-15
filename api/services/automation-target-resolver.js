@@ -46,7 +46,6 @@ class AutomationTargetResolver {
                 JOIN discovered_pages dp ON ti.page_id = dp.id
                 JOIN unified_requirements ur ON ti.requirement_id = ur.id
                 WHERE ti.session_id = $1 
-                AND ti.status IN ('pending', 'not_tested')
                 AND ur.test_method IN ('automated', 'both', 'hybrid')
                 ORDER BY dp.url, ur.requirement_id
             `;
