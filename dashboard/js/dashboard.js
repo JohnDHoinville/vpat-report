@@ -9179,6 +9179,9 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                 // Load automation summary
                 await this.loadAutomationSummary(sessionId);
                 
+                // Load available automation tools
+                await this.loadAvailableTools();
+                
                 // Load test selection status
                 await this.getTestSelectionStatus(sessionId);
                 
@@ -11612,28 +11615,88 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                 let html = '<div class="space-y-3">';
                 let totalViolations = 0;
                 
-                Object.entries(rawResults.violations_by_page).forEach(([pageUrl, violations]) => {
-                    if (Array.isArray(violations) && violations.length > 0) {
-                        totalViolations += violations.length;
-                        html += `<div class="border-l-4 border-red-500 pl-3 mb-3">
-                            <div class="text-sm font-medium text-red-700 mb-2">${pageUrl}</div>
-                            <ul class="list-disc list-inside space-y-1">`;
-                        
-                        violations.slice(0, 5).forEach(violation => {
-                            const description = violation.description || violation.help || violation.message || violation.title || 'Accessibility violation';
-                            html += `<li class="text-red-600 text-sm">${description}</li>`;
-                        });
-                        
-                        if (violations.length > 5) {
-                            html += `<li class="text-gray-500 italic text-sm">... and ${violations.length - 5} more</li>`;
+                Object.entries(rawResults.violations_by_page).forEach(([pageUrl, pageData]) => {
+                    html += `<div class="border-l-4 border-blue-500 pl-3 mb-3">
+                        <div class="text-sm font-medium text-blue-700 mb-2">📄 ${pageUrl}</div>`;
+                    
+                    // Handle different tool formats
+                    if (pageData.details) {
+                        if (Array.isArray(pageData.details)) {
+                            // axe-core and pa11y format: details is an array of violations
+                            const violations = pageData.details;
+                            if (violations.length > 0) {
+                                totalViolations += violations.length;
+                                html += `<div class="text-red-600 font-medium mb-1">❌ ${violations.length} Violation${violations.length > 1 ? 's' : ''}</div>
+                                    <ul class="list-disc list-inside space-y-1 ml-2">`;
+                                
+                                violations.slice(0, 3).forEach(violation => {
+                                    const description = violation.description || violation.help || violation.message || violation.title || 'Accessibility violation';
+                                    html += `<li class="text-red-600 text-sm">${description}</li>`;
+                                });
+                                
+                                if (violations.length > 3) {
+                                    html += `<li class="text-gray-500 italic text-sm">... and ${violations.length - 3} more</li>`;
+                                }
+                                html += '</ul>';
+                            }
+                        } else if (typeof pageData.details === 'object') {
+                            // lighthouse format: details is an object of audit results
+                            const auditResults = pageData.details;
+                            const failedAudits = [];
+                            const passedAudits = [];
+                            
+                            Object.entries(auditResults).forEach(([auditId, audit]) => {
+                                if (audit.score === 0) {
+                                    failedAudits.push(audit);
+                                } else if (audit.score === 1) {
+                                    passedAudits.push(audit);
+                                }
+                            });
+                            
+                            if (failedAudits.length > 0) {
+                                totalViolations += failedAudits.length;
+                                html += `<div class="text-red-600 font-medium mb-1">❌ ${failedAudits.length} Failed Audit${failedAudits.length > 1 ? 's' : ''}</div>
+                                    <ul class="list-disc list-inside space-y-1 ml-2">`;
+                                
+                                failedAudits.slice(0, 3).forEach(audit => {
+                                    html += `<li class="text-red-600 text-sm">${audit.title}</li>`;
+                                });
+                                
+                                if (failedAudits.length > 3) {
+                                    html += `<li class="text-gray-500 italic text-sm">... and ${failedAudits.length - 3} more</li>`;
+                                }
+                                html += '</ul>';
+                            }
+                            
+                            if (passedAudits.length > 0) {
+                                html += `<div class="text-green-600 font-medium mb-1">✅ ${passedAudits.length} Passed Audit${passedAudits.length > 1 ? 's' : ''}</div>`;
+                            }
+                            
+                            // Show accessibility score if available
+                            if (pageData.accessibility_score !== undefined) {
+                                const score = pageData.accessibility_score;
+                                const scoreColor = score >= 90 ? 'text-green-600' : score >= 70 ? 'text-yellow-600' : 'text-red-600';
+                                html += `<div class="${scoreColor} font-medium">🎯 Accessibility Score: ${score}%</div>`;
+                            }
                         }
-                        
-                        html += '</ul></div>';
                     }
+                    
+                    // Show violation counts if available
+                    if (pageData.violations !== undefined) {
+                        const violations = pageData.violations;
+                        const critical = pageData.critical || 0;
+                        if (violations > 0) {
+                            html += `<div class="text-red-600 text-sm">Total: ${violations} violation${violations > 1 ? 's' : ''} (${critical} critical)</div>`;
+                        } else {
+                            html += `<div class="text-green-600 text-sm">✓ No violations detected</div>`;
+                        }
+                    }
+                    
+                    html += '</div>';
                 });
                 
                 if (totalViolations === 0) {
-                    html += '<div class="text-green-600 text-sm">✓ No violations detected</div>';
+                    html += '<div class="text-green-600 text-sm font-medium">🎉 All tests passed - No violations detected!</div>';
                 }
                 
                 html += '</div>';

@@ -96,12 +96,14 @@ class AutomationTargetResolver {
                 JOIN unified_requirements ur ON ti.requirement_id = ur.id
                 WHERE ti.session_id = $1 
                 AND ti.requirement_id = ANY($2)
-                AND ti.status IN ('pending', 'not_tested')
+                AND ti.status IN ('pending', 'not_tested', 'in_process')
                 AND ur.test_method IN ('automated', 'both', 'hybrid')
                 ORDER BY ur.requirement_id, dp.url
             `;
 
             // Fixed: Use PostgreSQL array syntax for UUID matching
+            console.log('🔍 DEBUG: requirementIds =', requirementIds, 'type:', typeof requirementIds);
+            console.log('🔍 DEBUG: sessionId =', sessionId);
             const result = await pool.query(query, [sessionId, requirementIds]);
             
             // Validate that we found targets for the requested requirements

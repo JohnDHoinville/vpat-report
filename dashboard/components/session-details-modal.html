@@ -1760,21 +1760,34 @@
                                       x-text="(currentRequirement?.test_method || 'manual').charAt(0).toUpperCase() + (currentRequirement?.test_method || 'manual').slice(1)"></span>
                             </div>
                             <!-- Testing Tools -->
-                            <div x-show="currentRequirement?.test_method === 'automated' || currentRequirement?.test_method === 'both'">
+                            <div x-show="currentRequirement?.test_method === 'automated' || currentRequirement?.test_method === 'both' || currentRequirement?.test_method === 'manual'">
                                 <span class="font-medium text-blue-800">Testing Tools:</span>
                                 <div class="ml-2 mt-1 flex flex-wrap gap-1">
-                                    <template x-for="tool in getProposedTools(currentRequirement)" :key="tool">
-                                        <div class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium border" 
-                                             :class="getToolColorClass(tool)" 
-                                             :title="getToolDescription(tool)">
-                                            <i :class="getToolIcon(tool)" class="mr-1"></i>
-                                            <span x-text="tool.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())"></span>
-                                        </div>
-                                    </template>
-                                    <template x-if="getProposedTools(currentRequirement).length === 0">
+                                    <!-- Manual Testing (always show for manual or hybrid) -->
+                                    <template x-if="currentRequirement?.test_method === 'manual' || currentRequirement?.test_method === 'both'">
                                         <div class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-600 border border-gray-200">
                                             <i class="fas fa-hand-paper mr-1"></i>
                                             <span>Manual Testing</span>
+                                        </div>
+                                    </template>
+                                    
+                                    <!-- Automated Tools (show for automated or hybrid) -->
+                                    <template x-if="currentRequirement?.test_method === 'automated' || currentRequirement?.test_method === 'both'">
+                                        <template x-for="tool in getProposedTools(currentRequirement)" :key="tool">
+                                            <div class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium border" 
+                                                 :class="getToolColorClass(tool)" 
+                                                 :title="getToolDescription(tool)">
+                                                <i :class="getToolIcon(tool)" class="mr-1"></i>
+                                                <span x-text="tool.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())"></span>
+                                            </div>
+                                        </template>
+                                    </template>
+                                    
+                                    <!-- Show fallback if no tools are configured for automated/hybrid -->
+                                    <template x-if="(currentRequirement?.test_method === 'automated' || currentRequirement?.test_method === 'both') && getProposedTools(currentRequirement).length === 0">
+                                        <div class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-orange-100 text-orange-600 border border-orange-200">
+                                            <i class="fas fa-exclamation-triangle mr-1"></i>
+                                            <span>Tools not configured</span>
                                         </div>
                                     </template>
                                 </div>

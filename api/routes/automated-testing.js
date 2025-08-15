@@ -598,48 +598,71 @@ router.get('/instance-results/:instanceId', authenticateToken, async (req, res) 
         
         const testInstance = instanceResult.rows[0];
         
-        // Parse the result field to extract violation data
+        // Get detailed automation results from automated_test_results table
         let automationResults = [];
-        if (testInstance.result) {
-            try {
-                const resultData = typeof testInstance.result === 'string' 
-                    ? JSON.parse(testInstance.result) 
-                    : testInstance.result;
-                
-                // Always include the result from test_instances.result, whether it's a violation or passed
-                automationResults.push({
-                    id: `instance-${instanceId}`,
-                    test_session_id: testInstance.test_session_id,
-                    tool_name: resultData.tool || 'unknown',
-                    tool_version: '1.0',
-                    raw_results: {
-                        violation: resultData.violation || null,
-                        status: resultData.status || testInstance.status,
-                        pageUrl: resultData.pageUrl || testInstance.page_url
-                    },
-                    violations_count: resultData.violation ? 1 : 0,
-                    warnings_count: 0,
-                    passes_count: resultData.violation ? 0 : 1,
-                    test_duration_ms: 0,
-                    executed_at: resultData.timestamp || testInstance.updated_at,
-                    browser_name: 'chrome',
-                    viewport_width: null,
-                    viewport_height: null,
-                    test_environment: 'desktop',
-                    test_suite: 'per-instance',
+        
+        // First, try to get detailed results from automated_test_results table
+        const detailedResultsQuery = `
+            SELECT atr.*, dp.url as page_url 
+            FROM automated_test_results atr
+            LEFT JOIN discovered_pages dp ON atr.page_id = dp.id
+            WHERE atr.test_session_id = $1
+            ORDER BY atr.executed_at DESC
+        `;
+        
+        const detailedResults = await pool.query(detailedResultsQuery, [testInstance.test_session_id]);
+        
+        if (detailedResults.rows.length > 0) {
+            console.log(`📊 Found ${detailedResults.rows.length} detailed automation results`);
+            
+            // Process each tool's detailed results
+            for (const result of detailedResults.rows) {
+                try {
+                    const rawResults = typeof result.raw_results === 'string' 
+                        ? JSON.parse(result.raw_results) 
+                        : result.raw_results;
                     
-                    // Additional metadata for frontend
-                    criterion_number: testInstance.criterion_number,
-                    requirement_title: testInstance.requirement_title,
-                    page_url: testInstance.page_url,
-                    instance_status: testInstance.status
-                });
-            } catch (error) {
-                console.error('Error parsing test instance result:', error);
+                    automationResults.push({
+                        id: result.id,
+                        test_session_id: result.test_session_id,
+                        tool_name: result.tool_name,
+                        tool_version: result.tool_version || '1.0',
+                        raw_results: rawResults,
+                        violations_count: result.violations_count || 0,
+                        warnings_count: result.warnings_count || 0,
+                        passes_count: result.passes_count || 0,
+                        test_duration_ms: result.test_duration_ms || 0,
+                        executed_at: result.executed_at,
+                        browser_name: result.browser_name || 'chrome',
+                        viewport_width: result.viewport_width,
+                        viewport_height: result.viewport_height,
+                        test_environment: result.test_environment || 'desktop',
+                        test_suite: result.test_suite || 'comprehensive',
+                        
+                        // Additional metadata for frontend
+                        criterion_number: testInstance.criterion_number,
+                        requirement_title: testInstance.requirement_title,
+                        page_url: result.page_url || testInstance.page_url,
+                        instance_status: testInstance.status
+                    });
+                } catch (error) {
+                    console.error('Error parsing detailed automation result:', error);
+                }
             }
+        } else {
+            // No detailed automation results found - return error instead of fallback
+            console.error(`❌ No detailed automation results found for session ${testInstance.test_session_id}`);
+            return res.status(404).json({
+                success: false,
+                error: 'No detailed automation results found',
+                message: `No automation test results found in the automated_test_results table for this session. This indicates the automation tests may not have completed properly or the detailed results were not stored.`,
+                instanceId: instanceId,
+                sessionId: testInstance.test_session_id,
+                suggestion: 'Try running the automation tests again to generate detailed results.'
+            });
         }
         
-        // Fallback: also check old automated_test_results table for compatibility
+        // Legacy fallback: also check old automated_test_results table for compatibility
         // BUT FILTER BY WCAG CRITERION to only show relevant violations
         const legacyQuery = `
             SELECT 
