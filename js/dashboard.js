@@ -41,6 +41,12 @@ window.dashboard = function() {
         showTestConfigurationModal: false,
         showAutomationRunDetailsModal: false,
         showTestGrid: false,
+        showInteractiveAuthModal: false,
+        
+        // ===== INTERACTIVE AUTH STATE =====
+        interactiveAuthInProgress: false,
+        interactiveAuthMessage: '',
+        interactiveAuthError: null,
         
         // ===== PROGRESS AND STATE FLAGS =====
         loading: false,
@@ -1788,6 +1794,79 @@ ${requirement.failure_examples}
             
             // Call async initialization
             this.initAsync();
+        },
+
+        // ===== INTERACTIVE AUTHENTICATION METHODS =====
+        async startInteractiveAuth() {
+            try {
+                this.interactiveAuthError = null;
+                this.interactiveAuthInProgress = true;
+                this.interactiveAuthMessage = 'Starting interactive authentication...';
+
+                if (!this.currentSession?.id) {
+                    throw new Error('No testing session selected. Please select a session first.');
+                }
+
+                console.log('🔐 Starting interactive authentication for session:', this.currentSession.id);
+
+                const requestData = {
+                    target_mode: 'session',
+                    target_ids: [],
+                    tools: ['axe-core'],
+                    run_async: false,
+                    options: {
+                        use_interactive_auth: true,
+                        preview_mode: false
+                    }
+                };
+
+                this.interactiveAuthMessage = 'Sending authentication request...';
+
+                const response = await fetch(`${this.config.apiBaseUrl}/api/automated-testing/unified-run/${this.currentSession.id}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...this.getAuthHeaders()
+                    },
+                    body: JSON.stringify(requestData)
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    this.interactiveAuthMessage = 'Browser opened! Please login manually in the browser window.';
+                    
+                    // Show success notification
+                    this.showNotification('success', 'Interactive Authentication Started', 
+                        'A browser window has opened. Please login manually and the tests will run automatically.');
+                    
+                    // Close modal after a delay to let user see the message
+                    setTimeout(() => {
+                        this.showInteractiveAuthModal = false;
+                        this.interactiveAuthInProgress = false;
+                        this.interactiveAuthMessage = '';
+                    }, 3000);
+
+                    console.log('✅ Interactive auth request sent successfully:', result);
+                } else {
+                    throw new Error(result.error || 'Authentication request failed');
+                }
+
+            } catch (error) {
+                console.error('❌ Interactive auth error:', error);
+                this.interactiveAuthError = error.message;
+                this.interactiveAuthInProgress = false;
+                this.interactiveAuthMessage = '';
+                
+                this.showNotification('error', 'Authentication Failed', error.message);
+            }
+        },
+
+        openInteractiveAuthModal() {
+            this.showInteractiveAuthModal = true;
+            this.interactiveAuthError = null;
+            this.interactiveAuthInProgress = false;
+            this.interactiveAuthMessage = '';
         },
 
         async initAsync() {

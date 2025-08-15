@@ -38,6 +38,15 @@
                     </div>
                 </div>
                 
+                <!-- Interactive Authentication Button -->
+                <div x-show="isAuthenticated && currentSession" class="flex items-center">
+                    <button @click="openInteractiveAuthModal()" 
+                            class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center space-x-2 transition-colors">
+                        <i class="fas fa-browser"></i>
+                        <span>🔐 Login & Test</span>
+                    </button>
+                </div>
+                
                 <!-- Authentication -->
                 <div x-show="isAuthenticated" class="flex items-center space-x-4">
                     <div class="text-right">
