@@ -1,0 +1,169 @@
+<!-- Manual Testing Tab Content -->
+<div class="space-y-6">
+    <!-- Migration Notice -->
+    <div class="bg-blue-50 border border-blue-200 rounded-lg p-6">
+        <div class="flex items-start space-x-3">
+            <div class="flex-shrink-0">
+                <svg class="h-6 w-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+            </div>
+            <div class="flex-1">
+                <h3 class="text-lg font-medium text-blue-900 mb-2">Manual Testing Migration Complete</h3>
+                <div class="text-sm text-blue-800 space-y-2">
+                    <p>The manual testing interface has been successfully migrated to modern React components for improved performance and maintainability.</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                        <div>
+                            <h4 class="font-medium text-blue-900">New Features:</h4>
+                            <ul class="list-disc list-inside text-sm space-y-1 mt-1">
+                                <li>Enhanced test assignment management</li>
+                                <li>Real-time progress tracking</li>
+                                <li>Improved evidence upload interface</li>
+                                <li>Status management workflow</li>
+                                <li>Advanced filtering and search</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h4 class="font-medium text-blue-900">Developer Access:</h4>
+                            <div class="text-xs font-mono bg-blue-100 p-2 rounded mt-1">
+                                window.ReactComponents.render(<br>
+                                &nbsp;&nbsp;'ManualTestingInterface',<br>
+                                &nbsp;&nbsp;{ sessionId: 'session-id' },<br>
+                                &nbsp;&nbsp;document.getElementById('container')<br>
+                                )
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- React Component Container -->
+    <div class="bg-white rounded-lg shadow">
+        <div class="p-6 border-b border-gray-200">
+            <div class="flex items-center justify-between">
+                <h2 class="text-xl font-semibold text-gray-900">Manual Testing Interface</h2>
+                <button 
+                    onclick="window.manualTestingTest?.runDemo()"
+                    class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                    title="Test the manual testing React components">
+                    Test Components
+                </button>
+            </div>
+            <p class="text-sm text-gray-600 mt-2">
+                Modern React-based interface for managing manual accessibility testing workflows.
+            </p>
+        </div>
+        
+        <!-- React Manual Testing Interface will be rendered here -->
+        <div id="manual-testing-react-container" class="min-h-96">
+            <div class="p-8 text-center">
+                <div class="text-gray-500 mb-4">
+                    <svg class="h-12 w-12 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                </div>
+                <h3 class="text-lg font-medium text-gray-900 mb-2">React Components Available</h3>
+                <p class="text-sm text-gray-600 mb-4">
+                    Manual testing functionality is now powered by React components.
+                </p>
+                <button 
+                    onclick="window.manualTestingTest?.runDemo()"
+                    class="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors">
+                    <svg class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1m4 0h1m-6 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    Launch Manual Testing Demo
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Legacy Alpine.js Integration Notice -->
+    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+        <div class="flex items-start space-x-3">
+            <div class="flex-shrink-0">
+                <svg class="h-5 w-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                </svg>
+            </div>
+            <div class="flex-1">
+                <h4 class="text-sm font-medium text-yellow-800">Alpine.js State Migration</h4>
+                <p class="text-xs text-yellow-700 mt-1">
+                    Legacy Alpine.js manual testing state variables have been removed and replaced with React component state management. 
+                    If you need to access manual testing functionality programmatically, use the React component API instead.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Development Tools -->
+    <div x-show="user?.role === 'admin'" class="bg-gray-50 border border-gray-200 rounded-lg p-4">
+        <h4 class="text-sm font-medium text-gray-900 mb-3">Development Tools</h4>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <button 
+                onclick="window.manualTestingTest?.runDemo()"
+                class="px-3 py-2 bg-gray-100 text-gray-700 text-sm rounded hover:bg-gray-200 transition-colors">
+                Demo Workflow
+            </button>
+            <button 
+                onclick="console.log('Manual Testing State:', window.ReactComponents?.getState('manualTestingState'))"
+                class="px-3 py-2 bg-gray-100 text-gray-700 text-sm rounded hover:bg-gray-200 transition-colors">
+                View State
+            </button>
+            <button 
+                onclick="window.manualTestingTest?.help()"
+                class="px-3 py-2 bg-gray-100 text-gray-700 text-sm rounded hover:bg-gray-200 transition-colors">
+                Show Help
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Automatically initialize React component when this view loads -->
+<script>
+(function() {
+    // Initialize manual testing React interface when view becomes visible
+    const initializeManualTesting = () => {
+        const container = document.getElementById('manual-testing-react-container');
+        if (container && window.ReactComponents) {
+            try {
+                console.log('🧪 Initializing Manual Testing React Interface...');
+                
+                // Clear any existing content
+                const existingContent = container.querySelector('.react-component-content');
+                if (!existingContent) {
+                    // Get current session from Alpine.js state if available
+                    const currentSession = window.Alpine?.store?.('dashboard')?.selectedTestSession;
+                    
+                    // Render the React interface
+                    window.ReactComponents.render('ManualTestingInterface', {
+                        sessionId: currentSession?.id || null,
+                        onNotification: (type, title, message) => {
+                            console.log(`📢 Manual Testing ${type.toUpperCase()}: ${title} - ${message}`);
+                            // Integrate with Alpine.js notifications if available
+                            if (window.Alpine?.store?.('dashboard')?.showNotification) {
+                                window.Alpine.store('dashboard').showNotification(type, title, message);
+                            }
+                        }
+                    }, container);
+                    
+                    console.log('✅ Manual Testing React Interface initialized');
+                }
+            } catch (error) {
+                console.error('❌ Failed to initialize Manual Testing React Interface:', error);
+            }
+        }
+    };
+    
+    // Initialize when DOM is ready and components are loaded
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(initializeManualTesting, 1000);
+        });
+    } else {
+        setTimeout(initializeManualTesting, 1000);
+    }
+})();
+</script> 

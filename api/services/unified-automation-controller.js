@@ -322,7 +322,7 @@ class UnifiedAutomationController {
             if (run_async) {
                 // Execute tests asynchronously
                 console.log(`🔄 Starting asynchronous test execution for run ${runId}`);
-                this.executeTestsAsync(runId, sessionId, tools, uniquePages, userId, targets);
+                this.executeTestsAsync(runId, sessionId, tools, uniquePages, userId, targets, options);
                 
                 return {
                     success: true,
@@ -341,7 +341,7 @@ class UnifiedAutomationController {
                 // Execute tests synchronously
                 console.log(`⚡ Starting synchronous test execution for run ${runId}`);
                 const testResults = await this.testAutomationService.executeAutomatedTests(
-                    runId, sessionId, tools, uniquePages, true, true, userId, null, {}
+                    runId, sessionId, tools, uniquePages, true, true, userId, null, options
                 );
                 
                 // Update run status with test results
@@ -634,13 +634,13 @@ class UnifiedAutomationController {
      * @param {string} userId - User ID
      * @param {Array} targets - Array of resolved targets
      */
-    executeTestsAsync(runId, sessionId, tools, pages, userId, targets) {
+    executeTestsAsync(runId, sessionId, tools, pages, userId, targets, options = {}) {
         // Execute tests in background without blocking
         setImmediate(async () => {
             try {
                 console.log(`🚀 Background execution started for run ${runId}`);
                 const testResults = await this.testAutomationService.executeAutomatedTests(
-                    runId, sessionId, tools, pages, true, true, userId, null, {}
+                    runId, sessionId, tools, pages, true, true, userId, null, options
                 );
                 console.log(`✅ Background execution completed for run ${runId}`);
                 

@@ -3,74 +3,414 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Redirecting to Multi-Tool Accessibility Platform...</title>
+    <title>Accessibility Testing Platform</title>
+    <script>
+        // Suppress development warnings
+        const originalConsoleWarn = console.warn;
+        console.warn = function(...args) {
+            const message = args.join(' ');
+            if (message.includes('cdn.tailwindcss.com should not be used in production') ||
+                message.includes('React Refresh') ||
+                message.includes('socket connection')) {
+                return; // Suppress development warnings
+            }
+            originalConsoleWarn.apply(console, args);
+        };
+    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    
+    <!-- Alpine.js Error Handler (load before Alpine) -->
+    <script src="js/alpine-error-handler.js"></script>
+    
+    <!-- Dashboard Utilities - Load before dashboard.js -->
+    <script src="js/utils/dashboardUtils.js"></script>
+    
+    <!-- Authentication Token Service - Load before API service -->
+    <script src="js/services/authTokenService.js"></script>
+    
+    <!-- Dashboard API Service - Load before dashboard.js -->
+    <script src="js/services/apiService.js"></script>
+    
+    <!-- Unified Automation Service - Load before dashboard.js -->
+    <script src="js/services/unifiedAutomationService.js"></script>
+    
+    <!-- Fixed Global Fallback Functions - Load before dashboard.js -->
+    <script src="js/fixed-fallback.js"></script>
+    
+    <!-- Dashboard Core - Load before Alpine.js -->
+    <script src="js/dashboard.js"></script>
+    
+    <!-- Alpine auto-start configuration -->
+    <script>
+        // Let Alpine start automatically with defer
+        window.deferLoadingAlpine = false;
+    </script>
+    
+    <!-- Alpine.js - Proper deferred initialization -->
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+    
+    <!-- React Components Bundle - Load after utilities and services -->
+    <script src="dist/runtime.js"></script>
+    <script src="dist/vendors.js"></script>
+    <script src="dist/react-components.js"></script>
+    
+    <!-- Authentication Test Suite (Development) -->
+    <script src="js/components/auth/authTest.js"></script>
+    
+    <!-- Project/Session Test Suite (Development) -->
+    <script src="js/components/project/projectSessionTest.js"></script>
+    
+    <!-- Automated Testing Test Suite (Development) -->
+    <script src="js/components/testing/automatedTestingTest.js"></script>
+    
+    <!-- Manual Testing Test Suite (Development) -->
+    <script src="js/components/testing/manual/manualTestingTest.js"></script>
+    
+    <!-- Reporting Components Test Suite (Development) -->
+    <script src="js/components/reporting/reportingTest.js"></script>
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-            margin: 0;
-            text-align: center;
+        /* Custom scrollbar styles */
+        .scrollbar-thin::-webkit-scrollbar {
+            width: 8px;
         }
-        .redirect-container {
-            max-width: 600px;
-            padding: 2rem;
+        .scrollbar-thin::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 4px;
         }
-        .spinner {
-            border: 4px solid rgba(255,255,255,0.3);
-            border-top: 4px solid white;
-            border-radius: 50%;
-            width: 50px;
-            height: 50px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 1rem;
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+            border: 1px solid #e2e8f0;
         }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+        .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
         }
-        .btn {
-            background: rgba(255,255,255,0.2);
-            color: white;
-            padding: 12px 24px;
-            border: 2px solid white;
-            border-radius: 8px;
-            text-decoration: none;
-            font-weight: 600;
-            display: inline-block;
-            margin-top: 1rem;
-            transition: all 0.3s ease;
+        
+        /* Firefox scrollbar styling */
+        .scrollbar-thin {
+            scrollbar-width: thin;
+            scrollbar-color: #cbd5e1 #f1f5f9;
         }
-        .btn:hover {
-            background: white;
-            color: #667eea;
+        
+        /* Animation for progress bars */
+        @keyframes progress {
+            0% { width: 0%; }
+        }
+        .progress-bar {
+            animation: progress 2s ease-in-out;
+        }
+        
+        /* Custom Alpine.js transition classes */
+        .fade-enter-active, .fade-leave-active {
+            transition: opacity 0.5s;
+        }
+        .fade-enter, .fade-leave-to {
+            opacity: 0;
         }
     </style>
-    <script>
-        // Automatic redirect after 10 seconds
-        setTimeout(function() {
-            window.location.href = './dashboard.html';
-        }, 10000);
-    </script>
 </head>
-<body>
-    <div class="redirect-container">
-        <div class="spinner"></div>
-        <h1>🎯 Multi-Tool Accessibility Assessment Platform</h1>
-        <p>Redirecting you to the comprehensive accessibility testing dashboard...</p>
-        <p><strong>Features:</strong></p>
-        <ul style="text-align: left; max-width: 400px; margin: 1rem auto;">
-            <li>🚀 Live Testing (WAVE, axe-core, Pa11y, Lighthouse, IBM Equal Access)</li>
-            <li>📊 WAVE Data Analysis</li>
-            <li>📄 Automated VPAT Generation</li>
-            <li>🔍 Site Crawling & Multi-Page Testing</li>
-            <li>📈 Historical Tracking & Progress Analysis</li>
-        </ul>
-        <a href="./dashboard.html" class="btn">Continue to Dashboard</a>
+<body class="bg-gray-50 min-h-screen" x-data="dashboard()">
+    <!-- React Portal Containers -->
+    <div id="react-auth-portals"></div>
+    <div id="react-project-session-portals"></div>
+    <div id="react-testing-portals"></div>
+    
+    <div class="min-h-screen flex flex-col">
+        
+        <!-- Include Header Component -->
+        <div id="header-component"></div>
+        
+        <!-- Include Navigation Component -->
+        <div id="navigation-component"></div>
+        
+        <!-- REMOVED: Old Real-time Automation Progress Indicator -->
+
+        <!-- REMOVED: Old Large Detailed Automation Progress Panel -->
+
+        <!-- Main Content Area -->
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1">
+            
+            <!-- Notification Area -->
+            <div x-show="notification.show" 
+         x-transition:enter="transition ease-out duration-300"
+                 x-transition:enter-start="opacity-0 transform translate-y-2"
+         x-transition:enter-end="opacity-100 transform translate-y-0"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-start="opacity-100 transform translate-y-0"
+                 x-transition:leave-end="opacity-0 transform translate-y-2"
+                 class="fixed top-4 right-4 z-50 max-w-sm w-full">
+                <div :class="notification.type === 'error' ? 'bg-red-50 border-red-200 text-red-800' : 
+                            notification.type === 'success' ? 'bg-green-50 border-green-200 text-green-800' : 
+                            notification.type === 'warning' ? 'bg-yellow-50 border-yellow-200 text-yellow-800' : 
+                            'bg-blue-50 border-blue-200 text-blue-800'"
+                     class="border rounded-lg p-4 shadow-lg">
+                    <div class="flex items-start">
+                        <div class="flex-shrink-0">
+                            <i :class="notification.type === 'error' ? 'fas fa-exclamation-circle text-red-400' : 
+                                      notification.type === 'success' ? 'fas fa-check-circle text-green-400' : 
+                                      notification.type === 'warning' ? 'fas fa-exclamation-triangle text-yellow-400' : 
+                                      'fas fa-info-circle text-blue-400'"></i>
+            </div>
+                        <div class="ml-3 flex-1">
+                            <p class="text-sm font-medium" x-text="notification.title"></p>
+                            <p class="mt-1 text-sm" x-text="notification.message"></p>
+        </div>
+                        <div class="ml-4 flex-shrink-0">
+                            <button @click="hideNotification()" class="inline-flex rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2">
+                                <i class="fas fa-times text-gray-400 hover:text-gray-600"></i>
+                            </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+            <!-- Dynamic Content Views -->
+            <div id="view-content">
+                <!-- Views will be loaded here dynamically -->
+                <div x-show="activeTab === 'projects'" x-transition>
+                    <div id="projects-view-content">
+                        <!-- Projects content will be dynamically loaded here -->
+                </div>
+            </div>
+
+                <div x-show="activeTab === 'authentication'" x-transition>
+                    <div id="authentication-view-content">
+                        <!-- Authentication content will be dynamically loaded here -->
+        </div>
     </div>
+
+
+                <div x-show="activeTab === 'testing-sessions'" x-transition>
+                    <div id="testing-sessions-view-content">
+                        <!-- Testing Sessions content will be dynamically loaded here -->
+        </div>
+    </div>
+
+                <div x-show="activeTab === 'testing'" x-transition>
+                    <div id="testing-view-content">
+                        <!-- Automated Testing content will be dynamically loaded here -->
+    </div>
+</div>
+
+                <div x-show="activeTab === 'web-crawler'" x-transition>
+                    <div id="web-crawler-view-content">
+                        <!-- Web Crawler content will be dynamically loaded here -->
+                    </div>
+                </div>
+
+                <div x-show="activeTab === 'manual-testing'" x-transition>
+                    <div id="manual-testing-view-content">
+                        <!-- Manual Testing content will be dynamically loaded here -->
+                    </div>
+                </div>
+
+                <div x-show="activeTab === 'results'" x-transition>
+                    <div id="results-view-content">
+                        <!-- Results content will be dynamically loaded here -->
+                                    </div>
+                                </div>
+                                
+                <div x-show="activeTab === 'analytics'" x-transition>
+                    <div id="analytics-view-content">
+                        <!-- Analytics content will be dynamically loaded here -->
+                                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Include Modal Components -->
+        <div id="auth-modals-component"></div>
+        <div id="project-modals-component"></div>
+        <div id="web-crawler-modals-component"></div>
+        <div id="testing-modals-component"></div>
+        <div id="session-modals-component"></div>
+        <div id="session-details-modal-component"></div>
+        <div id="session-creation-wizard-component"></div>
+        <div id="test-grid-component"></div>
+        <div id="audit-timeline-modal-component"></div>
+        <div id="user-management-modals-component"></div>
+        <div id="admin-backup-modals-component"></div>
+        <div id="automation-scope-preview-component"></div>
+        <div id="automation-progress-tracker-component"></div>
+        
+        <!-- Global Progress Indicator (Bottom Right) -->
+        <div x-show="crawlerInProgress" 
+             x-transition:enter="transition ease-out duration-300"
+             x-transition:enter-start="opacity-0 transform translate-y-4"
+             x-transition:enter-end="opacity-100 transform translate-y-0"
+             x-transition:leave="transition ease-in duration-200"
+             x-transition:leave-start="opacity-100 transform translate-y-0"
+             x-transition:leave-end="opacity-0 transform translate-y-4"
+             class="fixed bottom-6 right-6 bg-white rounded-lg shadow-lg border border-gray-200 p-4 min-w-72 z-50">
+                            <div class="flex items-center space-x-3">
+                        <div class="flex-shrink-0">
+                    <i class="fas fa-spinner fa-spin text-blue-600"></i>
+                        </div>
+                <div class="flex-1">
+                    <div class="text-sm font-medium text-gray-900" x-text="crawlerProgress.message"></div>
+                    <div class="mt-1">
+                <div class="w-full bg-gray-200 rounded-full h-2">
+                            <div class="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+                                 :style="`width: ${crawlerProgress.percentage || 0}%`"></div>
+                </div>
+                        <div class="flex justify-between text-xs text-gray-500 mt-1">
+                            <span x-text="`${crawlerProgress.pagesFound || 0} pages found`"></span>
+                            <span x-text="`${Math.round(crawlerProgress.percentage || 0)}%`"></span>
+                    </div>
+                    </div>
+                    <div x-show="crawlerProgress.currentUrl" class="text-xs text-gray-500 mt-1 truncate">
+                        <span>Current: </span>
+                        <span x-text="crawlerProgress.currentUrl" class="font-mono"></span>
+                </div>
+                    </div>
+                </div>
+            </div>
+            
+        <!-- Footer -->
+        <footer class="bg-white border-t mt-auto">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+                <div class="flex justify-between items-center text-sm text-gray-600">
+                            <div>
+                        <span>© 2025 Accessibility Testing Platform</span>
+                            </div>
+                    <div class="flex items-center space-x-4">
+                        <span>Version 1.0.0</span>
+                        <span>•</span>
+                        <a href="#" class="hover:text-gray-900">Documentation</a>
+                        <span>•</span>
+                        <a href="#" class="hover:text-gray-900">Support</a>
+                    </div>
+                </div>
+            </div>
+        </footer>
+        </div>
+
+    <!-- Scripts -->
+    
+    <script>
+        // Global function for loading authentication view
+        window.loadAuthenticationView = async function() {
+            if (!document.getElementById('authentication-view-content').innerHTML) {
+                try {
+                    const response = await fetch('views/authentication.html');
+                    const html = await response.text();
+                    document.getElementById('authentication-view-content').innerHTML = html;
+                                            } catch (error) {
+                    console.error('Failed to load authentication view:', error);
+                }
+            }
+        };
+
+        // Global function for loading testing sessions view
+        window.loadTestingSessionsView = async function() {
+            if (!document.getElementById('testing-sessions-view-content').innerHTML) {
+                try {
+                    const response = await fetch('views/testing-sessions.html');
+                    const html = await response.text();
+                    document.getElementById('testing-sessions-view-content').innerHTML = html;
+                } catch (error) {
+                    console.error('Failed to load testing sessions view:', error);
+                }
+            }
+        };
+        
+        // Load components dynamically
+        async function loadComponent(componentId, filePath) {
+            try {
+                const response = await fetch(filePath);
+                const html = await response.text();
+                const element = document.getElementById(componentId);
+                element.innerHTML = html;
+                
+                // Force Alpine.js to re-scan this newly loaded content
+                if (window.Alpine) {
+                    console.log(`🏔️ Re-initializing Alpine.js for component: ${componentId}`);
+                    
+                    // Try multiple methods to ensure Alpine.js processes the new content
+                    if (window.Alpine.initTree) {
+                        window.Alpine.initTree(element);
+                    }
+                    
+                    // Alternative: Find all Alpine elements in the loaded content and init them
+                    const alpineElements = element.querySelectorAll('[x-data]');
+                    alpineElements.forEach(el => {
+                        if (window.Alpine.initTree) {
+                            window.Alpine.initTree(el);
+                        }
+                    });
+                    
+                    // Last resort: Schedule a complete Alpine restart
+                    setTimeout(() => {
+                        if (window.Alpine && window.Alpine.initTree) {
+                            window.Alpine.initTree(document.body);
+                        }
+                    }, 100);
+                }
+            } catch (error) {
+                console.error(`Failed to load component ${componentId}:`, error);
+            }
+        }
+        
+        // Load views dynamically
+        async function loadView(viewId, filePath) {
+            try {
+                const response = await fetch(filePath);
+                const html = await response.text();
+                document.getElementById(viewId).innerHTML = html;
+            } catch (error) {
+                console.error(`Failed to load view ${viewId}:`, error);
+            }
+        }
+        
+        // Load all components when page loads
+        document.addEventListener('DOMContentLoaded', async () => {
+            await Promise.all([
+                        loadComponent('header-component', 'components/header.html'),
+        loadComponent('navigation-component', 'components/navigation.html'),
+        loadComponent('auth-modals-component', 'components/auth-modals.html'),
+        loadComponent('project-modals-component', 'components/project-modals.html'),
+        loadComponent('web-crawler-modals-component', 'components/web-crawler-modals.html'),
+        loadComponent('testing-modals-component', 'components/testing-modals.html'),
+        loadComponent('session-modals-component', 'components/session-modals.html'),
+        loadComponent('session-details-modal-component', 'components/session-details-modal.html'),
+        loadComponent('session-creation-wizard-component', 'components/session-creation-wizard.html'),
+        loadComponent('test-grid-component', 'components/test-grid.html'),
+        loadComponent('audit-timeline-modal-component', 'components/audit-timeline-modal.html'),
+        loadComponent('user-management-modals-component', 'components/user-management-modals.html'),
+        loadComponent('admin-backup-modals-component', 'components/admin-backup-modals.html'),
+        loadComponent('automation-scope-preview-component', 'components/automation-scope-preview.html'),
+        loadComponent('automation-progress-tracker-component', 'components/automation-progress-tracker.html')
+            ]);
+            
+            // Load views
+            await Promise.all([
+                        loadView('authentication-view-content', 'views/authentication.html'),
+        loadView('web-crawler-view-content', 'views/web-crawler.html'),
+        loadView('testing-sessions-view-content', 'views/testing-sessions.html'),
+        loadView('testing-view-content', 'views/testing.html'),
+        loadView('manual-testing-view-content', 'views/manual-testing.html'),
+        loadView('results-view-content', 'views/results.html'),
+        loadView('projects-view-content', 'views/projects.html')
+            ]);
+            
+            // Alpine.js will auto-initialize with defer
+            console.log('✅ Components loaded, Alpine.js will initialize automatically');
+});
+</script>
+
+    <!-- Session Fix Patch -->
+    <script src="js/quick-session-fix.js"></script>
+    
+    <!-- Unified Automation Test Script (Development) -->
+    <script src="js/test-unified-automation.js"></script>
+    
+    <!-- Token Refresh Debug Tools (Development) -->
+    <script src="js/debug-token-refresh.js"></script>
+
 </body>
-</html>
+</html> 

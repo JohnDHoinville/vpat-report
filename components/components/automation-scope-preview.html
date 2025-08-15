@@ -1,0 +1,212 @@
+<!-- Automation Scope Preview Modal -->
+<div x-show="showAutomationPreviewModal" 
+     x-transition:enter="transition ease-out duration-300"
+     x-transition:enter-start="opacity-0"
+     x-transition:enter-end="opacity-100"
+     x-transition:leave="transition ease-in duration-200"
+     x-transition:leave-start="opacity-100"
+     x-transition:leave-end="opacity-0"
+     class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+    
+    <div x-show="showAutomationPreviewModal"
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="opacity-0 transform scale-95"
+         x-transition:enter-end="opacity-100 transform scale-100"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-start="opacity-100 transform scale-100"
+         x-transition:leave-end="opacity-0 transform scale-95"
+         @click.away="closeAutomationPreviewModal()"
+         class="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+        
+        <!-- Header -->
+        <div class="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4 text-white">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <i class="fas fa-search-plus mr-3 text-xl"></i>
+                    <div>
+                        <h3 class="text-xl font-bold">Automation Scope Preview</h3>
+                        <p class="text-blue-100 text-sm mt-1" x-show="automationPreviewData?.mode">
+                            <span x-text="automationPreviewData?.mode || 'unknown'"></span> mode
+                        </p>
+                    </div>
+                </div>
+                <button @click="closeAutomationPreviewModal()" 
+                        class="text-white hover:text-blue-200 transition-colors">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Loading State -->
+        <div x-show="loadingAutomationPreview" class="p-8 text-center">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p class="text-gray-600">Generating automation scope preview...</p>
+        </div>
+
+        <!-- Preview Content -->
+        <div x-show="!loadingAutomationPreview && automationPreviewData" class="max-h-[70vh] overflow-y-auto">
+            
+            <!-- Summary Cards -->
+            <div class="p-6 border-b bg-gray-50">
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="bg-white rounded-lg p-4 shadow-sm text-center">
+                        <div class="text-2xl font-bold text-blue-600" 
+                             x-text="automationPreviewData?.summary?.total_targets || 0"></div>
+                        <div class="text-sm text-gray-600">Total Targets</div>
+                    </div>
+                    <div class="bg-white rounded-lg p-4 shadow-sm text-center">
+                        <div class="text-2xl font-bold text-green-600" 
+                             x-text="automationPreviewData?.summary?.unique_pages || 0"></div>
+                        <div class="text-sm text-gray-600">Unique Pages</div>
+                    </div>
+                    <div class="bg-white rounded-lg p-4 shadow-sm text-center">
+                        <div class="text-2xl font-bold text-purple-600" 
+                             x-text="automationPreviewData?.summary?.unique_requirements || 0"></div>
+                        <div class="text-sm text-gray-600">Requirements</div>
+                    </div>
+                    <div class="bg-white rounded-lg p-4 shadow-sm text-center">
+                        <div class="text-2xl font-bold text-orange-600" 
+                             x-text="automationPreviewData?.summary?.estimated_tests || 0"></div>
+                        <div class="text-sm text-gray-600">Est. Tests</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tools Section -->
+            <div class="p-6 border-b" x-show="automationPreviewData?.scope?.tools?.length">
+                <h4 class="text-lg font-semibold mb-3 flex items-center">
+                    <i class="fas fa-tools mr-2 text-blue-600"></i>
+                    Tools to be used
+                </h4>
+                <div class="flex flex-wrap gap-2">
+                    <template x-for="tool in automationPreviewData?.scope?.tools || []" :key="tool">
+                        <span class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
+                            <i class="fas fa-robot mr-1"></i>
+                            <span x-text="tool"></span>
+                        </span>
+                    </template>
+                </div>
+            </div>
+
+            <!-- Warnings Section -->
+            <div class="p-6 border-b bg-yellow-50" x-show="automationPreviewData?.warnings?.length">
+                <h4 class="text-lg font-semibold mb-3 flex items-center text-yellow-800">
+                    <i class="fas fa-exclamation-triangle mr-2"></i>
+                    Warnings
+                </h4>
+                <div class="space-y-2">
+                    <template x-for="warning in automationPreviewData?.warnings || []" :key="warning">
+                        <div class="flex items-start">
+                            <i class="fas fa-exclamation-circle text-yellow-600 mt-1 mr-2"></i>
+                            <span class="text-yellow-800" x-text="warning"></span>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- Tabs for detailed view -->
+            <div class="p-6">
+                <div class="border-b border-gray-200 mb-6">
+                    <nav class="-mb-px flex space-x-8">
+                        <button @click="automationPreviewTab = 'pages'"
+                                :class="automationPreviewTab === 'pages' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
+                                class="py-2 px-1 border-b-2 font-medium text-sm transition-colors">
+                            <i class="fas fa-file-alt mr-2"></i>
+                            Pages (<span x-text="automationPreviewData?.scope?.pages?.length || 0"></span>)
+                        </button>
+                        <button @click="automationPreviewTab = 'requirements'"
+                                :class="automationPreviewTab === 'requirements' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
+                                class="py-2 px-1 border-b-2 font-medium text-sm transition-colors">
+                            <i class="fas fa-list-alt mr-2"></i>
+                            Requirements (<span x-text="automationPreviewData?.scope?.requirements?.length || 0"></span>)
+                        </button>
+                    </nav>
+                </div>
+
+                <!-- Pages Tab -->
+                <div x-show="automationPreviewTab === 'pages'" class="space-y-4">
+                    <template x-for="page in automationPreviewData?.scope?.pages || []" :key="page.page_id">
+                        <div class="border rounded-lg p-4 hover:bg-gray-50 transition-colors">
+                            <div class="flex items-start justify-between">
+                                <div class="flex-1">
+                                    <h5 class="font-medium text-gray-900" x-text="page.title || 'Untitled Page'"></h5>
+                                    <p class="text-sm text-blue-600 mt-1 font-mono" x-text="page.url"></p>
+                                    <div class="mt-2">
+                                        <span class="text-xs text-gray-500">Requirements to test:</span>
+                                        <div class="flex flex-wrap gap-1 mt-1">
+                                            <template x-for="req in page.requirements || []" :key="req.criterion_number">
+                                                <span class="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs"
+                                                      x-text="req.criterion_number"></span>
+                                            </template>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+
+                <!-- Requirements Tab -->
+                <div x-show="automationPreviewTab === 'requirements'" class="space-y-4">
+                    <template x-for="requirement in automationPreviewData?.scope?.requirements || []" :key="requirement.requirement_id">
+                        <div class="border rounded-lg p-4 hover:bg-gray-50 transition-colors">
+                            <div class="flex items-start justify-between">
+                                <div class="flex-1">
+                                    <div class="flex items-center">
+                                        <span class="px-2 py-1 bg-blue-100 text-blue-800 rounded text-sm font-medium"
+                                              x-text="requirement.criterion_number"></span>
+                                        <h5 class="font-medium text-gray-900 ml-3" x-text="requirement.title"></h5>
+                                    </div>
+                                    <div class="mt-2 grid grid-cols-2 gap-4 text-sm">
+                                        <div>
+                                            <span class="text-gray-500">Pages affected:</span>
+                                            <span class="font-medium" x-text="requirement.pages?.length || 0"></span>
+                                        </div>
+                                        <div>
+                                            <span class="text-gray-500">Test instances:</span>
+                                            <span class="font-medium" x-text="requirement.instances || 0"></span>
+                                        </div>
+                                    </div>
+                                    <div class="mt-2" x-show="requirement.pages?.length">
+                                        <span class="text-xs text-gray-500">Pages:</span>
+                                        <div class="text-xs text-gray-600 mt-1">
+                                            <template x-for="(page, index) in requirement.pages.slice(0, 3)" :key="page">
+                                                <span>
+                                                    <span x-text="page"></span><span x-show="index < Math.min(requirement.pages.length, 3) - 1">, </span>
+                                                </span>
+                                            </template>
+                                            <span x-show="requirement.pages.length > 3" class="text-gray-400">
+                                                ... and <span x-text="requirement.pages.length - 3"></span> more
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="bg-gray-50 px-6 py-4 border-t">
+            <div class="flex items-center justify-between">
+                <div class="text-sm text-gray-600">
+                    <i class="fas fa-info-circle mr-1"></i>
+                    This preview shows what will be tested. No tests will be executed.
+                </div>
+                <div class="flex space-x-3">
+                    <button @click="closeAutomationPreviewModal()" 
+                            class="px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors">
+                        <i class="fas fa-times mr-2"></i>Close
+                    </button>
+                    <button @click="executeAutomationFromPreview()" 
+                            :disabled="!automationPreviewData"
+                            class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:bg-gray-400">
+                        <i class="fas fa-play mr-2"></i>Run Tests
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

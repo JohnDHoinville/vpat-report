@@ -83,7 +83,7 @@ class TestAutomationService {
     /**
      * Execute automated tests
      */
-    async executeAutomatedTests(runId, sessionId, tools, pages, updateTestInstances, createEvidence, userId, requirements = null, clientMetadata = {}) {
+    async executeAutomatedTests(runId, sessionId, tools, pages, updateTestInstances, createEvidence, userId, requirements = null, executionOptions = {}) {
         // Emit automation start via WebSocket
         this.emitProgress(sessionId, {
             percentage: 0,
@@ -511,7 +511,7 @@ class TestAutomationService {
      * Run Axe-core tests
      */
     async runAxe(pages, sessionId = null) {
-        const browser = await puppeteer.launch({ headless: true });
+        const browser = await puppeteer.launch({ headless: false, slowMo: 250 }); // DEBUG MODE
         const results = {
             tool: 'axe-core',
             pages_tested: [],
@@ -717,8 +717,8 @@ class TestAutomationService {
                     await browserPage.waitForFunction(() => {
                         const title = document.title;
                         return title && title.trim() !== '';
-                    }, { timeout: 5000 }).catch(() => {
-                        // If title is still empty after 5 seconds, continue anyway
+                    }, { timeout: 15000 }).catch(() => {
+                        // If title is still empty after 15 seconds, continue anyway
                         console.log(`⚠️ Title still empty after waiting for ${page.url}`);
                     });
                     
@@ -1053,8 +1053,8 @@ class TestAutomationService {
                     await browserPage.waitForFunction(() => {
                         const title = document.title;
                         return title && title.trim() !== '';
-                    }, { timeout: 5000 }).catch(() => {
-                        // If title is still empty after 5 seconds, continue anyway
+                    }, { timeout: 15000 }).catch(() => {
+                        // If title is still empty after 15 seconds, continue anyway
                         console.log(`⚠️ Title still empty after waiting for ${page.url}`);
                     });
                     
@@ -4634,7 +4634,7 @@ class TestAutomationService {
                             console.log(`🔧 Running ${tool} against ${pageUrl}`);
                             
                             // Run tool against the page
-                            const toolResults = await this.runToolAgainstPage(tool, pageUrl, pageInstances);
+                            const toolResults = await this.runToolAgainstPage(tool, pageUrl, pageInstances, executionOptions.use_interactive_auth);
                             
                             if (toolResults && toolResults.violations) {
                                 // Get ALL test instances for this page and session (not just the ones selected for automation)
@@ -4920,23 +4920,23 @@ class TestAutomationService {
      * Run a specific tool against a single page - CORRECT APPROACH
      * Returns page-specific results that can be mapped to test instances
      */
-    async runToolAgainstPage(tool, pageUrl, pageInstances) {
+    async runToolAgainstPage(tool, pageUrl, pageInstances, useInteractiveAuth = false) {
         try {
             console.log(`🔧 Running ${tool} against page: ${pageUrl}`);
 
             switch (tool.toLowerCase()) {
                 case 'axe-core':
                 case 'axe':
-                    return await this.runAxeAgainstPage(pageUrl, pageInstances);
+                    return await this.runAxeAgainstPage(pageUrl, pageInstances, useInteractiveAuth);
                 
                 case 'pa11y':
-                    return await this.runPa11yAgainstPage(pageUrl, pageInstances);
+                    return await this.runPa11yAgainstPage(pageUrl, pageInstances, useInteractiveAuth);
                 
                 case 'lighthouse':
-                    return await this.runLighthouseAgainstPage(pageUrl, pageInstances);
+                    return await this.runLighthouseAgainstPage(pageUrl, pageInstances, useInteractiveAuth);
                 
                 case 'contrast-analyzer':
-                    return await this.runContrastAnalyzerAgainstPage(pageUrl, pageInstances);
+                    return await this.runContrastAnalyzerAgainstPage(pageUrl, pageInstances, useInteractiveAuth);
                 
                 default:
                     console.warn(`❌ Unsupported tool: ${tool}`);
@@ -4951,14 +4951,15 @@ class TestAutomationService {
     /**
      * Run Axe-core against a specific page
      */
-    async runAxeAgainstPage(pageUrl, pageInstances) {
+    async runAxeAgainstPage(pageUrl, pageInstances, useInteractiveAuth = false) {
         let browser;
         let context = null;
         try {
-            console.log(`🔧 Running Axe against: ${pageUrl}`);
+            console.log(`🔧 Running Axe against: ${pageUrl} (${pageInstances.length} test instances)`);
             
             browser = await puppeteer.launch({
-                headless: true,
+                headless: false, // TEMPORARILY DISABLED for debugging
+                slowMo: 250, // Slow down interactions for visibility
                 args: [
                     '--no-sandbox',
                     '--disable-setuid-sandbox',
@@ -4970,16 +4971,26 @@ class TestAutomationService {
             // Get authentication context if available
             if (pageInstances && pageInstances.length > 0) {
                 const sessionId = pageInstances[0].session_id;
+                console.log(`🔍 DEBUG: Looking for auth context for session: ${sessionId}`);
+                console.log(`🔐 Interactive auth mode: ${useInteractiveAuth ? 'ENABLED' : 'DISABLED'}`);
                 if (sessionId) {
-                    const authContext = await this.getAuthContextForSession(sessionId);
+                    const authContext = await this.getAuthContextForSession(sessionId, useInteractiveAuth);
+                    console.log(`🔍 DEBUG: Auth context result:`, authContext ? `${authContext.cookies?.length || 0} cookies found` : 'No auth context');
                     if (authContext) {
                         // Create context with stored authentication state
                         context = await browser.createBrowserContext({
                             storageState: authContext
                         });
                         console.log(`🔐 Crawler authentication session loaded successfully for Axe`);
+                    } else {
+                        console.log(`⚠️ No authentication context found - pages may redirect to login`);
+                        console.log(`💡 To fix this: Go to Web Crawler → Session Capture → Re-capture authentication`);
                     }
+                } else {
+                    console.log(`⚠️ No session ID found in pageInstances`);
                 }
+            } else {
+                console.log(`⚠️ No pageInstances provided for authentication`);
             }
 
             // Use authenticated context if available, otherwise create new page
@@ -5046,10 +5057,186 @@ class TestAutomationService {
     }
 
     /**
+     * Validate authentication by testing a protected page
+     */
+    async validateAuthContext(storageState, testUrl) {
+        const { chromium } = require('playwright');
+        const browser = await chromium.launch({ headless: true });
+        let isValid = false;
+        
+        try {
+            // Create context with storage state (cookies, localStorage, sessionStorage)
+            const context = await browser.newContext({
+                storageState: {
+                    cookies: storageState.cookies || [],
+                    localStorage: storageState.localStorage || [],
+                    sessionStorage: storageState.sessionStorage || []
+                }
+            });
+            
+            const page = await context.newPage();
+            
+            console.log(`🔍 Validating auth by testing: ${testUrl}`);
+            console.log(`🔍 Using ${storageState.cookies?.length || 0} cookies for validation`);
+            
+            // Navigate and wait for page to stabilize
+            const response = await page.goto(testUrl, { waitUntil: 'networkidle', timeout: 15000 });
+            
+            const currentUrl = page.url();
+            const pageTitle = await page.title();
+            const responseStatus = response?.status() || 'unknown';
+            
+            console.log(`🔍 Validation response: ${responseStatus}, Final URL: ${currentUrl}`);
+            console.log(`🔍 Page title: "${pageTitle}"`);
+            
+            const isRedirectedToLogin = currentUrl.includes('/login') || currentUrl.includes('/signin');
+            const hasLoginContent = await page.locator('input[type="password"], input[name*="password"], form[action*="login"]').count() > 0;
+            
+            if (isRedirectedToLogin || hasLoginContent) {
+                console.log(`❌ Auth validation failed - ${isRedirectedToLogin ? 'redirected to login' : 'login form detected'}`);
+                isValid = false;
+            } else {
+                console.log(`✅ Auth validation successful - authenticated page loaded`);
+                isValid = true;
+            }
+            
+        } catch (error) {
+            console.log(`❌ Auth validation error: ${error.message}`);
+            isValid = false;
+        } finally {
+            await browser.close();
+        }
+        
+        return isValid;
+    }
+
+    /**
+     * Perform interactive authentication by opening a browser for manual login
+     */
+    async performInteractiveAuthentication(sessionId) {
+        console.log(`🔐 Starting interactive authentication for session: ${sessionId}`);
+        
+        try {
+            // Get session details
+            const sessionResult = await pool.query(`
+                SELECT ts.project_id, p.primary_url, p.name as project_name
+                FROM test_sessions ts 
+                JOIN projects p ON ts.project_id = p.id 
+                WHERE ts.id = $1
+            `, [sessionId]);
+            
+            if (sessionResult.rows.length === 0) {
+                throw new Error(`Session ${sessionId} not found`);
+            }
+            
+            const session = sessionResult.rows[0];
+            const loginUrl = session.primary_url;
+            
+            console.log(`🔐 Opening browser for manual login to: ${loginUrl}`);
+            console.log(`🔐 Project: ${session.project_name}`);
+            
+            // Launch browser in non-headless mode
+            const { chromium } = require('playwright');
+            const browser = await chromium.launch({ 
+                headless: false,
+                slowMo: 1000  // Slow down actions for better UX
+            });
+            
+            const context = await browser.newContext({
+                viewport: { width: 1280, height: 720 },
+                userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            });
+            
+            const page = await context.newPage();
+            
+            // Navigate to login page
+            console.log(`🌐 Navigating to: ${loginUrl}`);
+            await page.goto(loginUrl, { waitUntil: 'networkidle' });
+            
+            // Display instructions to user
+            console.log(`\n🔐 INTERACTIVE AUTHENTICATION MODE`);
+            console.log(`================================================`);
+            console.log(`📱 A browser window has opened for manual login`);
+            console.log(`👤 Please complete the following steps:`);
+            console.log(`   1. Log in using your credentials`);
+            console.log(`   2. Navigate to any protected page to verify access`);
+            console.log(`   3. Press ENTER in this terminal when login is complete`);
+            console.log(`================================================\n`);
+            
+            // Wait for user confirmation
+            await this.waitForUserInput("Press ENTER after completing login...");
+            
+            // Capture the authentication state
+            console.log(`📦 Capturing authentication state...`);
+            const storageState = await context.storageState();
+            
+            // Test authentication by trying to access a protected page
+            const currentUrl = page.url();
+            console.log(`🔍 Current URL after login: ${currentUrl}`);
+            
+            // Extract cookies for database storage
+            const cookies = storageState.cookies || [];
+            console.log(`🍪 Captured ${cookies.length} cookies`);
+            
+            // Save authentication session to database
+            const authSessionResult = await pool.query(`
+                INSERT INTO crawler_auth_sessions (
+                    crawler_id, cookies, is_active, created_at, last_used_at, storage_state
+                ) VALUES (
+                    (SELECT id FROM web_crawlers WHERE project_id = $1 LIMIT 1),
+                    $2, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, $3
+                ) RETURNING id
+            `, [session.project_id, JSON.stringify(cookies), JSON.stringify(storageState)]);
+            
+            const authSessionId = authSessionResult.rows[0]?.id;
+            console.log(`💾 Saved authentication session with ID: ${authSessionId}`);
+            
+            // Clean up browser
+            await browser.close();
+            
+            // Return the storage state for immediate use
+            return {
+                storageState,
+                cookies,
+                authSessionId,
+                loginUrl,
+                capturedAt: new Date().toISOString()
+            };
+            
+        } catch (error) {
+            console.error(`❌ Interactive authentication failed:`, error.message);
+            throw error;
+        }
+    }
+
+    /**
+     * Wait for user input in terminal
+     */
+    async waitForUserInput(message) {
+        return new Promise((resolve) => {
+            const readline = require('readline');
+            const rl = readline.createInterface({
+                input: process.stdin,
+                output: process.stdout
+            });
+            
+            rl.question(message + ' ', () => {
+                rl.close();
+                resolve();
+            });
+        });
+    }
+
+    /**
      * Get authentication context for a session
      */
-    async getAuthContextForSession(sessionId) {
+    async getAuthContextForSession(sessionId, useInteractiveAuth = false) {
         if (!sessionId) return null;
+        
+        // If interactive auth is requested, use the interactive login flow
+        if (useInteractiveAuth) {
+            return await this.performInteractiveAuthentication(sessionId);
+        }
         
         try {
             // Get the test session's project and find crawler auth sessions
@@ -5077,13 +5264,13 @@ class TestAutomationService {
                 AND (cas.expires_at IS NULL OR cas.expires_at > CURRENT_TIMESTAMP)
                 AND cas.cookies IS NOT NULL
                 AND jsonb_array_length(cas.cookies) > 0
-                ORDER BY cas.last_used_at DESC
+                ORDER BY cas.created_at DESC, cas.last_used_at DESC
                 LIMIT 1
             `, [session.project_id]);
             
             if (crawlerAuthResult.rows.length > 0) {
                 const crawlerAuthSession = crawlerAuthResult.rows[0];
-                console.log(`🔐 Found crawler auth session for project ${session.project_id}: ${crawlerAuthSession.crawler_name} (${crawlerAuthSession.cookies ? Object.keys(crawlerAuthSession.cookies).length : 0} cookies)`);
+                console.log(`🔐 Found crawler auth session for project ${session.project_id}: ${crawlerAuthSession.crawler_name} (${crawlerAuthSession.cookies ? crawlerAuthSession.cookies.length : 0} cookies)`);
                 
                 // Create storage state from crawler session data
                 const storageState = {
@@ -5093,6 +5280,22 @@ class TestAutomationService {
                 };
                 
                 console.log(`🔐 Using ${storageState.cookies.length} cookies from crawler session`);
+                
+                // Validate authentication with a test URL from the project
+                const testUrl = crawlerAuthSession.base_url || session.primary_url;
+                if (testUrl) {
+                    console.log(`🔍 Validating authentication context...`);
+                    const isValid = await this.validateAuthContext(storageState, testUrl);
+                    
+                    if (!isValid) {
+                        console.log(`❌ Crawler auth session is expired/invalid. User should refresh session capture.`);
+                        console.log(`💡 Suggestion: Re-run session capture in web crawler to refresh authentication`);
+                        return null; // Return null to indicate auth failure
+                    } else {
+                        console.log(`✅ Crawler auth session validated successfully`);
+                    }
+                }
+                
                 return storageState;
             } else {
                 console.log(`⚠️ No active crawler auth sessions found for project ${session.project_id}`);
@@ -5107,7 +5310,7 @@ class TestAutomationService {
     /**
      * Run Pa11y against a specific page
      */
-    async runPa11yAgainstPage(pageUrl, pageInstances) {
+    async runPa11yAgainstPage(pageUrl, pageInstances, useInteractiveAuth = false) {
         try {
             console.log(`🔧 Running Pa11y against: ${pageUrl}`);
             
@@ -5116,7 +5319,7 @@ class TestAutomationService {
             if (pageInstances && pageInstances.length > 0) {
                 const sessionId = pageInstances[0].session_id;
                 if (sessionId) {
-                    authContext = await this.getAuthContextForSession(sessionId);
+                    authContext = await this.getAuthContextForSession(sessionId, useInteractiveAuth);
                 }
             }
             
@@ -5164,7 +5367,7 @@ class TestAutomationService {
     /**
      * Run Contrast Analyzer against a specific page
      */
-    async runContrastAnalyzerAgainstPage(pageUrl, pageInstances) {
+    async runContrastAnalyzerAgainstPage(pageUrl, pageInstances, useInteractiveAuth = false) {
         try {
             console.log(`🎨 Running contrast analyzer against page: ${pageUrl}`);
             
@@ -5173,7 +5376,7 @@ class TestAutomationService {
             if (pageInstances && pageInstances.length > 0) {
                 const sessionId = pageInstances[0].session_id;
                 if (sessionId) {
-                    authContext = await this.getAuthContextForSession(sessionId);
+                    authContext = await this.getAuthContextForSession(sessionId, useInteractiveAuth);
                 }
             }
             
@@ -5233,7 +5436,7 @@ class TestAutomationService {
     /**
      * Run Lighthouse against a specific page
      */
-    async runLighthouseAgainstPage(pageUrl, pageInstances) {
+    async runLighthouseAgainstPage(pageUrl, pageInstances, useInteractiveAuth = false) {
         let chrome;
         try {
             console.log(`🔧 Running Lighthouse against: ${pageUrl}`);
@@ -5243,7 +5446,7 @@ class TestAutomationService {
             if (pageInstances && pageInstances.length > 0) {
                 const sessionId = pageInstances[0].session_id;
                 if (sessionId) {
-                    authContext = await this.getAuthContextForSession(sessionId);
+                    authContext = await this.getAuthContextForSession(sessionId, useInteractiveAuth);
                 }
             }
             
@@ -5262,7 +5465,7 @@ class TestAutomationService {
                 // For Lighthouse, we need to use a different approach for authentication
                 // We'll use Puppeteer to set up the authenticated session first
                 const puppeteer = require('puppeteer');
-                const browser = await puppeteer.launch({ headless: true });
+                const browser = await puppeteer.launch({ headless: false, slowMo: 250 }); // DEBUG MODE
                 const context = await browser.createBrowserContext({
                     storageState: authContext
                 });

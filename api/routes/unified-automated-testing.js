@@ -33,7 +33,7 @@ router.post('/unified-run/:sessionId', authenticateToken, async (req, res) => {
             target_ids = [],                   // Array of requirement IDs or instance IDs
             tools = ['axe-core', 'pa11y', 'lighthouse'], // Tools to use
             run_async = true,                  // Whether to run asynchronously
-            options = {}                       // Additional options (preview_mode, force_retest, etc.)
+            options = {}                       // Additional options (preview_mode, force_retest, use_interactive_auth, etc.)
         } = req.body;
 
         console.log(`🚀 UNIFIED AUTOMATION REQUEST: ${target_mode} mode for session ${sessionId}`);
