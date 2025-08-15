@@ -54,6 +54,26 @@ window.DashboardUtils.timeAgo = function(dateString) {
     return date.toLocaleDateString();
 };
 
+// Convert Zulu time timestamps to local time with user-friendly format
+window.DashboardUtils.convertZuluToLocal = function(text) {
+    if (!text) return text;
+    
+    // Regex to match Zulu timestamps: [2025-08-15T13:27:16.415Z]
+    const zuluRegex = /\[(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z)\]/g;
+    
+    return text.replace(zuluRegex, (match, isoString) => {
+        try {
+            const date = new Date(isoString);
+            const localDate = date.toLocaleDateString();
+            const localTime = date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'});
+            return `[${localDate} ${localTime}]`;
+        } catch (error) {
+            console.warn('Error converting timestamp:', error);
+            return match; // Return original if conversion fails
+        }
+    });
+};
+
 window.DashboardUtils.formatGroupHeader = function(date) {
     const today = new Date().toDateString();
     const yesterday = new Date(Date.now() - 86400000).toDateString();
@@ -288,4 +308,6 @@ window.DashboardUtils.API_ENDPOINTS = {
     }
 };
 
-console.log('✅ Dashboard utilities loaded and available globally as window.DashboardUtils'); 
+console.log('✅ Dashboard utilities loaded and available globally as window.DashboardUtils');
+console.log('🔍 Testing convertZuluToLocal function:', typeof window.DashboardUtils.convertZuluToLocal);
+console.log('🧪 Sample conversion:', window.DashboardUtils.convertZuluToLocal('[2025-08-15T13:27:16.415Z] Test message')); 

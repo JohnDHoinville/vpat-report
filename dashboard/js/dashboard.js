@@ -687,7 +687,7 @@ window.dashboard = function() {
                                 <textarea id="test-notes" 
                                           rows="4" 
                                           placeholder="Enter detailed test notes, findings, and observations..."
-                                          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">${testInstance.notes || ''}</textarea>
+                                          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">${window.DashboardUtils.convertZuluToLocal(testInstance.notes || '')}</textarea>
                             </div>
                         </div>
                     </div>
@@ -10688,7 +10688,7 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                                 <textarea id="test-notes" 
                                           rows="4" 
                                           placeholder="Add detailed notes about the test results, findings, or observations..."
-                                          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">${testInstance.notes || ''}</textarea>
+                                          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">${window.DashboardUtils.convertZuluToLocal(testInstance.notes || '')}</textarea>
                             </div>
 
                             <div>

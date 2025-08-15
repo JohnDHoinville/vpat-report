@@ -5440,6 +5440,7 @@ class TestAutomationService {
      */
     async mapViolationsToTestInstances(violations, pageInstances, tool, pageUrl) {
         let updated = 0;
+        const updatedInstanceIds = new Set(); // Track which instances were updated with violations
 
         try {
             console.log(`🔍 DEBUG: Mapping ${violations.length} violations to ${pageInstances.length} test instances`);
@@ -5515,6 +5516,9 @@ class TestAutomationService {
                     await this.updateTestInstanceWithResult(instance.test_instance_id, result);
                     updated++;
                     
+                    // Track that this instance was updated with a violation
+                    updatedInstanceIds.add(instance.test_instance_id);
+                    
                     // Log automation change to audit trail
                     await this.logAutomationChange(instance.test_instance_id, tool, violation, result.status);
                     
@@ -5522,8 +5526,8 @@ class TestAutomationService {
                 }
             }
 
-            // Update all test instances for this page with automation status
-            const allInstancesUpdated = await this.updateAllTestInstancesForPage(pageInstances, tool, pageUrl, violations.length > 0);
+            // Update all test instances for this page with automation status, but skip ones with violations
+            const allInstancesUpdated = await this.updateAllTestInstancesForPage(pageInstances, tool, pageUrl, violations.length > 0, updatedInstanceIds);
             
             console.log(`✅ Mapped ${violations.length} violations to ${updated} test instances for ${pageUrl}`);
             console.log(`✅ Updated ${allInstancesUpdated} total test instances with automation status`);
@@ -5538,13 +5542,19 @@ class TestAutomationService {
     /**
      * Update all test instances for a page with automation status
      */
-    async updateAllTestInstancesForPage(pageInstances, tool, pageUrl, hasViolations) {
+    async updateAllTestInstancesForPage(pageInstances, tool, pageUrl, hasViolations, excludeInstanceIds = new Set()) {
         let updated = 0;
         
         try {
             console.log(`🔍 Updating all ${pageInstances.length} test instances for page ${pageUrl} with ${tool} automation status`);
             
             for (const instance of pageInstances) {
+                // Skip instances that were already updated with violations
+                if (excludeInstanceIds.has(instance.test_instance_id)) {
+                    console.log(`⏭️ Skipping test instance ${instance.test_instance_id} - already updated with violation result`);
+                    continue;
+                }
+                
                 // Check if this instance already has automation results
                 const existingResult = instance.result ? 
                     (typeof instance.result === 'string' ? JSON.parse(instance.result) : instance.result) : 
