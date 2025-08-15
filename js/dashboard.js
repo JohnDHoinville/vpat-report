@@ -1812,7 +1812,7 @@ ${requirement.failure_examples}
                 const requestData = {
                     target_mode: 'session',
                     target_ids: [],
-                    tools: ['axe-core'],
+                    tools: ['axe-core', 'pa11y', 'lighthouse', 'contrast-analyzer'],
                     run_async: false,
                     options: {
                         use_interactive_auth: true,
@@ -1867,6 +1867,54 @@ ${requirement.failure_examples}
             this.interactiveAuthError = null;
             this.interactiveAuthInProgress = false;
             this.interactiveAuthMessage = '';
+        },
+
+        async runInteractiveAuthForSession(session) {
+            try {
+                // Set the current session to the selected session
+                this.currentSession = session;
+                this.selectedTestSession = session;
+                
+                console.log('🔐 Starting interactive authentication for session:', session.id, session.name);
+
+                const requestData = {
+                    target_mode: 'session',
+                    target_ids: [],
+                    tools: ['axe-core', 'pa11y', 'lighthouse', 'contrast-analyzer'],
+                    run_async: false,
+                    options: {
+                        use_interactive_auth: true,
+                        preview_mode: false
+                    }
+                };
+
+                const response = await fetch(`${this.config.apiBaseUrl}/api/automated-testing/unified-run/${session.id}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...this.getAuthHeaders()
+                    },
+                    body: JSON.stringify(requestData)
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    // Show success notification
+                    this.showNotification('success', 'Interactive Authentication Started', 
+                        `A browser window has opened for "${session.name}". Please login manually and the tests will run automatically.`);
+                    
+                    console.log('✅ Interactive auth request sent successfully for session:', session.name, result);
+                } else {
+                    throw new Error(result.error || 'Authentication request failed');
+                }
+
+            } catch (error) {
+                console.error('❌ Interactive auth error for session:', session.name, error);
+                
+                this.showNotification('error', 'Authentication Failed', 
+                    `Failed to start authentication for "${session.name}": ${error.message}`);
+            }
         },
 
         async initAsync() {

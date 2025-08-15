@@ -11625,15 +11625,15 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                             // axe-core and pa11y format: details is an array of violations
                             const violations = pageData.details;
                             if (violations.length > 0) {
-                                totalViolations += violations.length;
+                        totalViolations += violations.length;
                                 html += `<div class="text-red-600 font-medium mb-1">❌ ${violations.length} Violation${violations.length > 1 ? 's' : ''}</div>
                                     <ul class="list-disc list-inside space-y-1 ml-2">`;
-                                
+                        
                                 violations.slice(0, 3).forEach(violation => {
-                                    const description = violation.description || violation.help || violation.message || violation.title || 'Accessibility violation';
-                                    html += `<li class="text-red-600 text-sm">${description}</li>`;
-                                });
-                                
+                            const description = violation.description || violation.help || violation.message || violation.title || 'Accessibility violation';
+                            html += `<li class="text-red-600 text-sm">${description}</li>`;
+                        });
+                        
                                 if (violations.length > 3) {
                                     html += `<li class="text-gray-500 italic text-sm">... and ${violations.length - 3} more</li>`;
                                 }

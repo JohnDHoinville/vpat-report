@@ -441,7 +441,7 @@ router.get('/session/:sessionId', async (req, res) => {
             // Default to WCAG AA
             whereCondition = `WHERE ur.standard_type = 'wcag' AND ur.level IN ('A', 'AA')`;
         }
-
+        
         // Get requirements with test instance statuses from unified_requirements (same table used in session creation)
         const result = await pool.query(`
             SELECT 

@@ -26,7 +26,7 @@ class TestAutomationService {
             createEvidence = true,
             maxPages = 100,
             userId,
-            clientMetadata = {}
+            executionOptions = {}
         } = options;
 
         const runId = uuidv4();
@@ -44,7 +44,7 @@ class TestAutomationService {
 
             if (runAsync) {
                 // Run tests in background
-                this.runTestsInBackground(runId, sessionId, tools, pagesToTest, updateTestInstances, createEvidence, userId, requirements, clientMetadata);
+                this.runTestsInBackground(runId, sessionId, tools, pagesToTest, updateTestInstances, createEvidence, userId, requirements, executionOptions);
                 
                 return {
                     run_id: runId,
@@ -54,7 +54,7 @@ class TestAutomationService {
                 };
             } else {
                 // Run tests synchronously
-                const results = await this.executeAutomatedTests(runId, sessionId, tools, pagesToTest, updateTestInstances, createEvidence, userId, requirements, clientMetadata);
+                const results = await this.executeAutomatedTests(runId, sessionId, tools, pagesToTest, updateTestInstances, createEvidence, userId, requirements, executionOptions);
                 return results;
             }
 
@@ -67,11 +67,11 @@ class TestAutomationService {
     /**
      * Run tests in background (async without blocking)
      */
-    runTestsInBackground(runId, sessionId, tools, pages, updateTestInstances, createEvidence, userId, requirements, clientMetadata) {
+    runTestsInBackground(runId, sessionId, tools, pages, updateTestInstances, createEvidence, userId, requirements, executionOptions) {
         // Execute tests asynchronously without blocking
         setImmediate(async () => {
             try {
-                await this.executeAutomatedTests(runId, sessionId, tools, pages, updateTestInstances, createEvidence, userId, requirements, clientMetadata);
+                await this.executeAutomatedTests(runId, sessionId, tools, pages, updateTestInstances, createEvidence, userId, requirements, executionOptions);
             } catch (error) {
                 console.error(`❌ Background test execution failed for run ${runId}:`, error);
                 // Update run status to failed
@@ -84,6 +84,10 @@ class TestAutomationService {
      * Execute automated tests
      */
     async executeAutomatedTests(runId, sessionId, tools, pages, updateTestInstances, createEvidence, userId, requirements = null, executionOptions = {}) {
+        // Extract interactive authentication flag from execution options
+        const useInteractiveAuth = executionOptions.use_interactive_auth === true;
+        console.log(`🔐 Interactive authentication mode: ${useInteractiveAuth ? 'ENABLED' : 'DISABLED'}`);
+        
         // Emit automation start via WebSocket
         this.emitProgress(sessionId, {
             percentage: 0,
@@ -151,7 +155,7 @@ class TestAutomationService {
                     new_value: 'in_process',
                     instances_affected: testInstancesMarked,
                     change_reason: 'automation_preparation',
-                    ...clientMetadata
+                    ...(executionOptions.clientMetadata || {})
                 }
             );
             
@@ -167,7 +171,7 @@ class TestAutomationService {
                     pages_to_test: pages.length,
                     test_instances_marked: testInstancesMarked,
                     estimated_duration: this.estimateTestDuration(tools, pages.length),
-                    ...clientMetadata
+                    ...(executionOptions.clientMetadata || {})
                 }
             );
             
@@ -201,39 +205,39 @@ class TestAutomationService {
                 switch (tool) {
                     case 'axe-core':
                     case 'axe': // Add support for 'axe' alias
-                        toolResults = await this.runAxe(pages, sessionId);
+                        toolResults = await this.runAxe(pages, sessionId, useInteractiveAuth);
                         results.axe = toolResults;
                         break;
                     case 'pa11y':
-                        toolResults = await this.runPa11y(pages, sessionId);
+                        toolResults = await this.runPa11y(pages, sessionId, useInteractiveAuth);
                         results.pa11y = toolResults;
                         break;
                     case 'lighthouse':
-                        toolResults = await this.runLighthouse(pages);
+                        toolResults = await this.runLighthouse(pages, useInteractiveAuth);
                         results.lighthouse = toolResults;
                         break;
                     case 'contrast-analyzer':
-                        toolResults = await this.runContrastAnalyzer(pages);
+                        toolResults = await this.runContrastAnalyzer(pages, useInteractiveAuth);
                         results['contrast-analyzer'] = toolResults;
                         break;
                     case 'mobile-accessibility':
-                        toolResults = await this.runMobileAccessibility(pages);
+                        toolResults = await this.runMobileAccessibility(pages, useInteractiveAuth);
                         results['mobile-accessibility'] = toolResults;
                         break;
                     case 'wave':
-                        toolResults = await this.runWaveApi(pages, sessionId);
+                        toolResults = await this.runWaveApi(pages, sessionId, useInteractiveAuth);
                         results.wave = toolResults;
                         break;
                     case 'form-accessibility':
-                        toolResults = await this.runFormAccessibilityTester(pages, sessionId);
+                        toolResults = await this.runFormAccessibilityTester(pages, sessionId, useInteractiveAuth);
                         results['formaccessibility'] = toolResults;
                         break;
                     case 'heading-structure':
-                        toolResults = await this.runHeadingStructureAnalyzer(pages, sessionId);
+                        toolResults = await this.runHeadingStructureAnalyzer(pages, sessionId, useInteractiveAuth);
                         results['heading-structure'] = toolResults;
                         break;
                     case 'aria-testing':
-                        toolResults = await this.runAriaTestingAnalyzer(pages, sessionId);
+                        toolResults = await this.runAriaTestingAnalyzer(pages, sessionId, useInteractiveAuth);
                         results['aria-testing'] = toolResults;
                         break;
                 }
@@ -291,7 +295,7 @@ class TestAutomationService {
                         critical_violations: criticalIssues,
                         pages_tested: pages.length,
                         time_elapsed_ms: Date.now() - startTime.getTime(),
-                        ...clientMetadata
+                        ...(executionOptions.clientMetadata || {})
                     }
                 );
                 
@@ -378,7 +382,7 @@ class TestAutomationService {
                             evidence_types: ['violation_details', 'passing_rules', 'dom_selectors', 'remediation_steps'],
                             tools_providing_evidence: tools
                         },
-                        ...clientMetadata
+                        ...(executionOptions.clientMetadata || {})
                     }
                 );
             }
@@ -401,7 +405,7 @@ class TestAutomationService {
                             evidence_type: 'automated_result',
                             tools_used: tools,
                             change_reason: 'automation_evidence_generation',
-                            ...clientMetadata
+                            ...(executionOptions.clientMetadata || {})
                         }
                     );
                 }
@@ -445,7 +449,7 @@ class TestAutomationService {
                     test_instances_updated: testInstancesUpdated,
                     evidence_files_created: evidenceCreated,
                     final_status: 'completed',
-                    ...clientMetadata
+                    ...(executionOptions.clientMetadata || {})
                 }
             );
             
@@ -499,7 +503,7 @@ class TestAutomationService {
                     tools_attempted: tools,
                     pages_attempted: pages.length,
                     final_status: 'failed',
-                    ...clientMetadata
+                    ...(executionOptions.clientMetadata || {})
                 }
             );
             
@@ -4949,6 +4953,140 @@ class TestAutomationService {
     }
 
     /**
+     * Run Axe-core against multiple pages
+     */
+    async runAxe(pages, sessionId, useInteractiveAuth = false) {
+        const results = {};
+        
+        for (const page of pages) {
+            try {
+                // Get test instances for this page
+                const pageInstances = await this.getTestInstancesForPage(sessionId, page.page_id);
+                
+                const pageResults = await this.runAxeAgainstPage(page.url, pageInstances, useInteractiveAuth);
+                if (pageResults) {
+                    results[page.url] = pageResults;
+                }
+            } catch (error) {
+                console.error(`❌ Error running Axe against ${page.url}:`, error);
+                results[page.url] = { error: error.message };
+            }
+        }
+        
+        return results;
+    }
+
+    /**
+     * Run Pa11y against multiple pages
+     */
+    async runPa11y(pages, sessionId, useInteractiveAuth = false) {
+        const results = {};
+        
+        for (const page of pages) {
+            try {
+                // Get test instances for this page
+                const pageInstances = await this.getTestInstancesForPage(sessionId, page.page_id);
+                
+                const pageResults = await this.runPa11yAgainstPage(page.url, pageInstances, useInteractiveAuth);
+                if (pageResults) {
+                    results[page.url] = pageResults;
+                }
+            } catch (error) {
+                console.error(`❌ Error running Pa11y against ${page.url}:`, error);
+                results[page.url] = { error: error.message };
+            }
+        }
+        
+        return results;
+    }
+
+    /**
+     * Run Lighthouse against multiple pages
+     */
+    async runLighthouse(pages, useInteractiveAuth = false) {
+        const results = {};
+        
+        for (const page of pages) {
+            try {
+                // Get test instances for this page - need sessionId from page info
+                const pageInstances = page.test_instances || [];
+                
+                const pageResults = await this.runLighthouseAgainstPage(page.url, pageInstances, useInteractiveAuth);
+                if (pageResults) {
+                    results[page.url] = pageResults;
+                }
+            } catch (error) {
+                console.error(`❌ Error running Lighthouse against ${page.url}:`, error);
+                results[page.url] = { error: error.message };
+            }
+        }
+        
+        return results;
+    }
+
+    /**
+     * Run Contrast Analyzer against multiple pages
+     */
+    async runContrastAnalyzer(pages, useInteractiveAuth = false) {
+        const results = {};
+        
+        for (const page of pages) {
+            try {
+                // Get test instances for this page
+                const pageInstances = page.test_instances || [];
+                
+                const pageResults = await this.runContrastAnalyzerAgainstPage(page.url, pageInstances, useInteractiveAuth);
+                if (pageResults) {
+                    results[page.url] = pageResults;
+                }
+            } catch (error) {
+                console.error(`❌ Error running Contrast Analyzer against ${page.url}:`, error);
+                results[page.url] = { error: error.message };
+            }
+        }
+        
+        return results;
+    }
+
+    /**
+     * Get test instances for a specific page
+     */
+    async getTestInstancesForPage(sessionId, pageId) {
+        try {
+            const query = `
+                SELECT ti.*, ur.criterion_number, ts.id as session_id
+                FROM test_instances ti
+                JOIN unified_requirements ur ON ti.requirement_id = ur.id
+                JOIN test_sessions ts ON ti.session_id = ts.id
+                WHERE ti.session_id = $1 AND ti.page_id = $2
+                ORDER BY ur.criterion_number
+            `;
+            const result = await pool.query(query, [sessionId, pageId]);
+            console.log(`📋 Found ${result.rows.length} test instances for page ${pageId} in session ${sessionId}`);
+            return result.rows;
+        } catch (error) {
+            console.error(`❌ Error fetching test instances for page ${pageId}:`, error);
+            
+            // Fallback: try to get test instances without the join to unified_requirements
+            try {
+                console.log(`🔄 Trying fallback query without unified_requirements join...`);
+                const fallbackQuery = `
+                    SELECT ti.*, ts.id as session_id
+                    FROM test_instances ti
+                    JOIN test_sessions ts ON ti.session_id = ts.id
+                    WHERE ti.session_id = $1 AND ti.page_id = $2
+                `;
+                const fallbackResult = await pool.query(fallbackQuery, [sessionId, pageId]);
+                console.log(`📋 Fallback: Found ${fallbackResult.rows.length} test instances for page ${pageId} in session ${sessionId}`);
+                return fallbackResult.rows;
+            } catch (fallbackError) {
+                console.error(`❌ Fallback query also failed:`, fallbackError);
+                return [];
+            }
+        }
+    }
+
+    /**
      * Run Axe-core against a specific page
      */
     async runAxeAgainstPage(pageUrl, pageInstances, useInteractiveAuth = false) {
@@ -5153,17 +5291,17 @@ class TestAutomationService {
             console.log(`🌐 Navigating to: ${loginUrl}`);
             await page.goto(loginUrl, { waitUntil: 'networkidle' });
             
-            // Display instructions to user
+            // Display instructions to user (like crawler does)
             console.log(`\n🔐 INTERACTIVE AUTHENTICATION MODE`);
             console.log(`================================================`);
             console.log(`📱 A browser window has opened for manual login`);
             console.log(`👤 Please complete the following steps:`);
-            console.log(`   1. Log in using your credentials`);
-            console.log(`   2. Navigate to any protected page to verify access`);
-            console.log(`   3. Press ENTER in this terminal when login is complete`);
+            console.log(`   1. Log in using your credentials in the browser window`);
+            console.log(`   2. Press ENTER in this terminal when login is complete`);
+            console.log(`   3. DO NOT close the browser - it will close automatically`);
             console.log(`================================================\n`);
             
-            // Wait for user confirmation
+            // Wait for user to complete login manually
             await this.waitForUserInput("Press ENTER after completing login...");
             
             // Capture the authentication state
