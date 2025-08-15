@@ -1515,19 +1515,10 @@ class TestAutomationService {
         let updatedCount = 0;
 
         try {
-            // Debug the results structure
-            console.log(`🔍 DEBUG: Mapping results to test instances for session ${sessionId}`);
-            console.log(`🔍 DEBUG: Results structure:`, {
-                keys: Object.keys(results),
-                hasAxe: !!results.axe,
-                hasPa11y: !!results.pa11y,
-                hasLighthouse: !!results.lighthouse,
-                axeType: results.axe ? typeof results.axe : 'none',
-                pa11yType: results.pa11y ? typeof results.pa11y : 'none',
-                lighthouseType: results.lighthouse ? typeof results.lighthouse : 'none'
-            });
+            console.log(`🔍 DEBUG: Mapping specific violations to WCAG criteria for session ${sessionId}`);
+            console.log(`🔍 DEBUG: Available tools:`, Object.keys(results));
 
-            // Get test instances for this session
+            // Get all test instances for this session
             const instancesQuery = `
                 SELECT ti.*, ur.requirement_id as criterion_number, ur.level, ur.test_method
                 FROM test_instances ti
@@ -1538,26 +1529,61 @@ class TestAutomationService {
 
             const instancesResult = await pool.query(instancesQuery, [sessionId]);
             const testInstances = instancesResult.rows;
-            console.log(`🔍 DEBUG: Found ${testInstances.length} test instances to potentially update`);
+            console.log(`🔍 DEBUG: Found ${testInstances.length} automated test instances`);
 
-            for (const instance of testInstances) {
-                const mappedResults = this.mapResultToRequirement(instance, results);
+            // Process each tool's results
+            for (const [toolKey, toolResults] of Object.entries(results)) {
+                if (!toolResults || typeof toolResults !== 'object') {
+                    console.log(`🔍 DEBUG: Skipping ${toolKey} - no valid results`);
+                    continue;
+                }
+
+                console.log(`🔧 Processing ${toolKey} results...`);
                 
-                console.log(`🔍 DEBUG: Instance ${instance.id} mapped results:`, {
-                    shouldUpdate: mappedResults.shouldUpdate,
-                    totalViolations: mappedResults.totalViolations || 0
-                });
-                
-                if (mappedResults.shouldUpdate) {
-                    await this.updateTestInstanceFromAutomation(instance.id, mappedResults, userId);
-                    updatedCount++;
-                    console.log(`🔍 DEBUG: ✅ Updated test instance ${instance.id}`);
-                } else {
-                    console.log(`🔍 DEBUG: ❌ Skipped test instance ${instance.id} - shouldUpdate = false`);
+                // Extract violations from tool results by page
+                if (toolResults.violations_by_page) {
+                    for (const [pageUrl, pageData] of Object.entries(toolResults.violations_by_page)) {
+                        console.log(`📄 Processing violations for page: ${pageUrl}`);
+                        
+                        // Extract violations based on tool format
+                        let violations = [];
+                        
+                        if (pageData.details && Array.isArray(pageData.details)) {
+                            // axe-core and pa11y format: details is array of violations
+                            violations = pageData.details;
+                        } else if (pageData.details && typeof pageData.details === 'object') {
+                            // lighthouse format: details is object of audit results
+                            violations = Object.entries(pageData.details)
+                                .filter(([auditId, audit]) => audit.score === 0) // Failed audits
+                                .map(([auditId, audit]) => ({
+                                    id: auditId,
+                                    title: audit.title,
+                                    description: audit.description,
+                                    impact: 'moderate' // Default impact for lighthouse
+                                }));
+                        }
+
+                        if (violations.length > 0) {
+                            console.log(`🔍 Found ${violations.length} violations from ${toolKey} on ${pageUrl}`);
+                            
+                            // Map violations to specific WCAG criteria test instances
+                            const mappingResult = await this.mapViolationsToTestInstances(
+                                violations,
+                                testInstances,
+                                toolKey === 'axe' ? 'axe-core' : toolKey,
+                                pageUrl
+                            );
+                            
+                            updatedCount += mappingResult.updated;
+                            console.log(`✅ Mapped ${mappingResult.violations} ${toolKey} violations to ${mappingResult.updated} test instances`);
+                        } else {
+                            console.log(`✅ No violations found from ${toolKey} on ${pageUrl}`);
+                        }
+                    }
                 }
             }
 
-            console.log(`📊 Updated ${updatedCount} test instances from automation results`);
+            console.log(`📊 Total updated: ${updatedCount} test instances from specific violation mapping`);
             return updatedCount;
 
         } catch (error) {
@@ -5604,7 +5630,7 @@ class TestAutomationService {
     }
 
     /**
-     * Map Axe violation to WCAG criteria
+     * Map axe-core violations to WCAG criteria
      */
     mapAxeViolationToWcag(violation) {
         const axeToWcagMapping = {
@@ -5626,7 +5652,8 @@ class TestAutomationService {
             'keyboard': ['2.1.1'],
             'focus-order-semantics': ['2.4.3'],
             'bypass': ['2.4.1'],
-            'meta-viewport': ['1.3.4', '1.4.4']
+            'meta-viewport': ['1.3.4', '1.4.4'],
+            'page-has-heading-one': ['2.4.6']
         };
 
         const ruleId = violation.id || violation.rule;
@@ -5634,7 +5661,7 @@ class TestAutomationService {
     }
 
     /**
-     * Map Pa11y violation to WCAG criteria
+     * Map pa11y violations to WCAG criteria
      */
     mapPa11yViolationToWcag(violation) {
         const code = violation.code || '';
@@ -5649,629 +5676,35 @@ class TestAutomationService {
     }
 
     /**
-     * Map Contrast Analyzer violation to WCAG criteria
+     * Map lighthouse violations to WCAG criteria
+     */
+    mapLighthouseViolationToWcag(violation) {
+        const lighthouseToWcagMapping = {
+            'document-title': ['2.4.2'],
+            'html-has-lang': ['3.1.1'],
+            'html-lang-valid': ['3.1.1'],
+            'image-alt': ['1.1.1'],
+            'label': ['3.3.2'],
+            'link-name': ['2.4.4'],
+            'list': ['1.3.1'],
+            'listitem': ['1.3.1'],
+            'meta-viewport': ['1.3.4'],
+            'color-contrast': ['1.4.3'],
+            'heading-order': ['2.4.6'],
+            'bypass': ['2.4.1']
+        };
+
+        const auditId = violation.id;
+        return lighthouseToWcagMapping[auditId] || [];
+    }
+
+    /**
+     * Map contrast analyzer violations to WCAG criteria
      */
     mapContrastAnalyzerViolationToWcag(violation) {
-        // Map contrast analyzer violations to WCAG criteria
-        const contrastToWcagMapping = {
-            'insufficient-contrast': ['1.4.3'], // Contrast (Minimum) - AA level
-            'insufficient-contrast-aaa': ['1.4.6'], // Contrast (Enhanced) - AAA level
-            'non-text-contrast': ['1.4.11'], // Non-text Contrast
-            'color-alone': ['1.4.1'], // Use of Color
-            'gradient-contrast': ['1.4.3', '1.4.11'], // Gradients and backgrounds
-            'background-image-contrast': ['1.4.3', '1.4.11'] // Background images
-        };
-
-        const violationType = violation.type || violation.violation_type || violation.rule;
-        return contrastToWcagMapping[violationType] || ['1.4.3']; // Default to 1.4.3 if unknown
-    }
-
-    mapLighthouseViolationToWcag(violation) {
-        // Map Lighthouse audit IDs to WCAG criteria
-        const lighthouseToWcagMapping = {
-            'document-title': '2.4.2',
-            'html-has-lang': '3.1.1',
-            'html-lang-valid': '3.1.1',
-            'image-alt': '1.1.1',
-            'label': '3.3.2',
-            'link-name': '2.4.4',
-            'list': '1.3.1',
-            'listitem': '1.3.1',
-            'meta-viewport': '1.3.4',
-            'object-alt': '1.1.1',
-            'video-caption': '1.2.2',
-            'video-description': '1.2.3',
-            'bypass': '2.4.1',
-            'color-contrast': '1.4.3',
-            'focus-order-semantics': '2.4.3',
-            'heading-order': '1.3.1',
-            'input-image-alt': '1.1.1',
-            'landmark-one-main': '1.3.1',
-            'page-has-heading-one': '2.4.6',
-            'region': '1.3.1',
-            'skip-link': '2.4.1',
-            'tabindex': '2.4.3',
-            'td-headers-attr': '1.3.1',
-            'th-has-data-cells': '1.3.1',
-            'valid-lang': '3.1.2',
-            'video-audio-caption': '1.2.2',
-            'aria-allowed-attr': '4.1.2',
-            'aria-allowed-role': '4.1.2',
-            'aria-hidden-body': '4.1.2',
-            'aria-hidden-focus': '4.1.2',
-            'aria-input-field-name': '4.1.2',
-            'aria-required-attr': '4.1.2',
-            'aria-required-children': '4.1.2',
-            'aria-required-parent': '4.1.2',
-            'aria-roles': '4.1.2',
-            'aria-valid-attr-value': '4.1.2',
-            'aria-valid-attr': '4.1.2',
-            'button-name': '4.1.2',
-            'duplicate-id-active': '4.1.1',
-            'duplicate-id-aria': '4.1.1',
-            'form-field-multiple-labels': '3.3.2',
-            'frame-title': '2.4.1',
-            'input-button-name': '4.1.2',
-            'layout-table': '1.3.1',
-            'meta-refresh': '2.2.1',
-            'presentation-role-conflict': '1.3.1',
-            'scope-attr-valid': '1.3.1',
-            'server-side-image-map': '1.1.1',
-            'td-has-header': '1.3.1',
-            'use-landmarks': '1.3.1'
-        };
-
-        return lighthouseToWcagMapping[violation.id] || [];
-    }
-
-    /**
-     * Update test instance with automation result - STORES PAGE-SPECIFIC RESULTS
-     */
-    async updateTestInstanceWithResult(testInstanceId, result) {
-        try {
-            const query = `
-                UPDATE test_instances 
-                SET 
-                    result = $2,
-                    status = $3,
-                    automated_result_id = $4,
-                    updated_at = CURRENT_TIMESTAMP
-                WHERE id = $1
-            `;
-            
-            await pool.query(query, [
-                testInstanceId,
-                JSON.stringify(result),
-                result.status,
-                result.id || result.automated_result_id
-            ]);
-
-            // Also update the automated test result to link back to the test instance
-            if (result.id || result.automated_result_id) {
-                const automatedResultId = result.id || result.automated_result_id;
-                const linkQuery = `
-                    UPDATE automated_test_results 
-                    SET test_instance_id = $1
-                    WHERE id = $2
-                `;
-                await pool.query(linkQuery, [testInstanceId, automatedResultId]);
-            }
-
-        } catch (error) {
-            console.error(`❌ Error updating test instance ${testInstanceId}:`, error);
-            throw error;
-        }
-    }
-
-    /**
-     * Create page-specific evidence file - ONE FILE PER PAGE PER TOOL
-     */
-    async createPageSpecificEvidenceFile(tool, pageUrl, pageId, violations, sessionId, runId) {
-        try {
-            // Create filename with page identifier
-            const urlSlug = pageUrl.replace(/[^a-zA-Z0-9]/g, '-').replace(/-+/g, '-').toLowerCase();
-            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-            const filename = `${tool}-${urlSlug}-${timestamp}.json`;
-            
-            const evidenceData = {
-                tool: tool,
-                pageUrl: pageUrl,
-                pageId: pageId,
-                sessionId: sessionId,
-                runId: runId,
-                timestamp: new Date().toISOString(),
-                violations: violations,
-                violationCount: violations.length
-            };
-
-            // Ensure reports directory exists
-            const reportsDir = path.join(process.cwd(), 'reports', 'individual-tests');
-            if (!fs.existsSync(reportsDir)) {
-                fs.mkdirSync(reportsDir, { recursive: true });
-            }
-
-            const filePath = path.join(reportsDir, filename);
-            fs.writeFileSync(filePath, JSON.stringify(evidenceData, null, 2));
-            
-            console.log(`📄 Created page-specific evidence file: ${filename}`);
-            return filename;
-
-        } catch (error) {
-            console.error('❌ Error creating page-specific evidence file:', error);
-            return null;
-        }
-    }
-
-    /**
-     * Run PER-INSTANCE automated tests for a testing session
-     * This is the CORRECT approach that tests each page × WCAG criterion combination individually
-     */
-    async runPerInstanceAutomatedTests(sessionId, options = {}) {
-        console.log(`🚀 ENTERED runPerInstanceAutomatedTests with sessionId: ${sessionId}, options:`, options);
-        
-        const {
-            tools = ['axe-core', 'pa11y'],
-            runAsync = true,
-            specificInstances = null,
-            batchSize = 10,
-            userId,
-            clientMetadata = {}
-        } = options;
-
-        const runId = uuidv4();
-        
-        console.log(`🎯 Starting PER-INSTANCE automation run ${runId} for session ${sessionId}`);
-
-        try {
-            // Get test instances to run
-            const testInstances = await this.getTestInstancesToRun(sessionId, specificInstances);
-            
-            console.log(`📋 Running tests for ${testInstances.length} test instances with tools: ${tools.join(', ')}`);
-
-            // Create automation run record
-            const runData = await this.createAutomationRun(sessionId, runId, tools, userId);
-
-            // Create automated test results entries for the worker to pick up
-            console.log(`🔧 DEBUG: About to create automated test results for session ${sessionId}`);
-            const testResultsCreated = await this.createAutomatedTestResultsForSession(sessionId, tools, specificInstances);
-            console.log(`✅ DEBUG: Created automated test results: ${testResultsCreated}`);
-
-            if (runAsync) {
-                // Run per-instance tests in background
-                this.runPerInstanceTestsInBackground(runId, sessionId, tools, testInstances, batchSize, userId, clientMetadata);
-                
-                return {
-                    run_id: runId,
-                    totalInstances: testInstances.length,
-                    batchCount: Math.ceil(testInstances.length / batchSize),
-                    tools,
-                    status: 'started'
-                };
-            } else {
-                // Run synchronously (for testing/debugging)
-                const results = await this.executePerInstanceTests(runId, sessionId, tools, testInstances, batchSize, userId, clientMetadata);
-                return {
-                    run_id: runId,
-                    totalInstances: testInstances.length,
-                    results,
-                    status: 'completed'
-                };
-            }
-
-        } catch (error) {
-            console.error(`❌ Failed to start per-instance automation run ${runId}:`, error);
-            await this.updateRunStatus(runId, 'failed', { error: error.message });
-            throw error;
-        }
-    }
-
-    /**
-     * Create automated test results entries for a session
-     */
-    async createAutomatedTestResultsForSession(sessionId, tools, specificInstances = null) {
-        try {
-            console.log(`📝 Creating automated test results for session: ${sessionId} with tools: ${tools.join(', ')}`);
-
-            if (specificInstances && Array.isArray(specificInstances)) {
-                console.log(`🎯 Filtering to specific instances: ${specificInstances.join(', ')}`);
-            }
-
-            // Get automated test instances that are pending (optionally filtered by specific instances)
-            let automatedTestInstancesQuery;
-            let queryParams;
-
-            if (specificInstances && Array.isArray(specificInstances)) {
-                // Filter by specific test instances
-                automatedTestInstancesQuery = `
-                    SELECT 
-                        ti.id as test_instance_id,
-                        ti.page_id,
-                        ti.requirement_id,
-                        ti.test_method_used,
-                        dp.url,
-                        ur.requirement_id as criterion_number,
-                        ur.title as requirement_title,
-                        ur.test_method as requirement_test_method
-                    FROM test_instances ti
-                    JOIN discovered_pages dp ON ti.page_id = dp.id
-                    JOIN unified_requirements ur ON ti.requirement_id = ur.id
-                    WHERE ti.session_id = $1 
-                    AND ti.id = ANY($2)
-                    AND ti.status = 'pending'
-                    AND ti.test_method_used IN ('automated', 'hybrid')
-                    ORDER BY dp.url, ur.requirement_id
-                `;
-                queryParams = [sessionId, specificInstances];
-            } else {
-            // Get ALL automated test instances that are pending
-                automatedTestInstancesQuery = `
-                SELECT 
-                    ti.id as test_instance_id,
-                    ti.page_id,
-                    ti.requirement_id,
-                    ti.test_method_used,
-                    dp.url,
-                    ur.requirement_id as criterion_number,
-                    ur.title as requirement_title,
-                    ur.test_method as requirement_test_method
-                FROM test_instances ti
-                JOIN discovered_pages dp ON ti.page_id = dp.id
-                JOIN unified_requirements ur ON ti.requirement_id = ur.id
-                WHERE ti.session_id = $1 
-                AND ti.status = 'pending'
-                AND ti.test_method_used IN ('automated', 'hybrid')
-                ORDER BY dp.url, ur.requirement_id
-            `;
-                queryParams = [sessionId];
-            }
-
-            const automatedTestInstances = await pool.query(automatedTestInstancesQuery, queryParams);
-            console.log(`📄 Found ${automatedTestInstances.rows.length} automated test instances to process`);
-
-            // Create pending automated test results for each test instance and appropriate tools
-            let createdCount = 0;
-            for (const testInstance of automatedTestInstances.rows) {
-                // Determine which tools can test this specific requirement
-                const applicableTools = this.getApplicableToolsForRequirement(testInstance.criterion_number, tools);
-                
-                for (const tool of applicableTools) {
-                    const insertQuery = `
-                        INSERT INTO automated_test_results (
-                            test_session_id, page_id, tool_name, status, 
-                            started_at, test_instance_id
-                        ) VALUES ($1, $2, $3, 'pending', CURRENT_TIMESTAMP, $4)
-                        ON CONFLICT (test_session_id, page_id, tool_name) 
-                        DO UPDATE SET 
-                            status = 'pending',
-                            started_at = CURRENT_TIMESTAMP,
-                            test_instance_id = $4
-                    `;
-
-                    await pool.query(insertQuery, [sessionId, testInstance.page_id, tool, testInstance.test_instance_id]);
-                    createdCount++;
-                }
-            }
-
-            console.log(`✅ Created ${createdCount} automated test results for ${automatedTestInstances.rows.length} test instances`);
-            
-            // Verify entries were actually created
-            const verifyQuery = `SELECT COUNT(*) as count FROM automated_test_results WHERE test_session_id = $1 AND status = 'pending'`;
-            const verifyResult = await pool.query(verifyQuery, [sessionId]);
-            const actualCount = parseInt(verifyResult.rows[0].count);
-            
-            if (actualCount === 0) {
-                throw new Error(`Failed to create automated test results - no pending entries found after creation`);
-            }
-            
-            console.log(`🔍 VERIFICATION: ${actualCount} pending automated test results confirmed in database`);
-            return actualCount;
-
-        } catch (error) {
-            console.error('❌ Error creating automated test results:', error);
-            // Log additional debug info
-            try {
-                const debugQuery = `SELECT COUNT(*) as total_instances, COUNT(DISTINCT page_id) as unique_pages FROM test_instances WHERE session_id = $1 AND status = 'pending'`;
-                const debugResult = await pool.query(debugQuery, [sessionId]);
-                console.error(`🔍 DEBUG INFO: Session ${sessionId} has ${debugResult.rows[0].total_instances} pending instances across ${debugResult.rows[0].unique_pages} unique pages`);
-            } catch (debugError) {
-                console.error('Failed to get debug info:', debugError);
-            }
-            throw error;
-        }
-    }
-
-    /**
-     * Determine which tools can test a specific WCAG requirement
-     */
-    getApplicableToolsForRequirement(criterionNumber, availableTools) {
-        // Map WCAG criteria to applicable tools
-        const toolMapping = {
-            // Text alternatives
-            '1.1.1': ['axe-core', 'pa11y', 'lighthouse'], // Non-text Content
-            
-            // Page structure
-            '1.3.1': ['axe-core', 'pa11y', 'lighthouse'], // Info and Relationships
-            '1.3.4': ['axe-core', 'pa11y', 'lighthouse'], // Orientation
-            '1.3.5': ['axe-core', 'pa11y', 'lighthouse'], // Identify Input Purpose
-            
-            // Color and contrast
-            '1.4.1': ['axe-core', 'pa11y', 'lighthouse', 'contrast-analyzer'], // Use of Color
-            '1.4.2': ['axe-core', 'pa11y', 'lighthouse'], // Audio Control
-            '1.4.3': ['contrast-analyzer', 'axe-core', 'pa11y', 'lighthouse'], // Contrast (Minimum) - PRIMARY: contrast-analyzer
-            '1.4.4': ['axe-core', 'pa11y', 'lighthouse'], // Resize Text
-            '1.4.5': ['axe-core', 'pa11y', 'lighthouse'], // Images of Text
-            '1.4.6': ['contrast-analyzer', 'axe-core', 'pa11y', 'lighthouse'], // Contrast (Enhanced) - PRIMARY: contrast-analyzer
-            '1.4.10': ['axe-core', 'pa11y', 'lighthouse'], // Reflow
-            '1.4.11': ['contrast-analyzer', 'axe-core', 'pa11y', 'lighthouse'], // Non-text Contrast - PRIMARY: contrast-analyzer
-            '1.4.12': ['axe-core', 'pa11y', 'lighthouse'], // Text Spacing
-            '1.4.13': ['axe-core', 'pa11y', 'lighthouse'], // Content on Hover or Focus
-            
-            // Keyboard and navigation
-            '2.1.1': ['axe-core', 'pa11y'], // Keyboard
-            '2.1.2': ['axe-core', 'pa11y'], // No Keyboard Trap
-            '2.1.4': ['axe-core', 'pa11y'], // Character Key Shortcuts
-            '2.2.1': ['axe-core', 'pa11y'], // Timing Adjustable
-            '2.2.2': ['axe-core', 'pa11y'], // Pause, Stop, Hide
-            '2.3.1': ['axe-core', 'pa11y'], // Three Flashes or Below Threshold
-            '2.4.1': ['axe-core', 'pa11y'], // Bypass Blocks
-            '2.4.2': ['axe-core', 'pa11y', 'lighthouse'], // Page Titled
-            '2.4.3': ['axe-core', 'pa11y'], // Focus Order
-            '2.4.4': ['axe-core', 'pa11y'], // Link Purpose
-            '2.4.5': ['axe-core', 'pa11y'], // Multiple Ways
-            '2.4.6': ['axe-core', 'pa11y'], // Headings and Labels
-            '2.4.7': ['axe-core', 'pa11y'], // Focus Visible
-            
-            // Pointer and motion
-            '2.5.1': ['axe-core', 'pa11y'], // Pointer Gestures
-            '2.5.2': ['axe-core', 'pa11y'], // Pointer Cancellation
-            '2.5.3': ['axe-core', 'pa11y'], // Label in Name
-            '2.5.4': ['axe-core', 'pa11y'], // Motion Actuation
-            
-            // Language
-            '3.1.1': ['axe-core', 'pa11y', 'lighthouse'], // Language of Page
-            '3.1.2': ['axe-core', 'pa11y', 'lighthouse'], // Language of Parts
-            
-            // Predictable
-            '3.2.1': ['axe-core', 'pa11y'], // On Focus
-            '3.2.2': ['axe-core', 'pa11y'], // On Input
-            '3.2.3': ['axe-core', 'pa11y'], // Consistent Navigation
-            '3.2.4': ['axe-core', 'pa11y'], // Consistent Identification
-            
-            // Input assistance
-            '3.3.1': ['axe-core', 'pa11y'], // Error Identification
-            '3.3.2': ['axe-core', 'pa11y'], // Labels or Instructions
-            '3.3.3': ['axe-core', 'pa11y'], // Error Suggestion
-            '3.3.4': ['axe-core', 'pa11y'], // Error Prevention
-            
-            // Robust
-            '4.1.1': ['axe-core', 'pa11y'], // Parsing
-            '4.1.2': ['axe-core', 'pa11y'], // Name, Role, Value
-            '4.1.3': ['axe-core', 'pa11y'], // Status Messages
-        };
-
-        // Get applicable tools for this criterion, or use all available tools as fallback
-        const applicableTools = toolMapping[criterionNumber] || availableTools;
-        
-        // Filter to only include tools that are available
-        return applicableTools.filter(tool => availableTools.includes(tool));
-    }
-
-    /**
-     * Parse individual violations from tool results and store in violations table
-     */
-    async parseAndStoreViolations(automatedResultId, tool, toolResults) {
-        try {
-            console.log(`🔍 Parsing individual violations for ${tool} result ${automatedResultId}`);
-            
-            let violations = [];
-            
-            // Parse violations based on tool format
-            if (tool === 'axe-core') {
-                violations = this.parseAxeViolations(toolResults);
-            } else if (tool === 'pa11y') {
-                violations = this.parsePa11yViolations(toolResults);
-            } else if (tool === 'lighthouse') {
-                violations = this.parseLighthouseViolations(toolResults);
-            }
-            
-            console.log(`📝 Found ${violations.length} individual violations to store for ${tool}`);
-            
-            // Store each violation in the database
-            for (const violation of violations) {
-                await this.storeIndividualViolation(automatedResultId, violation);
-            }
-            
-            console.log(`✅ Stored ${violations.length} individual violations for ${tool}`);
-            
-        } catch (error) {
-            console.error(`❌ Error parsing violations for ${tool}:`, error);
-        }
-    }
-
-    /**
-     * Parse Axe-core violations
-     */
-    parseAxeViolations(toolResults) {
-        const violations = [];
-        
-        if (toolResults.violations_by_page) {
-            Object.values(toolResults.violations_by_page).forEach(pageData => {
-                if (pageData.details && Array.isArray(pageData.details)) {
-                    pageData.details.forEach(violation => {
-                        violations.push({
-                            violation_type: violation.id || 'unknown',
-                            severity: this.mapAxeSeverity(violation.impact),
-                            wcag_criterion: this.extractWcagCriterion(violation.tags),
-                            element_selector: this.extractElementSelector(violation.nodes),
-                            element_html: this.extractElementHtml(violation.nodes),
-                            description: violation.description || violation.help,
-                            remediation_guidance: violation.help,
-                            help_url: violation.helpUrl
-                        });
-                    });
-                }
-            });
-        }
-        
-        return violations;
-    }
-
-    /**
-     * Parse Pa11y violations
-     */
-    parsePa11yViolations(toolResults) {
-        const violations = [];
-        
-        if (toolResults.violations_by_page) {
-            Object.values(toolResults.violations_by_page).forEach(pageData => {
-                if (pageData.details && Array.isArray(pageData.details)) {
-                    pageData.details.forEach(violation => {
-                        violations.push({
-                            violation_type: violation.code || 'pa11y-issue',
-                            severity: this.mapPa11ySeverity(violation.type),
-                            wcag_criterion: this.extractWcagFromPa11y(violation.code),
-                            element_selector: violation.selector,
-                            element_html: violation.context,
-                            description: violation.message,
-                            remediation_guidance: `Pa11y issue: ${violation.type}`,
-                            help_url: null
-                        });
-                    });
-                }
-            });
-        }
-        
-        return violations;
-    }
-
-    /**
-     * Parse Lighthouse violations
-     */
-    parseLighthouseViolations(toolResults) {
-        const violations = [];
-        
-        if (toolResults.violations_by_page) {
-            Object.values(toolResults.violations_by_page).forEach(pageData => {
-                if (pageData.details && typeof pageData.details === 'object') {
-                    // Lighthouse results have different structure
-                    Object.entries(pageData.details).forEach(([auditId, auditResult]) => {
-                        if (auditResult.score !== null && auditResult.score < 1) {
-                            violations.push({
-                                violation_type: auditId,
-                                severity: 'moderate',
-                                wcag_criterion: this.mapLighthouseToWcag(auditId),
-                                element_selector: null,
-                                element_html: null,
-                                description: auditResult.title || auditId,
-                                remediation_guidance: auditResult.description,
-                                help_url: null
-                            });
-                        }
-                    });
-                }
-            });
-        }
-        
-        return violations;
-    }
-
-    /**
-     * Store individual violation in database
-     */
-    async storeIndividualViolation(automatedResultId, violation) {
-        const query = `
-            INSERT INTO violations 
-            (automated_result_id, violation_type, severity, wcag_criterion, 
-             element_selector, element_html, description, remediation_guidance, help_url)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-        `;
-        
-        await pool.query(query, [
-            automatedResultId,
-            violation.violation_type,
-            violation.severity,
-            violation.wcag_criterion,
-            violation.element_selector,
-            violation.element_html,
-            violation.description,
-            violation.remediation_guidance,
-            violation.help_url
-        ]);
-    }
-
-    /**
-     * Helper methods for parsing violations
-     */
-    mapAxeSeverity(impact) {
-        const severityMap = {
-            'critical': 'critical',
-            'serious': 'serious', 
-            'moderate': 'moderate',
-            'minor': 'minor'
-        };
-        return severityMap[impact] || 'moderate';
-    }
-
-    mapPa11ySeverity(type) {
-        const severityMap = {
-            'error': 'serious',
-            'warning': 'moderate',
-            'notice': 'minor'
-        };
-        return severityMap[type] || 'moderate';
-    }
-
-    extractWcagCriterion(tags) {
-        if (!Array.isArray(tags)) return null;
-        
-        // Look for WCAG criteria in tags like "wcag242" 
-        const wcagTag = tags.find(tag => tag.match(/wcag\d+/));
-        if (wcagTag) {
-            const match = wcagTag.match(/wcag(\d)(\d)(\d)/);
-            if (match) {
-                return `${match[1]}.${match[2]}.${match[3]}`;
-            }
-        }
-        return null;
-    }
-
-    extractWcagFromPa11y(code) {
-        // Pa11y codes sometimes include WCAG references
-        if (code && code.includes('WCAG2AA.Principle')) {
-            const match = code.match(/Principle(\d)\.Guideline(\d)_(\d)/);
-            if (match) {
-                return `${match[1]}.${match[2]}.${match[3]}`;
-            }
-        }
-        return null;
-    }
-
-    mapLighthouseToWcag(auditId) {
-        const mapping = {
-            'document-title': '2.4.2',
-            'color-contrast': '1.4.3',
-            'image-alt': '1.1.1',
-            'link-name': '2.4.4',
-            'button-name': '4.1.2',
-            'form-field-multiple-labels': '3.3.2'
-        };
-        return mapping[auditId] || null;
-    }
-
-    extractElementSelector(nodes) {
-        if (!nodes || !Array.isArray(nodes) || nodes.length === 0) return null;
-        const firstNode = nodes[0];
-        if (firstNode.target && Array.isArray(firstNode.target)) {
-            return firstNode.target.join(', ');
-        }
-        return null;
-    }
-
-    extractElementHtml(nodes) {
-        if (!nodes || !Array.isArray(nodes) || nodes.length === 0) return null;
-        const firstNode = nodes[0];
-        return firstNode.html || null;
+        // Contrast analyzer violations typically map to color contrast criteria
+        return ['1.4.3', '1.4.6', '1.4.11'];
     }
 }
 
-module.exports = TestAutomationService; 
+module.exports = TestAutomationService;
