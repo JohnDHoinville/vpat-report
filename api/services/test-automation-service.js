@@ -11,6 +11,7 @@ class TestAutomationService {
         this.runningTests = new Map(); // Track running tests
         this.lighthouse = null; // Will be dynamically imported
         this.wsService = wsService; // WebSocket service for real-time updates
+        this.interactiveAuthSessions = new Map(); // Store active browser sessions for interactive auth
     }
 
     /**
@@ -240,6 +241,18 @@ class TestAutomationService {
                         toolResults = await this.runAriaTestingAnalyzer(pages, sessionId, useInteractiveAuth);
                         results['aria-testing'] = toolResults;
                         break;
+                }
+
+                // Check if any tool returned pending authentication
+                if (toolResults && toolResults.isPending) {
+                    console.log(`🔐 Interactive authentication pending - stopping entire automation run`);
+                    console.log(`🔐 Browser is open for login. Please complete authentication in UI.`);
+                    return {
+                        success: false,
+                        isPending: true,
+                        message: 'Interactive authentication pending. Please complete login in browser and click "Successfully Logged In" button.',
+                        authRequired: true
+                    };
                 }
 
                 // Store tool results in database for each page
@@ -4964,6 +4977,13 @@ class TestAutomationService {
                 const pageInstances = await this.getTestInstancesForPage(sessionId, page.page_id);
                 
                 const pageResults = await this.runAxeAgainstPage(page.url, pageInstances, useInteractiveAuth);
+                
+                // Check if authentication is pending - stop execution
+                if (pageResults && pageResults.isPending) {
+                    console.log(`🔐 Interactive authentication pending - stopping all Axe automation`);
+                    return { isPending: true, message: pageResults.message };
+                }
+                
                 if (pageResults) {
                     results[page.url] = pageResults;
                 }
@@ -4988,6 +5008,13 @@ class TestAutomationService {
                 const pageInstances = await this.getTestInstancesForPage(sessionId, page.page_id);
                 
                 const pageResults = await this.runPa11yAgainstPage(page.url, pageInstances, useInteractiveAuth);
+                
+                // Check if authentication is pending - stop execution
+                if (pageResults && pageResults.isPending) {
+                    console.log(`🔐 Interactive authentication pending - stopping all Pa11y automation`);
+                    return { isPending: true, message: pageResults.message };
+                }
+                
                 if (pageResults) {
                     results[page.url] = pageResults;
                 }
@@ -5012,6 +5039,13 @@ class TestAutomationService {
                 const pageInstances = page.test_instances || [];
                 
                 const pageResults = await this.runLighthouseAgainstPage(page.url, pageInstances, useInteractiveAuth);
+                
+                // Check if authentication is pending - stop execution
+                if (pageResults && pageResults.isPending) {
+                    console.log(`🔐 Interactive authentication pending - stopping all Lighthouse automation`);
+                    return { isPending: true, message: pageResults.message };
+                }
+                
                 if (pageResults) {
                     results[page.url] = pageResults;
                 }
@@ -5036,6 +5070,13 @@ class TestAutomationService {
                 const pageInstances = page.test_instances || [];
                 
                 const pageResults = await this.runContrastAnalyzerAgainstPage(page.url, pageInstances, useInteractiveAuth);
+                
+                // Check if authentication is pending - stop execution
+                if (pageResults && pageResults.isPending) {
+                    console.log(`🔐 Interactive authentication pending - stopping all Contrast Analyzer automation`);
+                    return { isPending: true, message: pageResults.message };
+                }
+                
                 if (pageResults) {
                     results[page.url] = pageResults;
                 }
@@ -5114,10 +5155,22 @@ class TestAutomationService {
                 if (sessionId) {
                     const authContext = await this.getAuthContextForSession(sessionId, useInteractiveAuth);
                     console.log(`🔍 DEBUG: Auth context result:`, authContext ? `${authContext.cookies?.length || 0} cookies found` : 'No auth context');
-                    if (authContext) {
+                    
+                    // Handle interactive auth pending state
+                    if (authContext && authContext.isPending) {
+                        console.log(`🔐 Interactive authentication pending - stopping automation`);
+                        console.log(`🔐 Please complete login in browser and click "Successfully Logged In" in UI`);
+                        return {
+                            error: 'Interactive authentication pending',
+                            message: 'Please complete login in browser window and click "Successfully Logged In" button',
+                            isPending: true
+                        };
+                    }
+                    
+                    if (authContext && authContext.storageState) {
                         // Create context with stored authentication state
                         context = await browser.createBrowserContext({
-                            storageState: authContext
+                            storageState: authContext.storageState || authContext
                         });
                         console.log(`🔐 Crawler authentication session loaded successfully for Axe`);
                     } else {
@@ -5250,11 +5303,18 @@ class TestAutomationService {
 
     /**
      * Perform interactive authentication by opening a browser for manual login
+     * This method only opens the browser and stores the session - completion happens via UI
      */
     async performInteractiveAuthentication(sessionId) {
         console.log(`🔐 Starting interactive authentication for session: ${sessionId}`);
         
         try {
+            // Check if there's already an active session for this sessionId
+            if (this.interactiveAuthSessions.has(sessionId)) {
+                console.log(`🔐 Interactive auth session already active for ${sessionId}`);
+                return { success: true, message: 'Browser already open for authentication' };
+            }
+            
             // Get session details
             const sessionResult = await pool.query(`
                 SELECT ts.project_id, p.primary_url, p.name as project_name
@@ -5291,24 +5351,58 @@ class TestAutomationService {
             console.log(`🌐 Navigating to: ${loginUrl}`);
             await page.goto(loginUrl, { waitUntil: 'networkidle' });
             
+            // Store the browser session for later completion
+            this.interactiveAuthSessions.set(sessionId, {
+                browser,
+                context,
+                page,
+                session,
+                loginUrl,
+                startedAt: new Date().toISOString()
+            });
+            
             // Display instructions to user (like crawler does)
             console.log(`\n🔐 INTERACTIVE AUTHENTICATION MODE`);
             console.log(`================================================`);
             console.log(`📱 A browser window has opened for manual login`);
             console.log(`👤 Please complete the following steps:`);
             console.log(`   1. Log in using your credentials in the browser window`);
-            console.log(`   2. Press ENTER in this terminal when login is complete`);
+            console.log(`   2. Click 'Successfully Logged In' button in the UI when done`);
             console.log(`   3. DO NOT close the browser - it will close automatically`);
             console.log(`================================================\n`);
             
-            // Wait for user to complete login manually
-            await this.waitForUserInput("Press ENTER after completing login...");
+            return {
+                success: true,
+                message: 'Browser opened for interactive authentication',
+                instructions: 'Please log in to the opened browser window, then click "Successfully Logged In" in the UI'
+            };
+            
+        } catch (error) {
+            console.error(`❌ Interactive authentication setup failed:`, error.message);
+            throw error;
+        }
+    }
+
+    /**
+     * Complete interactive authentication after user confirms login via UI
+     */
+    async completeInteractiveAuthentication(sessionId) {
+        console.log(`🔐 Completing interactive authentication for session: ${sessionId}`);
+        
+        try {
+            // Get the stored browser session
+            const authSession = this.interactiveAuthSessions.get(sessionId);
+            if (!authSession) {
+                throw new Error(`No active interactive authentication session found for ${sessionId}`);
+            }
+            
+            const { browser, context, page, session } = authSession;
             
             // Capture the authentication state
             console.log(`📦 Capturing authentication state...`);
             const storageState = await context.storageState();
             
-            // Test authentication by trying to access a protected page
+            // Test authentication by checking current URL
             const currentUrl = page.url();
             console.log(`🔍 Current URL after login: ${currentUrl}`);
             
@@ -5332,18 +5426,40 @@ class TestAutomationService {
             // Clean up browser
             await browser.close();
             
-            // Return the storage state for immediate use
+            // Remove from active sessions
+            this.interactiveAuthSessions.delete(sessionId);
+            
+            // Return the captured authentication data
             return {
+                success: true,
                 storageState,
                 cookies,
                 authSessionId,
-                loginUrl,
-                capturedAt: new Date().toISOString()
+                cookieCount: cookies.length,
+                currentUrl,
+                capturedAt: new Date().toISOString(),
+                authenticationComplete: true,
+                message: 'Authentication captured successfully. Ready to run tests.'
             };
             
         } catch (error) {
-            console.error(`❌ Interactive authentication failed:`, error.message);
-            throw error;
+            console.error(`❌ Interactive authentication completion failed:`, error.message);
+            
+            // Clean up on error
+            const authSession = this.interactiveAuthSessions.get(sessionId);
+            if (authSession) {
+                try {
+                    await authSession.browser.close();
+                } catch (cleanupError) {
+                    console.error(`❌ Error cleaning up browser:`, cleanupError);
+                }
+                this.interactiveAuthSessions.delete(sessionId);
+            }
+            
+            return {
+                success: false,
+                error: error.message
+            };
         }
     }
 
@@ -5373,7 +5489,14 @@ class TestAutomationService {
         
         // If interactive auth is requested, use the interactive login flow
         if (useInteractiveAuth) {
-            return await this.performInteractiveAuthentication(sessionId);
+            const result = await this.performInteractiveAuthentication(sessionId);
+            // Return special "pending" result to pause automation until UI completion
+            return {
+                isPending: true,
+                message: result.message,
+                sessionId: sessionId,
+                authType: 'interactive'
+            };
         }
         
         try {
@@ -5458,6 +5581,17 @@ class TestAutomationService {
                 const sessionId = pageInstances[0].session_id;
                 if (sessionId) {
                     authContext = await this.getAuthContextForSession(sessionId, useInteractiveAuth);
+                    
+                    // Handle interactive auth pending state
+                    if (authContext && authContext.isPending) {
+                        console.log(`🔐 Interactive authentication pending - stopping Pa11y automation`);
+                        console.log(`🔐 Please complete login in browser and click "Successfully Logged In" in UI`);
+                        return {
+                            error: 'Interactive authentication pending',
+                            message: 'Please complete login in browser window and click "Successfully Logged In" button',
+                            isPending: true
+                        };
+                    }
                 }
             }
             
@@ -5515,6 +5649,17 @@ class TestAutomationService {
                 const sessionId = pageInstances[0].session_id;
                 if (sessionId) {
                     authContext = await this.getAuthContextForSession(sessionId, useInteractiveAuth);
+                    
+                    // Handle interactive auth pending state
+                    if (authContext && authContext.isPending) {
+                        console.log(`🔐 Interactive authentication pending - stopping Contrast Analyzer automation`);
+                        console.log(`🔐 Please complete login in browser and click "Successfully Logged In" in UI`);
+                        return {
+                            error: 'Interactive authentication pending',
+                            message: 'Please complete login in browser window and click "Successfully Logged In" button',
+                            isPending: true
+                        };
+                    }
                 }
             }
             
@@ -5585,6 +5730,17 @@ class TestAutomationService {
                 const sessionId = pageInstances[0].session_id;
                 if (sessionId) {
                     authContext = await this.getAuthContextForSession(sessionId, useInteractiveAuth);
+                    
+                    // Handle interactive auth pending state
+                    if (authContext && authContext.isPending) {
+                        console.log(`🔐 Interactive authentication pending - stopping Lighthouse automation`);
+                        console.log(`🔐 Please complete login in browser and click "Successfully Logged In" in UI`);
+                        return {
+                            error: 'Interactive authentication pending',
+                            message: 'Please complete login in browser window and click "Successfully Logged In" button',
+                            isPending: true
+                        };
+                    }
                 }
             }
             

@@ -45,6 +45,7 @@ window.dashboard = function() {
         
         // ===== INTERACTIVE AUTH STATE =====
         interactiveAuthInProgress: false,
+        interactiveAuthBrowserOpen: false,
         interactiveAuthMessage: '',
         interactiveAuthError: null,
         
@@ -1797,17 +1798,17 @@ ${requirement.failure_examples}
         },
 
         // ===== INTERACTIVE AUTHENTICATION METHODS =====
-        async startInteractiveAuth() {
+        async openBrowserForAuth() {
             try {
                 this.interactiveAuthError = null;
                 this.interactiveAuthInProgress = true;
-                this.interactiveAuthMessage = 'Starting interactive authentication...';
+                this.interactiveAuthMessage = 'Opening browser for authentication...';
 
                 if (!this.currentSession?.id) {
                     throw new Error('No testing session selected. Please select a session first.');
                 }
 
-                console.log('🔐 Starting interactive authentication for session:', this.currentSession.id);
+                console.log('🔐 Opening browser for interactive authentication for session:', this.currentSession.id);
 
                 const requestData = {
                     target_mode: 'session',
@@ -1819,8 +1820,6 @@ ${requirement.failure_examples}
                         preview_mode: false
                     }
                 };
-
-                this.interactiveAuthMessage = 'Sending authentication request...';
 
                 const response = await fetch(`${this.config.apiBaseUrl}/api/automated-testing/unified-run/${this.currentSession.id}`, {
                     method: 'POST',
@@ -1834,31 +1833,105 @@ ${requirement.failure_examples}
                 const result = await response.json();
 
                 if (response.ok) {
-                    this.interactiveAuthMessage = 'Browser opened! Please login manually in the browser window.';
+                    // Browser is now open, transition to phase 2
+                    this.interactiveAuthInProgress = false;
+                    this.interactiveAuthBrowserOpen = true;
+                    this.interactiveAuthMessage = 'Browser opened successfully. Please complete your login.';
                     
-                    // Show success notification
-                    this.showNotification('success', 'Interactive Authentication Started', 
-                        'A browser window has opened. Please login manually and the tests will run automatically.');
-                    
-                    // Close modal after a delay to let user see the message
-                    setTimeout(() => {
-                        this.showInteractiveAuthModal = false;
-                        this.interactiveAuthInProgress = false;
-                        this.interactiveAuthMessage = '';
-                    }, 3000);
-
-                    console.log('✅ Interactive auth request sent successfully:', result);
+                    console.log('✅ Browser opened for interactive authentication:', result);
                 } else {
-                    throw new Error(result.error || 'Authentication request failed');
+                    throw new Error(result.error || 'Failed to open browser for authentication');
                 }
 
             } catch (error) {
-                console.error('❌ Interactive auth error:', error);
+                console.error('❌ Error opening browser for auth:', error);
                 this.interactiveAuthError = error.message;
                 this.interactiveAuthInProgress = false;
+                this.interactiveAuthBrowserOpen = false;
                 this.interactiveAuthMessage = '';
                 
-                this.showNotification('error', 'Authentication Failed', error.message);
+                this.showNotification('error', 'Browser Open Failed', error.message);
+            }
+        },
+
+        async completeInteractiveAuth() {
+            try {
+                this.interactiveAuthError = null;
+                this.interactiveAuthInProgress = true;
+                this.interactiveAuthMessage = 'Capturing authentication state...';
+
+                if (!this.currentSession?.id) {
+                    throw new Error('No testing session selected.');
+                }
+
+                console.log('🔐 Completing interactive authentication for session:', this.currentSession.id);
+
+                const response = await fetch(`${this.config.apiBaseUrl}/api/automated-testing/complete-interactive-auth/${this.currentSession.id}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...this.getAuthHeaders()
+                    },
+                    body: JSON.stringify({})
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    this.interactiveAuthMessage = 'Authentication captured! Starting tests...';
+                    
+                    // Show success notification
+                    this.showNotification('success', 'Authentication Successful', 
+                        `Authentication captured with ${result.cookieCount} cookies. Starting tests now...`);
+                    
+                    // Now start the actual automation with the captured authentication
+                    const requestData = {
+                        target_mode: 'session',
+                        target_ids: [],
+                        tools: ['axe-core', 'pa11y', 'lighthouse', 'contrast-analyzer'],
+                        run_async: false,
+                        options: {
+                            use_interactive_auth: false, // Auth is now captured, use normal flow
+                            preview_mode: false
+                        }
+                    };
+
+                    fetch(`${this.config.apiBaseUrl}/api/automated-testing/unified-run/${this.currentSession.id}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            ...this.getAuthHeaders()
+                        },
+                        body: JSON.stringify(requestData)
+                    }).then(response => {
+                        if (response.ok) {
+                            console.log('✅ Automation started with captured authentication');
+                        } else {
+                            console.error('❌ Failed to start automation after auth capture');
+                        }
+                    }).catch(error => {
+                        console.error('❌ Error starting automation after auth capture:', error);
+                    });
+                    
+                    // Close modal and reset state after a delay
+                    setTimeout(() => {
+                        this.showInteractiveAuthModal = false;
+                        this.interactiveAuthInProgress = false;
+                        this.interactiveAuthBrowserOpen = false;
+                        this.interactiveAuthMessage = '';
+                    }, 2000);
+
+                    console.log('✅ Interactive authentication completed:', result);
+                } else {
+                    throw new Error(result.error || 'Failed to complete authentication');
+                }
+
+            } catch (error) {
+                console.error('❌ Error completing interactive auth:', error);
+                this.interactiveAuthError = error.message;
+                this.interactiveAuthInProgress = false;
+                
+                this.showNotification('error', 'Authentication Completion Failed', error.message);
             }
         },
 
@@ -1866,6 +1939,7 @@ ${requirement.failure_examples}
             this.showInteractiveAuthModal = true;
             this.interactiveAuthError = null;
             this.interactiveAuthInProgress = false;
+            this.interactiveAuthBrowserOpen = false;
             this.interactiveAuthMessage = '';
         },
 
@@ -1875,45 +1949,14 @@ ${requirement.failure_examples}
                 this.currentSession = session;
                 this.selectedTestSession = session;
                 
-                console.log('🔐 Starting interactive authentication for session:', session.id, session.name);
+                console.log('🔐 Opening interactive authentication modal for session:', session.id, session.name);
 
-                const requestData = {
-                    target_mode: 'session',
-                    target_ids: [],
-                    tools: ['axe-core', 'pa11y', 'lighthouse', 'contrast-analyzer'],
-                    run_async: false,
-                    options: {
-                        use_interactive_auth: true,
-                        preview_mode: false
-                    }
-                };
-
-                const response = await fetch(`${this.config.apiBaseUrl}/api/automated-testing/unified-run/${session.id}`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        ...this.getAuthHeaders()
-                    },
-                    body: JSON.stringify(requestData)
-                });
-
-                const result = await response.json();
-
-                if (response.ok) {
-                    // Show success notification
-                    this.showNotification('success', 'Interactive Authentication Started', 
-                        `A browser window has opened for "${session.name}". Please login manually and the tests will run automatically.`);
-                    
-                    console.log('✅ Interactive auth request sent successfully for session:', session.name, result);
-                } else {
-                    throw new Error(result.error || 'Authentication request failed');
-                }
-
-            } catch (error) {
-                console.error('❌ Interactive auth error for session:', session.name, error);
+                // Open the interactive authentication modal for two-phase auth
+                this.openInteractiveAuthModal();
                 
-                this.showNotification('error', 'Authentication Failed', 
-                    `Failed to start authentication for "${session.name}": ${error.message}`);
+            } catch (error) {
+                console.error('❌ Error opening interactive auth modal for session:', session.name, error);
+                this.showNotification('error', 'Modal Error', `Failed to open interactive authentication modal for "${session.name}": ${error.message}`);
             }
         },
 

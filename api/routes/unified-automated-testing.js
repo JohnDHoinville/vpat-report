@@ -308,6 +308,49 @@ router.get('/unified-run/capabilities', authenticateToken, async (req, res) => {
 });
 
 /**
+ * POST /complete-interactive-auth/:sessionId
+ * Complete interactive authentication after user confirms login in UI
+ */
+router.post('/complete-interactive-auth/:sessionId', authenticateToken, async (req, res) => {
+    try {
+        const { sessionId } = req.params;
+        
+        console.log(`🔐 Completing interactive authentication for session: ${sessionId}`);
+        
+        // Get the test automation service instance
+        const TestAutomationService = require('../services/test-automation-service');
+        const testAutomationService = new TestAutomationService(wsService);
+        
+        // Complete the authentication capture
+        const result = await testAutomationService.completeInteractiveAuthentication(sessionId);
+        
+        if (result.success) {
+            res.json({
+                success: true,
+                message: 'Authentication captured successfully',
+                authSessionId: result.authSessionId,
+                cookieCount: result.cookieCount,
+                currentUrl: result.currentUrl
+            });
+        } else {
+            res.status(500).json({
+                success: false,
+                message: 'Failed to capture authentication',
+                error: result.error
+            });
+        }
+        
+    } catch (error) {
+        console.error('❌ Error completing interactive authentication:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Authentication capture failed',
+            error: error.message
+        });
+    }
+});
+
+/**
  * Validate unified automation request parameters
  * @private
  */

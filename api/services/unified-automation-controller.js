@@ -344,6 +344,27 @@ class UnifiedAutomationController {
                     runId, sessionId, tools, uniquePages, true, true, userId, null, options
                 );
                 
+                // Check if authentication is pending
+                if (testResults && testResults.isPending) {
+                    console.log(`🔐 Authentication pending - keeping run active for session ${sessionId}`);
+                    await this.updateRunStatus(runId, 'running', { 
+                        message: testResults.message,
+                        authRequired: true,
+                        authPending: true,
+                        sessionId: sessionId,
+                        status: 'awaiting_authentication'
+                    });
+                    
+                    return {
+                        success: true,
+                        run_id: runId,
+                        status: 'awaiting_authentication',
+                        message: testResults.message,
+                        authRequired: true,
+                        instructions: 'Please complete login in browser window and click "Successfully Logged In" button'
+                    };
+                }
+                
                 // Update run status with test results
                 await this.updateRunStatus(runId, 'completed', { testResults });
                 
