@@ -6,12 +6,17 @@ const { v4: uuidv4 } = require('uuid');
 const path = require('path');
 const fs = require('fs');
 
+// Global storage for interactive authentication sessions (shared across all instances)
+const globalInteractiveAuthSessions = new Map();
+
 class TestAutomationService {
     constructor(wsService = null) {
         this.runningTests = new Map(); // Track running tests
         this.lighthouse = null; // Will be dynamically imported
         this.wsService = wsService; // WebSocket service for real-time updates
-        this.interactiveAuthSessions = new Map(); // Store active browser sessions for interactive auth
+        
+        // Reference to the shared authentication sessions Map
+        this.interactiveAuthSessions = globalInteractiveAuthSessions;
     }
 
     /**
@@ -5352,7 +5357,7 @@ class TestAutomationService {
             await page.goto(loginUrl, { waitUntil: 'networkidle' });
             
             // Store the browser session for later completion
-            this.interactiveAuthSessions.set(sessionId, {
+            globalInteractiveAuthSessions.set(sessionId, {
                 browser,
                 context,
                 page,
@@ -5391,7 +5396,7 @@ class TestAutomationService {
         
         try {
             // Get the stored browser session
-            const authSession = this.interactiveAuthSessions.get(sessionId);
+            const authSession = globalInteractiveAuthSessions.get(sessionId);
             if (!authSession) {
                 throw new Error(`No active interactive authentication session found for ${sessionId}`);
             }
@@ -5413,12 +5418,17 @@ class TestAutomationService {
             // Save authentication session to database
             const authSessionResult = await pool.query(`
                 INSERT INTO crawler_auth_sessions (
-                    crawler_id, cookies, is_active, created_at, last_used_at, storage_state
+                    crawler_id, cookies, local_storage, session_storage, is_active, created_at, last_used_at
                 ) VALUES (
                     (SELECT id FROM web_crawlers WHERE project_id = $1 LIMIT 1),
-                    $2, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, $3
+                    $2, $3, $4, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
                 ) RETURNING id
-            `, [session.project_id, JSON.stringify(cookies), JSON.stringify(storageState)]);
+            `, [
+                session.project_id, 
+                JSON.stringify(cookies),
+                JSON.stringify(storageState.localStorage || {}),
+                JSON.stringify(storageState.sessionStorage || {})
+            ]);
             
             const authSessionId = authSessionResult.rows[0]?.id;
             console.log(`💾 Saved authentication session with ID: ${authSessionId}`);
@@ -5427,7 +5437,7 @@ class TestAutomationService {
             await browser.close();
             
             // Remove from active sessions
-            this.interactiveAuthSessions.delete(sessionId);
+            globalInteractiveAuthSessions.delete(sessionId);
             
             // Return the captured authentication data
             return {
@@ -5453,7 +5463,7 @@ class TestAutomationService {
                 } catch (cleanupError) {
                     console.error(`❌ Error cleaning up browser:`, cleanupError);
                 }
-                this.interactiveAuthSessions.delete(sessionId);
+                globalInteractiveAuthSessions.delete(sessionId);
             }
             
             return {
