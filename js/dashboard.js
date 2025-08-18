@@ -967,13 +967,12 @@ window.dashboard = function() {
                 }, []);
                 
                 this.sessionRequirements = uniqueRequirements;
-                this.filteredRequirements = [...uniqueRequirements];
                 
-                // Calculate statistics
+                // Apply filtering immediately (don't set filteredRequirements to all requirements)
+                this.filterRequirements();
+                
+                // Calculate statistics  
                 this.calculateRequirementStats();
-                
-                // Apply pagination
-                this.updateRequirementsPagination();
                 
                 console.log(`✅ Requirements loaded successfully: ${this.sessionRequirements.length} total, ${this.filteredRequirements.length} filtered`);
                 
@@ -1967,6 +1966,8 @@ ${requirement.failure_examples}
         // Add filterRequirements method directly to Alpine component
         filterRequirements() {
             console.log('🔍 ALPINE filterRequirements called');
+            console.log('🔍 Current filter status:', this.requirementFilters?.testStatus);
+            console.log('🔍 sessionRequirements count:', this.sessionRequirements?.length);
             if (!this.sessionRequirements) {
                 this.filteredRequirements = [];
                 this.updateRequirementsPagination();
@@ -1987,6 +1988,19 @@ ${requirement.failure_examples}
                     statusDistribution[key] = (statusDistribution[key] || 0) + 1;
                 });
                 console.log(`🔍 STATUS DISTRIBUTION:`, statusDistribution);
+                
+                // Debug: Show first few requirements and their actual statuses
+                if (status === 'failed') {
+                    console.log(`🔍 DEBUG FAILED FILTER - First 5 requirements:`, 
+                        filtered.slice(0, 5).map(r => ({
+                            id: r.requirement_id, 
+                            test_method: r.test_method,
+                            auto_status: r.automated_status, 
+                            manual_status: r.manual_status,
+                            will_show: r.automated_status === 'failed' || r.manual_status === 'failed'
+                        }))
+                    );
+                }
                 
                 filtered = filtered.filter(req => {
                     // Simple and straightforward filtering logic
