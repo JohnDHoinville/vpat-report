@@ -1965,9 +1965,14 @@ ${requirement.failure_examples}
 
         // Add filterRequirements method directly to Alpine component
         filterRequirements() {
+            // Also make it globally accessible for debugging
+            window.testFilterRequirements = () => this.filterRequirements();
+            window.dashboardFilterRequirements = this.filterRequirements.bind(this);
+            window.dashboardRequirementFilters = this.requirementFilters;
             console.log('🔍 ALPINE filterRequirements called');
             console.log('🔍 Current filter status:', this.requirementFilters?.testStatus);
             console.log('🔍 sessionRequirements count:', this.sessionRequirements?.length);
+            console.log('🔍 requirementFilters object:', this.requirementFilters);
             if (!this.sessionRequirements) {
                 this.filteredRequirements = [];
                 this.updateRequirementsPagination();
@@ -3484,6 +3489,10 @@ ${requirement.failure_examples}
         // ===== DATA LOADING =====
         
         async loadInitialData() {
+            // Set up global references for dynamically loaded components
+            window.dashboardFilterRequirements = this.filterRequirements.bind(this);
+            window.dashboardRequirementFilters = this.requirementFilters;
+            
             await Promise.all([
                 this.loadProjects(),
                 this.loadAuthConfigs(),
@@ -16047,5 +16056,8 @@ window.handleAuthError = function() {
         }
     }
 };
+
+console.log('📦 Dashboard module loaded successfully');
+
 
 console.log('📦 Dashboard module loaded successfully');
