@@ -5100,12 +5100,12 @@ class TestAutomationService {
     async getTestInstancesForPage(sessionId, pageId) {
         try {
             const query = `
-                SELECT ti.*, ur.criterion_number, ts.id as session_id
+                SELECT ti.*, tr.criterion_number, ts.id as session_id
                 FROM test_instances ti
-                JOIN unified_requirements ur ON ti.requirement_id = ur.id
+                JOIN test_requirements tr ON ti.requirement_id = tr.id
                 JOIN test_sessions ts ON ti.session_id = ts.id
                 WHERE ti.session_id = $1 AND ti.page_id = $2
-                ORDER BY ur.criterion_number
+                ORDER BY tr.criterion_number
             `;
             const result = await pool.query(query, [sessionId, pageId]);
             console.log(`📋 Found ${result.rows.length} test instances for page ${pageId} in session ${sessionId}`);
@@ -5418,13 +5418,14 @@ class TestAutomationService {
             // Save authentication session to database
             const authSessionResult = await pool.query(`
                 INSERT INTO crawler_auth_sessions (
-                    crawler_id, cookies, local_storage, session_storage, is_active, created_at, last_used_at
+                    crawler_id, session_name, cookies, local_storage, session_storage, is_active, created_at, last_used_at
                 ) VALUES (
                     (SELECT id FROM web_crawlers WHERE project_id = $1 LIMIT 1),
-                    $2, $3, $4, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+                    $2, $3, $4, $5, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
                 ) RETURNING id
             `, [
-                session.project_id, 
+                session.project_id,
+                `Interactive-Auth-${sessionId.substring(0, 8)}-${Date.now()}`, // Generate unique session name
                 JSON.stringify(cookies),
                 JSON.stringify(storageState.localStorage || {}),
                 JSON.stringify(storageState.sessionStorage || {})

@@ -1989,22 +1989,41 @@ ${requirement.failure_examples}
                 console.log(`🔍 STATUS DISTRIBUTION:`, statusDistribution);
                 
                 filtered = filtered.filter(req => {
-                    // Check automated status for automated/both requirements
-                    const hasAutomatedMatch = (req.test_method === 'automated' || req.test_method === 'both') && 
-                                             req.automated_status === status;
-                    
-                    // Check manual status for manual/both requirements  
-                    const hasManualMatch = (req.test_method === 'manual' || req.test_method === 'both') && 
-                                          req.manual_status === status;
-                    
-                    // Debug first few requirements when filtering by "failed" or when filtering by passed and we get unexpected results
-                    if ((status === 'failed' && (req.criterion_number === '1.3.6' || req.criterion_number === '1.4.6' || req.criterion_number === '2.4.12' || req.criterion_number === '2.4.13')) ||
-                        (status === 'passed' && hasAutomatedMatch)) {
-                        console.log(`🔍 FILTER CHECK: ${req.criterion_number} - test_method="${req.test_method}", automated_status="${req.automated_status}", manual_status="${req.manual_status}" - hasAutomatedMatch=${hasAutomatedMatch}, hasManualMatch=${hasManualMatch}`);
+                    // Simple and straightforward filtering logic
+                    switch (status) {
+                        case 'not_tested':
+                            // Show requirements that are truly not tested (both statuses are not_tested or null)
+                            const autoNotTested = !req.automated_status || req.automated_status === 'not_tested';
+                            const manualNotTested = !req.manual_status || req.manual_status === 'not_tested';
+                            return autoNotTested && manualNotTested;
+                        
+                        case 'failed':
+                            // Show requirements where ANY test has failed
+                            return req.automated_status === 'failed' || req.manual_status === 'failed';
+                        
+                        case 'passed':
+                            // Show requirements where ALL applicable tests have passed
+                            const autoApplies = req.test_method === 'automated' || req.test_method === 'both';
+                            const manualApplies = req.test_method === 'manual' || req.test_method === 'both';
+                            
+                            const autoPassed = !autoApplies || req.automated_status === 'passed';
+                            const manualPassed = !manualApplies || req.manual_status === 'passed';
+                            
+                            // At least one test must have passed, and none failed
+                            const hasPassedTest = req.automated_status === 'passed' || req.manual_status === 'passed';
+                            const hasFailedTest = req.automated_status === 'failed' || req.manual_status === 'failed';
+                            
+                            return hasPassedTest && !hasFailedTest && autoPassed && manualPassed;
+                        
+                        case 'in_progress':
+                            // Show requirements with in_progress or pending status
+                            return req.automated_status === 'in_progress' || req.manual_status === 'in_progress' ||
+                                   req.automated_status === 'pending' || req.manual_status === 'pending';
+                        
+                        default:
+                            // For any other status, exact match
+                            return req.automated_status === status || req.manual_status === status;
                     }
-                    
-                    // Return true if either automated or manual status matches
-                    return hasAutomatedMatch || hasManualMatch;
                 });
                 
                 console.log(`🔍 FILTER RESULT: Found ${filtered.length} requirements matching "${status}"`);
