@@ -999,12 +999,23 @@
                                                     </td>
                                                 </tr>
                                             </template>
+                                            
+                                            <!-- Empty State for Filtered Requirements -->
+                                            <tr x-show="!paginatedRequirements || paginatedRequirements.length === 0">
+                                                <td colspan="6" class="px-6 py-8 text-center">
+                                                    <div class="text-gray-500">
+                                                        <i class="fas fa-filter text-2xl mb-2"></i>
+                                                        <p class="text-lg font-medium">No requirements match the current filter</p>
+                                                        <p class="text-sm">Try adjusting your filter criteria or clearing filters to see more results</p>
+                                                    </div>
+                                                </td>
+                                            </tr>
                                         </tbody>
                                     </table>
                                 </div>
                                 
                                 <!-- Pagination for Requirements -->
-                                <div x-show="sessionRequirements?.length > requirementPageSize" class="px-6 py-4 border-t border-gray-200">
+                                <div x-show="filteredRequirements?.length > requirementPageSize" class="px-6 py-4 border-t border-gray-200">
                                     <div class="flex items-center justify-between">
                                         <div class="text-sm text-gray-700">
                                             Showing <span x-text="((requirementCurrentPage - 1) * requirementPageSize) + 1"></span> 

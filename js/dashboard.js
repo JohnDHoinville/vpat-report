@@ -295,16 +295,16 @@ window.dashboard = function() {
         
         // Navigation Functions
         canNavigateRequirement: function(direction) {
-            console.log('🔍 canNavigateRequirement called with direction:', direction);
-            console.log('🔍 filteredRequirements length:', this.filteredRequirements?.length || 0);
-            console.log('🔍 currentRequirement:', this.currentRequirement?.id);
-            
-            // If requirements aren't loaded yet, try to load them
-            if (!this.filteredRequirements || this.filteredRequirements.length === 0) {
-                console.log('📋 Requirements not loaded, attempting to load...');
+            // If base requirements data isn't loaded yet, try to load them
+            if (!this.sessionRequirements || this.sessionRequirements.length === 0) {
                 if (this.selectedSessionDetails?.id) {
                     this.loadSessionRequirements(this.selectedSessionDetails.id);
                 }
+                return false;
+            }
+            
+            // If filtered requirements is empty but base data exists, it means the filter yielded no results
+            if (!this.filteredRequirements || this.filteredRequirements.length === 0) {
                 return false;
             }
             
@@ -824,18 +824,51 @@ window.dashboard = function() {
         },
         
         loadSessionRequirements: async function(sessionId) {
-            console.log(`🚀 loadSessionRequirements called with sessionId: ${sessionId}`);
-            console.log(`📊 Current state - sessionRequirements length:`, this.sessionRequirements?.length || 0);
             
             if (!sessionId) {
                 console.error('❌ No session ID provided to loadSessionRequirements');
                 this.showNotification('error', 'Requirements Error', 'Session ID is required');
                 return;
             }
+
+            // Debouncing: prevent multiple simultaneous calls for the same session
+            const loadKey = `loadSessionRequirements_${sessionId}`;
+            if (this.loadingStates && this.loadingStates[loadKey]) {
+                // Silently return existing promise to prevent spam
+                return this.loadingStates[loadKey];
+            }
+
+            // Initialize loadingStates if it doesn't exist
+            if (!this.loadingStates) this.loadingStates = {};
             
+            // Create and store the promise for this loading operation
+            const loadPromise = this._executeLoadSessionRequirements(sessionId);
+            this.loadingStates[loadKey] = loadPromise;
+            
+            // Clean up the loading state when done
+            loadPromise.finally(() => {
+                delete this.loadingStates[loadKey];
+            });
+            
+            return loadPromise;
+        },
+
+        _executeLoadSessionRequirements: async function(sessionId) {
             try {
-                console.log(`🔍 Loading requirements for session ${sessionId}`);
                 this.loading = true;
+                
+                // Check cache to avoid refetching too frequently (5 minutes cache)
+                const cacheKey = `requirements_${sessionId}`;
+                const now = Date.now();
+                if (!this.dataCache) this.dataCache = {};
+                
+                if (this.dataCache[cacheKey] && (now - this.dataCache[cacheKey].timestamp) < 300000) {
+                    // Use cached data silently to prevent console spam
+                    this.sessionRequirements = this.dataCache[cacheKey].data;
+                    this.filterRequirements();
+                    this.loading = false;
+                    return;
+                }
                 
                 // Initialize requirements arrays if they don't exist
                 if (!this.sessionRequirements) this.sessionRequirements = [];
@@ -974,12 +1007,16 @@ window.dashboard = function() {
                 // Calculate statistics  
                 this.calculateRequirementStats();
                 
-                console.log(`✅ Requirements loaded successfully: ${this.sessionRequirements.length} total, ${this.filteredRequirements.length} filtered`);
+                // Cache the loaded data
+                this.dataCache[cacheKey] = {
+                    data: [...this.sessionRequirements], // Clone the array
+                    timestamp: Date.now()
+                };
                 
-                this.showNotification('success', 'Requirements Loaded', `Successfully loaded ${this.sessionRequirements.length} requirements`);
+                // Only show notification for successful loads, no console spam
                 
             } catch (error) {
-                console.error('❌ Error in loadSessionRequirements:', error);
+                console.error('❌ Error in _executeLoadSessionRequirements:', error);
                 this.showNotification('error', 'Requirements Error', `Failed to load requirements: ${error.message}`);
             } finally {
                 this.loading = false;
@@ -1551,7 +1588,7 @@ ${requirement.failure_examples}
 
     // ===== EARLY GLOBAL FUNCTION DEFINITIONS FOR ALPINE.JS =====
     window.filterRequirements = window.filterRequirements || function() {
-        console.log('🔍 Early filterRequirements called - component not ready yet');
+        // Component not ready yet - will be replaced when component loads
     };
 
     // Declare componentInstance variable
@@ -1761,35 +1798,25 @@ ${requirement.failure_examples}
             
             // Delay the global function setup to ensure all methods are available
             setTimeout(() => {
-                console.log('🔍 Testing componentInstance.filterRequirements after delay:', typeof componentInstance.filterRequirements);
-                
                 // Update the global function after methods are available
                 window.filterRequirements = () => {
-                    console.log('🔍 Updated Global filterRequirements called');
-                    console.log('🔍 componentInstance type:', typeof componentInstance);
-                    console.log('🔍 componentInstance.filterRequirements type:', typeof componentInstance?.filterRequirements);
-                    
                     // Try to find the Alpine component instance with filterRequirements
                     const alpineInstance = componentInstance || window._dashboardInstance;
                     
                     if (alpineInstance && alpineInstance.filterRequirements) {
-                        console.log('🔍 Calling alpineInstance.filterRequirements');
                         return alpineInstance.filterRequirements();
                     } else {
-                        console.log('🔍 Searching for filterRequirements in DOM elements...');
                         // Fallback: search for Alpine component in DOM
                         const elements = document.querySelectorAll('[x-data]');
                         for (const element of elements) {
                             const data = element._x_dataStack?.[0];
                             if (data && data.filterRequirements) {
-                                console.log('🔍 Found filterRequirements in DOM element');
                                 return data.filterRequirements();
                             }
                         }
                         console.error('❌ filterRequirements not found anywhere');
                     }
                 };
-                console.log('✅ Global filterRequirements function updated with delay');
             }, 100);
             
             // Call async initialization
@@ -1965,14 +1992,9 @@ ${requirement.failure_examples}
 
         // Add filterRequirements method directly to Alpine component
         filterRequirements() {
-            // Also make it globally accessible for debugging
-            window.testFilterRequirements = () => this.filterRequirements();
+            // Simple, direct filtering without excessive debouncing or logging
             window.dashboardFilterRequirements = this.filterRequirements.bind(this);
             window.dashboardRequirementFilters = this.requirementFilters;
-            console.log('🔍 ALPINE filterRequirements called');
-            console.log('🔍 Current filter status:', this.requirementFilters?.testStatus);
-            console.log('🔍 sessionRequirements count:', this.sessionRequirements?.length);
-            console.log('🔍 requirementFilters object:', this.requirementFilters);
             if (!this.sessionRequirements) {
                 this.filteredRequirements = [];
                 this.updateRequirementsPagination();
@@ -1984,28 +2006,7 @@ ${requirement.failure_examples}
             // Apply filters
             if (this.requirementFilters.testStatus) {
                 const status = this.requirementFilters.testStatus;
-                console.log(`🔍 FILTER DEBUG: Filtering by status "${status}"`);
-                
-                // Debug status distribution before filtering
-                const statusDistribution = {};
-                this.sessionRequirements.forEach(req => {
-                    const key = `${req.test_method}:auto=${req.automated_status},manual=${req.manual_status}`;
-                    statusDistribution[key] = (statusDistribution[key] || 0) + 1;
-                });
-                console.log(`🔍 STATUS DISTRIBUTION:`, statusDistribution);
-                
-                // Debug: Show first few requirements and their actual statuses
-                if (status === 'failed') {
-                    console.log(`🔍 DEBUG FAILED FILTER - First 5 requirements:`, 
-                        filtered.slice(0, 5).map(r => ({
-                            id: r.requirement_id, 
-                            test_method: r.test_method,
-                            auto_status: r.automated_status, 
-                            manual_status: r.manual_status,
-                            will_show: r.automated_status === 'failed' || r.manual_status === 'failed'
-                        }))
-                    );
-                }
+
                 
                 filtered = filtered.filter(req => {
                     // Simple and straightforward filtering logic
@@ -2067,7 +2068,6 @@ ${requirement.failure_examples}
 
             this.filteredRequirements = filtered;
             this.updateRequirementsPagination();
-            console.log(`🔍 Filtered requirements: ${filtered.length}/${this.sessionRequirements.length}`);
         },
 
         // Add updateRequirementsPagination method directly to Alpine component
@@ -14981,7 +14981,6 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
         // Apply filters
         if (this.requirementFilters.testStatus) {
             const status = this.requirementFilters.testStatus;
-            console.log(`🔍 FILTER DEBUG: Filtering by status "${status}"`);
             
             filtered = filtered.filter(req => {
                 // Check automated status for automated/both requirements
@@ -14992,16 +14991,9 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                 const hasManualMatch = (req.test_method === 'manual' || req.test_method === 'both') && 
                                       req.manual_status === status;
                 
-                // Debug first few requirements when filtering by "failed"
-                if (status === 'failed' && (req.criterion_number === '1.3.6' || req.criterion_number === '1.4.6' || req.criterion_number === '2.4.12' || req.criterion_number === '2.4.13')) {
-                    console.log(`🔍 FILTER CHECK: ${req.criterion_number} - test_method="${req.test_method}", automated_status="${req.automated_status}", manual_status="${req.manual_status}" - hasAutomatedMatch=${hasAutomatedMatch}, hasManualMatch=${hasManualMatch}`);
-                }
-                
                 // Return true if either automated or manual status matches
                 return hasAutomatedMatch || hasManualMatch;
             });
-            
-            console.log(`🔍 FILTER RESULT: Found ${filtered.length} requirements matching "${status}"`);
         }
 
         if (this.requirementFilters.wcagLevel) {
@@ -15544,9 +15536,7 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
     window.closeRequirementDetailsModal = () => componentInstance.closeRequirementDetailsModal();
     // window.runAutomatedTestForRequirement is set by the robust global wrapper below
     window.filterRequirements = () => {
-        console.log('🔍 Global filterRequirements called');
         if (componentInstance && componentInstance.filterRequirements) {
-            console.log('🔍 Calling componentInstance.filterRequirements');
             return componentInstance.filterRequirements();
         } else {
             console.error('❌ componentInstance.filterRequirements not available');
