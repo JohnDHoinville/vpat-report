@@ -77,7 +77,7 @@ router.get('/info', async (req, res) => {
         console.log(`🔍 DEBUG: Getting session info for project: ${project_id}`);
         
         // Get the best active auth session for any crawler in this project
-        // Priority: 1) Not expired, 2) Has cookies, 3) Most recent
+        // Priority: 1) Most recent, 2) Not expired, 3) Has cookies
         const sessionQuery = `
             SELECT 
                 cas.*,
@@ -97,7 +97,9 @@ router.get('/info', async (req, res) => {
             WHERE wc.project_id = $1 
             AND cas.is_active = true
             AND (cas.expires_at IS NULL OR cas.expires_at > CURRENT_TIMESTAMP)
-            ORDER BY is_not_expired DESC, cookie_count DESC, cas.last_used_at DESC NULLS LAST
+            ORDER BY cas.last_used_at DESC NULLS LAST,
+                     cas.created_at DESC NULLS LAST,
+                     cookie_count DESC
             LIMIT 1
         `;
         
