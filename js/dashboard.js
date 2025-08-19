@@ -4594,6 +4594,8 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
         openCreateCrawlerModal(mode = 'basic') {
             console.log('🔍 DEBUG: openCreateCrawlerModal called with mode:', mode);
             this.ui.modals.showCreateCrawler = true;
+            // Also flip the legacy top-level flag in case initialization guard blocks sync
+            this.showCreateCrawler = true;
             this.newCrawler.mode = mode;
             this.syncLegacyState();
             console.log('🔍 DEBUG: After sync - this.showCreateCrawler:', this.showCreateCrawler);
@@ -4602,6 +4604,7 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
         
         closeCreateCrawlerModal() {
             this.ui.modals.showCreateCrawler = false;
+            this.showCreateCrawler = false;
             this.resetCrawlerForm();
             this.syncLegacyState();
         },

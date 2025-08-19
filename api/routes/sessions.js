@@ -369,7 +369,7 @@ router.post('/test', async (req, res) => {
         console.log(`🔍 DEBUG: Testing session for project: ${project_id}`);
         
         // Get the best active auth session for any crawler in this project
-        // Priority: 1) Not expired, 2) Has cookies, 3) Most recent
+        // Priority: 1) Most recent, 2) Not expired, 3) Has cookies
         const sessionQuery = `
             SELECT 
                 cas.*,
@@ -389,7 +389,8 @@ router.post('/test', async (req, res) => {
             WHERE wc.project_id = $1 
             AND cas.is_active = true
             AND (cas.expires_at IS NULL OR cas.expires_at > CURRENT_TIMESTAMP)
-            ORDER BY is_not_expired DESC, cookie_count DESC, cas.last_used_at DESC
+            ORDER BY COALESCE(cas.last_used_at, cas.created_at) DESC NULLS LAST,
+                     cas.created_at DESC NULLS LAST
             LIMIT 1
         `;
         
@@ -558,8 +559,7 @@ router.post('/test', async (req, res) => {
                     await pool.query(`
                         UPDATE crawler_auth_sessions 
                         SET is_active = false, 
-                            validation_successful = false,
-                            updated_at = CURRENT_TIMESTAMP
+                            validation_successful = false
                         WHERE id = $1
                     `, [session.id]);
                     console.log('✅ Expired session marked as inactive');
@@ -624,8 +624,7 @@ router.delete('/clear', async (req, res) => {
         // Mark all sessions for this project as inactive
         const clearQuery = `
             UPDATE crawler_auth_sessions 
-            SET is_active = false, 
-                updated_at = CURRENT_TIMESTAMP
+            SET is_active = false
             WHERE crawler_id IN (
                 SELECT id FROM web_crawlers WHERE project_id = $1
             )
