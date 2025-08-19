@@ -525,7 +525,7 @@ router.delete('/:id', authenticateToken, async (req, res) => {
             
             // 9. Delete test sessions
             console.log('🗑️ Deleting test sessions...');
-            const deleteSessions = await db.query('DELETE FROM test_sessions WHERE project_id = $1', [id]);
+            const deleteProjectSessions = await db.query('DELETE FROM test_sessions WHERE project_id = $1', [id]);
             
             // 10. Delete discovered pages (they reference site discoveries)
             console.log('🗑️ Deleting discovered pages...');
@@ -545,29 +545,29 @@ router.delete('/:id', authenticateToken, async (req, res) => {
             const deleteProject = await db.query('DELETE FROM projects WHERE id = $1', [id]);
             
             await db.query('COMMIT');
-            
             console.log(`✅ PROJECT DELETION COMPLETE: "${project.name}" and all related data deleted`);
-            
+
+            // Respond here while scoped variables are available
+            return res.json({
+                message: 'Project deleted successfully',
+                deleted_data: {
+                    id,
+                    name: project.name,
+                    primary_url: project.primary_url,
+                    sessions_deleted: (typeof deleteProjectSessions !== 'undefined' && deleteProjectSessions.rowCount) ? deleteProjectSessions.rowCount : undefined,
+                    test_instances_deleted: (typeof deleteTestInstances !== 'undefined' && deleteTestInstances.rowCount) ? deleteTestInstances.rowCount : undefined,
+                    automated_results_deleted: (typeof deleteAutomatedResults !== 'undefined' && deleteAutomatedResults.rowCount) ? deleteAutomatedResults.rowCount : undefined,
+                    discovered_pages_deleted: (typeof deletePages !== 'undefined' && deletePages.rowCount) ? deletePages.rowCount : undefined,
+                    discoveries_deleted: (typeof deleteDiscoveries !== 'undefined' && deleteDiscoveries.rowCount) ? deleteDiscoveries.rowCount : undefined,
+                    project_deleted: deleteProject.rowCount > 0
+                }
+            });
+
         } catch (deleteError) {
             await db.query('ROLLBACK');
             console.error(`❌ PROJECT DELETION FAILED for project ${id}:`, deleteError);
             throw deleteError;
         }
-
-        res.json({
-            message: 'Project deleted successfully',
-            deleted_data: {
-                id,
-                name: project.name,
-                primary_url: project.primary_url,
-                sessions_deleted: (typeof deleteSessions !== 'undefined' && deleteSessions.rowCount) ? deleteSessions.rowCount : undefined,
-                test_instances_deleted: (typeof deleteTestInstances !== 'undefined' && deleteTestInstances.rowCount) ? deleteTestInstances.rowCount : undefined,
-                automated_results_deleted: (typeof deleteAutomatedResults !== 'undefined' && deleteAutomatedResults.rowCount) ? deleteAutomatedResults.rowCount : undefined,
-                discovered_pages_deleted: (typeof deletePages !== 'undefined' && deletePages.rowCount) ? deletePages.rowCount : undefined,
-                discoveries_deleted: (typeof deleteDiscoveries !== 'undefined' && deleteDiscoveries.rowCount) ? deleteDiscoveries.rowCount : undefined,
-                project_deleted: deleteProject.rowCount > 0
-            }
-        });
 
     } catch (error) {
         console.error('Error deleting project:', error);
