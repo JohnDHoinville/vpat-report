@@ -3705,7 +3705,8 @@ ${requirement.failure_examples}
                     this.loadWebCrawlers(),           // For Web Crawler tab
                     this.loadProjectDiscoveries(),    // For Discovery tab
                     this.loadProjectTestSessions(),   // For Testing Sessions tab
-                    this.loadProjectAuthConfigs()     // For Authentication tab
+                    this.loadProjectAuthConfigs(),    // For Authentication tab
+                    this.loadSessionInfo()            // Ensure Browser Session Management reflects current project
                 ]);
                 
                 // Load additional data that might depend on the above

@@ -97,9 +97,8 @@ router.get('/info', async (req, res) => {
             WHERE wc.project_id = $1 
             AND cas.is_active = true
             AND (cas.expires_at IS NULL OR cas.expires_at > CURRENT_TIMESTAMP)
-            ORDER BY cas.last_used_at DESC NULLS LAST,
-                     cas.created_at DESC NULLS LAST,
-                     cookie_count DESC
+            ORDER BY COALESCE(cas.last_used_at, cas.created_at) DESC NULLS LAST,
+                     cas.created_at DESC NULLS LAST
             LIMIT 1
         `;
         
