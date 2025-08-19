@@ -560,11 +560,11 @@ router.delete('/:id', authenticateToken, async (req, res) => {
                 id,
                 name: project.name,
                 primary_url: project.primary_url,
-                sessions_deleted: deleteSessions.rowCount,
-                test_instances_deleted: deleteTestInstances.rowCount,
-                automated_results_deleted: deleteAutomatedResults.rowCount,
-                discovered_pages_deleted: deletePages.rowCount,
-                discoveries_deleted: deleteDiscoveries.rowCount,
+                sessions_deleted: (typeof deleteSessions !== 'undefined' && deleteSessions.rowCount) ? deleteSessions.rowCount : undefined,
+                test_instances_deleted: (typeof deleteTestInstances !== 'undefined' && deleteTestInstances.rowCount) ? deleteTestInstances.rowCount : undefined,
+                automated_results_deleted: (typeof deleteAutomatedResults !== 'undefined' && deleteAutomatedResults.rowCount) ? deleteAutomatedResults.rowCount : undefined,
+                discovered_pages_deleted: (typeof deletePages !== 'undefined' && deletePages.rowCount) ? deletePages.rowCount : undefined,
+                discoveries_deleted: (typeof deleteDiscoveries !== 'undefined' && deleteDiscoveries.rowCount) ? deleteDiscoveries.rowCount : undefined,
                 project_deleted: deleteProject.rowCount > 0
             }
         });

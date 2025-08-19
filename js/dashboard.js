@@ -3733,10 +3733,13 @@ ${requirement.failure_examples}
             try {
                 this.loading = true;
                 // Some backends require explicit confirmation tokens/flags
-                const response = await this.apiCall(`/projects/${this.projectToDelete.id}`, {
+                const token = this.getAuthToken && this.getAuthToken();
+                // Backend requires confirm_permanent=true (query param). Also send Authorization header.
+                const response = await this.apiCall(`/projects/${this.projectToDelete.id}?confirm_permanent=true`, {
                     method: 'DELETE',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ confirm: true, reason: 'user_confirmed' })
+                    headers: {
+                        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                    }
                 });
                 if (!response || response.success === false) {
                     throw new Error(response?.error || 'Project deletion requires explicit confirmation');
