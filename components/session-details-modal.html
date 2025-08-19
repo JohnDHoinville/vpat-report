@@ -809,14 +809,14 @@
                                 </div>
                                 
                                 <!-- Requirements Statistics -->
-                                <div class="grid grid-cols-2 md:grid-cols-8 gap-4 text-center">
+                                <div class="grid grid-cols-2 md:grid-cols-12 gap-4 text-center">
                                     <div class="bg-blue-100 p-3 rounded-lg">
                                         <div class="text-xl font-bold text-blue-600" x-text="requirementStats.total || 0"></div>
                                         <div class="text-xs text-blue-700">Total</div>
                                     </div>
                                     <div class="bg-green-100 p-3 rounded-lg">
-                                        <div class="text-xl font-bold text-green-600" x-text="(requirementStats.automated_requirements || 0) + (requirementStats.hybrid_requirements || 0)"></div>
-                                        <div class="text-xs text-green-700">Can Auto</div>
+                                        <div class="text-xl font-bold text-green-600" x-text="requirementStats.completed || 0"></div>
+                                        <div class="text-xs text-green-700">Completed</div>
                                     </div>
                                     <div class="bg-emerald-100 p-3 rounded-lg">
                                         <div class="text-xl font-bold text-emerald-600" x-text="requirementStats.passed || 0"></div>
@@ -829,6 +829,22 @@
                                     <div class="bg-orange-100 p-3 rounded-lg">
                                         <div class="text-xl font-bold text-orange-600" x-text="requirementStats.in_progress || 0"></div>
                                         <div class="text-xs text-orange-700">In Progress</div>
+                                    </div>
+                                    <div class="bg-amber-100 p-3 rounded-lg">
+                                        <div class="text-xl font-bold text-amber-600" x-text="requirementStats.pending || 0"></div>
+                                        <div class="text-xs text-amber-700">Pending</div>
+                                    </div>
+                                    <div class="bg-indigo-100 p-3 rounded-lg">
+                                        <div class="text-xl font-bold text-indigo-600" x-text="requirementStats.running || 0"></div>
+                                        <div class="text-xs text-indigo-700">Running</div>
+                                    </div>
+                                    <div class="bg-purple-100 p-3 rounded-lg">
+                                        <div class="text-xl font-bold text-purple-600" x-text="requirementStats.needs_review || 0"></div>
+                                        <div class="text-xs text-purple-700">Needs Review</div>
+                                    </div>
+                                    <div class="bg-fuchsia-100 p-3 rounded-lg">
+                                        <div class="text-xl font-bold text-fuchsia-600" x-text="requirementStats.manual_pending || 0"></div>
+                                        <div class="text-xs text-fuchsia-700">Manual Pending</div>
                                     </div>
                                     <div class="bg-gray-100 p-3 rounded-lg">
                                         <div class="text-xl font-bold text-gray-600" x-text="requirementStats.not_tested || 0"></div>

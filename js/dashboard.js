@@ -1099,22 +1099,33 @@ window.dashboard = function() {
             let failedOverall = 0;
             let inProgressOverall = 0;
             let notTestedOverall = 0;
+            let pendingOverall = 0;
+            let runningOverall = 0;
+            let needsReviewOverall = 0;
+            let manualPendingOverall = 0;
+            let completedOverall = 0;
 
             this.sessionRequirements.forEach(req => {
-                const hasPassedTest = req.automated_status === 'passed' || req.manual_status === 'passed';
-                const hasFailedTest = req.automated_status === 'failed' || req.manual_status === 'failed';
-                const isInProgress = (
-                    req.automated_status === 'in_progress' || req.manual_status === 'in_progress' ||
-                    req.automated_status === 'pending' || req.manual_status === 'pending' ||
-                    req.automated_status === 'human_review' || req.manual_status === 'human_review'
-                );
+                const auto = req.automated_status;
+                const manual = req.manual_status;
+                const hasPassedTest = auto === 'passed' || manual === 'passed';
+                const hasFailedTest = auto === 'failed' || manual === 'failed';
+                const isInProgress = (auto === 'in_progress' || manual === 'in_progress');
+                const isPending = (auto === 'pending' || manual === 'pending');
+                const isRunning = (auto === 'running' || manual === 'running');
+                const isNeedsReview = (auto === 'needs_review' || auto === 'human_review' || manual === 'needs_review' || manual === 'human_review');
                 const autoNot = !req.automated_status || req.automated_status === 'not_tested';
                 const manualNot = !req.manual_status || req.manual_status === 'not_tested';
 
                 if (hasFailedTest) failedOverall++;
-                else if (hasPassedTest && !hasFailedTest) passedOverall++;
-                else if (autoNot && manualNot) notTestedOverall++;
-                else if (isInProgress) inProgressOverall++;
+                if (hasPassedTest && !hasFailedTest) passedOverall++;
+                if (autoNot && manualNot) notTestedOverall++;
+                if (isInProgress) inProgressOverall++;
+                if (isPending) pendingOverall++;
+                if (isRunning) runningOverall++;
+                if (isNeedsReview) needsReviewOverall++;
+                if (manual === 'pending') manualPendingOverall++;
+                if (manual === 'completed' || manual === 'passed') completedOverall++;
             });
             
             this.requirementStats = {
@@ -1135,7 +1146,12 @@ window.dashboard = function() {
                 // Filter-aligned summary counts
                 passed: passedOverall,
                 failed: failedOverall,
-                in_progress: inProgressOverall
+                in_progress: inProgressOverall,
+                pending: pendingOverall,
+                running: runningOverall,
+                needs_review: needsReviewOverall,
+                manual_pending: manualPendingOverall,
+                completed: completedOverall
             };
             
             console.log(`📊 Requirements stats calculated:`, {
@@ -1156,7 +1172,12 @@ window.dashboard = function() {
                 not_tested: this.requirementStats.not_tested,
                 passed_overall: this.requirementStats.passed,
                 failed_overall: this.requirementStats.failed,
-                in_progress_overall: this.requirementStats.in_progress
+                in_progress_overall: this.requirementStats.in_progress,
+                pending_overall: this.requirementStats.pending,
+                running_overall: this.requirementStats.running,
+                needs_review_overall: this.requirementStats.needs_review,
+                manual_pending_overall: this.requirementStats.manual_pending,
+                completed_overall: this.requirementStats.completed
             });
             
             // Debug: Show sample status values from first few requirements
