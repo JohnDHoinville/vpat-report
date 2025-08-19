@@ -448,7 +448,6 @@ window.dashboard = function() {
                 console.log(`❌ navigateTestInstance: New index ${newIdx} out of bounds`);
             }
         },
-        
         // Update existing test instance modal content
         updateTestInstanceModalContent(testInstance) {
             console.log('🔄 Updating test instance modal content for:', testInstance.id);
@@ -1000,6 +999,18 @@ window.dashboard = function() {
                 }, []);
                 
                 this.sessionRequirements = uniqueRequirements;
+
+                // Compute and set overall_status using the standalone component (if present)
+                try {
+                    if (window.RequirementsStatus && Array.isArray(this.sessionRequirements)) {
+                        this.sessionRequirements = this.sessionRequirements.map((req) => {
+                            const computed = window.RequirementsStatus.computeOverall(req);
+                            return { ...req, overall_status: computed };
+                        });
+                    }
+                } catch (e) {
+                    console.warn('⚠️ RequirementsStatus.computeOverall failed:', e);
+                }
                 
                 // Apply filtering immediately (don't set filteredRequirements to all requirements)
                 this.filterRequirements();
@@ -1026,167 +1037,37 @@ window.dashboard = function() {
         // ===== REQUIREMENTS HELPER FUNCTIONS =====
         calculateRequirementStats: function() {
             if (!this.sessionRequirements) return;
-            
-            // Count requirements by test method (this is what determines if they can be automated)
+            let counts;
+            try {
+                if (window.RequirementsStatus) counts = window.RequirementsStatus.aggregate(this.sessionRequirements);
+            } catch (e) { console.warn('⚠️ RequirementsStatus.aggregate failed:', e); }
+            if (!counts) {
+                counts = { total: this.sessionRequirements.length, passed: 0, failed: 0, in_progress: 0, pending: 0, running: 0, needs_review: 0, not_tested: 0, completed: 0, manual_pending: 0 };
+                this.sessionRequirements.forEach((req) => {
+                    const st = (req.overall_status || '').toLowerCase();
+                    if (st && counts[st] !== undefined) counts[st] += 1; else counts.not_tested += 1;
+                    if ((req.manual_status || '').toLowerCase() === 'passed') counts.completed += 1;
+                    if ((req.manual_status || '').toLowerCase() === 'pending') counts.manual_pending += 1;
+                });
+            }
             const automatedRequirements = this.sessionRequirements.filter(r => r.test_method === 'automated').length;
-            const hybridRequirements = this.sessionRequirements.filter(r => r.test_method === 'both').length;
+            const hybridRequirements = this.sessionRequirements.filter(r => r.test_method === 'both' || r.test_method === 'hybrid').length;
             const manualRequirements = this.sessionRequirements.filter(r => r.test_method === 'manual').length;
-            
-            // Count requirements by actual test status using the correct field names from API
-            const automatedPassed = this.sessionRequirements.filter(r => r.automated_status === 'passed').length;
-            const automatedFailed = this.sessionRequirements.filter(r => r.automated_status === 'failed').length;
-            const automatedPending = this.sessionRequirements.filter(r => r.automated_status === 'pending').length;
-            const automatedInProgress = this.sessionRequirements.filter(r => r.automated_status === 'in_progress').length;
-            const automatedRunning = this.sessionRequirements.filter(r => r.automated_status === 'running').length;
-            const automatedNeedsReview = this.sessionRequirements.filter(r => r.automated_status === 'needs_review').length;
-            const manualCompleted = this.sessionRequirements.filter(r => r.manual_status === 'passed').length; // Changed from 'completed' to 'passed'
-            const manualPending = this.sessionRequirements.filter(r => r.manual_status === 'pending').length;
-            const manualInProgress = this.sessionRequirements.filter(r => r.manual_status === 'in_progress').length;
-            const notTested = this.sessionRequirements.filter(r => r.overall_status === 'not_tested').length; // Changed from 'status' to 'overall_status'
-            
-            // Alternative approach: Count based on test instance data if available
-            let automatedPassedAlt = 0;
-            let automatedFailedAlt = 0;
-            let manualCompletedAlt = 0;
-            let manualPendingAlt = 0;
-            let notTestedAlt = 0;
-            let inProgressAlt = 0;
-            
-            this.sessionRequirements.forEach(r => {
-                // Count based on test instance data
-                if (r.passed_instances && parseInt(r.passed_instances) > 0) {
-                    if (r.automated_instances && parseInt(r.automated_instances) > 0) {
-                        automatedPassedAlt++;
-                    } else if (r.manual_instances && parseInt(r.manual_instances) > 0) {
-                        manualCompletedAlt++;
-                    }
-                }
-                if (r.failed_instances && parseInt(r.failed_instances) > 0) {
-                    automatedFailedAlt++;
-                }
-                if (r.in_progress_instances && parseInt(r.in_progress_instances) > 0) {
-                    inProgressAlt++;
-                }
-                if (r.pending_instances && parseInt(r.pending_instances) > 0) {
-                    if (r.manual_instances && parseInt(r.manual_instances) > 0) {
-                        manualPendingAlt++;
-                    }
-                }
-                if (r.total_test_instances && parseInt(r.total_test_instances) === 0) {
-                    notTestedAlt++;
-                }
-            });
-            
-            // Use the alternative counts if they provide better data
-            if (automatedPassedAlt > automatedPassed) {
-                console.log(`🔧 Using alternative count for automated passed: ${automatedPassedAlt} vs ${automatedPassed}`);
-            }
-            if (automatedFailedAlt > automatedFailed) {
-                console.log(`🔧 Using alternative count for automated failed: ${automatedFailedAlt} vs ${automatedFailed}`);
-            }
-            if (manualCompletedAlt > manualCompleted) {
-                console.log(`🔧 Using alternative count for manual completed: ${manualCompletedAlt} vs ${manualCompleted}`);
-            }
-            if (notTestedAlt !== notTested) {
-                console.log(`🔧 Using alternative count for not tested: ${notTestedAlt} vs ${notTested}`);
-            }
-            if (inProgressAlt > 0) {
-                console.log(`🔧 Found ${inProgressAlt} requirements with in-progress instances`);
-            }
-            
-            // Derive aggregate, filter-aligned counts
-            let passedOverall = 0;
-            let failedOverall = 0;
-            let inProgressOverall = 0;
-            let notTestedOverall = 0;
-            let pendingOverall = 0;
-            let runningOverall = 0;
-            let needsReviewOverall = 0;
-            let manualPendingOverall = 0;
-            let completedOverall = 0;
-
-            this.sessionRequirements.forEach(req => {
-                const auto = req.automated_status;
-                const manual = req.manual_status;
-                const hasPassedTest = auto === 'passed' || manual === 'passed';
-                const hasFailedTest = auto === 'failed' || manual === 'failed';
-                const isInProgress = (auto === 'in_progress' || manual === 'in_progress');
-                const isPending = (auto === 'pending' || manual === 'pending');
-                const isRunning = (auto === 'running' || manual === 'running');
-                const isNeedsReview = (auto === 'needs_review' || auto === 'human_review' || manual === 'needs_review' || manual === 'human_review');
-                const autoNot = !req.automated_status || req.automated_status === 'not_tested';
-                const manualNot = !req.manual_status || req.manual_status === 'not_tested';
-
-                if (hasFailedTest) failedOverall++;
-                if (hasPassedTest && !hasFailedTest) passedOverall++;
-                if (autoNot && manualNot) notTestedOverall++;
-                if (isInProgress) inProgressOverall++;
-                if (isPending) pendingOverall++;
-                if (isRunning) runningOverall++;
-                if (isNeedsReview) needsReviewOverall++;
-                if (manual === 'pending') manualPendingOverall++;
-                if (manual === 'completed' || manual === 'passed') completedOverall++;
-            });
-            
             this.requirementStats = {
-                total: this.sessionRequirements.length,
+                total: counts.total || this.sessionRequirements.length,
+                passed: counts.passed || 0,
+                failed: counts.failed || 0,
+                in_progress: counts.in_progress || 0,
+                pending: counts.pending || 0,
+                running: counts.running || 0,
+                needs_review: counts.needs_review || 0,
+                manual_pending: counts.manual_pending || 0,
+                completed: counts.completed || 0,
+                not_tested: counts.not_tested || 0,
                 automated_requirements: automatedRequirements,
                 hybrid_requirements: hybridRequirements,
                 manual_requirements: manualRequirements,
-                automated_passed: Math.max(automatedPassed, automatedPassedAlt),
-                automated_failed: Math.max(automatedFailed, automatedFailedAlt),
-                automated_pending: automatedPending,
-                automated_in_progress: Math.max(automatedInProgress, inProgressAlt),
-                automated_running: automatedRunning,
-                automated_needs_review: automatedNeedsReview,
-                manual_completed: Math.max(manualCompleted, manualCompletedAlt),
-                manual_pending: Math.max(manualPending, manualPendingAlt),
-                manual_in_progress: manualInProgress,
-                not_tested: notTestedAlt > 0 ? notTestedAlt : notTested,
-                // Filter-aligned summary counts
-                passed: passedOverall,
-                failed: failedOverall,
-                in_progress: inProgressOverall,
-                pending: pendingOverall,
-                running: runningOverall,
-                needs_review: needsReviewOverall,
-                manual_pending: manualPendingOverall,
-                completed: completedOverall
             };
-            
-            console.log(`📊 Requirements stats calculated:`, {
-                total: this.requirementStats.total,
-                automated: this.requirementStats.automated_requirements,
-                hybrid: this.requirementStats.hybrid_requirements,
-                manual: this.requirementStats.manual_requirements,
-                automated_total: this.requirementStats.automated_requirements + this.requirementStats.hybrid_requirements,
-                automated_passed: this.requirementStats.automated_passed,
-                automated_failed: this.requirementStats.automated_failed,
-                automated_pending: this.requirementStats.automated_pending,
-                automated_in_progress: this.requirementStats.automated_in_progress,
-                automated_running: this.requirementStats.automated_running,
-                automated_needs_review: this.requirementStats.automated_needs_review,
-                manual_completed: this.requirementStats.manual_completed,
-                manual_pending: this.requirementStats.manual_pending,
-                manual_in_progress: this.requirementStats.manual_in_progress,
-                not_tested: this.requirementStats.not_tested,
-                passed_overall: this.requirementStats.passed,
-                failed_overall: this.requirementStats.failed,
-                in_progress_overall: this.requirementStats.in_progress,
-                pending_overall: this.requirementStats.pending,
-                running_overall: this.requirementStats.running,
-                needs_review_overall: this.requirementStats.needs_review,
-                manual_pending_overall: this.requirementStats.manual_pending,
-                completed_overall: this.requirementStats.completed
-            });
-            
-            // Debug: Show sample status values from first few requirements
-            if (this.sessionRequirements && this.sessionRequirements.length > 0) {
-                console.log('🔍 Sample requirement statuses:');
-                this.sessionRequirements.slice(0, 3).forEach((req, index) => {
-                    console.log(`  ${index + 1}. ${req.criterion_number}: overall_status="${req.overall_status}", automated_status="${req.automated_status}", manual_status="${req.manual_status}"`);
-                });
-            }
         },
         
         updateRequirementsPagination: function() {
@@ -1644,7 +1525,6 @@ ${requirement.failure_examples}
 
     // Declare componentInstance variable
     let componentInstance;
-
     // ===== MERGE WITH ORGANIZED STATE STRUCTURE =====
     return {
         // Apply all defaults first
@@ -2379,7 +2259,6 @@ ${requirement.failure_examples}
                 console.error('Error refreshing requirement details:', error);
             }
         },
-        
         // Handle automation progress updates
         handleAutomationProgress(data) {
             console.log('🔍 DEBUG: handleAutomationProgress received:', data);
@@ -3142,7 +3021,6 @@ ${requirement.failure_examples}
             }
             return headers;
         },
-
         // API Helper Function (from stable backup)
         async apiCall(endpoint, options = {}) {
             try {
@@ -4540,7 +4418,6 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
   {"type": "exclude", "regex": "/ra/users/\\d+"},
   {"type": "exclude", "regex": "\\.pdf$"}
 ]</pre>
-
 <strong>Benefits:</strong>
 ✅ Faster crawling (fewer pages to process)
 ✅ More relevant results (focus on important pages)
@@ -5335,7 +5212,6 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
             this.crawlerPageFilter = '';
             this.syncLegacyState();
         },
-
         // Edit an existing crawler
         async editCrawler(crawler) {
             // Populate the form with existing crawler data
@@ -6907,7 +6783,6 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
             this.newManualUrlHasForms = false;
             this.newManualUrlForTesting = true;
         },
-
         // Save UI page selections to persist them across modal reopens
         async saveCrawlerPageSelections() {
             if (!this.selectedCrawlerForPages) {
@@ -7667,7 +7542,6 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                 this.availableTesters = [];
             }
         },
-        
         // Create a new unified testing session
         async createTestingSession() {
             if (!this.selectedProject || !this.newTestingSession.name.trim() || !this.newTestingSession.conformance_level) {
@@ -8466,7 +8340,6 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                 this.userPagination.currentPage++;
             }
         },
-        
         // Get user role display
         getUserRoleDisplay(role) {
             const roles = {
@@ -9263,7 +9136,6 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
             this.bulkStatusUpdate = '';
             this.bulkTesterAssignment = '';
         },
-        
         // Clear selection
         clearSelection() {
             this.selectedTestInstances = [];
@@ -9974,7 +9846,6 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                 console.error('Error loading session stats:', error);
             }
         },
-        
         // Load session results for the Results tab
         async loadSessionResults(sessionId) {
             try {
@@ -10703,7 +10574,6 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
             };
             return classes[status] || 'bg-purple-100 text-purple-800';
         },
-        
         // Test instance action methods
         viewTestInstanceDetails(testInstance) {
             // Determine the correct ID field for this test instance
@@ -11410,7 +11280,6 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                 }
             }
         },
-
         // Load test instance history with enhanced audit information
         async loadTestInstanceHistory(instanceId) {
             try {
@@ -12179,7 +12048,6 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                 console.error('Error running automated test for instance:', error);
             }
         },
-        
         // Group requirements with their associated pages
         getRequirementsWithPages() {
             if (!this.sessionDetailsTestInstances?.length) return [];
@@ -12966,7 +12834,6 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                 console.error('Error toggling test history:', error);
             }
         },
-
         // Run tests for a specific requirement - UNIFIED AUTOMATION
         async runTestsForRequirement(criterionNumber) {
             try {
@@ -14333,7 +14200,6 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
         this.auditTimeline.expandedItems.clear();
         document.getElementById('auditTimelineModal').classList.add('hidden');
     };
-
     componentInstance.loadAuditTimeline = async function() {
         if (!this.auditTimeline.sessionId) return;
 
@@ -15121,7 +14987,6 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
         this.filteredRequirements = filtered;
         this.updateRequirementsPagination();
     };
-
     // Update requirements pagination
     componentInstance.updateRequirementsPagination = function() {
         const totalItems = this.filteredRequirements.length;
@@ -15136,63 +15001,6 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
         const startIndex = (this.requirementCurrentPage - 1) * this.requirementPageSize;
         const endIndex = startIndex + this.requirementPageSize;
         this.paginatedRequirements = this.filteredRequirements.slice(startIndex, endIndex);
-    };
-
-    // Calculate requirement statistics
-    componentInstance.calculateRequirementStats = function() {
-        if (!this.sessionRequirements) {
-            this.requirementStats = {
-                total: 0,
-                passed: 0,
-                failed: 0,
-                in_progress: 0,
-                not_tested: 0
-            };
-            return;
-        }
-
-        const stats = {
-            total: this.sessionRequirements.length,
-            passed: 0,
-            failed: 0,
-            in_progress: 0,
-            not_tested: 0
-        };
-
-        // Use the same logic as the filter to classify each requirement
-        this.sessionRequirements.forEach(req => {
-            // Check if requirement should be classified as "passed"
-            const autoApplies = req.test_method === 'automated' || req.test_method === 'both';
-            const manualApplies = req.test_method === 'manual' || req.test_method === 'both';
-            
-            const autoPassed = !autoApplies || req.automated_status === 'passed';
-            const manualPassed = !manualApplies || req.manual_status === 'passed';
-            
-            const hasPassedTest = req.automated_status === 'passed' || req.manual_status === 'passed';
-            const hasFailedTest = req.automated_status === 'failed' || req.manual_status === 'failed';
-            
-            // Classify using the same logic as filters
-            if (hasFailedTest) {
-                stats.failed++;
-            } else if (hasPassedTest && !hasFailedTest && autoPassed && manualPassed) {
-                stats.passed++;
-            } else if (req.automated_status === 'in_progress' || req.manual_status === 'in_progress' ||
-                       req.automated_status === 'pending' || req.manual_status === 'pending' ||
-                       req.automated_status === 'human_review' || req.manual_status === 'human_review') {
-                stats.in_progress++;
-            } else {
-                const autoNotTested = !req.automated_status || req.automated_status === 'not_tested';
-                const manualNotTested = !req.manual_status || req.manual_status === 'not_tested';
-                if (autoNotTested && manualNotTested) {
-                    stats.not_tested++;
-                } else {
-                    // Edge case - put in in_progress if it doesn't clearly fit elsewhere
-                    stats.in_progress++;
-                }
-            }
-        });
-
-        this.requirementStats = stats;
     };
 
     // View requirement details
