@@ -634,20 +634,19 @@ router.delete('/:id', authenticateToken, async (req, res) => {
         
         // Delete related data in correct order to respect foreign key constraints
         
-        // 1. Delete automated test results for this session
-        const deleteAutomatedResults = await client.query(
-            'DELETE FROM automated_test_results WHERE test_session_id = $1',
+        // 1. Capture manual result IDs before nulling/deleting instances
+        const manualIdsResult = await client.query(
+            'SELECT array_agg(manual_result_id) AS ids FROM test_instances WHERE session_id = $1 AND manual_result_id IS NOT NULL',
             [id]
         );
-        console.log(`Deleted ${deleteAutomatedResults.rowCount} automated test results`);
-        
-        // 2. Delete manual test results that reference test instances in this session
-        const deleteManualResults = await client.query(
-            'DELETE FROM manual_test_results WHERE id IN (SELECT manual_result_id FROM test_instances WHERE session_id = $1 AND manual_result_id IS NOT NULL)',
+        const manualIds = manualIdsResult.rows[0]?.ids || [];
+
+        // 2. Null out foreign keys in test_instances to respect FK constraints
+        await client.query(
+            'UPDATE test_instances SET automated_result_id = NULL, manual_result_id = NULL WHERE session_id = $1',
             [id]
         );
-        console.log(`Deleted ${deleteManualResults.rowCount} manual test results`);
-        
+
         // 3. Delete test instances in batches to handle large datasets
         let totalDeleted = 0;
         let batchSize = 1000;
@@ -670,7 +669,25 @@ router.delete('/:id', authenticateToken, async (req, res) => {
             }
         }
         
-        // Delete the session
+        // 4. Delete automated test results for this session (now safe)
+        const deleteAutomatedResults = await client.query(
+            'DELETE FROM automated_test_results WHERE test_session_id = $1',
+            [id]
+        );
+        console.log(`Deleted ${deleteAutomatedResults.rowCount} automated test results`);
+
+        // 5. Delete manual test results captured earlier
+        let manualDeletedCount = 0;
+        if (manualIds.length > 0) {
+            const del = await client.query(
+                'DELETE FROM manual_test_results WHERE id = ANY($2)',
+                [id, manualIds]
+            );
+            manualDeletedCount = del.rowCount;
+            console.log(`Deleted ${manualDeletedCount} manual test results`);
+        }
+
+        // 6. Delete the session
         await client.query('DELETE FROM test_sessions WHERE id = $1', [id]);
         
         await client.query('COMMIT');
@@ -681,7 +698,7 @@ router.delete('/:id', authenticateToken, async (req, res) => {
             deleted_session: session,
             deleted_test_instances: totalDeleted,
             deleted_automated_results: deleteAutomatedResults.rowCount,
-            deleted_manual_results: deleteManualResults.rowCount
+            deleted_manual_results: manualDeletedCount
         });
         
     } catch (error) {
