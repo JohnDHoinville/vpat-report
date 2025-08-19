@@ -819,24 +819,16 @@
                                         <div class="text-xs text-green-700">Can Auto</div>
                                     </div>
                                     <div class="bg-emerald-100 p-3 rounded-lg">
-                                        <div class="text-xl font-bold text-emerald-600" x-text="requirementStats.automated_passed || 0"></div>
-                                        <div class="text-xs text-emerald-700">Auto Passed</div>
+                                        <div class="text-xl font-bold text-emerald-600" x-text="requirementStats.passed || 0"></div>
+                                        <div class="text-xs text-emerald-700">Passed</div>
                                     </div>
                                     <div class="bg-red-100 p-3 rounded-lg">
-                                        <div class="text-xl font-bold text-red-600" x-text="requirementStats.automated_failed || 0"></div>
-                                        <div class="text-xs text-red-700">Auto Failed</div>
+                                        <div class="text-xl font-bold text-red-600" x-text="requirementStats.failed || 0"></div>
+                                        <div class="text-xs text-red-700">Failed</div>
                                     </div>
                                     <div class="bg-orange-100 p-3 rounded-lg">
-                                        <div class="text-xl font-bold text-orange-600" x-text="(requirementStats.automated_pending || 0) + (requirementStats.automated_in_progress || 0) + (requirementStats.automated_running || 0) + (requirementStats.automated_needs_review || 0)"></div>
+                                        <div class="text-xl font-bold text-orange-600" x-text="requirementStats.in_progress || 0"></div>
                                         <div class="text-xs text-orange-700">In Progress</div>
-                                    </div>
-                                    <div class="bg-yellow-100 p-3 rounded-lg">
-                                        <div class="text-xl font-bold text-yellow-600" x-text="requirementStats.manual_completed || 0"></div>
-                                        <div class="text-xs text-yellow-700">Manual Done</div>
-                                    </div>
-                                    <div class="bg-purple-100 p-3 rounded-lg">
-                                        <div class="text-xl font-bold text-purple-600" x-text="requirementStats.manual_pending || 0"></div>
-                                        <div class="text-xs text-purple-700">Manual Pending</div>
                                     </div>
                                     <div class="bg-gray-100 p-3 rounded-lg">
                                         <div class="text-xl font-bold text-gray-600" x-text="requirementStats.not_tested || 0"></div>

@@ -830,7 +830,7 @@ window.dashboard = function() {
                 this.showNotification('error', 'Requirements Error', 'Session ID is required');
                 return;
             }
-
+            
             // Debouncing: prevent multiple simultaneous calls for the same session
             const loadKey = `loadSessionRequirements_${sessionId}`;
             if (this.loadingStates && this.loadingStates[loadKey]) {
@@ -1004,7 +1004,7 @@ window.dashboard = function() {
                 // Apply filtering immediately (don't set filteredRequirements to all requirements)
                 this.filterRequirements();
                 
-                // Calculate statistics  
+                // Calculate statistics
                 this.calculateRequirementStats();
                 
                 // Cache the loaded data
@@ -1094,6 +1094,29 @@ window.dashboard = function() {
                 console.log(`🔧 Found ${inProgressAlt} requirements with in-progress instances`);
             }
             
+            // Derive aggregate, filter-aligned counts
+            let passedOverall = 0;
+            let failedOverall = 0;
+            let inProgressOverall = 0;
+            let notTestedOverall = 0;
+
+            this.sessionRequirements.forEach(req => {
+                const hasPassedTest = req.automated_status === 'passed' || req.manual_status === 'passed';
+                const hasFailedTest = req.automated_status === 'failed' || req.manual_status === 'failed';
+                const isInProgress = (
+                    req.automated_status === 'in_progress' || req.manual_status === 'in_progress' ||
+                    req.automated_status === 'pending' || req.manual_status === 'pending' ||
+                    req.automated_status === 'human_review' || req.manual_status === 'human_review'
+                );
+                const autoNot = !req.automated_status || req.automated_status === 'not_tested';
+                const manualNot = !req.manual_status || req.manual_status === 'not_tested';
+
+                if (hasFailedTest) failedOverall++;
+                else if (hasPassedTest && !hasFailedTest) passedOverall++;
+                else if (autoNot && manualNot) notTestedOverall++;
+                else if (isInProgress) inProgressOverall++;
+            });
+            
             this.requirementStats = {
                 total: this.sessionRequirements.length,
                 automated_requirements: automatedRequirements,
@@ -1108,7 +1131,11 @@ window.dashboard = function() {
                 manual_completed: Math.max(manualCompleted, manualCompletedAlt),
                 manual_pending: Math.max(manualPending, manualPendingAlt),
                 manual_in_progress: manualInProgress,
-                not_tested: notTestedAlt > 0 ? notTestedAlt : notTested
+                not_tested: notTestedAlt > 0 ? notTestedAlt : notTested,
+                // Filter-aligned summary counts
+                passed: passedOverall,
+                failed: failedOverall,
+                in_progress: inProgressOverall
             };
             
             console.log(`📊 Requirements stats calculated:`, {
@@ -1126,7 +1153,10 @@ window.dashboard = function() {
                 manual_completed: this.requirementStats.manual_completed,
                 manual_pending: this.requirementStats.manual_pending,
                 manual_in_progress: this.requirementStats.manual_in_progress,
-                not_tested: this.requirementStats.not_tested
+                not_tested: this.requirementStats.not_tested,
+                passed_overall: this.requirementStats.passed,
+                failed_overall: this.requirementStats.failed,
+                in_progress_overall: this.requirementStats.in_progress
             });
             
             // Debug: Show sample status values from first few requirements
@@ -2022,23 +2052,17 @@ ${requirement.failure_examples}
                             return req.automated_status === 'failed' || req.manual_status === 'failed';
                         
                         case 'passed':
-                            // Show requirements where ALL applicable tests have passed
-                            const autoApplies = req.test_method === 'automated' || req.test_method === 'both';
-                            const manualApplies = req.test_method === 'manual' || req.test_method === 'both';
-                            
-                            const autoPassed = !autoApplies || req.automated_status === 'passed';
-                            const manualPassed = !manualApplies || req.manual_status === 'passed';
-                            
-                            // At least one test must have passed, and none failed
+                            // Show requirements where at least one test has passed and none have failed
                             const hasPassedTest = req.automated_status === 'passed' || req.manual_status === 'passed';
                             const hasFailedTest = req.automated_status === 'failed' || req.manual_status === 'failed';
                             
-                            return hasPassedTest && !hasFailedTest && autoPassed && manualPassed;
+                            return hasPassedTest && !hasFailedTest;
                         
                         case 'in_progress':
                             // Show requirements with in_progress or pending status
                             return req.automated_status === 'in_progress' || req.manual_status === 'in_progress' ||
-                                   req.automated_status === 'pending' || req.manual_status === 'pending';
+                                   req.automated_status === 'pending' || req.manual_status === 'pending' ||
+                                   req.automated_status === 'human_review' || req.manual_status === 'human_review';
                         
                         default:
                             // For any other status, exact match
@@ -14982,18 +15006,58 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
         if (this.requirementFilters.testStatus) {
             const status = this.requirementFilters.testStatus;
             
+            // Debug: Show total counts before filtering
+            console.log(`🔍 FILTER START: Filtering ${filtered.length} requirements by status "${status}"`);
+            
+            // Debug: Show first few requirements and their status values
+            if (status === 'passed') {
+                console.log('🔍 FIRST 5 REQUIREMENTS STATUS:', filtered.slice(0, 5).map(r => ({
+                    id: r.requirement_id,
+                    auto: r.automated_status,
+                    manual: r.manual_status,
+                    method: r.test_method
+                })));
+            }
+            
             filtered = filtered.filter(req => {
-                // Check automated status for automated/both requirements
-                const hasAutomatedMatch = (req.test_method === 'automated' || req.test_method === 'both') && 
-                                         req.automated_status === status;
-                
-                // Check manual status for manual/both requirements  
-                const hasManualMatch = (req.test_method === 'manual' || req.test_method === 'both') && 
-                                      req.manual_status === status;
-                
-                // Return true if either automated or manual status matches
-                return hasAutomatedMatch || hasManualMatch;
+                // Use the same logic as the working filter implementation
+                switch (status) {
+                    case 'not_tested':
+                        // Show requirements that are truly not tested (both statuses are not_tested or null)
+                        const autoNotTested = !req.automated_status || req.automated_status === 'not_tested';
+                        const manualNotTested = !req.manual_status || req.manual_status === 'not_tested';
+                        return autoNotTested && manualNotTested;
+                    
+                    case 'failed':
+                        // Show requirements where ANY test has failed
+                        return req.automated_status === 'failed' || req.manual_status === 'failed';
+                    
+                    case 'passed':
+                        // Show requirements where at least one applicable test has passed and none have failed
+                        const hasPassedTest = req.automated_status === 'passed' || req.manual_status === 'passed';
+                        const hasFailedTest = req.automated_status === 'failed' || req.manual_status === 'failed';
+                        
+                        // Debug logging for first few passed requirements
+                        if (hasPassedTest && !hasFailedTest && req.requirement_id <= '1.3.5') {
+                            console.log(`🔍 PASSED DEBUG: ${req.requirement_id} - auto:${req.automated_status}, manual:${req.manual_status}, method:${req.test_method} -> SHOULD SHOW`);
+                        }
+                        
+                        return hasPassedTest && !hasFailedTest;
+                    
+                    case 'in_progress':
+                        // Show requirements with in_progress or pending status
+                        return req.automated_status === 'in_progress' || req.manual_status === 'in_progress' ||
+                               req.automated_status === 'pending' || req.manual_status === 'pending' ||
+                               req.automated_status === 'human_review' || req.manual_status === 'human_review';
+                    
+                    default:
+                        // For any other status, check if either automated or manual matches
+                        return req.automated_status === status || req.manual_status === status;
+                }
             });
+            
+            // Debug: Show count after filtering
+            console.log(`🔍 FILTER RESULT: Found ${filtered.length} requirements matching "${status}"`);
         }
 
         if (this.requirementFilters.wcagLevel) {
@@ -15038,10 +15102,9 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
         if (!this.sessionRequirements) {
             this.requirementStats = {
                 total: 0,
-                automated_passed: 0,
-                automated_failed: 0,
-                manual_completed: 0,
-                manual_pending: 0,
+                passed: 0,
+                failed: 0,
+                in_progress: 0,
                 not_tested: 0
             };
             return;
@@ -15049,21 +15112,43 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
 
         const stats = {
             total: this.sessionRequirements.length,
-            automated_passed: 0,
-            automated_failed: 0,
-            manual_completed: 0,
-            manual_pending: 0,
+            passed: 0,
+            failed: 0,
+            in_progress: 0,
             not_tested: 0
         };
 
+        // Use the same logic as the filter to classify each requirement
         this.sessionRequirements.forEach(req => {
-            if (req.automated_status === 'passed') stats.automated_passed++;
-            else if (req.automated_status === 'failed') stats.automated_failed++;
+            // Check if requirement should be classified as "passed"
+            const autoApplies = req.test_method === 'automated' || req.test_method === 'both';
+            const manualApplies = req.test_method === 'manual' || req.test_method === 'both';
             
-            if (req.manual_status === 'completed') stats.manual_completed++;
-            else if (req.manual_status === 'pending') stats.manual_pending++;
+            const autoPassed = !autoApplies || req.automated_status === 'passed';
+            const manualPassed = !manualApplies || req.manual_status === 'passed';
             
-            if (req.overall_status === 'not_tested') stats.not_tested++;
+            const hasPassedTest = req.automated_status === 'passed' || req.manual_status === 'passed';
+            const hasFailedTest = req.automated_status === 'failed' || req.manual_status === 'failed';
+            
+            // Classify using the same logic as filters
+            if (hasFailedTest) {
+                stats.failed++;
+            } else if (hasPassedTest && !hasFailedTest && autoPassed && manualPassed) {
+                stats.passed++;
+            } else if (req.automated_status === 'in_progress' || req.manual_status === 'in_progress' ||
+                       req.automated_status === 'pending' || req.manual_status === 'pending' ||
+                       req.automated_status === 'human_review' || req.manual_status === 'human_review') {
+                stats.in_progress++;
+            } else {
+                const autoNotTested = !req.automated_status || req.automated_status === 'not_tested';
+                const manualNotTested = !req.manual_status || req.manual_status === 'not_tested';
+                if (autoNotTested && manualNotTested) {
+                    stats.not_tested++;
+                } else {
+                    // Edge case - put in in_progress if it doesn't clearly fit elsewhere
+                    stats.in_progress++;
+                }
+            }
         });
 
         this.requirementStats = stats;
@@ -15548,6 +15633,63 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
     window.viewAutomationRunDetails = (run) => componentInstance.viewAutomationRunDetails(run);
     window.downloadAutomationRunReport = (runId) => componentInstance.downloadAutomationRunReport(runId);
     window.updateAutomationChart = (period) => componentInstance.updateAutomationChart(period);
+
+    // ===== Global fallbacks for User Management Alpine bindings =====
+    // Some templates reference these directly; expose safe proxies to the main component state
+    if (typeof window.getPaginatedUsers !== 'function') {
+        window.getPaginatedUsers = () => {
+            if (componentInstance && typeof componentInstance.getPaginatedUsers === 'function') {
+                return componentInstance.getPaginatedUsers();
+            }
+            return [];
+        };
+    }
+
+    // userPagination proxy (getter/setter to keep in sync with component)
+    if (!Object.getOwnPropertyDescriptor(window, 'userPagination')) {
+        Object.defineProperty(window, 'userPagination', {
+            configurable: true,
+            enumerable: true,
+            get() { return (componentInstance && componentInstance.userPagination) ? componentInstance.userPagination : { currentPage: 1, itemsPerPage: 10, totalItems: 0, totalPages: 1 }; },
+            set(value) { if (componentInstance) componentInstance.userPagination = value; }
+        });
+    }
+
+    // loading proxy
+    if (!Object.getOwnPropertyDescriptor(window, 'loading')) {
+        Object.defineProperty(window, 'loading', {
+            configurable: true,
+            enumerable: true,
+            get() { return componentInstance ? !!componentInstance.loading : false; },
+            set(value) { if (componentInstance) componentInstance.loading = !!value; }
+        });
+    }
+
+    // showUserForm, userForm, userFormErrors proxies
+    if (!Object.getOwnPropertyDescriptor(window, 'showUserForm')) {
+        Object.defineProperty(window, 'showUserForm', {
+            configurable: true,
+            enumerable: true,
+            get() { return componentInstance ? !!componentInstance.showUserForm : false; },
+            set(value) { if (componentInstance) componentInstance.showUserForm = !!value; }
+        });
+    }
+    if (!Object.getOwnPropertyDescriptor(window, 'userForm')) {
+        Object.defineProperty(window, 'userForm', {
+            configurable: true,
+            enumerable: true,
+            get() { return componentInstance && componentInstance.userForm ? componentInstance.userForm : { id: null, username: '', email: '', full_name: '', role: 'tester', is_active: true, password: '', confirm_password: '' }; },
+            set(value) { if (componentInstance) componentInstance.userForm = value; }
+        });
+    }
+    if (!Object.getOwnPropertyDescriptor(window, 'userFormErrors')) {
+        Object.defineProperty(window, 'userFormErrors', {
+            configurable: true,
+            enumerable: true,
+            get() { return componentInstance && componentInstance.userFormErrors ? componentInstance.userFormErrors : {}; },
+            set(value) { if (componentInstance) componentInstance.userFormErrors = value; }
+        });
+    }
     window.initAutomationChart = () => componentInstance.initAutomationChart();
     
     // Add missing functions for requirements modal
@@ -16047,7 +16189,4 @@ window.handleAuthError = function() {
     }
 };
 
-console.log('📦 Dashboard module loaded successfully');
-
-
-console.log('📦 Dashboard module loaded successfully');
+// Deduplicated accidental duplicate blocks during recent merges
