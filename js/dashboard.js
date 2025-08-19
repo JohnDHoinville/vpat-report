@@ -3732,9 +3732,15 @@ ${requirement.failure_examples}
             
             try {
                 this.loading = true;
-                await this.apiCall(`/projects/${this.projectToDelete.id}`, {
-                    method: 'DELETE'
+                // Some backends require explicit confirmation tokens/flags
+                const response = await this.apiCall(`/projects/${this.projectToDelete.id}`, {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ confirm: true, reason: 'user_confirmed' })
                 });
+                if (!response || response.success === false) {
+                    throw new Error(response?.error || 'Project deletion requires explicit confirmation');
+                }
                 
                 // Remove from projects list
                 this.data.projects = this.data.projects.filter(p => p.id !== this.projectToDelete.id);
@@ -3751,7 +3757,7 @@ ${requirement.failure_examples}
                 
             } catch (error) {
                 console.error('Failed to delete project:', error);
-                this.showNotification('error', 'Error', 'Failed to delete project. Please try again.');
+                this.showNotification('error', 'Error', error?.message || 'Failed to delete project. Please try again.');
             } finally {
                 this.loading = false;
             }
