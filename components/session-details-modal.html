@@ -989,8 +989,12 @@
                                                     
                                                     <!-- Overall Status -->
                                                     <td class="px-6 py-4 whitespace-nowrap w-16">
-                                                        <span :class="getRequirementOverallStatusClass(requirement) + ' px-2 py-1 text-xs font-medium rounded-full'" 
-                                                              x-text="getRequirementOverallStatus(requirement)"></span>
+                                                        <requirement-status-badge 
+                                                            :status="requirement.overall_status"
+                                                            :auto="requirement.automated_status"
+                                                            :manual="requirement.manual_status"
+                                                            :method="requirement.test_method">
+                                                        </requirement-status-badge>
                                                     </td>
                                                     
                                                     <!-- Actions -->
