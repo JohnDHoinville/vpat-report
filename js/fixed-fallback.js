@@ -87,6 +87,7 @@ window.saveTestInstanceDetails = function(instanceId, modal) {
 };
 
 // Global fallback for showUserManagement
+// Keep a safe, no-op default that requires explicit user action
 window.showUserManagement = function() {
     console.log("🚨 Fixed fallback called for showUserManagement");
     
@@ -130,14 +131,14 @@ window.showUserManagement = function() {
     }
     
     // If we found the dashboard instance, use it
-    if (dashboardInstance && dashboardInstance.showUserManagement && dashboardInstance.showUserManagement !== window.showUserManagement) {
-        console.log('✅ Found dashboard instance, calling showUserManagement');
-        return dashboardInstance.showUserManagement();
+    if (dashboardInstance && dashboardInstance.openUserManagementModal && dashboardInstance.openUserManagementModal !== window.showUserManagement) {
+        console.log('✅ Found dashboard instance, calling openUserManagementModal (manual)');
+        return dashboardInstance.openUserManagementModal();
     }
     
     // If not found, show error message
-    console.error('❌ Dashboard instance not found for showUserManagement');
-    alert('User management not available. Please refresh the page and try again.');
+    console.error('❌ Dashboard instance not ready; user management will not auto-open');
+    // Do not auto-open; require explicit user action from header/nav
 };
 
 console.log('✅ Fixed global fallback functions loaded'); 

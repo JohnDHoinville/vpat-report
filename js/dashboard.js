@@ -2085,6 +2085,26 @@ ${requirement.failure_examples}
                                    req.automated_status === 'pending' || req.manual_status === 'pending' ||
                                    req.automated_status === 'human_review' || req.manual_status === 'human_review';
                         
+                        case 'manual_pending':
+                            // Explicit manual pending filter maps to manual_status === 'pending'
+                            return req.manual_status === 'pending';
+
+                        case 'pending':
+                            // Generic pending across either method
+                            return req.automated_status === 'pending' || req.manual_status === 'pending';
+
+                        case 'running':
+                            return req.automated_status === 'running' || req.manual_status === 'running';
+
+                        case 'needs_review':
+                            // API uses 'human_review' in some places, normalize here
+                            return req.automated_status === 'human_review' || req.manual_status === 'human_review' ||
+                                   req.automated_status === 'needs_review' || req.manual_status === 'needs_review';
+
+                        case 'completed':
+                            // Treat manual 'passed' or explicit 'completed' as completed
+                            return req.manual_status === 'completed' || req.manual_status === 'passed';
+                        
                         default:
                             // For any other status, exact match
                             return req.automated_status === status || req.manual_status === status;
@@ -8128,7 +8148,7 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
         },
 
         // Global function alias for Alpine.js calls
-        showUserManagement() {
+        openUserManagementModal() {
             console.log('🔍 DEBUG: showUserManagement alias called', {
                 stackTrace: new Error().stack
             });
