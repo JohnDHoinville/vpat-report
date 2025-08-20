@@ -2685,9 +2685,14 @@ ${requirement.failure_examples}
         
         // ===== SESSION AND CAPTURE METHODS =====
 
-        // Ensure currentSession is always defined to avoid Alpine template errors
+        // Ensure currentSession is always defined and normalized (id may be sessionId)
         get currentSession() {
-            return this.sessionInfo || { isValid: false };
+            if (!this.sessionInfo) return { isValid: false };
+            const info = this.sessionInfo;
+            return {
+                ...info,
+                id: info.id || info.sessionId || info.session_id || null
+            };
         },
         
         captureNewSession() {
