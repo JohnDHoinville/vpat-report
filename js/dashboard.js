@@ -3523,6 +3523,17 @@ ${requirement.failure_examples}
                 if (response.ok) {
                     const result = await response.json();
                     this.data.webCrawlers = result.success ? result.data : [];
+                    // Ensure runOptions exists with safe defaults to avoid Alpine binding errors
+                    const defaultRunOptions = {
+                        deep_click: false,
+                        max_views_per_page: 20,
+                        deep_click_selectors_text: "[role=tab], .nav-tabs a, .pagination a, a[href^='#']",
+                        include_fragments: false
+                    };
+                    this.data.webCrawlers = (this.data.webCrawlers || []).map((crawler) => ({
+                        ...crawler,
+                        runOptions: { ...defaultRunOptions, ...(crawler?.runOptions || {}) }
+                    }));
                     this.webCrawlers = this.data.webCrawlers; // Legacy sync
                     
                     // Force refresh page counts to get accurate data from database

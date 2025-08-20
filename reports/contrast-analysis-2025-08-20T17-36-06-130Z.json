@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "url": "https://fm-dev.ti.internet2.edu/ra/realms?sorts[eduroamAdministrators]=1#view-eduroam-administrators",
-    "timestamp": "2025-08-20T17:36:20.870Z",
+    "url": "https://fm-dev.ti.internet2.edu/ra/eduroam?sorts[eduroamSubscriptionType]=1#main",
+    "timestamp": "2025-08-20T17:36:06.130Z",
     "wcagLevel": "AA",
     "includeAAA": false,
     "analysisOptions": {

@@ -478,10 +478,10 @@
                                class="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500">
                         <button @click="testExclusionAgainstUrl()" class="px-3 py-2 bg-gray-700 text-white rounded-md hover:bg-gray-800">Test</button>
                     </div>
-                    <div class="mt-2 text-sm" x-show="exclusionTestResult">
-                        <span x-show="exclusionTestResult?.matched" class="text-red-600">Blocked by rule #<span x-text="exclusionTestResult?.matchIndex"></span></span>
+                    <div class="mt-2 text-sm" x-show="!!exclusionTestResult">
+                        <span x-show="exclusionTestResult && exclusionTestResult.matched === true" class="text-red-600">Blocked by rule #<span x-text="exclusionTestResult && exclusionTestResult.matchIndex"></span></span>
                         <span x-show="exclusionTestResult && exclusionTestResult.matched === false" class="text-green-600">Allowed (no match)</span>
-                        <span x-show="exclusionTestResult?.error" class="text-red-600" x-text="exclusionTestResult.error"></span>
+                        <span x-show="exclusionTestResult && exclusionTestResult.error" class="text-red-600" x-text="exclusionTestResult && exclusionTestResult.error"></span>
                     </div>
                 </div>
             </div>
