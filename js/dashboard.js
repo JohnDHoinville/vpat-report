@@ -3857,9 +3857,17 @@ ${requirement.failure_examples}
 
         async startCrawler(crawler) {
             try {
+                const runOptions = crawler && crawler.runOptions ? { ...crawler.runOptions } : {};
+                if (runOptions.deep_click_selectors_text) {
+                    const parts = runOptions.deep_click_selectors_text.split(',').map(s => s.trim()).filter(Boolean);
+                    if (parts.length > 0) runOptions.deep_click_selectors = parts;
+                    delete runOptions.deep_click_selectors_text;
+                }
+
                 const response = await fetch(`${this.config.apiBaseUrl}/api/web-crawlers/crawlers/${crawler.id}/start`, {
                     method: 'POST',
-                    headers: this.getAuthHeaders()
+                    headers: this.getAuthHeaders(),
+                    body: JSON.stringify(runOptions)
                 });
                 
                 if (response.ok) {

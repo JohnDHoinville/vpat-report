@@ -4478,6 +4478,7 @@ class TestAutomationService {
             let violationsCount = 0;
             let passesCount = 0;
             
+            // Prefer explicit per-page summary when provided
             if (toolResults && toolResults.violations_by_page) {
                 // Sum violations across all pages for this tool
                 Object.values(toolResults.violations_by_page).forEach(pageViolations => {
@@ -4495,8 +4496,20 @@ class TestAutomationService {
                 violationsCount = toolResults.total_violations;
             }
             
-            // Estimate passes count (rough calculation)
-            passesCount = Math.max(0, 50 - violationsCount); // Rough estimate
+            // If a flat violations array is returned (axe, pa11y, lighthouse branches), use it
+            if (Array.isArray(toolResults?.violations)) {
+                violationsCount = toolResults.violations.length;
+            }
+            
+            // Determine passes when provided
+            if (Array.isArray(toolResults?.passes)) {
+                passesCount = toolResults.passes.length;
+            } else if (typeof toolResults?.passes_count === 'number') {
+                passesCount = toolResults.passes_count;
+            } else {
+                // Fallback estimate to avoid nulls in schema
+                passesCount = Math.max(0, 50 - violationsCount);
+            }
 
             const query = `
                 INSERT INTO automated_test_results 
@@ -5733,7 +5746,9 @@ class TestAutomationService {
     async runLighthouseAgainstPage(pageUrl, pageInstances, useInteractiveAuth = false) {
         let chrome;
         try {
-            console.log(`🔧 Running Lighthouse against: ${pageUrl}`);
+            // Normalize fragment-only URLs to avoid repeated LH navigation errors
+            const normalizedUrl = typeof pageUrl === 'string' ? pageUrl.split('#')[0] : pageUrl;
+            console.log(`🔧 Running Lighthouse against: ${normalizedUrl}${pageUrl !== normalizedUrl ? ` (from ${pageUrl})` : ''}`);
             
             // Get authentication context if available
             let authContext = null;
@@ -5794,7 +5809,7 @@ class TestAutomationService {
                 chromeFlags: chromeFlags
             });
             
-            const lighthouseResults = await this.lighthouse(pageUrl, {
+            const lighthouseResults = await this.lighthouse(normalizedUrl, {
                 port: chrome.port,
                 onlyCategories: ['accessibility'],
                 logLevel: 'error',
@@ -5817,13 +5832,13 @@ class TestAutomationService {
                     helpUrl: audit.helpUrl
                 }));
 
-            console.log(`✅ Lighthouse completed for ${pageUrl}: ${accessibilityScore}% score, ${violations.length} violations`);
+            console.log(`✅ Lighthouse completed for ${normalizedUrl}: ${accessibilityScore}% score, ${violations.length} violations`);
             
             return {
                 violations: violations,
                 passes: Object.values(audits).filter(audit => audit.score === 1),
                 tool: 'lighthouse',
-                pageUrl,
+                pageUrl: normalizedUrl,
                 accessibilityScore,
                 timestamp: new Date().toISOString()
             };
