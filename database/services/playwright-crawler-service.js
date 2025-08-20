@@ -665,7 +665,7 @@ class PlaywrightCrawlerService {
                 'button[aria-controls]',
                 'a[role=button]'
             ],
-            maxClicksPerPage: Number.isFinite(runConfig.max_views_per_page) ? runConfig.max_views_per_page : 5,
+            maxClicksPerPage: Number.isFinite(runConfig.max_views_per_page) ? runConfig.max_views_per_page : 20,
             includeFragments: runConfig.include_fragments !== false
         };
 
@@ -692,15 +692,15 @@ class PlaywrightCrawlerService {
         for (let i = 0; i < Math.min(limit, candidates.length); i++) {
             try {
                 const beforeLen = await page.evaluate(() => document.body ? document.body.innerText.length : 0);
-                // Click i-th element matching selector
-                await page.evaluate((sel, index) => {
+                // Click i-th element matching selector (Playwright evaluate supports a single argument; wrap values in an object)
+                await page.evaluate(({ sel, index }) => {
                     const list = Array.from(document.querySelectorAll(sel));
                     const el = list[index];
                     if (el) {
                         el.scrollIntoView({ block: 'center' });
-                        (el).click();
+                        el.click();
                     }
-                }, selector, i);
+                }, { sel: selector, index: i });
 
                 await Promise.race([
                     page.waitForLoadState('domcontentloaded', { timeout: 1500 }).catch(() => {}),
