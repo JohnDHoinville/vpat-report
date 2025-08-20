@@ -4992,7 +4992,11 @@ class TestAutomationService {
         for (const page of pages) {
             try {
                 // Get test instances for this page
-                const pageInstances = await this.getTestInstancesForPage(sessionId, page.page_id);
+                let pageInstances = await this.getTestInstancesForPage(sessionId, page.page_id);
+                // Ensure we still carry session id for auth even when there are no per-page instances
+                if ((!pageInstances || pageInstances.length === 0) && sessionId) {
+                    pageInstances = [{ session_id: sessionId }];
+                }
                 
                 const pageResults = await this.runAxeAgainstPage(page.url, pageInstances, useInteractiveAuth);
                 
@@ -5023,7 +5027,10 @@ class TestAutomationService {
         for (const page of pages) {
             try {
                 // Get test instances for this page
-                const pageInstances = await this.getTestInstancesForPage(sessionId, page.page_id);
+                let pageInstances = await this.getTestInstancesForPage(sessionId, page.page_id);
+                if ((!pageInstances || pageInstances.length === 0) && sessionId) {
+                    pageInstances = [{ session_id: sessionId }];
+                }
                 
                 const pageResults = await this.runPa11yAgainstPage(page.url, pageInstances, useInteractiveAuth);
                 
@@ -5054,7 +5061,10 @@ class TestAutomationService {
         for (const page of pages) {
             try {
                 // Get test instances for this page - need sessionId from page info
-                const pageInstances = page.test_instances || [];
+                let pageInstances = page.test_instances || [];
+                if ((!pageInstances || pageInstances.length === 0) && page.session_id) {
+                    pageInstances = [{ session_id: page.session_id }];
+                }
                 
                 const pageResults = await this.runLighthouseAgainstPage(page.url, pageInstances, useInteractiveAuth);
                 
@@ -5085,7 +5095,10 @@ class TestAutomationService {
         for (const page of pages) {
             try {
                 // Get test instances for this page
-                const pageInstances = page.test_instances || [];
+                let pageInstances = page.test_instances || [];
+                if ((!pageInstances || pageInstances.length === 0) && page.session_id) {
+                    pageInstances = [{ session_id: page.session_id }];
+                }
                 
                 const pageResults = await this.runContrastAnalyzerAgainstPage(page.url, pageInstances, useInteractiveAuth);
                 

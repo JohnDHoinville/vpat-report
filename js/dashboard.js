@@ -1765,17 +1765,19 @@ ${requirement.failure_examples}
         },
 
         // ===== INTERACTIVE AUTHENTICATION METHODS =====
-        async openBrowserForAuth() {
+        async openBrowserForAuth(session) {
             try {
                 this.interactiveAuthError = null;
                 this.interactiveAuthInProgress = true;
                 this.interactiveAuthMessage = 'Opening browser for authentication...';
 
-                if (!this.currentSession?.id) {
+                // Prefer explicit param, then pending id, then selected session
+                const targetSessionId = session?.id || this.pendingAuthSessionId || this.selectedTestingSession?.id || null;
+                if (!targetSessionId) {
                     throw new Error('No testing session selected. Please select a session first.');
                 }
 
-                console.log('🔐 Opening browser for interactive authentication for session:', this.currentSession.id);
+                console.log('🔐 Opening browser for interactive authentication for testing session:', targetSessionId);
 
                 const requestData = {
                     target_mode: 'session',
@@ -1788,7 +1790,7 @@ ${requirement.failure_examples}
                     }
                 };
 
-                const response = await fetch(`${this.config.apiBaseUrl}/api/automated-testing/unified-run/${this.currentSession.id}`, {
+                const response = await fetch(`${this.config.apiBaseUrl}/api/automated-testing/unified-run/${targetSessionId}`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -1821,19 +1823,20 @@ ${requirement.failure_examples}
             }
         },
 
-        async completeInteractiveAuth() {
+        async completeInteractiveAuth(session) {
             try {
                 this.interactiveAuthError = null;
                 this.interactiveAuthInProgress = true;
                 this.interactiveAuthMessage = 'Capturing authentication state...';
 
-                if (!this.currentSession?.id) {
+                const targetSessionId = session?.id || this.pendingAuthSessionId || this.selectedTestingSession?.id || null;
+                if (!targetSessionId) {
                     throw new Error('No testing session selected.');
                 }
 
-                console.log('🔐 Completing interactive authentication for session:', this.currentSession.id);
+                console.log('🔐 Completing interactive authentication for testing session:', targetSessionId);
 
-                const response = await fetch(`${this.config.apiBaseUrl}/api/automated-testing/complete-interactive-auth/${this.currentSession.id}`, {
+                const response = await fetch(`${this.config.apiBaseUrl}/api/automated-testing/complete-interactive-auth/${targetSessionId}`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -1863,7 +1866,7 @@ ${requirement.failure_examples}
                         }
                     };
 
-                    fetch(`${this.config.apiBaseUrl}/api/automated-testing/unified-run/${this.currentSession.id}`, {
+                    fetch(`${this.config.apiBaseUrl}/api/automated-testing/unified-run/${targetSessionId}`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -1912,9 +1915,9 @@ ${requirement.failure_examples}
 
         async runInteractiveAuthForSession(session) {
             try {
-                // Set the current session to the selected session
-                this.currentSession = session;
-                this.selectedTestSession = session;
+                // Remember the selected testing session
+                this.selectedTestingSession = session;
+                this.pendingAuthSessionId = session?.id || null;
                 
                 console.log('🔐 Opening interactive authentication modal for session:', session.id, session.name);
 
@@ -3290,7 +3293,7 @@ ${requirement.failure_examples}
                 this.handleCrawlerCompleted(data);
                 return;
             }
-
+            
             // Update progress indicator
             this.crawlerInProgress = true;
             const pagesFound = crawlerRun.pages_found || crawlerRun.pagesFound || 0;
@@ -7612,6 +7615,10 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                 if (response.success) {
                     this.testingSessions = response.sessions || [];
                     this.applySessionFilters();
+                    if (this.testingSessions.length === 1) {
+                        this.selectedTestingSession = this.testingSessions[0];
+                        console.log('✅ Auto-selected single testing session:', this.selectedTestingSession.id);
+                    }
                     console.log(`📋 Loaded ${this.testingSessions.length} testing sessions`);
                 } else {
                     throw new Error(response.error || 'Failed to load testing sessions');

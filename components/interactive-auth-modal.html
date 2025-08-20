@@ -45,7 +45,7 @@
 
                 <div class="text-sm text-gray-600">
                     <strong>Selected session:</strong> 
-                    <span x-text="currentSession?.name || 'None selected'"></span>
+                    <span x-text="selectedTestingSession?.name || currentSession?.name || 'None selected'"></span>
                 </div>
             </div>
 
@@ -112,16 +112,16 @@
             </button>
             
             <!-- Phase 1: Open Browser Button -->
-            <button @click="openBrowserForAuth()"
+            <button @click="openBrowserForAuth(selectedTestingSession)"
                     x-show="!interactiveAuthBrowserOpen && !interactiveAuthInProgress"
-                    :disabled="!currentSession"
+                    :disabled="!selectedTestingSession"
                     class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center">
                 <i class="fas fa-browser mr-2"></i>
                 Open Browser & Login
             </button>
             
             <!-- Phase 2: Successfully Logged In Button -->
-            <button @click="completeInteractiveAuth()"
+            <button @click="completeInteractiveAuth(selectedTestingSession)"
                     x-show="interactiveAuthBrowserOpen && !interactiveAuthInProgress"
                     class="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 flex items-center">
                 <i class="fas fa-check-circle mr-2"></i>
