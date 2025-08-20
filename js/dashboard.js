@@ -1540,6 +1540,7 @@ ${requirement.failure_examples}
                 showSessionUrl: false,
                 showCreateCrawler: false,
                 showCrawlerPagesModal: false,
+                showExclusionsModal: false,
                 showAddAuthConfigModal: false,
                 showEditAuthConfigModal: false,
                 showSessions: false,
@@ -1620,6 +1621,14 @@ ${requirement.failure_examples}
                 pagesCount: 0
             }
         },
+
+        // ===== CRAWLER EXCLUSION EDITOR STATE =====
+        selectedCrawlerForExclusions: null,
+        exclusionPatterns: [],
+        newExclusionUrl: '',
+        newExclusionRegex: '',
+        exclusionTestUrl: '',
+        exclusionTestResult: null,
         
         ws: {
             socket: null,
@@ -2727,6 +2736,7 @@ ${requirement.failure_examples}
         
         closeCrawlerPagesModal() {
             this.ui.modals.showCrawlerPagesModal = false;
+            this.showCrawlerPagesModal = false;
             this.selectedCrawlerForPages = null;
             this.crawlerPages = [];
             this.filteredCrawlerPages = [];
@@ -5186,7 +5196,14 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                 
                 if (response.ok) {
                     const data = await response.json();
-                    this.crawlerPages = data.pages || data.data || [];
+                    const rawPages = data.pages || data.data || [];
+                    // Normalize selection flag so UI can filter and toggle consistently
+                    this.crawlerPages = rawPages.map(p => ({
+                        ...p,
+                        selected_for_testing: typeof p.selected_for_testing === 'boolean'
+                            ? p.selected_for_testing
+                            : !!(p.selected_for_manual_testing || p.selected_for_automated_testing)
+                    }));
                     this.selectedCrawlerForPages = crawler;
                     
                     console.log(`📄 Loaded ${this.crawlerPages.length} pages for crawler ${crawler.name}`);
@@ -5202,8 +5219,9 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                     
                     console.log('🔍 DEBUG: Filtered pages count:', this.filteredCrawlerPages.length);
                     console.log('🔍 DEBUG: Opening modal with showCrawlerPagesModal =', true);
-                    
+                    // Ensure both flags are set for Alpine templates that still read legacy prop
                     this.ui.modals.showCrawlerPagesModal = true;
+                    this.showCrawlerPagesModal = true;
                     this.syncLegacyState();
                 } else {
                     this.showNotification('error', 'Load Failed', 'Failed to load crawler pages');
@@ -5213,6 +5231,94 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                 this.showNotification('error', 'Network Error', 'Failed to load crawler pages');
             } finally {
                 this.loading = false;
+            }
+        },
+
+        // ===== EXCLUSION EDITOR =====
+        openExclusionsModal(crawler) {
+            this.selectedCrawlerForExclusions = crawler;
+            const patterns = Array.isArray(crawler.url_patterns) ? crawler.url_patterns : [];
+            // Only show exclude rules here; include rules remain untouched
+            this.exclusionPatterns = patterns.filter(p => p && p.type === 'exclude');
+            this.ui.modals.showExclusionsModal = true;
+            this.syncLegacyState();
+        },
+        closeExclusionsModal() {
+            this.ui.modals.showExclusionsModal = false;
+            this.selectedCrawlerForExclusions = null;
+            this.exclusionPatterns = [];
+            this.newExclusionUrl = '';
+            this.newExclusionRegex = '';
+            this.exclusionTestUrl = '';
+            this.exclusionTestResult = null;
+            this.syncLegacyState();
+        },
+        addExclusionFromUrl() {
+            const url = (this.newExclusionUrl || '').trim();
+            if (!url) return;
+            try {
+                const u = new URL(url);
+                // Build a simple path-based regex, escaping dots
+                const path = u.pathname.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const regex = `^${path}(/.*)?$`;
+                this.exclusionPatterns.push({ type: 'exclude', regex });
+                this.newExclusionUrl = '';
+            } catch (e) {
+                this.showNotification('warning', 'Invalid URL', 'Please enter a valid URL');
+            }
+        },
+        addExclusionRegex() {
+            const rx = (this.newExclusionRegex || '').trim();
+            if (!rx) return;
+            try { new RegExp(rx); } catch { 
+                this.showNotification('warning', 'Invalid Regex', 'Please enter a valid regex');
+                return;
+            }
+            this.exclusionPatterns.push({ type: 'exclude', regex: rx });
+            this.newExclusionRegex = '';
+        },
+        removeExclusion(index) {
+            if (index >= 0 && index < this.exclusionPatterns.length) {
+                this.exclusionPatterns.splice(index, 1);
+            }
+        },
+        testExclusionAgainstUrl() {
+            const testUrl = (this.exclusionTestUrl || '').trim();
+            if (!testUrl) { this.exclusionTestResult = null; return; }
+            let matched = false, matchIndex = -1;
+            try {
+                for (let i = 0; i < this.exclusionPatterns.length; i++) {
+                    const p = this.exclusionPatterns[i];
+                    if (!p || p.type !== 'exclude') continue;
+                    const re = new RegExp(p.regex);
+                    if (re.test(testUrl)) { matched = true; matchIndex = i; break; }
+                }
+                this.exclusionTestResult = { matched, matchIndex };
+            } catch (e) {
+                this.exclusionTestResult = { error: e.message };
+            }
+        },
+        async saveExclusions() {
+            if (!this.selectedCrawlerForExclusions) return;
+            const crawler = this.selectedCrawlerForExclusions;
+            // Merge back with any existing include rules to avoid losing them
+            const existing = Array.isArray(crawler.url_patterns) ? crawler.url_patterns : [];
+            const includeRules = existing.filter(p => p && p.type === 'include');
+            const newUrlPatterns = [...includeRules, ...this.exclusionPatterns];
+            try {
+                await this.apiCall(`/web-crawlers/crawlers/${crawler.id}`, {
+                    method: 'PUT',
+                    body: JSON.stringify({ url_patterns: newUrlPatterns })
+                });
+                // Update local cache
+                crawler.url_patterns = newUrlPatterns;
+                this.showNotification('success', 'Exclusions Saved', 'Crawler exclusions updated');
+                this.closeExclusionsModal();
+                // Refresh counts so Excluded/For Testing metrics stay accurate
+                this.loadCrawlerPageCounts(true);
+            } catch (error) {
+                console.error('Failed to save exclusions:', error);
+                this.showNotification('error', 'Save Failed', 'Could not update exclusions');
             }
         },
 
