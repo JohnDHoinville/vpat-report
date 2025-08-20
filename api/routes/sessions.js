@@ -275,15 +275,17 @@ router.post('/complete-capture', async (req, res) => {
                 auth_level,
                 expires_at,
                 is_active,
-                last_used_at
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP)
+                last_used_at,
+                validation_successful
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP, true)
             ON CONFLICT (crawler_id, session_name) 
             DO UPDATE SET
                 cookies = EXCLUDED.cookies,
                 authenticated_user = EXCLUDED.authenticated_user,
                 last_used_at = CURRENT_TIMESTAMP,
                 is_active = EXCLUDED.is_active,
-                expires_at = EXCLUDED.expires_at
+                expires_at = EXCLUDED.expires_at,
+                validation_successful = true
             RETURNING id
         `;
         

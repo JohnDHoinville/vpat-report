@@ -481,6 +481,21 @@ class WebSocketService {
     }
 
     /**
+     * Broadcast crawler run completion to project members
+     */
+    emitCrawlerCompleted(projectId, crawlerRunData) {
+        const message = {
+            type: 'crawler_completed',
+            projectId,
+            crawlerRun: crawlerRunData,
+            timestamp: new Date().toISOString()
+        };
+
+        this.io.to(`project_${projectId}`).emit('crawler_completed', message);
+        console.log(`🏁 Crawler completed broadcast: ${projectId} - ${crawlerRunData.pages_found || 0} pages`);
+    }
+
+    /**
      * Send notification to specific user
      */
     emitUserNotification(userId, notification) {

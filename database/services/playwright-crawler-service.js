@@ -298,6 +298,25 @@ class PlaywrightCrawlerService {
 
             console.log(`✅ Crawler completed: ${crawler.name} - ${crawlResults.totalPages} pages found`);
 
+            // Emit explicit completion event for UI
+            if (this.websocketService) {
+                try {
+                    this.websocketService.emitCrawlerCompleted(crawler.project_id, {
+                        id: crawlerRun.id,
+                        crawler_id: crawler.id,
+                        crawler_name: crawler.name,
+                        status: 'completed',
+                        pages_crawled: crawlResults.crawledPages || 0,
+                        pages_found: crawlResults.totalPages || 0,
+                        current_url: '',
+                        started_at: crawlerRun.started_at,
+                        completed_at: new Date().toISOString()
+                    });
+                } catch (e) {
+                    console.warn('⚠️ Failed to emit crawler_completed event:', e.message);
+                }
+            }
+
         } catch (error) {
             console.error(`❌ Crawler error: ${error.message}`);
             const duration = Date.now() - startTime;
@@ -440,44 +459,70 @@ class PlaywrightCrawlerService {
 
     /**
      * Try to inject SAML session cookies for authentication
+     * Prefers the most recent DB session; falls back to fm-session.json.
+     * Normalizes cookies (e.g., removes expires:-1) to match working test endpoint behavior.
      */
     async tryInjectSAMLSession(page, crawler) {
         console.log(`🔧 Attempting to inject SAML session for ${crawler.base_url}`);
-        
+
+        const normalizeCookies = (cookies, host) => {
+            if (!Array.isArray(cookies)) return [];
+            return cookies.map(c => {
+                const copy = { ...c };
+                // Convert invalid/negative expires to session cookie (omit expires)
+                if (typeof copy.expires === 'number' && copy.expires <= 0) {
+                    // Playwright treats absence of expires as a session cookie
+                    delete copy.expires;
+                }
+                // Ensure domain is set correctly for target host if missing
+                if (!copy.domain && host) {
+                    copy.domain = host;
+                }
+                return copy;
+            });
+        };
+
+        const host = (() => {
+            try { return new URL(crawler.base_url).hostname; } catch { return undefined; }
+        })();
+
+        // 1) Try database-backed session first (even if session_persistence is false)
+        try {
+            const dbSession = await this.loadAuthSession(crawler.id);
+            const dbCookies = dbSession && Array.isArray(dbSession.cookies) ? dbSession.cookies : [];
+            if (dbCookies.length > 0) {
+                const normalized = normalizeCookies(dbCookies, host);
+                await page.context().addCookies(normalized);
+                console.log(`✅ Injected ${normalized.length} cookies from database session`);
+                return;
+            }
+        } catch (e) {
+            console.log(`ℹ️ No active DB session available or failed to load: ${e.message}`);
+        }
+
+        // 2) Fallback to local fm-session.json
         const fs = require('fs');
         const path = require('path');
-        
-        // Try to load saved session
         const sessionFile = path.join(process.cwd(), 'fm-session.json');
-        
         if (fs.existsSync(sessionFile)) {
             try {
                 const sessionData = JSON.parse(fs.readFileSync(sessionFile, 'utf8'));
                 console.log(`🔧 Found saved session from ${sessionData.extractedAt}`);
                 console.log(`🔧 Session was for URL: ${sessionData.url}`);
-                
-                // Check if session is recent (within 24 hours)
-                const sessionAge = Date.now() - new Date(sessionData.extractedAt).getTime();
-                const maxAge = 24 * 60 * 60 * 1000; // 24 hours
-                
-                if (sessionAge > maxAge) {
-                    console.log(`⚠️ Session is ${Math.round(sessionAge / (60 * 60 * 1000))} hours old - may be expired`);
-                }
-                
-                // Inject all cookies
-                if (sessionData.cookies && sessionData.cookies.length > 0) {
-                    await page.context().addCookies(sessionData.cookies);
-                    console.log(`✅ Injected ${sessionData.cookies.length} cookies from saved session`);
-                } else {
-                    throw new Error('No cookies found in session file');
-                }
-                
+
+                const cookies = Array.isArray(sessionData.cookies) ? sessionData.cookies : [];
+                if (cookies.length === 0) throw new Error('No cookies found in session file');
+
+                const normalized = normalizeCookies(cookies, host);
+                await page.context().addCookies(normalized);
+                console.log(`✅ Injected ${normalized.length} cookies from saved session`);
+                return;
             } catch (error) {
                 throw new Error(`Failed to load session file: ${error.message}`);
             }
-        } else {
-            throw new Error(`No session file found at ${sessionFile}. Run: node extract-browser-session.js`);
         }
+
+        throw new Error(`No usable session found (DB or fm-session.json)`);
     }
 
     /**
@@ -539,6 +584,22 @@ class PlaywrightCrawlerService {
                     // Store discovered page
                     await this.storeCrawledPage(crawlerRunId, crawler.id, pageData);
                     
+                    // Explore in-page views/tabs as virtual pages
+                    const deepClickEnabled = runConfig && runConfig.deep_click !== false;
+                    if (deepClickEnabled) {
+                        const extraViews = await this.deepClickViews(page, item, crawler, runConfig);
+                        for (const viewData of extraViews) {
+                            try {
+                                await this.storeCrawledPage(crawlerRunId, crawler.id, viewData);
+                                results.totalPages++;
+                                results.crawledPages++;
+                                results.discoveredPages.push(viewData);
+                            } catch (e) {
+                                console.warn(`⚠️ Failed to store virtual view ${viewData.url}: ${e.message}`);
+                            }
+                        }
+                    }
+                    
                     // Add new links to queue
                     if (pageData.links && item.depth < crawler.max_depth) {
                         for (const link of pageData.links) {
@@ -589,6 +650,130 @@ class PlaywrightCrawlerService {
         }
 
         return results;
+    }
+
+    /**
+     * Click through in-page views (tabs, fragments, pagination) and capture as virtual pages
+     */
+    async deepClickViews(page, item, crawler, runConfig = {}) {
+        const options = {
+            selectors: (runConfig.deep_click_selectors && Array.isArray(runConfig.deep_click_selectors)) ? runConfig.deep_click_selectors : [
+                '[role=tab], [role=tab] a, [role=tab] button',
+                '.nav-tabs a, .tabs a, [data-toggle="tab"]',
+                'a[href^="#"]',
+                '.pagination a, a.page-link',
+                'button[aria-controls]',
+                'a[role=button]'
+            ],
+            maxClicksPerPage: Number.isFinite(runConfig.max_views_per_page) ? runConfig.max_views_per_page : 5,
+            includeFragments: runConfig.include_fragments !== false
+        };
+
+        // Collect candidate clickable elements
+        const selector = options.selectors.join(', ');
+        let candidates = [];
+        try {
+            candidates = await page.$$eval(selector, (nodes) =>
+                nodes.slice(0, 50).map((el) => ({
+                    text: (el.innerText || el.textContent || '').trim().slice(0, 120),
+                    href: el.getAttribute('href') || '',
+                }))
+            );
+        } catch {
+            candidates = [];
+        }
+
+        if (!candidates.length) return [];
+
+        const baseUrl = item.url;
+        const results = [];
+        const limit = Math.max(0, options.maxClicksPerPage);
+
+        for (let i = 0; i < Math.min(limit, candidates.length); i++) {
+            try {
+                const beforeLen = await page.evaluate(() => document.body ? document.body.innerText.length : 0);
+                // Click i-th element matching selector
+                await page.evaluate((sel, index) => {
+                    const list = Array.from(document.querySelectorAll(sel));
+                    const el = list[index];
+                    if (el) {
+                        el.scrollIntoView({ block: 'center' });
+                        (el).click();
+                    }
+                }, selector, i);
+
+                await Promise.race([
+                    page.waitForLoadState('domcontentloaded', { timeout: 1500 }).catch(() => {}),
+                    page.waitForFunction((prev) => (document.body && document.body.innerText.length !== prev), beforeLen, { timeout: 1500 }).catch(() => {})
+                ]);
+
+                const viewData = await this.extractCurrentPageData(page, crawler, item.depth, baseUrl);
+                if (options.includeFragments && viewData.url === baseUrl) {
+                    const slug = this.slugify(candidates[i].text || candidates[i].href || `view-${i}`);
+                    viewData.url = `${baseUrl}#view-${slug || i}`;
+                }
+                viewData.extracted = viewData.extracted || {};
+                viewData.extracted.__virtual_view = true;
+                viewData.extracted.__view_label = candidates[i].text || candidates[i].href || '';
+                viewData.extracted.__base_url = baseUrl;
+
+                results.push(viewData);
+            } catch (e) {
+                console.warn(`⚠️ Deep-click view capture failed: ${e.message}`);
+            }
+        }
+
+        return results;
+    }
+
+    /**
+     * Extract the current page state into pageData without navigation
+     */
+    async extractCurrentPageData(page, crawler, depth, parent) {
+        const start = Date.now();
+        const pageData = await page.evaluate((extractionRules) => {
+            const data = {
+                url: window.location.href,
+                title: document.title,
+                description: document.querySelector('meta[name="description"]')?.content || '',
+                contentType: document.contentType,
+                links: []
+            };
+            const links = document.querySelectorAll('a[href]');
+            data.links = Array.from(links)
+                .map(link => { try { return new URL(link.href, window.location.href).href; } catch { return null; } })
+                .filter(href => href && href.startsWith('http'));
+            if (extractionRules) {
+                data.extracted = {};
+                for (const [key, selector] of Object.entries(extractionRules)) {
+                    const el = document.querySelector(selector);
+                    data.extracted[key] = el ? el.textContent?.trim() : null;
+                }
+            }
+            data.pageAnalysis = {
+                hasLoginForm: !!document.querySelector('form input[type="password"]'),
+                hasSearchForm: !!document.querySelector('form input[type="search"], form input[name*="search"]'),
+                formCount: document.querySelectorAll('form').length,
+                imageCount: document.querySelectorAll('img').length,
+                linkCount: data.links.length
+            };
+            return data;
+        }, crawler.extraction_rules);
+
+        pageData.statusCode = 200;
+        pageData.responseTime = Date.now() - start;
+        pageData.depth = depth;
+        pageData.parentUrl = parent;
+        pageData.contentHash = this.generateContentHash(pageData.title + pageData.description);
+        return pageData;
+    }
+
+    slugify(text) {
+        return String(text || '')
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '')
+            .slice(0, 40);
     }
 
     /**

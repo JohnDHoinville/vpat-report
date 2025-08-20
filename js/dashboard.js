@@ -1455,6 +1455,7 @@ ${requirement.failure_examples}
         urlSourceFilter: 'all',
         crawlerPageSearch: '',
         crawlerPageFilter: '',
+        crawlerPagesPagination: { limit: 1000, offset: 0, total: 0, currentPage: 1, totalPages: 1 },
         
         // ===== ERROR HANDLING =====
         loginError: '',
@@ -2683,6 +2684,11 @@ ${requirement.failure_examples}
         // REMOVED: Duplicate method - using complete version at line 1887
         
         // ===== SESSION AND CAPTURE METHODS =====
+
+        // Ensure currentSession is always defined to avoid Alpine template errors
+        get currentSession() {
+            return this.sessionInfo || { isValid: false };
+        },
         
         captureNewSession() {
             console.log('🔍 DEBUG: captureNewSession called');
@@ -3274,6 +3280,12 @@ ${requirement.failure_examples}
                 console.log('Available crawler IDs:', this.data.webCrawlers.map(c => c.id));
             }
             
+            // If backend signals completed via status inside progress, treat it as completion
+            if ((crawlerRun.status || '').toLowerCase() === 'completed') {
+                this.handleCrawlerCompleted(data);
+                return;
+            }
+
             // Update progress indicator
             this.crawlerInProgress = true;
             const pagesFound = crawlerRun.pages_found || crawlerRun.pagesFound || 0;
@@ -5190,48 +5202,69 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
         async viewCrawlerPages(crawler) {
             try {
                 this.loading = true;
-                const response = await fetch(`${this.config.apiBaseUrl}/api/web-crawlers/crawlers/${crawler.id}/pages`, {
-                    headers: this.getAuthHeaders()
-                });
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    const rawPages = data.pages || data.data || [];
-                    // Normalize selection flag so UI can filter and toggle consistently
-                    this.crawlerPages = rawPages.map(p => ({
-                        ...p,
-                        selected_for_testing: typeof p.selected_for_testing === 'boolean'
-                            ? p.selected_for_testing
-                            : !!(p.selected_for_manual_testing || p.selected_for_automated_testing)
-                    }));
-                    this.selectedCrawlerForPages = crawler;
-                    
-                    console.log(`📄 Loaded ${this.crawlerPages.length} pages for crawler ${crawler.name}`);
-                    console.log('🔍 DEBUG: Raw crawler pages data:', this.crawlerPages.slice(0, 2)); // Show first 2 pages
-                    
-                    // Load saved page selections for UI checkboxes
-                    await this.loadCrawlerPageSelections(crawler.id);
-                    
-                    this.updateFilteredCrawlerPages();
-                    
-                    // Refresh crawler page counts to reflect actual selections
-                    this.loadCrawlerPageCounts(true);
-                    
-                    console.log('🔍 DEBUG: Filtered pages count:', this.filteredCrawlerPages.length);
-                    console.log('🔍 DEBUG: Opening modal with showCrawlerPagesModal =', true);
-                    // Ensure both flags are set for Alpine templates that still read legacy prop
-                    this.ui.modals.showCrawlerPagesModal = true;
-                    this.showCrawlerPagesModal = true;
-                    this.syncLegacyState();
-                } else {
-                    this.showNotification('error', 'Load Failed', 'Failed to load crawler pages');
-                }
+                this.selectedCrawlerForPages = crawler;
+                await this.fetchCrawlerPages(crawler.id, 1);
+                console.log('🔍 DEBUG: Opening modal with showCrawlerPagesModal =', true);
+                this.ui.modals.showCrawlerPagesModal = true;
+                this.showCrawlerPagesModal = true;
+                this.syncLegacyState();
             } catch (error) {
                 console.error('Error loading crawler pages:', error);
                 this.showNotification('error', 'Network Error', 'Failed to load crawler pages');
             } finally {
                 this.loading = false;
             }
+        },
+
+        async fetchCrawlerPages(crawlerId, page = 1) {
+            const limit = this.crawlerPagesPagination.limit || 1000;
+            const offset = (page - 1) * limit;
+            const url = `${this.config.apiBaseUrl}/api/web-crawlers/crawlers/${crawlerId}/pages?limit=${limit}&offset=${offset}`;
+            const response = await fetch(url, { headers: this.getAuthHeaders() });
+            if (!response.ok) {
+                this.showNotification('error', 'Load Failed', 'Failed to load crawler pages');
+                return;
+            }
+                    const data = await response.json();
+            const rawPages = (data.pages || data.data || []);
+            // Normalize selection flag; only hide if explicitly marked excluded in a dedicated flag
+            const normalized = rawPages.map(p => ({
+                ...p,
+                selected_for_testing: typeof p.selected_for_testing === 'boolean'
+                    ? p.selected_for_testing
+                    : !!(p.selected_for_manual_testing || p.selected_for_automated_testing)
+            }));
+            const filtered = normalized.filter(p => (
+                p.excluded_from_testing === true || (p.metadata && p.metadata.excluded_from_testing === true)
+            ) ? false : true);
+
+            this.crawlerPages = filtered;
+                    this.updateFilteredCrawlerPages();
+                    
+            const pg = data.pagination || { total: normalized.length, limit, offset };
+            const totalPages = Math.max(1, Math.ceil((pg.total || 0) / limit));
+            this.crawlerPagesPagination = {
+                limit,
+                offset,
+                total: pg.total || 0,
+                currentPage: page,
+                totalPages
+            };
+            console.log(`📄 Loaded page ${page}/${totalPages} – ${this.crawlerPages.length} rows (total ${pg.total || 0})`);
+        },
+
+        async nextCrawlerPagesPage() {
+            if (!this.selectedCrawlerForPages) return;
+            const { currentPage, totalPages } = this.crawlerPagesPagination;
+            if (currentPage >= totalPages) return;
+            await this.fetchCrawlerPages(this.selectedCrawlerForPages.id, currentPage + 1);
+        },
+
+        async prevCrawlerPagesPage() {
+            if (!this.selectedCrawlerForPages) return;
+            const { currentPage } = this.crawlerPagesPagination;
+            if (currentPage <= 1) return;
+            await this.fetchCrawlerPages(this.selectedCrawlerForPages.id, currentPage - 1);
         },
 
         // ===== EXCLUSION EDITOR =====
@@ -5241,7 +5274,7 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
             // Only show exclude rules here; include rules remain untouched
             this.exclusionPatterns = patterns.filter(p => p && p.type === 'exclude');
             this.ui.modals.showExclusionsModal = true;
-            this.syncLegacyState();
+                    this.syncLegacyState();
         },
         closeExclusionsModal() {
             this.ui.modals.showExclusionsModal = false;
@@ -5324,6 +5357,7 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
 
         closeCrawlerPagesModal() {
             this.ui.modals.showCrawlerPagesModal = false;
+            this.showCrawlerPagesModal = false;
             this.selectedCrawlerForPages = null;
             this.crawlerPages = [];
             this.filteredCrawlerPages = [];
