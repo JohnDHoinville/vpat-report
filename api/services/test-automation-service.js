@@ -3559,7 +3559,17 @@ class TestAutomationService {
      */
     emitProgress(sessionId, progressData) {
         if (this.wsService) {
-            this.wsService.emitSessionProgress(sessionId, null, progressData);
+            // Try to resolve projectId so project room also receives progress
+            const resolveAndEmit = async () => {
+                let projectId = null;
+                try {
+                    const res = await pool.query('SELECT project_id FROM test_sessions WHERE id = $1', [sessionId]);
+                    projectId = res.rows[0]?.project_id || null;
+                } catch (_) {}
+                this.wsService.emitSessionProgress(sessionId, projectId, progressData);
+            };
+            // Fire and forget
+            resolveAndEmit();
         }
     }
     
@@ -3568,7 +3578,15 @@ class TestAutomationService {
      */
     emitMilestone(sessionId, milestoneData) {
         if (this.wsService) {
-            this.wsService.emitTestingMilestone(sessionId, null, milestoneData);
+            const resolveAndEmit = async () => {
+                let projectId = null;
+                try {
+                    const res = await pool.query('SELECT project_id FROM test_sessions WHERE id = $1', [sessionId]);
+                    projectId = res.rows[0]?.project_id || null;
+                } catch (_) {}
+                this.wsService.emitTestingMilestone(sessionId, projectId, milestoneData);
+            };
+            resolveAndEmit();
         }
     }
 

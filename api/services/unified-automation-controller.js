@@ -566,7 +566,18 @@ class UnifiedAutomationController {
             // Emit WebSocket event for status change
             if (this.wsService && status === 'completed') {
                 const results = updatedRun.target_metadata?.results || {};
-                this.wsService.emitToProject(updatedRun.project_id || 'unknown', 'automation_completed', {
+                // Ensure we have a valid projectId; the automation_runs_v2 row may not carry it
+                let projectId = updatedRun.project_id;
+                if (!projectId) {
+                    try {
+                        const projRes = await pool.query('SELECT project_id FROM test_sessions WHERE id = $1', [updatedRun.session_id]);
+                        projectId = projRes.rows[0]?.project_id || 'unknown';
+                    } catch (_) {
+                        projectId = 'unknown';
+                    }
+                }
+
+                this.wsService.emitToProject(projectId, 'automation_completed', {
                     run_id: runId,
                     session_id: updatedRun.session_id,
                     status: status,

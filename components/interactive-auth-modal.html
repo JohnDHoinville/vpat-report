@@ -1,5 +1,17 @@
 <!-- Interactive Authentication Modal -->
-<div x-show="showInteractiveAuthModal" 
+<div x-data="(() => { const s = (window.Alpine?.store && window.Alpine.store('dashboard')) || window._dashboardInstance || {}; return {
+        // Bind to dashboard store with safe defaults
+        get showInteractiveAuthModal() { return s.showInteractiveAuthModal ?? false },
+        set showInteractiveAuthModal(v) { if (s.showInteractiveAuthModal !== undefined) s.showInteractiveAuthModal = v },
+        get interactiveAuthInProgress() { return s.interactiveAuthInProgress ?? false },
+        get interactiveAuthBrowserOpen() { return s.interactiveAuthBrowserOpen ?? false },
+        get interactiveAuthMessage() { return s.interactiveAuthMessage ?? '' },
+        get interactiveAuthError() { return s.interactiveAuthError ?? '' },
+        get selectedTestingSession() { return s.selectedTestingSession ?? null },
+        get currentSession() { return (s.currentSession && (typeof s.currentSession === 'function' ? s.currentSession() : s.currentSession)) || null },
+        openBrowserForAuth: (session) => (s.openBrowserForAuth ? s.openBrowserForAuth.call(s, session) : null),
+        completeInteractiveAuth: (session) => (s.completeInteractiveAuth ? s.completeInteractiveAuth.call(s, session) : null),
+    } })()" x-show="showInteractiveAuthModal" 
      x-transition:enter="transition ease-out duration-300"
      x-transition:enter-start="opacity-0"
      x-transition:enter-end="opacity-100"
