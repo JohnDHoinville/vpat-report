@@ -42,6 +42,8 @@
     <script src="js/dashboard.js"></script>
     <!-- Requirements Status Component -->
     <script src="js/components/requirements-status.js"></script>
+    <!-- Admin Requirements Mapping Component -->
+    <script src="js/components/admin/requirements-mapping.js"></script>
     
     <!-- Alpine auto-start configuration -->
     <script>
@@ -395,18 +397,20 @@
         // Global function for loading Admin Requirements Mapping view (lazy-load)
         window.loadAdminRequirementsMappingView = async function() {
             const container = document.getElementById('admin-requirements-mapping-view-content');
-            if (!container) return;
-            if (!container.innerHTML) {
-                try {
-                    const response = await fetch('views/admin-requirements-mapping.html');
-                    const html = await response.text();
-                    container.innerHTML = html;
-                    if (window.Alpine?.initTree) {
-                        window.Alpine.initTree(container);
-                    }
-                } catch (error) {
-                    console.error('Failed to load admin requirements mapping view:', error);
+            if (!container) {
+                console.warn('Admin mapping container not found');
+                return;
+            }
+            try {
+                console.log('🔧 Loading admin requirements mapping view...');
+                const response = await fetch('views/admin-requirements-mapping.html');
+                const html = await response.text();
+                container.innerHTML = html;
+                if (window.Alpine?.initTree) {
+                    window.Alpine.initTree(container);
                 }
+            } catch (error) {
+                console.error('Failed to load admin requirements mapping view:', error);
             }
         };
         
