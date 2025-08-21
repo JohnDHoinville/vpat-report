@@ -1613,28 +1613,37 @@ class TestAutomationService {
                         // Extract violations based on tool format
                         let violations = [];
                         
-                        if (pageData.details && Array.isArray(pageData.details)) {
+                        if (pageData && pageData.details && Array.isArray(pageData.details)) {
                             // axe-core and pa11y format: details is array of violations
                             violations = pageData.details;
-                        } else if (pageData.details && typeof pageData.details === 'object') {
+                        } else if (pageData && pageData.details && typeof pageData.details === 'object') {
                             // lighthouse format: details is object of audit results
                             violations = Object.entries(pageData.details)
-                                .filter(([auditId, audit]) => audit.score === 0) // Failed audits
+                                .filter(([auditId, audit]) => audit && audit.score === 0) // Failed audits
                                 .map(([auditId, audit]) => ({
                                     id: auditId,
                                     title: audit.title,
                                     description: audit.description,
                                     impact: 'moderate' // Default impact for lighthouse
                                 }));
+                        } else if (pageData && Array.isArray(pageData.violations)) {
+                            // Our per-instance runner stores an array directly under `violations`
+                            violations = pageData.violations;
+                        } else if (Array.isArray(pageData)) {
+                            // Sometimes the value is the array itself
+                            violations = pageData;
                         }
 
                         if (violations.length > 0) {
                             console.log(`🔍 Found ${violations.length} violations from ${toolKey} on ${pageUrl}`);
                             
-                            // Map violations to specific WCAG criteria test instances
+                            // Fetch page-specific instances to avoid cross-page updates
+                            const pageSpecificInstances = await this.getAllTestInstancesForPage(sessionId, pageUrl);
+
+                            // Map violations to specific WCAG criteria test instances (page-scoped)
                             const mappingResult = await this.mapViolationsToTestInstances(
                                 violations,
-                                testInstances,
+                                pageSpecificInstances,
                                 toolKey === 'axe' ? 'axe-core' : toolKey,
                                 pageUrl
                             );
@@ -4722,9 +4731,10 @@ class TestAutomationService {
                                 results[tool].pages_tested.push(pageUrl);
                                 results[tool].violations_by_page[pageUrl] = {
                                     url: pageUrl,
-                                    violations: toolResults.violations || 0,
-                                    critical: toolResults.critical || 0,
-                                    details: toolResults.details || [],
+                                    // Store the actual array so downstream mappers see violations
+                                    violations: Array.isArray(toolResults.violations) ? toolResults.violations : [],
+                                    critical: Array.isArray(toolResults.violations) ? toolResults.violations.filter(v => (v.impact === 'critical' || v.impact === 'serious')).length : 0,
+                                    details: Array.isArray(toolResults.violations) ? toolResults.violations : [],
                                     title_at_test_time: toolResults.title || ""
                                 };
                                 
@@ -4733,7 +4743,7 @@ class TestAutomationService {
                                 if (pageInstances && pageInstances.length > 0) {
                                     const pageId = pageInstances[0].page_id;
                                     await this.storeToolResults(sessionId, pageId, tool, {
-                                        violations_by_page: { [pageUrl]: toolResults.violations },
+                                        violations_by_page: { [pageUrl]: { url: pageUrl, violations: toolResults.violations } },
                                         pages_tested: [pageUrl],
                                         total_violations: toolResults.violations.length
                                     });
@@ -4748,7 +4758,7 @@ class TestAutomationService {
                                 if (pageInstances && pageInstances.length > 0) {
                                     const pageId = pageInstances[0].page_id;
                                     await this.storeToolResults(sessionId, pageId, tool, {
-                                        violations_by_page: { [pageUrl]: [] },
+                                        violations_by_page: { [pageUrl]: { url: pageUrl, violations: [] } },
                                         pages_tested: [pageUrl],
                                         total_violations: 0
                                     });
