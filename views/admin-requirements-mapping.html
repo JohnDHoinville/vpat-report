@@ -1,0 +1,135 @@
+<div x-data="adminRequirementsMapping()" class="p-6">
+    <div class="flex items-center justify-between mb-4">
+        <h2 class="text-xl font-semibold text-gray-800 flex items-center">
+            <i class="fas fa-sitemap mr-2 text-gray-500"></i>
+            Requirements Mapping
+        </h2>
+        <div class="text-sm text-gray-600" x-text="summaryText"></div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+        <div>
+            <label class="block text-xs text-gray-600 mb-1">Standard</label>
+            <select x-model="filters.standard" class="w-full border rounded px-2 py-1 text-sm">
+                <option value="">All</option>
+                <option value="wcag">WCAG</option>
+                <option value="section508">Section 508</option>
+            </select>
+        </div>
+        <div>
+            <label class="block text-xs text-gray-600 mb-1">Level</label>
+            <select x-model="filters.level" class="w-full border rounded px-2 py-1 text-sm">
+                <option value="">All</option>
+                <option>A</option>
+                <option>AA</option>
+                <option>AAA</option>
+            </select>
+        </div>
+        <div>
+            <label class="block text-xs text-gray-600 mb-1">Test Method</label>
+            <select x-model="filters.test_method" class="w-full border rounded px-2 py-1 text-sm">
+                <option value="">All</option>
+                <option value="automated">Automated</option>
+                <option value="manual">Manual</option>
+                <option value="both">Both</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="mb-4">
+        <input x-model.debounce.300ms="filters.search" type="text" placeholder="Search by requirement, title, tool..." class="w-full border rounded px-3 py-2 text-sm">
+    </div>
+
+    <div class="overflow-x-auto border rounded">
+        <table class="min-w-full text-sm">
+            <thead class="bg-gray-100 text-gray-700">
+                <tr>
+                    <th class="text-left px-3 py-2">Requirement</th>
+                    <th class="text-left px-3 py-2">Title</th>
+                    <th class="text-left px-3 py-2">Standard/Level</th>
+                    <th class="text-left px-3 py-2">Test Method</th>
+                    <th class="text-left px-3 py-2">Automated Tools</th>
+                </tr>
+            </thead>
+            <tbody>
+                <template x-for="req in filtered" :key="req.id">
+                    <tr class="border-t">
+                        <td class="px-3 py-2 font-mono" x-text="req.requirement_id"></td>
+                        <td class="px-3 py-2" x-text="req.title"></td>
+                        <td class="px-3 py-2" x-text="`${req.standard_type.toUpperCase()} ${req.level || ''}`"></td>
+                        <td class="px-3 py-2 capitalize" x-text="req.test_method || 'unknown'"></td>
+                        <td class="px-3 py-2">
+                            <template x-if="(req.tool_mappings?.automated_tools || []).length">
+                                <div class="flex flex-wrap gap-1">
+                                    <template x-for="tool in req.tool_mappings.automated_tools">
+                                        <span class="px-2 py-0.5 bg-blue-50 text-blue-700 rounded border border-blue-200" x-text="tool"></span>
+                                    </template>
+                                </div>
+                            </template>
+                            <span x-show="!(req.tool_mappings?.automated_tools || []).length" class="text-gray-400">—</span>
+                        </td>
+                    </tr>
+                </template>
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        function adminRequirementsMapping() {
+            return {
+                loading: false,
+                items: [],
+                filtered: [],
+                summaryText: '',
+                filters: { standard: '', level: '', test_method: '', search: '' },
+
+                async init() {
+                    this.loading = true;
+                    try {
+                        const token = window.AuthTokenService?.getToken?.();
+                        const res = await fetch('/api/unified-requirements', {
+                            headers: { 'Authorization': token ? `Bearer ${token}` : undefined }
+                        });
+                        const data = await res.json();
+                        this.items = data.success ? (data.data?.requirements || data.data || data) : [];
+                        this.apply();
+                    } catch (e) {
+                        console.error('Failed to load requirements:', e);
+                        this.items = [];
+                        this.filtered = [];
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+
+                apply() {
+                    const search = (this.filters.search || '').toLowerCase();
+                    this.filtered = this.items.filter(r => {
+                        if (this.filters.standard && r.standard_type !== this.filters.standard) return false;
+                        if (this.filters.level && (r.level || '') !== this.filters.level) return false;
+                        if (this.filters.test_method && (r.test_method || '') !== this.filters.test_method) return false;
+                        if (search) {
+                            const tools = (r.tool_mappings?.automated_tools || []).join(' ').toLowerCase();
+                            return (
+                                (r.requirement_id || '').toLowerCase().includes(search) ||
+                                (r.title || '').toLowerCase().includes(search) ||
+                                tools.includes(search)
+                            );
+                        }
+                        return true;
+                    });
+                    this.summaryText = `${this.filtered.length} of ${this.items.length} requirements`;
+                },
+
+                $watch: {
+                    'filters.standard'() { this.apply(); },
+                    'filters.level'() { this.apply(); },
+                    'filters.test_method'() { this.apply(); },
+                    'filters.search'() { this.apply(); }
+                }
+            }
+        }
+    </script>
+</div>
+
+

@@ -8246,6 +8246,10 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
             }
             this.activeTab = 'admin-requirements-mapping';
             console.log('🔧 Admin Requirements Mapping requested');
+            // Lazy load the view content if needed
+            if (window.loadAdminRequirementsMappingView) {
+                window.loadAdminRequirementsMappingView();
+            }
         },
         
         // Load users from API

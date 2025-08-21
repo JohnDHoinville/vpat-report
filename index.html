@@ -222,6 +222,13 @@
                         <!-- Analytics content will be dynamically loaded here -->
                                     </div>
                 </div>
+
+                <!-- Admin Requirements Mapping View -->
+                <div x-show="activeTab === 'admin-requirements-mapping'" x-transition>
+                    <div id="admin-requirements-mapping-view-content">
+                        <!-- Admin Requirements Mapping content will be dynamically loaded here -->
+                    </div>
+                </div>
             </div>
         </main>
 
@@ -385,6 +392,24 @@
             }
         }
         
+        // Global function for loading Admin Requirements Mapping view (lazy-load)
+        window.loadAdminRequirementsMappingView = async function() {
+            const container = document.getElementById('admin-requirements-mapping-view-content');
+            if (!container) return;
+            if (!container.innerHTML) {
+                try {
+                    const response = await fetch('views/admin-requirements-mapping.html');
+                    const html = await response.text();
+                    container.innerHTML = html;
+                    if (window.Alpine?.initTree) {
+                        window.Alpine.initTree(container);
+                    }
+                } catch (error) {
+                    console.error('Failed to load admin requirements mapping view:', error);
+                }
+            }
+        };
+        
         // Load all components when page loads
         document.addEventListener('DOMContentLoaded', async () => {
             await Promise.all([
@@ -416,6 +441,7 @@
         loadView('results-view-content', 'views/results.html'),
         loadView('projects-view-content', 'views/projects.html')
             ]);
+            // Lazy-load admin mapping view on demand via window.loadAdminRequirementsMappingView()
             
             // Alpine.js will auto-initialize with defer
             console.log('✅ Components loaded, Alpine.js will initialize automatically');
