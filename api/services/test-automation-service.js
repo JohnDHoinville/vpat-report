@@ -1639,6 +1639,7 @@ class TestAutomationService {
                             
                             // Fetch page-specific instances to avoid cross-page updates
                             const pageSpecificInstances = await this.getAllTestInstancesForPage(sessionId, pageUrl);
+                            console.log(`🔎 PAGE MAPPING: ${toolKey} ${pageUrl} -> ${pageSpecificInstances.length} instances`);
 
                             // Map violations to specific WCAG criteria test instances (page-scoped)
                             const mappingResult = await this.mapViolationsToTestInstances(
@@ -5171,12 +5172,12 @@ class TestAutomationService {
     async getTestInstancesForPage(sessionId, pageId) {
         try {
             const query = `
-                SELECT ti.*, tr.criterion_number, ts.id as session_id
+                SELECT ti.*, ur.requirement_id as criterion_number, ts.id as session_id
                 FROM test_instances ti
-                JOIN test_requirements tr ON ti.requirement_id = tr.id
+                JOIN unified_requirements ur ON ti.requirement_id = ur.id
                 JOIN test_sessions ts ON ti.session_id = ts.id
                 WHERE ti.session_id = $1 AND ti.page_id = $2
-                ORDER BY tr.criterion_number
+                ORDER BY ur.requirement_id
             `;
             const result = await pool.query(query, [sessionId, pageId]);
             console.log(`📋 Found ${result.rows.length} test instances for page ${pageId} in session ${sessionId}`);
