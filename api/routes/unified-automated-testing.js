@@ -165,6 +165,26 @@ router.get('/unified-run/:sessionId/status/:runId', authenticateToken, async (re
 });
 
 /**
+ * Temporary: Axe A/B test endpoint
+ * GET /api/automated-testing/unified-run/:sessionId/axe-ab-test?limit=3
+ */
+router.get('/unified-run/:sessionId/axe-ab-test', authenticateToken, async (req, res) => {
+    try {
+        const { sessionId } = req.params;
+        const limit = Math.max(1, Math.min(5, parseInt(req.query.limit, 10) || 3));
+
+        const TestAutomationService = require('../services/test-automation-service');
+        const svc = new TestAutomationService(wsService);
+        const result = await svc.axeABTest(sessionId, limit);
+
+        res.json({ success: true, ...result });
+    } catch (error) {
+        console.error('❌ A/B Axe test failed:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+/**
  * Cancel Automation Run
  * DELETE /api/automated-testing/unified-run/:sessionId/:runId
  */

@@ -2089,13 +2089,21 @@ ${requirement.failure_examples}
                 this.wsConnected = true; // For header compatibility
                 
                 // Join current project room if we have one
-                if (this.selectedProject?.id) {
-                    this.socket.emit('join_project', this.selectedProject.id);
+                {
+                    const projectId = typeof this.selectedProject === 'string'
+                        ? this.selectedProject
+                        : (this.selectedProject?.id || null);
+                    if (projectId) {
+                        this.socket.emit('join_project', projectId);
+                    }
                 }
                 
                 // Join current session room if we have one
-                if (this.selectedTestSession?.id) {
-                    this.socket.emit('join_session', this.selectedTestSession.id);
+                {
+                    const sessionId = this.selectedTestSession?.id || this.selectedTestingSession?.id || null;
+                    if (sessionId) {
+                        this.socket.emit('join_session', sessionId);
+                    }
                 }
             });
             
@@ -3182,11 +3190,9 @@ ${requirement.failure_examples}
                 this.syncLegacyState(); // Sync WebSocket state to templates
                 
                 if (this.data.selectedProject) {
-                    // Ensure we pass only the project ID (string) not the object
                     const projectId = typeof this.data.selectedProject === 'string' 
                         ? this.data.selectedProject 
-                        : this.data.selectedProject.id || this.data.selectedProject;
-                        
+                        : (this.data.selectedProject.id || this.data.selectedProject);
                     console.log('🔗 Joining WebSocket room for project:', projectId);
                     this.ws.socket.emit('join_project', projectId);
                 }
@@ -3651,9 +3657,9 @@ ${requirement.failure_examples}
             
             console.log(`📂 Selected project: ${projectObj.name} (${projectId})`);
             
-            // Join WebSocket room for this project
+            // Join WebSocket room for this project (send plain id)
             if (this.ws.socket && this.ws.connected) {
-                this.ws.socket.emit('join_project', { projectId });
+                this.ws.socket.emit('join_project', projectId);
             }
             
             // Load project-specific data for all tabs

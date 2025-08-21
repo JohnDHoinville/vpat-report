@@ -1,7 +1,8 @@
 const { pool } = require('../../database/config');
 const axeCore = require('axe-core');
 const pa11y = require('pa11y');
-const puppeteer = require('puppeteer');
+// Prefer Playwright for all runners; keep Puppeteer only where strictly required
+const { chromium } = require('playwright');
 const { v4: uuidv4 } = require('uuid');
 const path = require('path');
 const fs = require('fs');
@@ -17,6 +18,22 @@ class TestAutomationService {
         
         // Reference to the shared authentication sessions Map
         this.interactiveAuthSessions = globalInteractiveAuthSessions;
+    }
+
+    // Strict mode helper
+    isStrict(executionOptions = null) {
+        try {
+            if (executionOptions && executionOptions.strict_mode === true) return true;
+        } catch (_) {}
+        return process.env.STRICT_AUTOMATION === 'true';
+    }
+
+    emitErrorMilestone(sessionId, message) {
+        try {
+            if (this.wsService && sessionId) {
+                this.wsService.emitTestingMilestone(sessionId, null, { type: 'error', message });
+            }
+        } catch (_) {}
     }
 
     /**
@@ -264,7 +281,20 @@ class TestAutomationService {
                 if (toolResults && pages.length > 0) {
                     for (const page of pages) {
                         try {
-                            await this.storeToolResults(sessionId, page.page_id, tool, toolResults);
+                            // Many run* methods return an object keyed by URL → per-page results.
+                            // Extract the specific page's results when present; otherwise fall back.
+                            const url = page.url || '';
+                            const urlNoHash = typeof url === 'string' ? url.split('#')[0] : url;
+                            const toolResultsForPage = (toolResults && typeof toolResults === 'object')
+                                ? (toolResults[url] || toolResults[urlNoHash] || toolResults[page.page_id] || toolResults[page.id] || null)
+                                : toolResults;
+
+                            if (!toolResultsForPage) {
+                                // Skip storing if we cannot identify per-page results for this page
+                                continue;
+                            }
+
+                            await this.storeToolResults(sessionId, page.page_id, tool, toolResultsForPage);
                         } catch (error) {
                             console.error(`❌ Failed to store ${tool} results for page ${page.url}:`, error);
                         }
@@ -4727,6 +4757,10 @@ class TestAutomationService {
                             
                         } catch (toolError) {
                             console.error(`❌ Error running ${tool} against ${pageUrl}:`, toolError);
+                            this.emitErrorMilestone(sessionId, `${tool} failed on ${pageUrl}: ${toolError.message}`);
+                            if (this.isStrict()) {
+                                throw toolError;
+                            }
                         }
                     }
                 }
@@ -4810,6 +4844,7 @@ class TestAutomationService {
      */
     async getAllTestInstancesForPage(sessionId, pageUrl) {
         try {
+            const urlNoFragment = (pageUrl || '').split('#')[0];
             const query = `
                 SELECT 
                     ti.id as test_instance_id,
@@ -4827,12 +4862,12 @@ class TestAutomationService {
                 JOIN discovered_pages dp ON ti.page_id = dp.id
                 JOIN unified_requirements ur ON ti.requirement_id = ur.id
                 WHERE ti.session_id = $1
-                AND dp.url = $2
+                AND (dp.url = $2 OR dp.url = $3)
                 AND ur.requirement_id IS NOT NULL
                 ORDER BY ur.requirement_id
             `;
 
-            const result = await pool.query(query, [sessionId, pageUrl]);
+            const result = await pool.query(query, [sessionId, pageUrl, urlNoFragment]);
             
             console.log(`🔍 DEBUG: Found ${result.rows.length} total test instances for page ${pageUrl} in session ${sessionId}`);
             
@@ -5167,16 +5202,8 @@ class TestAutomationService {
         try {
             console.log(`🔧 Running Axe against: ${pageUrl} (${pageInstances.length} test instances)`);
             
-            browser = await puppeteer.launch({
-                headless: false, // TEMPORARILY DISABLED for debugging
-                slowMo: 250, // Slow down interactions for visibility
-                args: [
-                    '--no-sandbox',
-                    '--disable-setuid-sandbox',
-                    '--disable-dev-shm-usage',
-                    '--disable-gpu'
-                ]
-            });
+            const headless = process.env.PLAYWRIGHT_HEADLESS !== 'false';
+            browser = await chromium.launch({ headless });
 
             // Get authentication context if available
             if (pageInstances && pageInstances.length > 0) {
@@ -5185,7 +5212,7 @@ class TestAutomationService {
                 console.log(`🔐 Interactive auth mode: ${useInteractiveAuth ? 'ENABLED' : 'DISABLED'}`);
                 if (sessionId) {
                     const authContext = await this.getAuthContextForSession(sessionId, useInteractiveAuth);
-                    console.log(`🔍 DEBUG: Auth context result:`, authContext ? `${authContext.cookies?.length || 0} cookies found` : 'No auth context');
+                    console.log(`🔍 DEBUG: Auth context result:`, authContext ? `${(authContext.cookies?.length || authContext.storageState?.cookies?.length || 0)} cookies found` : 'No auth context');
                     
                     // Handle interactive auth pending state
                     if (authContext && authContext.isPending) {
@@ -5198,15 +5225,10 @@ class TestAutomationService {
                         };
                     }
                     
-                    if (authContext && authContext.storageState) {
+                    if (authContext && (authContext.storageState || authContext.cookies)) {
                         // Create context with stored authentication state
-                        context = await browser.createBrowserContext({
-                            storageState: authContext.storageState || authContext
-                        });
+                        context = await browser.newContext({ storageState: authContext.storageState || authContext });
                         console.log(`🔐 Crawler authentication session loaded successfully for Axe`);
-                    } else {
-                        console.log(`⚠️ No authentication context found - pages may redirect to login`);
-                        console.log(`💡 To fix this: Go to Web Crawler → Session Capture → Re-capture authentication`);
                     }
                 } else {
                     console.log(`⚠️ No session ID found in pageInstances`);
@@ -5216,25 +5238,15 @@ class TestAutomationService {
             }
 
             // Use authenticated context if available, otherwise create new page
-            const page = context ? await context.newPage() : await browser.newPage();
-            await page.setViewport({ width: 1920, height: 1080 });
+            const page = context ? await context.newPage() : await (await browser.newContext()).newPage();
+            await page.setViewportSize({ width: 1920, height: 1080 });
             
             // Set timeout and navigate
             const timeout = 30000;
-            await page.goto(pageUrl, { 
-                waitUntil: 'networkidle0',
-                timeout 
-            });
+            await page.goto(pageUrl, { waitUntil: 'networkidle', timeout });
 
             // Inject Axe and run analysis
-            await page.evaluate(() => {
-                return new Promise((resolve) => {
-                    const script = document.createElement('script');
-                    script.src = 'https://unpkg.com/axe-core@latest/axe.min.js';
-                    script.onload = resolve;
-                    document.head.appendChild(script);
-                });
-            });
+            await page.addScriptTag({ url: 'https://unpkg.com/axe-core@latest/axe.min.js' });
 
             // Run Axe with specific rules based on WCAG criteria in pageInstances
             const wcagCriteria = pageInstances.map(instance => instance.requirement_id);
@@ -5242,18 +5254,12 @@ class TestAutomationService {
 
             const results = await page.evaluate((rules) => {
                 return new Promise((resolve) => {
+                    // @ts-ignore
                     axe.run({
-                        rules: rules.length > 0 ? rules.reduce((acc, rule) => {
-                            acc[rule] = { enabled: true };
-                            return acc;
-                        }, {}) : undefined
+                        rules: rules && rules.length > 0 ? rules.reduce((acc, rule) => { acc[rule] = { enabled: true }; return acc; }, {}) : undefined
                     }, (err, results) => {
-                        if (err) {
-                            console.error('Axe error:', err);
-                            resolve({ violations: [] });
-                        } else {
-                            resolve(results);
-                        }
+                        if (err) resolve({ violations: [], error: err?.message || String(err) });
+                        else resolve(results);
                     });
                 });
             }, axeRules);
@@ -5270,12 +5276,110 @@ class TestAutomationService {
 
         } catch (error) {
             console.error(`❌ Axe error for ${pageUrl}:`, error);
+            try {
+                const sid = Array.isArray(pageInstances) && pageInstances[0] ? pageInstances[0].session_id : null;
+                this.emitErrorMilestone(sid, `Axe failed on ${pageUrl}: ${error.message}`);
+            } catch (_) {}
+            if (this.isStrict()) {
+                throw new Error(`Axe failed: ${error.message}`);
+            }
             return { violations: [], error: error.message };
         } finally {
             if (browser) {
                 await browser.close();
             }
         }
+    }
+
+    /**
+     * Run Axe-core against a specific page using Playwright (for A/B testing)
+     */
+    async runAxeAgainstPagePlaywright(pageUrl, pageInstances, useInteractiveAuth = false) {
+        const { chromium } = require('playwright');
+        let browser;
+        let context;
+        try {
+            console.log(`🔧 [PW] Running Axe against: ${pageUrl} (${pageInstances.length} test instances)`);
+            // Determine auth context
+            let storageState = null;
+            if (pageInstances && pageInstances.length > 0) {
+                const sessionId = pageInstances[0].session_id;
+                console.log(`🔍 DEBUG [PW]: Looking for auth context for session: ${sessionId}`);
+                console.log(`🔐 Interactive auth mode [PW]: ${useInteractiveAuth ? 'ENABLED' : 'DISABLED'}`);
+                if (sessionId) {
+                    const authContext = await this.getAuthContextForSession(sessionId, useInteractiveAuth);
+                    if (authContext && authContext.isPending) {
+                        return { isPending: true, error: 'Interactive authentication pending' };
+                    }
+                    if (authContext) {
+                        storageState = authContext.storageState || authContext;
+                        console.log(`🔐 [PW] Using ${storageState.cookies?.length || 0} cookies`);
+                    }
+                }
+            }
+
+            browser = await chromium.launch({ headless: true });
+            context = await browser.newContext(storageState ? { storageState } : {});
+            const page = await context.newPage();
+            await page.setViewportSize({ width: 1920, height: 1080 });
+            await page.goto(pageUrl, { waitUntil: 'networkidle', timeout: 30000 });
+
+            // Inject axe
+            await page.addScriptTag({ url: 'https://unpkg.com/axe-core@latest/axe.min.js' });
+
+            // Map WCAG criteria in the same way as Puppeteer path
+            const wcagCriteria = pageInstances.map(instance => instance.requirement_id);
+            const axeRules = this.mapWcagCriteriaToAxeRules(wcagCriteria);
+
+            const results = await page.evaluate((rules) => {
+                return new Promise((resolve) => {
+                    // @ts-ignore
+                    axe.run({
+                        rules: rules && rules.length > 0 ? rules.reduce((acc, rule) => { acc[rule] = { enabled: true }; return acc; }, {}) : undefined
+                    }, (err, results) => {
+                        if (err) resolve({ violations: [], error: err?.message || String(err) });
+                        else resolve(results);
+                    });
+                });
+            }, axeRules);
+
+            console.log(`✅ [PW] Axe completed for ${pageUrl}: ${results.violations?.length || 0} violations`);
+            return {
+                violations: results.violations || [],
+                passes: results.passes || [],
+                tool: 'axe-core',
+                pageUrl,
+                runner: 'playwright',
+                timestamp: new Date().toISOString()
+            };
+        } catch (error) {
+            console.error(`❌ [PW] Axe error for ${pageUrl}:`, error);
+            return { violations: [], error: error.message };
+        } finally {
+            if (browser) await browser.close();
+        }
+    }
+
+    /**
+     * A/B test Axe: Puppeteer vs Playwright on a small page sample
+     */
+    async axeABTest(sessionId, limit = 3) {
+        const pages = await this.getSessionPages(sessionId);
+        const sample = pages.slice(0, Math.max(0, limit));
+        const comparisons = [];
+        for (const p of sample) {
+            const instances = await this.getTestInstancesForPage(sessionId, p.id);
+            const puppeteerRes = await this.runAxeAgainstPage(p.url, instances, false);
+            const playwrightRes = await this.runAxeAgainstPagePlaywright(p.url, instances, false);
+            comparisons.push({
+                page_id: p.id,
+                url: p.url,
+                puppeteer: { violations: puppeteerRes.violations?.length || 0 },
+                playwright: { violations: playwrightRes.violations?.length || 0 },
+                delta: (puppeteerRes.violations?.length || 0) - (playwrightRes.violations?.length || 0)
+            });
+        }
+        return { sessionId, pages_tested: comparisons.length, comparisons };
     }
 
     /**
@@ -5669,6 +5773,13 @@ class TestAutomationService {
 
         } catch (error) {
             console.error(`❌ Pa11y error for ${pageUrl}:`, error);
+            try {
+                const sid = Array.isArray(pageInstances) && pageInstances[0] ? pageInstances[0].session_id : null;
+                this.emitErrorMilestone(sid, `Pa11y failed on ${pageUrl}: ${error.message}`);
+            } catch (_) {}
+            if (this.isStrict()) {
+                throw new Error(`Pa11y failed: ${error.message}`);
+            }
             return { violations: [], error: error.message };
         }
     }
@@ -5742,6 +5853,13 @@ class TestAutomationService {
             
         } catch (error) {
             console.error(`❌ Contrast analyzer error for ${pageUrl}:`, error);
+            try {
+                const sid = Array.isArray(pageInstances) && pageInstances[0] ? pageInstances[0].session_id : null;
+                this.emitErrorMilestone(sid, `Contrast analyzer failed on ${pageUrl}: ${error.message}`);
+            } catch (_) {}
+            if (this.isStrict()) {
+                throw new Error(`Contrast analyzer failed: ${error.message}`);
+            }
             return { 
                 violations: [], 
                 passes: [],
@@ -6216,7 +6334,24 @@ class TestAutomationService {
         };
 
         const ruleId = violation.id || violation.rule;
-        return axeToWcagMapping[ruleId] || [];
+        let mapped = axeToWcagMapping[ruleId] || [];
+
+        // Fallback: derive WCAG criterion from Axe tags like "wcag111", "wcag244", etc.
+        if ((!mapped || mapped.length === 0) && Array.isArray(violation.tags)) {
+            const criteria = new Set();
+            for (const tag of violation.tags) {
+                // Match tags of the form wcagXYZ where X,Y,Z are digits representing X.Y.Z
+                const m = /^wcag(\d)(\d)(\d)$/.exec(tag);
+                if (m) {
+                    criteria.add(`${m[1]}.${m[2]}.${m[3]}`);
+                }
+            }
+            if (criteria.size > 0) {
+                mapped = Array.from(criteria);
+            }
+        }
+
+        return mapped;
     }
 
     /**
@@ -6229,6 +6364,11 @@ class TestAutomationService {
         const wcagMatch = code.match(/(\d+)_(\d+)_(\d+)/);
         if (wcagMatch) {
             return [`${wcagMatch[1]}.${wcagMatch[2]}.${wcagMatch[3]}`];
+        }
+        // Fallback: W3C code style like WCAG2AA.Principle1.Guideline1_4.1_4_3
+        const alt = code.match(/Guideline(\d+)_(\d+)_(\d+)/);
+        if (alt) {
+            return [`${alt[1]}.${alt[2]}.${alt[3]}`];
         }
         
         return [];

@@ -96,7 +96,8 @@ class WebSocketService {
             this.clients.set(socket.userId, socket);
 
             // Handle user joining project room
-            socket.on('join_project', (projectId) => {
+            socket.on('join_project', (payload) => {
+                const projectId = typeof payload === 'string' ? payload : payload?.projectId || payload?.id;
                 if (projectId) {
                     socket.join(`project_${projectId}`);
                     
