@@ -8233,6 +8233,20 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
             
             return this.openUserManagement(true); // Manual open
         },
+
+        // Admin: Open Requirements Mapping view
+        openRequirementsMapping() {
+            if (!this.auth.isAuthenticated) {
+                this.showNotification('error', 'Authentication Required', 'Please log in to access admin tools');
+                return;
+            }
+            if (this.auth.user && this.auth.user.role !== 'admin') {
+                this.showNotification('error', 'Access Denied', 'Admin privileges required');
+                return;
+            }
+            this.activeTab = 'admin-requirements-mapping';
+            console.log('🔧 Admin Requirements Mapping requested');
+        },
         
         // Load users from API
         async loadUsers() {
