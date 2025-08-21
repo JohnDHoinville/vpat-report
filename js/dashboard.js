@@ -8249,6 +8249,24 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
             // Lazy load the view content if needed
             if (window.loadAdminRequirementsMappingView) {
                 window.loadAdminRequirementsMappingView();
+            } else {
+                // Fallback: load directly
+                try {
+                    const container = document.getElementById('admin-requirements-mapping-view-content');
+                    if (container && !container.innerHTML) {
+                        fetch('views/admin-requirements-mapping.html')
+                            .then(r => r.text())
+                            .then(html => {
+                                container.innerHTML = html;
+                                if (window.Alpine && window.Alpine.initTree) {
+                                    window.Alpine.initTree(container);
+                                }
+                            })
+                            .catch(err => console.error('Failed to load admin requirements mapping view:', err));
+                    }
+                } catch (e) {
+                    console.error('Error initializing admin requirements mapping view:', e);
+                }
             }
         },
         
