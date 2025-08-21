@@ -20,6 +20,81 @@ class TestAutomationService {
         this.interactiveAuthSessions = globalInteractiveAuthSessions;
     }
 
+    /**
+     * Normalize tool results into a consistent shape the mapper expects:
+     * { pages_tested: string[], total_violations: number, critical_violations: number,
+     *   violations_by_page: { [url]: { url, violations: any[], details?: any } } }
+     */
+    standardizeToolResults(toolKey, toolResults) {
+        try {
+            // Already standardized
+            if (toolResults && typeof toolResults === 'object' && toolResults.violations_by_page) {
+                return toolResults;
+            }
+
+            const standardized = {
+                tool: toolKey,
+                pages_tested: [],
+                total_violations: 0,
+                critical_violations: 0,
+                violations_by_page: {}
+            };
+
+            if (!toolResults || typeof toolResults !== 'object') {
+                return standardized;
+            }
+
+            for (const [key, value] of Object.entries(toolResults)) {
+                // Skip aggregate-like keys if present
+                if (['tool', 'pages_tested', 'total_violations', 'critical_violations', 'violations_by_page'].includes(key)) {
+                    continue;
+                }
+                const pageUrl = (value && typeof value === 'object' && value.url) ? value.url : key;
+                if (!pageUrl || typeof value !== 'object') continue;
+
+                // Extract violations array from common shapes
+                let violationsArray = [];
+                if (Array.isArray(value.violations)) {
+                    violationsArray = value.violations;
+                } else if (Array.isArray(value.details)) {
+                    violationsArray = value.details;
+                } else if (Array.isArray(value.issues)) {
+                    violationsArray = value.issues;
+                }
+
+                standardized.pages_tested.push(pageUrl);
+                standardized.violations_by_page[pageUrl] = {
+                    url: pageUrl,
+                    violations: violationsArray,
+                    details: violationsArray
+                };
+                standardized.total_violations += Array.isArray(violationsArray) ? violationsArray.length : 0;
+            }
+
+            return standardized;
+        } catch (e) {
+            console.error('❌ Error standardizing tool results:', e);
+            return {
+                tool: toolKey,
+                pages_tested: [],
+                total_violations: 0,
+                critical_violations: 0,
+                violations_by_page: {}
+            };
+        }
+    }
+
+    // Simple timing helpers
+    startTimer() {
+        return Date.now();
+    }
+    logDuration(label, startTimeMs) {
+        try {
+            const ms = Date.now() - startTimeMs;
+            console.log(`⏱️ ${label} took ${ms}ms`);
+        } catch (_) {}
+    }
+
     // Strict mode helper
     isStrict(executionOptions = null) {
         try {
@@ -229,19 +304,19 @@ class TestAutomationService {
                     case 'axe-core':
                     case 'axe': // Add support for 'axe' alias
                         toolResults = await this.runAxe(pages, sessionId, useInteractiveAuth);
-                        results.axe = toolResults;
+                        results.axe = this.standardizeToolResults('axe', toolResults);
                         break;
                     case 'pa11y':
                         toolResults = await this.runPa11y(pages, sessionId, useInteractiveAuth);
-                        results.pa11y = toolResults;
+                        results.pa11y = this.standardizeToolResults('pa11y', toolResults);
                         break;
                     case 'lighthouse':
                         toolResults = await this.runLighthouse(pages, useInteractiveAuth);
-                        results.lighthouse = toolResults;
+                        results.lighthouse = this.standardizeToolResults('lighthouse', toolResults);
                         break;
                     case 'contrast-analyzer':
                         toolResults = await this.runContrastAnalyzer(pages, useInteractiveAuth);
-                        results['contrast-analyzer'] = toolResults;
+                        results['contrast-analyzer'] = this.standardizeToolResults('contrast-analyzer', toolResults);
                         break;
                     case 'mobile-accessibility':
                         toolResults = await this.runMobileAccessibility(pages, useInteractiveAuth);
@@ -302,7 +377,8 @@ class TestAutomationService {
                 }
 
                 // Emit tool completion milestone
-                const toolViolations = this.countViolationsFromResults(toolResults);
+                const standardizedForCount = this.standardizeToolResults(tool, toolResults);
+                const toolViolations = this.countViolationsFromResults(standardizedForCount);
                 this.emitMilestone(sessionId, {
                     type: 'tool_complete',
                     message: `${tool} testing completed`,
@@ -379,7 +455,14 @@ class TestAutomationService {
             // Map results to test instances
             let testInstancesUpdated = 0;
             if (updateTestInstances) {
-                testInstancesUpdated = await this.mapResultsToTestInstances(sessionId, results, userId);
+                const mapStart = this.startTimer();
+                // Ensure all tool result buckets are standardized before mapping
+                const normalizedResults = {};
+                for (const [k, v] of Object.entries(results)) {
+                    normalizedResults[k] = this.standardizeToolResults(k, v);
+                }
+                testInstancesUpdated = await this.mapResultsToTestInstances(sessionId, normalizedResults, userId);
+                this.logDuration('Result mapping phase', mapStart);
                 console.log(`📊 Updated ${testInstancesUpdated} test instances with automated results`);
                 
                 // Emit completion progress via WebSocket
@@ -1604,7 +1687,7 @@ class TestAutomationService {
                 }
 
                 console.log(`🔧 Processing ${toolKey} results...`);
-                
+
                 // Extract violations from tool results by page
                 if (toolResults.violations_by_page) {
                     for (const [pageUrl, pageData] of Object.entries(toolResults.violations_by_page)) {
@@ -1654,6 +1737,38 @@ class TestAutomationService {
                         } else {
                             console.log(`✅ No violations found from ${toolKey} on ${pageUrl}`);
                         }
+                    }
+                } else if (toolResults && typeof toolResults === 'object') {
+                    // Fallback: tools like runAxe/runPa11y/runLighthouse return an object keyed by page URL
+                    for (const [maybeUrl, pageData] of Object.entries(toolResults)) {
+                        if (!pageData || typeof pageData !== 'object') continue;
+                        // Skip aggregate fields if present
+                        if (['tool','pages_tested','total_violations','critical_violations','violations_by_page'].includes(maybeUrl)) continue;
+
+                        const pageUrl = pageData.url || maybeUrl;
+                        let violations = [];
+                        if (Array.isArray(pageData.details)) {
+                            violations = pageData.details; // axe/pa11y array form
+                        } else if (Array.isArray(pageData.violations)) {
+                            violations = pageData.violations; // explicit violations array
+                        } else if (Array.isArray(pageData.issues)) {
+                            violations = pageData.issues; // pa11y "issues"
+                        }
+
+                        if (!pageUrl || violations.length === 0) continue;
+
+                        const pageSpecificInstances = await this.getAllTestInstancesForPage(sessionId, pageUrl);
+                        console.log(`🔎 PAGE MAPPING: ${toolKey} ${pageUrl} -> ${pageSpecificInstances.length} instances`);
+
+                        const mappingResult = await this.mapViolationsToTestInstances(
+                            violations,
+                            pageSpecificInstances,
+                            toolKey === 'axe' ? 'axe-core' : toolKey,
+                            pageUrl
+                        );
+
+                        updatedCount += mappingResult.updated;
+                        console.log(`✅ Mapped ${mappingResult.violations} ${toolKey} violations to ${mappingResult.updated} test instances`);
                     }
                 }
             }
@@ -4701,11 +4816,13 @@ class TestAutomationService {
                 // Test each page in the batch
                 for (const pageUrl of pageBatch) {
                     const pageInstances = instancesByPage[pageUrl];
+                    const pageStart = this.startTimer();
                     console.log(`🌐 Testing page: ${pageUrl} (${pageInstances.length} instances)`);
 
                     // Run each tool against this page
                     for (const tool of tools) {
                         try {
+                            const toolStart = this.startTimer();
                             console.log(`🔧 Running ${tool} against ${pageUrl}`);
                             
                             // Run tool against the page
@@ -4750,8 +4867,10 @@ class TestAutomationService {
                                     });
                                 }
                                 
+                                this.logDuration(`${tool} on ${pageUrl}`, toolStart);
                                 console.log(`✅ ${tool} tested ${pageUrl}: ${toolResults.violations.length} violations, updated ${mappingResults.updated} instances`);
                             } else {
+                                this.logDuration(`${tool} on ${pageUrl}`, toolStart);
                                 console.log(`✅ ${tool} tested ${pageUrl}: 0 violations`);
                                 
                                 // Store empty results in database for tools that found no violations
@@ -4774,6 +4893,7 @@ class TestAutomationService {
                             }
                         }
                     }
+                    this.logDuration(`All tools on ${pageUrl}`, pageStart);
                 }
             }
 
