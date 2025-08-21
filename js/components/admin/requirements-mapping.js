@@ -13,7 +13,8 @@ window.adminRequirementsMapping = function adminRequirementsMapping() {
       this.loading = true;
       try {
         const token = window.AuthTokenService?.getToken?.();
-        const res = await fetch('/api/unified-requirements', {
+        const apiBase = (window.DashboardAPI?.config?.baseUrl) || 'http://localhost:3001';
+        const res = await fetch(`${apiBase}/api/unified-requirements`, {
           headers: token ? { 'Authorization': `Bearer ${token}` } : {}
         });
         const data = await res.json();
