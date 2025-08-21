@@ -305,6 +305,8 @@ class WebSocketService {
             type: 'session_progress',
             sessionId,
             projectId,
+            projectName: progressData.projectName,
+            sessionName: progressData.sessionName,
             progress: {
                 percentage: progressData.percentage || 0,
                 completedTests: progressData.completedTests || 0,
@@ -334,7 +336,8 @@ class WebSocketService {
 
         this.io.to(`session_${sessionId}`).emit('session_progress', message);
         this.io.to(`project_${projectId}`).emit('session_progress', message);
-        console.log(`📡 Session progress broadcast: ${sessionId} - ${progressData.percentage}% (${progressData.stage})`);
+        const label = progressData.sessionName ? `${progressData.sessionName} (${sessionId})` : sessionId;
+        console.log(`📡 Session progress broadcast: ${label} - ${progressData.percentage}% (${progressData.stage})`);
     }
 
     /**
@@ -345,13 +348,16 @@ class WebSocketService {
             type: 'session_complete',
             sessionId,
             projectId,
+            projectName: results.projectName,
+            sessionName: results.sessionName,
             results,
             timestamp: new Date().toISOString()
         };
 
         this.io.to(`session_${sessionId}`).emit('session_complete', message);
         this.io.to(`project_${projectId}`).emit('session_complete', message);
-        console.log(`🏁 Session complete broadcast: ${sessionId}`);
+        const label = results.sessionName ? `${results.sessionName} (${sessionId})` : sessionId;
+        console.log(`🏁 Session complete broadcast: ${label}`);
     }
 
     /**
@@ -379,6 +385,8 @@ class WebSocketService {
             type: 'testing_milestone',
             sessionId,
             projectId,
+            projectName: milestone.projectName,
+            sessionName: milestone.sessionName,
             milestone: {
                 type: milestone.type,
                 message: milestone.message,
@@ -412,7 +420,8 @@ class WebSocketService {
 
         this.io.to(`session_${sessionId}`).emit('testing_milestone', message);
         this.io.to(`project_${projectId}`).emit('testing_milestone', message);
-        console.log(`🎯 Testing milestone: ${sessionId} - ${milestone.type}`);
+        const label = milestone.sessionName ? `${milestone.sessionName} (${sessionId})` : sessionId;
+        console.log(`🎯 Testing milestone: ${label} - ${milestone.type}`);
     }
 
     /**
@@ -585,7 +594,8 @@ class WebSocketService {
         };
 
         this.io.to(`project_${projectId}`).emit(eventType, message);
-        console.log(`📡 Project event broadcast: ${projectId} - ${eventType}`);
+        const label = data?.project_name || data?.projectName || projectId;
+        console.log(`📡 Project event broadcast: ${label} - ${eventType}`);
     }
 
     /**

@@ -3562,11 +3562,14 @@ class TestAutomationService {
             // Try to resolve projectId so project room also receives progress
             const resolveAndEmit = async () => {
                 let projectId = null;
+                let names = { projectName: null, sessionName: null };
                 try {
-                    const res = await pool.query('SELECT project_id FROM test_sessions WHERE id = $1', [sessionId]);
+                    const res = await pool.query('SELECT ts.project_id, p.name as project_name, ts.name as session_name FROM test_sessions ts JOIN projects p ON ts.project_id = p.id WHERE ts.id = $1', [sessionId]);
                     projectId = res.rows[0]?.project_id || null;
+                    names.projectName = res.rows[0]?.project_name || null;
+                    names.sessionName = res.rows[0]?.session_name || null;
                 } catch (_) {}
-                this.wsService.emitSessionProgress(sessionId, projectId, progressData);
+                this.wsService.emitSessionProgress(sessionId, projectId, { ...progressData, projectName: names.projectName, sessionName: names.sessionName });
             };
             // Fire and forget
             resolveAndEmit();
@@ -3580,11 +3583,14 @@ class TestAutomationService {
         if (this.wsService) {
             const resolveAndEmit = async () => {
                 let projectId = null;
+                let names = { projectName: null, sessionName: null };
                 try {
-                    const res = await pool.query('SELECT project_id FROM test_sessions WHERE id = $1', [sessionId]);
+                    const res = await pool.query('SELECT ts.project_id, p.name as project_name, ts.name as session_name FROM test_sessions ts JOIN projects p ON ts.project_id = p.id WHERE ts.id = $1', [sessionId]);
                     projectId = res.rows[0]?.project_id || null;
+                    names.projectName = res.rows[0]?.project_name || null;
+                    names.sessionName = res.rows[0]?.session_name || null;
                 } catch (_) {}
-                this.wsService.emitTestingMilestone(sessionId, projectId, milestoneData);
+                this.wsService.emitTestingMilestone(sessionId, projectId, { ...milestoneData, projectName: names.projectName, sessionName: names.sessionName });
             };
             resolveAndEmit();
         }

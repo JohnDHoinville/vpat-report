@@ -299,9 +299,20 @@ class UnifiedAutomationController {
 
             // Emit WebSocket events
             if (this.wsService) {
+                // Fetch project and session names for nicer labels
+                let projectName = null;
+                let sessionName = null;
+                try {
+                    const nameRes = await pool.query('SELECT p.name as project_name, ts.name as session_name FROM test_sessions ts JOIN projects p ON ts.project_id = p.id WHERE ts.id = $1', [sessionId]);
+                    projectName = nameRes.rows[0]?.project_name || null;
+                    sessionName = nameRes.rows[0]?.session_name || null;
+                } catch (_) {}
+
                 this.wsService.emitToProject(runRecord.project_id, 'automation_started', {
                     run_id: runId,
                     session_id: sessionId,
+                    project_name: projectName,
+                    session_name: sessionName,
                     target_mode,
                     target_count: targets.length,
                     page_count: uniquePages.length,
@@ -568,10 +579,13 @@ class UnifiedAutomationController {
                 const results = updatedRun.target_metadata?.results || {};
                 // Ensure we have a valid projectId; the automation_runs_v2 row may not carry it
                 let projectId = updatedRun.project_id;
+                let labels = { projectName: null, sessionName: null };
                 if (!projectId) {
                     try {
-                        const projRes = await pool.query('SELECT project_id FROM test_sessions WHERE id = $1', [updatedRun.session_id]);
+                        const projRes = await pool.query('SELECT ts.project_id, p.name as project_name, ts.name as session_name FROM test_sessions ts JOIN projects p ON ts.project_id = p.id WHERE ts.id = $1', [updatedRun.session_id]);
                         projectId = projRes.rows[0]?.project_id || 'unknown';
+                        labels.projectName = projRes.rows[0]?.project_name || null;
+                        labels.sessionName = projRes.rows[0]?.session_name || null;
                     } catch (_) {
                         projectId = 'unknown';
                     }
@@ -580,6 +594,8 @@ class UnifiedAutomationController {
                 this.wsService.emitToProject(projectId, 'automation_completed', {
                     run_id: runId,
                     session_id: updatedRun.session_id,
+                    project_name: labels.projectName,
+                    session_name: labels.sessionName,
                     status: status,
                     target_mode: updatedRun.target_mode,
                     tools_used: updatedRun.tools_used,
