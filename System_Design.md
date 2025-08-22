@@ -99,5 +99,46 @@ node api/server.js | cat
 - Database validation updated to prioritize unified_requirements
 - Standardized on wizard-based session creation for consistency and better UX
 
+### Testing Instructions Display Fix
+
+- Fixed Requirements Details modal to display testing instructions properly
+- Issue: Frontend was looking for `testing_instructions` field but database uses `manual_test_procedure` (JSON)
+- Solution: Updated Alpine.js templates to parse and display JSON testing procedure data
+- Enhanced display with structured format: Overview, Testing Steps, Tools Needed, Expected Results, Common Failures
+- Applied to all three modal implementations for consistency
+- Example: Requirement 3.3.4 now shows comprehensive testing instructions instead of "not available"
+- Maintains backward compatibility with legacy `testing_instructions` field
+
+### WCAG External Resources Links Fix
+
+- Fixed External Resources section to display WCAG documentation links properly
+- Issue: Frontend templates looking for `wcag_url` but database uses `understanding_url` field
+- Solution: Updated Alpine.js templates to use correct `understanding_url` field reference
+- All 96 requirements now show clickable WCAG documentation links with full URLs
+- Links open in new tabs pointing to official W3C WAI understanding documents
+- Example: Requirement 3.3.4 shows https://www.w3.org/WAI/WCAG21/Understanding/error-prevention-legal-financial-data.html
+- Applied to all three modal implementations for consistency
+
+### Manual Testing Sections Enhancement
+
+- Added Step-by-Step Testing Guide and Common Violations & Examples sections to Requirements Details Modal
+- Issue: Critical testing guidance was only available in individual test instance modals, not main requirement modal
+- Solution: Integrated existing `getDetailedTestingSteps()` and `getCommonViolations()` functions into Requirements Details Modal
+- Enhanced visual design with emerald gradient for testing guide and orange collapsible section for violations
+- Updated PDF generation to include new sections with proper formatting and coloring
+- Updated print functionality to include comprehensive testing guidance in offline documentation
+- Applied to all three modal implementations and both PDF generation methods
+- All 96 requirements now provide complete manual testing guidance in one location
+
+### PDF Formatting Enhancement
+
+- Enhanced PDF generation formatting for improved readability and professional appearance
+- Issue: PDF output displayed testing content as plain text without proper list formatting, included redundant Testing Instructions section
+- Solution: Removed Testing Instructions section completely, enhanced Step-by-Step Testing Guide with numbered formatting (1., 2., 3.), enhanced Common Violations with bulleted formatting (• bullets)
+- Technical: Added HTML parsing with regex `/<li>(.*?)<\/li>/g` to preserve list structure in PDF output
+- Formatting: Bold numbers/bullets with indented content, orange color theme for violations, proper text wrapping
+- Applied to both `js/dashboard.js` and `dashboard/js/dashboard.js` for consistency
+- Result: Professional PDF documents with properly formatted numbered testing steps and bulleted violation examples
+
 
 

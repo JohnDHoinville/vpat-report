@@ -1406,12 +1406,17 @@ ${requirement.failure_examples}
         <div class="print-section-content">${requirement.description || 'No description available'}</div>
     </div>
 
-    ${requirement.testing_instructions ? `
+
+
     <div class="print-section">
-        <div class="print-section-title">Testing Instructions</div>
-        <div class="print-section-content">${requirement.testing_instructions}</div>
+        <div class="print-section-title">Step-by-Step Testing Guide</div>
+        <div class="print-section-content">${this.getDetailedTestingSteps(requirement.requirement_id, requirement.test_method)}</div>
     </div>
-    ` : ''}
+
+    <div class="print-section">
+        <div class="print-section-title">Common Violations & Examples</div>
+        <div class="print-section-content" style="color: #b45309;">${this.getCommonViolations(requirement.requirement_id)}</div>
+    </div>
 
     ${requirement.acceptance_criteria ? `
     <div class="print-section">
@@ -1508,7 +1513,7 @@ ${requirement.failure_examples}
 
     <div class="print-footer">
         <p>WCAG ${requirement.criterion_number} Testing Documentation | Generated ${reportDate}</p>
-        ${this.selectedTestSession ? `<p>Session Information: ${this.selectedTestSession.name || 'Unknown Session'} - ${this.selectedTestSession.id} / Created on ${new Date(this.selectedTestSession.created_at || this.selectedTestSession.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>` : ''}
+        ${(this.selectedSessionDetails || this.selectedTestSession) ? `<p>Session Information: ${(this.selectedSessionDetails || this.selectedTestSession).name || 'Unknown Session'} - ${(this.selectedSessionDetails || this.selectedTestSession).id} / Created on ${new Date((this.selectedSessionDetails || this.selectedTestSession).created_at || (this.selectedSessionDetails || this.selectedTestSession).createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>` : ''}
         <div style="margin: 15px 0;">
             <label style="font-weight: bold; margin-right: 10px;">Tester name:</label>
             <input type="text" style="border: 1px solid #ccc; padding: 5px; width: 200px; font-size: 10pt;" />
@@ -1564,6 +1569,24 @@ ${requirement.failure_examples}
                     size: 16,
                     font: boldFont,
                 });
+                
+                // Add save instructions in the top right corner (more compact positioning)
+                page.drawText('SAVE PROGRESS: Use File > Save As', {
+                    x: width - 200,
+                    y: yPosition - 15,
+                    size: 8,
+                    font: font,
+                    color: PDFLib.rgb(0.2, 0.4, 0.8),
+                });
+                
+                page.drawText('Replace _BLANK_ with status: _PASSED, _FAILED, etc.', {
+                    x: width - 200,
+                    y: yPosition - 28,
+                    size: 7,
+                    font: font,
+                    color: PDFLib.rgb(0.5, 0.5, 0.5),
+                });
+                
                 yPosition -= 30;
                 
                 // Subtitle - Accessibility Testing Documentation
@@ -1594,15 +1617,23 @@ ${requirement.failure_examples}
                 yPosition -= 25;
                 
                 // Overall status checkboxes (same layout as test instances)
-                const overallStatusOptions = ['Pass', 'Fail', 'Needs Review', 'Not Applicable'];
+                const overallStatusOptions = ['Pass', 'Fail', 'In Process', 'Needs Review', 'Not Applicable'];
                 const overallCheckboxSize = 18; // 1/4 inch = 18 points
-                const overallLabelSpacing = 120; // Space between options
+                const overallLabelSpacing = 95; // Reduced space to fit 5 options
                 
                 overallStatusOptions.forEach((option, optIndex) => {
                     const xPos = margin + (optIndex * overallLabelSpacing);
+                    const statusValue = ['passed', 'failed', 'in_process', 'needs_review', 'not_applicable'][optIndex];
                     
                     // Create checkbox with pdf-lib
                     const checkbox = form.createCheckBox(`overall_status_${option.toLowerCase().replace(' ', '_')}`);
+                    
+                    // Pre-check if this matches the manual override
+                    const manualOverride = requirement.manual_status_override;
+                    if (manualOverride && manualOverride === statusValue) {
+                        checkbox.check();
+                    }
+                    
                     checkbox.addToPage(page, {
                         x: xPos,
                         y: yPosition,
@@ -1651,8 +1682,11 @@ ${requirement.failure_examples}
                 });
                 yPosition -= 20;
                 
-                // Testing Instructions Section
-                page.drawText('Testing Instructions', {
+                // Testing Instructions section removed as requested
+
+                
+                // Step-by-Step Testing Guide Section
+                page.drawText('Step-by-Step Testing Guide', {
                     x: margin,
                     y: yPosition,
                     size: 12,
@@ -1667,89 +1701,118 @@ ${requirement.failure_examples}
                     thickness: 1,
                     color: PDFLib.rgb(0, 0, 0),
                 });
-                yPosition -= 25;
+                yPosition -= 18;
                 
-                const instructions = requirement.testing_instructions || 'Testing instructions not available';
-                const instructionLines = this.splitTextToFitWidth(instructions, 500, 10);
-                instructionLines.forEach(line => {
-                    page.drawText(line, {
-                        x: margin,
-                        y: yPosition,
-                        size: 10,
-                        font: font,
+                // Get detailed testing steps and format as numbered list
+                const detailedStepsHTML = this.getDetailedTestingSteps(requirement.requirement_id, requirement.test_method);
+                // Extract text content but preserve list structure
+                const stepMatches = detailedStepsHTML.match(/<li>(.*?)<\/li>/g);
+                if (stepMatches) {
+                    stepMatches.forEach((step, index) => {
+                        const stepText = step.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
+                        const stepNumber = `${index + 1}. `;
+                        
+                        // Draw step number
+                        page.drawText(stepNumber, {
+                            x: margin,
+                            y: yPosition,
+                            size: 10,
+                            font: boldFont,
+                        });
+                        
+                        // Draw step text with proper wrapping
+                        const stepLines = this.splitTextToFitWidth(stepText, 480, 10);
+                        stepLines.forEach((line, lineIndex) => {
+                            page.drawText(line, {
+                                x: margin + 15, // Indent for step text
+                                y: yPosition - (lineIndex * 14),
+                                size: 10,
+                                font: font,
+                            });
+                        });
+                        yPosition -= Math.max(stepLines.length * 14, 14) + 5;
                     });
-                    yPosition -= 14;
+                } else {
+                    // Fallback if no list items found
+                    const cleanStepsText = detailedStepsHTML.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
+                    const stepsLines = this.splitTextToFitWidth(cleanStepsText, 500, 10);
+                    stepsLines.forEach(line => {
+                        if (line.trim()) {
+                            page.drawText(line, {
+                                x: margin,
+                                y: yPosition,
+                                size: 10,
+                                font: font,
+                            });
+                            yPosition -= 14;
+                        }
+                    });
+                }
+                yPosition -= 20;
+                
+                // Common Violations & Examples Section
+                page.drawText('Common Violations & Examples', {
+                    x: margin,
+                    y: yPosition,
+                    size: 12,
+                    font: boldFont,
                 });
-                yPosition -= 15;
+                yPosition -= 5;
                 
-                // Hybrid Testing Instructions Section (indented) - extract from manual_test_procedure
-                const hybridInstructions = this.extractHybridTestingInstructions(requirement);
-                if (hybridInstructions) {
-                    page.drawText('Hybrid Testing Approach:', {
-                        x: margin + 10,
-                        y: yPosition,
-                        size: 10,
-                        font: boldFont,
-                        color: PDFLib.rgb(0.1, 0.4, 0.1), // Dark green color
+                // Add horizontal line
+                page.drawLine({
+                    start: { x: margin, y: yPosition },
+                    end: { x: width - margin, y: yPosition },
+                    thickness: 1,
+                    color: PDFLib.rgb(0, 0, 0),
+                });
+                yPosition -= 18;
+                
+                // Get common violations and format as bulleted list
+                const violationsHTML = this.getCommonViolations(requirement.requirement_id);
+                // Extract text content but preserve list structure
+                const violationMatches = violationsHTML.match(/<li>(.*?)<\/li>/g);
+                if (violationMatches) {
+                    violationMatches.forEach((violation) => {
+                        const violationText = violation.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
+                        const bullet = '\u2022 ';
+                        
+                        // Draw bullet
+                        page.drawText(bullet, {
+                            x: margin,
+                            y: yPosition,
+                            size: 10,
+                            font: boldFont,
+                            color: PDFLib.rgb(0.8, 0.3, 0.1), // Orange color for violations
+                        });
+                        
+                        // Draw violation text with proper wrapping
+                        const violationLines = this.splitTextToFitWidth(violationText, 480, 10);
+                        violationLines.forEach((line, lineIndex) => {
+                            page.drawText(line, {
+                                x: margin + 10, // Indent for bullet text
+                                y: yPosition - (lineIndex * 14),
+                                size: 10,
+                                font: font,
+                                color: PDFLib.rgb(0.8, 0.3, 0.1), // Orange color for violations
+                            });
+                        });
+                        yPosition -= Math.max(violationLines.length * 14, 14) + 3;
                     });
-                    yPosition -= 18;
-                    
-                    const hybridLines = hybridInstructions.split('\n').filter(line => line.trim());
-                    
-                    hybridLines.forEach(instruction => {
-                        const trimmedInstruction = instruction.trim();
-                        if (trimmedInstruction) {
-                            // Check if this is a phase header (ends with colon)
-                            if (trimmedInstruction.endsWith(':') && 
-                                (trimmedInstruction.includes('AUTOMATED') || trimmedInstruction.includes('MANUAL'))) {
-                                // Draw phase header (bold, larger, indented)
-                                page.drawText(trimmedInstruction, {
-                                    x: margin + 20,
-                                    y: yPosition,
-                                    size: 10,
-                                    font: boldFont,
-                                    color: PDFLib.rgb(0.1, 0.4, 0.1), // Dark green color
-                                });
-                                yPosition -= 15;
-                            } else if (trimmedInstruction.startsWith('•')) {
-                                // Bullet point - remove existing bullet and add our own
-                                const cleanInstruction = trimmedInstruction.substring(1).trim();
-                                
-                                // Add bullet point
-                                page.drawText('•', {
-                                    x: margin + 30,
-                                    y: yPosition,
-                                    size: 10,
-                                    font: font,
-                                    color: PDFLib.rgb(0.1, 0.4, 0.1), // Dark green color
-                                });
-                                
-                                // Add instruction text with proper wrapping
-                                const instructionTextLines = this.splitTextToFitWidth(cleanInstruction, 450, 10);
-                                instructionTextLines.forEach((line, lineIndex) => {
-                                    page.drawText(line, {
-                                        x: margin + 40, // Further indented for bullet point
-                                        y: yPosition - (lineIndex * 12),
-                                        size: 10,
-                                        font: font,
-                                        color: PDFLib.rgb(0.1, 0.4, 0.1), // Dark green color
-                                    });
-                                });
-                                yPosition -= Math.max(instructionTextLines.length * 12, 12) + 3;
-                            } else {
-                                // Regular text line
-                                const instructionTextLines = this.splitTextToFitWidth(trimmedInstruction, 460, 10);
-                                instructionTextLines.forEach((line, lineIndex) => {
-                                    page.drawText(line, {
-                                        x: margin + 20,
-                                        y: yPosition - (lineIndex * 12),
-                                        size: 10,
-                                        font: font,
-                                        color: PDFLib.rgb(0.1, 0.4, 0.1), // Dark green color
-                                    });
-                                });
-                                yPosition -= Math.max(instructionTextLines.length * 12, 12) + 3;
-                            }
+                } else {
+                    // Fallback if no list items found
+                    const cleanViolationsText = violationsHTML.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
+                    const violationsLines = this.splitTextToFitWidth(cleanViolationsText, 500, 10);
+                    violationsLines.forEach(line => {
+                        if (line.trim()) {
+                            page.drawText(line, {
+                                x: margin,
+                                y: yPosition,
+                                size: 10,
+                                font: font,
+                                color: PDFLib.rgb(0.8, 0.3, 0.1), // Orange color for violations
+                            });
+                            yPosition -= 14;
                         }
                     });
                 }
@@ -2240,14 +2303,15 @@ ${requirement.failure_examples}
                 yPosition -= 15;
                 
                 // Second line: Session information
-                if (this.selectedTestSession) {
-                    const sessionDate = new Date(this.selectedTestSession.created_at || this.selectedTestSession.createdAt);
+                const sessionData = this.selectedSessionDetails || this.selectedTestSession;
+                if (sessionData) {
+                    const sessionDate = new Date(sessionData.created_at || sessionData.createdAt);
                     const formattedSessionDate = sessionDate.toLocaleDateString('en-US', { 
                         year: 'numeric', 
                         month: 'long', 
                         day: 'numeric' 
                     });
-                    const sessionInfo = `Session Information: ${this.selectedTestSession.name || 'Unknown Session'} - ${this.selectedTestSession.id} / Created on ${formattedSessionDate}`;
+                    const sessionInfo = `Session Information: ${sessionData.name || 'Unknown Session'} - ${sessionData.id} / Created on ${formattedSessionDate}`;
                     
                     page.drawText(sessionInfo, {
                         x: margin,
@@ -2311,7 +2375,9 @@ ${requirement.failure_examples}
                 const url = URL.createObjectURL(blob);
                 const link = document.createElement('a');
                 link.href = url;
-                link.download = `WCAG_${requirement.criterion_number}_Testing_Form.pdf`;
+                // Generate filename with BLANK status for user to rename when saving
+                const timestamp = new Date().toISOString().slice(0, 16).replace(/[:-]/g, '');
+                link.download = `WCAG_${requirement.criterion_number}_Testing_Form_BLANK_${timestamp}.pdf`;
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
@@ -2807,6 +2873,104 @@ MANUAL PHASE:
             return this.sessionDetailsTestInstances.filter(instance => 
                 instance.criterion_number === criterionNumber
             );
+        },
+
+        getOverallTestStatus: function(testInstances) {
+            if (!testInstances || testInstances.length === 0) return 'NOT_TESTED';
+            
+            const statuses = testInstances.map(instance => instance.status || 'pending');
+            const uniqueStatuses = [...new Set(statuses)];
+            
+            // Priority order for status determination
+            if (statuses.includes('failed')) return 'FAILED';
+            if (statuses.includes('needs_review')) return 'NEEDS_REVIEW';
+            if (statuses.includes('in_progress')) return 'IN_PROGRESS';
+            if (uniqueStatuses.length === 1 && uniqueStatuses[0] === 'passed') return 'PASSED';
+            if (uniqueStatuses.length === 1 && uniqueStatuses[0] === 'not_applicable') return 'NOT_APPLICABLE';
+            if (statuses.includes('pending')) return 'PENDING';
+            
+            return 'MIXED';
+        },
+
+        // Get the selected overall requirement status (manual override or computed)
+        getSelectedOverallStatus: function() {
+            const requirement = this.currentRequirement;
+            if (!requirement) return 'NOT_TESTED';
+            
+            // Check if there's a manual status override
+            if (requirement.manual_status_override) {
+                return requirement.manual_status_override.toUpperCase();
+            }
+            
+            // Fall back to computed status from test instances
+            const testInstances = this.getRequirementTestInstances(requirement.criterion_number);
+            return this.getOverallTestStatus(testInstances);
+        },
+
+        // Save requirement status override to database
+        saveRequirementStatusOverride: async function(status) {
+            if (!this.currentRequirement) {
+                this.showNotification('error', 'Save Failed', 'No requirement selected');
+                return;
+            }
+
+            try {
+                const response = await this.apiCall(`/unified-requirements/${this.currentRequirement.id}/status-override`, {
+                    method: 'PUT',
+                    body: JSON.stringify({ 
+                        manual_status_override: status 
+                    })
+                });
+
+                if (response.success) {
+                    // Update local requirement data
+                    this.currentRequirement.manual_status_override = status;
+                    
+                    // Update in requirements list if present
+                    const requirement = this.sessionRequirements?.find(r => r.id === this.currentRequirement.id);
+                    if (requirement) {
+                        requirement.manual_status_override = status;
+                    }
+
+                    this.showNotification('success', 'Status Saved', `Requirement status set to: ${status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' ')}`);
+                } else {
+                    throw new Error(response.error || 'Failed to save requirement status');
+                }
+            } catch (error) {
+                console.error('Error saving requirement status override:', error);
+                this.showNotification('error', 'Save Failed', 'Failed to save requirement status: ' + error.message);
+                
+                // Revert the UI change
+                this.currentRequirement.manual_status_override = null;
+            }
+        },
+
+        // Clear manual status override
+        clearManualStatusOverride: async function() {
+            if (!this.currentRequirement) return;
+
+            try {
+                const response = await this.apiCall(`/unified-requirements/${this.currentRequirement.id}/status-override`, {
+                    method: 'DELETE'
+                });
+
+                if (response.success) {
+                    this.currentRequirement.manual_status_override = null;
+                    
+                    // Update in requirements list if present
+                    const requirement = this.sessionRequirements?.find(r => r.id === this.currentRequirement.id);
+                    if (requirement) {
+                        requirement.manual_status_override = null;
+                    }
+
+                    this.showNotification('success', 'Override Cleared', 'Manual status override removed');
+                } else {
+                    throw new Error(response.error || 'Failed to clear status override');
+                }
+            } catch (error) {
+                console.error('Error clearing requirement status override:', error);
+                this.showNotification('error', 'Clear Failed', 'Failed to clear status override: ' + error.message);
+            }
         },
         
         // ===== AUDIT TIMELINE FUNCTIONS (for Alpine.js template access) =====

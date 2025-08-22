@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Fix Authentication</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        button { padding: 10px 20px; margin: 10px; cursor: pointer; }
+        .success { color: green; }
+        .error { color: red; }
+        .code { background: #f5f5f5; padding: 10px; margin: 10px 0; font-family: monospace; }
+    </style>
+</head>
+<body>
+    <h1>🔧 Fix Authentication Issues</h1>
+    
+    <h2>Step 1: Complete Browser Reset</h2>
+    <button onclick="resetEverything()">Reset All Browser Data</button>
+    <button onclick="hardReload()">Hard Reload Main App</button>
+    
+    <h2>Step 2: Check Current State</h2>
+    <button onclick="checkCurrentState()">Check Auth State</button>
+    
+    <div id="result"></div>
+    
+    <h2>Manual Steps (if buttons don't work):</h2>
+    <div class="code">
+        1. Open browser DevTools (F12)<br>
+        2. Go to Application tab → Storage<br>
+        3. Clear all: Local Storage, Session Storage, IndexedDB, Cookies<br>
+        4. Go to Network tab → check "Disable cache"<br>
+        5. Hard refresh main app (Ctrl+Shift+R or Cmd+Shift+R)
+    </div>
+
+    <script>
+        function resetEverything() {
+            try {
+                // Clear all storage
+                localStorage.clear();
+                sessionStorage.clear();
+                
+                // Clear IndexedDB if available
+                if ('indexedDB' in window) {
+                    indexedDB.databases().then(databases => {
+                        databases.forEach(db => {
+                            indexedDB.deleteDatabase(db.name);
+                        });
+                    }).catch(e => console.log('Could not clear IndexedDB:', e));
+                }
+                
+                // Clear service worker cache if available
+                if ('caches' in window) {
+                    caches.keys().then(names => {
+                        names.forEach(name => {
+                            caches.delete(name);
+                        });
+                    }).catch(e => console.log('Could not clear cache:', e));
+                }
+                
+                document.getElementById('result').innerHTML = 
+                    '<p class="success">✅ All browser data cleared!</p>' +
+                    '<p>Now click "Hard Reload Main App" or manually reload the main application.</p>';
+                    
+            } catch (error) {
+                document.getElementById('result').innerHTML = 
+                    '<p class="error">❌ Error: ' + error.message + '</p>' +
+                    '<p>Please use manual steps below.</p>';
+            }
+        }
+        
+        function hardReload() {
+            // Open main app and force reload
+            const mainApp = window.open('http://localhost:8080', '_blank');
+            setTimeout(() => {
+                try {
+                    mainApp.location.reload(true);
+                } catch (e) {
+                    console.log('Could not auto-reload, please manually refresh the main app');
+                }
+            }, 1000);
+            
+            document.getElementById('result').innerHTML = 
+                '<p class="success">✅ Opened main app in new tab</p>' +
+                '<p>If it didn\'t auto-refresh, manually refresh that tab with Ctrl+Shift+R</p>';
+        }
+        
+        function checkCurrentState() {
+            const hasLocalStorage = localStorage.length > 0;
+            const hasSessionStorage = sessionStorage.length > 0;
+            const tokens = [
+                localStorage.getItem('authToken'),
+                localStorage.getItem('auth_token'),
+                localStorage.getItem('accessToken'),
+                sessionStorage.getItem('authToken'),
+                sessionStorage.getItem('auth_token'),
+                sessionStorage.getItem('accessToken')
+            ].filter(t => t);
+            
+            document.getElementById('result').innerHTML = 
+                '<h3>Current State:</h3>' +
+                '<p>localStorage items: ' + localStorage.length + '</p>' +
+                '<p>sessionStorage items: ' + sessionStorage.length + '</p>' +
+                '<p>Auth tokens found: ' + tokens.length + '</p>' +
+                (tokens.length > 0 ? '<p class="error">⚠️ Old tokens still present - these may be corrupted</p>' : '<p class="success">✅ No old tokens found</p>');
+        }
+    </script>
+</body>
+</html>

@@ -1736,9 +1736,9 @@
                                 class="bg-white bg-opacity-20 hover:bg-opacity-30 text-white px-3 py-2 rounded-md transition-colors text-sm">
                             <i class="fas fa-file-pdf mr-2"></i>Print PDF
                         </button>
-                        <button @click="closeRequirementDetailsModal()" class="text-white hover:text-blue-200 transition-colors">
-                            <i class="fas fa-times text-xl"></i>
-                        </button>
+                    <button @click="closeRequirementDetailsModal()" class="text-white hover:text-blue-200 transition-colors">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
                     </div>
                 </div>
             </div>
@@ -1840,14 +1840,68 @@
                         <h4 class="text-lg font-semibold text-blue-900 mb-3">Test Status</h4>
                         <div class="space-y-2 text-sm">
                             <div>
-                                <span class="font-medium text-blue-800">Overall Status:</span>
-                                <requirement-status-badge 
-                                    class="ml-2"
-                                    :status="currentRequirement?.overall_status"
-                                    :auto="currentRequirement?.automated_status"
-                                    :manual="currentRequirement?.manual_status"
-                                    :method="currentRequirement?.test_method">
-                                </requirement-status-badge>
+                                <span class="font-medium text-blue-800 mb-2 block">Overall Status:</span>
+                                <div class="grid grid-cols-5 gap-2">
+                                    <!-- Passed -->
+                                    <label class="flex items-center justify-center p-2 rounded border cursor-pointer hover:bg-green-50" 
+                                           :class="getRequirementOverallStatus(currentRequirement) === 'Passed' ? 'bg-green-100 border-green-400' : 'border-gray-200'">
+                                        <input type="radio" 
+                                               name="overall_requirement_status" 
+                                               value="passed"
+                                               :checked="currentRequirement && currentRequirement.manual_status_override === 'passed'"
+                                               @change="saveRequirementStatusOverride('passed')"
+                                               class="mr-1 text-green-600">
+                                        <span class="text-xs">Passed</span>
+                                    </label>
+                                    
+                                    <!-- Failed -->
+                                    <label class="flex items-center justify-center p-2 rounded border cursor-pointer hover:bg-red-50" 
+                                           :class="getRequirementOverallStatus(currentRequirement) === 'Failed' ? 'bg-red-100 border-red-400' : 'border-gray-200'">
+                                        <input type="radio" 
+                                               name="overall_requirement_status" 
+                                               value="failed"
+                                               :checked="currentRequirement && currentRequirement.manual_status_override === 'failed'"
+                                               @change="saveRequirementStatusOverride('failed')"
+                                               class="mr-1 text-red-600">
+                                        <span class="text-xs">Failed</span>
+                                    </label>
+
+                                    <!-- In Process -->
+                                    <label class="flex items-center justify-center p-2 rounded border cursor-pointer hover:bg-blue-50" 
+                                           :class="getRequirementOverallStatus(currentRequirement) === 'In Process' ? 'bg-blue-100 border-blue-400' : 'border-gray-200'">
+                                        <input type="radio" 
+                                               name="overall_requirement_status" 
+                                               value="in_process"
+                                               :checked="currentRequirement && currentRequirement.manual_status_override === 'in_process'"
+                                               @change="saveRequirementStatusOverride('in_process')"
+                                               class="mr-1 text-blue-600">
+                                        <span class="text-xs">In Process</span>
+                                    </label>
+                                    
+                                    <!-- Needs Review -->
+                                    <label class="flex items-center justify-center p-2 rounded border cursor-pointer hover:bg-yellow-50" 
+                                           :class="getRequirementOverallStatus(currentRequirement) === 'Needs Review' ? 'bg-yellow-100 border-yellow-400' : 'border-gray-200'">
+                                        <input type="radio" 
+                                               name="overall_requirement_status" 
+                                               value="needs_review"
+                                               :checked="currentRequirement && currentRequirement.manual_status_override === 'needs_review'"
+                                               @change="saveRequirementStatusOverride('needs_review')"
+                                               class="mr-1 text-yellow-600">
+                                        <span class="text-xs">Needs Review</span>
+                                    </label>
+                                    
+                                    <!-- Not Applicable -->
+                                    <label class="flex items-center justify-center p-2 rounded border cursor-pointer hover:bg-gray-50" 
+                                           :class="getRequirementOverallStatus(currentRequirement) === 'Not Applicable' ? 'bg-gray-100 border-gray-400' : 'border-gray-200'">
+                                        <input type="radio" 
+                                               name="overall_requirement_status" 
+                                               value="not_applicable"
+                                               :checked="currentRequirement && currentRequirement.manual_status_override === 'not_applicable'"
+                                               @change="saveRequirementStatusOverride('not_applicable')"
+                                               class="mr-1 text-gray-600">
+                                        <span class="text-xs">Not Applicable</span>
+                                    </label>
+                                </div>
                             </div>
                             <div x-show="currentRequirement?.automated_tests && currentRequirement?.automated_tests.length > 0">
                                 <span class="font-medium text-blue-800">Automated Tests:</span>
@@ -1868,9 +1922,9 @@
                     <i class="fas fa-external-link-alt mr-2"></i>External Resources
                 </h4>
                 <div class="space-y-2">
-                    <div x-show="currentRequirement?.wcag_url" class="flex items-center justify-between bg-white border border-indigo-200 rounded-lg p-3">
-                        <a :href="currentRequirement?.wcag_url" target="_blank" class="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline flex-1 mr-3" x-text="currentRequirement?.wcag_url"></a>
-                        <a :href="currentRequirement?.wcag_url" target="_blank" class="text-indigo-600 hover:text-indigo-800">
+                    <div x-show="currentRequirement?.understanding_url" class="flex items-center justify-between bg-white border border-indigo-200 rounded-lg p-3">
+                        <a :href="currentRequirement?.understanding_url" target="_blank" class="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline flex-1 mr-3" x-text="currentRequirement?.understanding_url"></a>
+                        <a :href="currentRequirement?.understanding_url" target="_blank" class="text-indigo-600 hover:text-indigo-800">
                             <i class="fas fa-external-link-alt"></i>
                         </a>
                     </div>
@@ -1898,12 +1952,63 @@
                     </div>
 
                     <!-- Testing Instructions -->
-                    <div x-show="currentRequirement?.testing_instructions" class="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 rounded-lg p-6">
+                    <div x-show="currentRequirement?.manual_test_procedure || currentRequirement?.testing_instructions" class="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 rounded-lg p-6">
                         <h4 class="text-lg font-semibold text-green-900 mb-3 flex items-center">
                             <i class="fas fa-clipboard-check mr-2"></i>Testing Instructions
                         </h4>
                         <div class="bg-white border border-green-200 rounded-lg p-4 shadow-sm">
-                            <div class="text-sm text-gray-900 whitespace-pre-line leading-relaxed" x-text="currentRequirement?.testing_instructions"></div>
+                            <!-- Manual Test Procedure (JSON format) -->
+                            <div x-show="currentRequirement?.manual_test_procedure" class="space-y-4">
+                                <!-- Overview -->
+                                <div x-show="currentRequirement?.manual_test_procedure?.overview">
+                                    <h5 class="font-semibold text-green-800 mb-2">Overview:</h5>
+                                    <p class="text-sm text-gray-900 leading-relaxed" x-text="currentRequirement?.manual_test_procedure?.overview"></p>
+                                </div>
+                                
+                                <!-- Testing Steps -->
+                                <div x-show="currentRequirement?.manual_test_procedure?.steps">
+                                    <h5 class="font-semibold text-green-800 mb-2">Testing Steps:</h5>
+                                    <ol class="list-decimal list-inside space-y-1 text-sm text-gray-900">
+                                        <template x-for="(step, index) in currentRequirement?.manual_test_procedure?.steps" :key="index">
+                                            <li x-text="step"></li>
+                                        </template>
+                                    </ol>
+                                </div>
+                                
+                                <!-- Tools Needed -->
+                                <div x-show="currentRequirement?.manual_test_procedure?.tools_needed">
+                                    <h5 class="font-semibold text-green-800 mb-2">Tools Needed:</h5>
+                                    <ul class="list-disc list-inside space-y-1 text-sm text-gray-900">
+                                        <template x-for="(tool, index) in currentRequirement?.manual_test_procedure?.tools_needed" :key="index">
+                                            <li x-text="tool.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())"></li>
+                                        </template>
+                                    </ul>
+                                </div>
+                                
+                                <!-- Expected Results -->
+                                <div x-show="currentRequirement?.manual_test_procedure?.expected_results">
+                                    <h5 class="font-semibold text-green-800 mb-2">Expected Results:</h5>
+                                    <p class="text-sm text-gray-900 leading-relaxed" x-text="currentRequirement?.manual_test_procedure?.expected_results"></p>
+                                </div>
+                                
+                                <!-- Common Failures -->
+                                <div x-show="currentRequirement?.manual_test_procedure?.common_failures">
+                                    <h5 class="font-semibold text-red-800 mb-2">Common Failures:</h5>
+                                    <ul class="list-disc list-inside space-y-1 text-sm text-red-700">
+                                        <template x-for="(failure, index) in currentRequirement?.manual_test_procedure?.common_failures" :key="index">
+                                            <li x-show="failure.trim()" x-text="failure"></li>
+                                        </template>
+                                    </ul>
+                                </div>
+                            </div>
+                            
+                            <!-- Fallback to old testing_instructions field -->
+                            <div x-show="!currentRequirement?.manual_test_procedure && currentRequirement?.testing_instructions" class="text-sm text-gray-900 whitespace-pre-line leading-relaxed" x-text="currentRequirement?.testing_instructions"></div>
+                            
+                            <!-- Fallback message -->
+                            <div x-show="!currentRequirement?.manual_test_procedure && !currentRequirement?.testing_instructions" class="text-sm text-gray-500 italic">
+                                Testing instructions not available
+                            </div>
                             
                             <!-- Hybrid Testing Approach -->
                             <div x-show="currentRequirement?.test_method === 'both' || currentRequirement?.test_method === 'hybrid'" class="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
@@ -1928,6 +2033,26 @@
                                     </div>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+
+                    <!-- Step-by-Step Testing Guide -->
+                    <div class="bg-gradient-to-br from-teal-50 to-cyan-50 border border-teal-200 rounded-lg p-6">
+                        <h4 class="text-lg font-semibold text-teal-900 mb-3 flex items-center">
+                            <i class="fas fa-list-check mr-2"></i>Step-by-Step Testing Guide
+                        </h4>
+                        <div class="bg-white border border-teal-200 rounded-lg p-4 shadow-sm">
+                            <div class="text-sm text-gray-900" x-html="getDetailedTestingSteps(currentRequirement?.requirement_id, currentRequirement?.test_method)"></div>
+                        </div>
+                    </div>
+
+                    <!-- Common Violations & Examples -->
+                    <div class="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-lg p-6">
+                        <h4 class="text-lg font-semibold text-amber-900 mb-3 flex items-center">
+                            <i class="fas fa-exclamation-triangle mr-2"></i>Common Violations & Examples
+                        </h4>
+                        <div class="bg-white border border-amber-200 rounded-lg p-4 shadow-sm">
+                            <div class="text-sm text-gray-900" x-html="getCommonViolations(currentRequirement?.requirement_id)"></div>
                         </div>
                     </div>
 
@@ -2378,8 +2503,8 @@
                 <div class="flex flex-col sm:flex-row justify-between items-center space-y-3 sm:space-y-0 sm:space-x-4">
                     <!-- Left side - Quick Actions -->
                     <div class="flex flex-wrap items-center space-x-3">
-                        <a x-show="currentRequirement?.wcag_url" 
-                           :href="currentRequirement?.wcag_url" 
+                        <a x-show="currentRequirement?.understanding_url" 
+                           :href="currentRequirement?.understanding_url" 
                            target="_blank"
                            class="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors">
                             <i class="fas fa-external-link-alt mr-2"></i>View WCAG Docs

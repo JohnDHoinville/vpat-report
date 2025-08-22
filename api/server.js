@@ -232,7 +232,6 @@ app.use('/api/violations', violationRoutes);
 app.use('/api/manual-testing', manualTestingRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/unified-test-results', unifiedTestResultsRoutes);
-app.use('/api/unified-requirements', unifiedRequirementsRoutes);
 app.use('/api/web-crawlers', webCrawlersRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/audit-trail', auditTrailRoutes);

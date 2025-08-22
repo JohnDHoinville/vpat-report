@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Reset Authentication</title>
+</head>
+<body>
+    <h1>Reset Authentication State</h1>
+    <button onclick="clearAllAuth()">Clear All Authentication Data</button>
+    <button onclick="setValidToken()">Set Valid Token for Testing</button>
+    <div id="result"></div>
+
+    <script>
+        function clearAllAuth() {
+            // Clear localStorage
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('accessToken'); 
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('refreshToken');
+            localStorage.removeItem('user');
+            localStorage.removeItem('currentUser');
+            
+            // Clear sessionStorage
+            sessionStorage.removeItem('authToken');
+            sessionStorage.removeItem('accessToken');
+            sessionStorage.removeItem('auth_token');
+            sessionStorage.removeItem('refreshToken');
+            sessionStorage.removeItem('user');
+            sessionStorage.removeItem('currentUser');
+            
+            document.getElementById('result').innerHTML = '<p style="color: green;">✅ All authentication data cleared!</p>';
+        }
+
+        function setValidToken() {
+            // First clear everything
+            clearAllAuth();
+            
+            // Generate a fresh token
+            fetch('http://localhost:3001/api/test-auth/test-secret')
+                .then(response => response.json())
+                .then(data => {
+                    // Create a simple test token that should work
+                    const testPayload = {
+                        userId: 'test-user-123',
+                        username: 'test-user',
+                        iat: Math.floor(Date.now() / 1000),
+                        exp: Math.floor(Date.now() / 1000) + (24 * 60 * 60) // 24 hours
+                    };
+                    
+                    // For testing, we'll use a simpler approach
+                    localStorage.setItem('authToken', 'test-development-token');
+                    localStorage.setItem('currentUser', JSON.stringify({
+                        id: 'test-user-123',
+                        username: 'test-user',
+                        token: 'test-development-token'
+                    }));
+                    
+                    document.getElementById('result').innerHTML = '<p style="color: green;">✅ Test token set for development!</p>';
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    document.getElementById('result').innerHTML = '<p style="color: red;">❌ Error setting token</p>';
+                });
+        }
+    </script>
+</body>
+</html>

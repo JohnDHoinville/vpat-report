@@ -239,25 +239,27 @@ router.get('/:id', authenticateToken, async (req, res) => {
 
         const query = `
             SELECT 
-                id,
-                standard_type,
-                requirement_id,
-                version,
-                level,
-                title,
-                description,
-                manual_test_procedure,
-                tool_mappings,
-                understanding_url,
-                applies_to_page_types,
-                testable_method,
-                automation_coverage,
-                test_method,
-                guideline_title,
-                section_508_mapping,
-                created_at
-            FROM unified_requirements
-            WHERE id = $1
+                ur.id,
+                ur.standard_type,
+                ur.requirement_id,
+                ur.version,
+                ur.level,
+                ur.title,
+                ur.description,
+                ur.manual_test_procedure,
+                ur.tool_mappings,
+                ur.understanding_url,
+                ur.applies_to_page_types,
+                ur.testable_method,
+                ur.automation_coverage,
+                ur.test_method,
+                ur.guideline_title,
+                ur.section_508_mapping,
+                ur.created_at,
+                rso.manual_status_override
+            FROM unified_requirements ur
+            LEFT JOIN requirement_status_overrides rso ON ur.id = rso.requirement_id
+            WHERE ur.id = $1
         `;
 
         const result = await pool.query(query, [id]);
@@ -395,6 +397,92 @@ router.get('/conformance/:level', authenticateToken, async (req, res) => {
 });
 
 /**
+ * PUT /api/unified-requirements/:id/status-override
+ * Set manual status override for a requirement
+ */
+router.put('/:id/status-override', authenticateToken, async (req, res) => {
+    try {
+        console.log('🔧 PUT /status-override called for requirement:', req.params.id);
+        console.log('🔧 Request body:', req.body);
+        console.log('🔧 Auth user:', req.user);
+        
+        const { id } = req.params;
+        const { manual_status_override } = req.body;
+
+        // Validate status
+        const validStatuses = ['passed', 'failed', 'needs_review', 'not_applicable', 'in_process'];
+        if (!validStatuses.includes(manual_status_override)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid status. Must be one of: ' + validStatuses.join(', ')
+            });
+        }
+
+        // Update the requirement status override
+        // Note: We'll add this to a separate table or column as unified_requirements is a view
+        const result = await pool.query(`
+            INSERT INTO requirement_status_overrides (requirement_id, manual_status_override, updated_at, updated_by)
+            VALUES ($1, $2, NOW(), $3)
+            ON CONFLICT (requirement_id) 
+            DO UPDATE SET 
+                manual_status_override = $2,
+                updated_at = NOW(),
+                updated_by = $3
+        `, [id, manual_status_override, req.user?.id || 'system']);
+
+        res.json({
+            success: true,
+            message: 'Status override saved successfully',
+            data: {
+                requirement_id: id,
+                manual_status_override: manual_status_override
+            }
+        });
+
+    } catch (error) {
+        console.error('❌ Error setting requirement status override:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to set requirement status override',
+            details: error.message
+        });
+    }
+});
+
+/**
+ * DELETE /api/unified-requirements/:id/status-override
+ * Clear manual status override for a requirement
+ */
+router.delete('/:id/status-override', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        // Remove the status override
+        await pool.query(`
+            DELETE FROM requirement_status_overrides 
+            WHERE requirement_id = $1
+        `, [id]);
+
+        res.json({
+            success: true,
+            message: 'Status override cleared successfully',
+            data: {
+                requirement_id: id,
+                manual_status_override: null
+            }
+        });
+
+    } catch (error) {
+        console.error('❌ Error clearing requirement status override:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to clear requirement status override',
+            details: error.message
+        });
+    }
+});
+
+/**
  * GET /api/unified-requirements/session/:sessionId
  * Get requirements for a specific test session
  */
@@ -457,6 +545,8 @@ router.get('/session/:sessionId', async (req, res) => {
                 ur.understanding_url,
                 ur.applies_to_page_types,
                 ur.created_at,
+                -- Manual status override
+                rso.manual_status_override,
                 -- Test instance statuses
                 COUNT(ti.id) as total_test_instances,
                 COUNT(CASE WHEN ti.status = 'passed' THEN 1 END) as passed_instances,
@@ -496,8 +586,9 @@ router.get('/session/:sessionId', async (req, res) => {
                 END as manual_status
             FROM unified_requirements ur
             LEFT JOIN test_instances ti ON ur.id = ti.requirement_id AND ti.session_id = $1
+            LEFT JOIN requirement_status_overrides rso ON ur.id = rso.requirement_id
             ${whereCondition}
-            GROUP BY ur.id, ur.standard_type, ur.requirement_id, ur.title, ur.description, ur.level, ur.test_method, ur.tool_mappings, ur.manual_test_procedure, ur.understanding_url, ur.applies_to_page_types, ur.created_at
+            GROUP BY ur.id, ur.standard_type, ur.requirement_id, ur.title, ur.description, ur.level, ur.test_method, ur.tool_mappings, ur.manual_test_procedure, ur.understanding_url, ur.applies_to_page_types, ur.created_at, rso.manual_status_override
             ORDER BY ur.standard_type, ur.requirement_id
         `, [sessionId]);
 
