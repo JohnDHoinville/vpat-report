@@ -1570,14 +1570,14 @@ ${requirement.failure_examples}
                 });
                 yPosition -= 30;
                 
-                // Requirement Description Section
-                page.drawText('Requirement Description', {
+                // Overall Requirement Status Section
+                page.drawText('Overall Requirement Status:', {
                     x: margin,
                     y: yPosition,
                     size: 12,
                     font: boldFont,
                 });
-                yPosition -= 15;
+                yPosition -= 5;
                 
                 // Add horizontal line under section header
                 page.drawLine({
@@ -1586,7 +1586,52 @@ ${requirement.failure_examples}
                     thickness: 1,
                     color: PDFLib.rgb(0, 0, 0),
                 });
-                yPosition -= 8;
+                yPosition -= 25;
+                
+                // Overall status checkboxes (same layout as test instances)
+                const overallStatusOptions = ['Pass', 'Fail', 'Needs Review', 'Not Applicable'];
+                const overallCheckboxSize = 18; // 1/4 inch = 18 points
+                const overallLabelSpacing = 120; // Space between options
+                
+                overallStatusOptions.forEach((option, optIndex) => {
+                    const xPos = margin + (optIndex * overallLabelSpacing);
+                    
+                    // Create checkbox with pdf-lib
+                    const checkbox = form.createCheckBox(`overall_status_${option.toLowerCase().replace(' ', '_')}`);
+                    checkbox.addToPage(page, {
+                        x: xPos,
+                        y: yPosition,
+                        width: overallCheckboxSize,
+                        height: overallCheckboxSize,
+                    });
+                    
+                    // Add label to the right of checkbox
+                    page.drawText(option, {
+                        x: xPos + overallCheckboxSize + 5, // Position to the right of checkbox
+                        y: yPosition + 4, // Align with checkbox center
+                        size: 9,
+                        font: font,
+                    });
+                });
+                yPosition -= 40; // Space after status checkboxes
+                
+                // Requirement Description Section
+                page.drawText('Requirement Description', {
+                    x: margin,
+                    y: yPosition,
+                    size: 12,
+                    font: boldFont,
+                });
+                yPosition -= 5;
+                
+                // Add horizontal line under section header
+                page.drawLine({
+                    start: { x: margin, y: yPosition },
+                    end: { x: width - margin, y: yPosition },
+                    thickness: 1,
+                    color: PDFLib.rgb(0, 0, 0),
+                });
+                yPosition -= 18;
                 
                 const description = requirement.description || 'Description not available';
                 const descriptionLines = this.splitTextToFitWidth(description, 500, 10);
@@ -1608,7 +1653,7 @@ ${requirement.failure_examples}
                     size: 12,
                     font: boldFont,
                 });
-                yPosition -= 15;
+                yPosition -= 5;
                 
                 // Add horizontal line
                 page.drawLine({
@@ -1617,7 +1662,7 @@ ${requirement.failure_examples}
                     thickness: 1,
                     color: PDFLib.rgb(0, 0, 0),
                 });
-                yPosition -= 8;
+                yPosition -= 25;
                 
                 const instructions = requirement.testing_instructions || 'Testing instructions not available';
                 const instructionLines = this.splitTextToFitWidth(instructions, 500, 10);
@@ -1630,6 +1675,49 @@ ${requirement.failure_examples}
                     });
                     yPosition -= 14;
                 });
+                yPosition -= 15;
+                
+                // Hybrid Testing Instructions Section (indented) - if available in requirement
+                if (requirement.hybrid_testing_instructions || requirement.specific_instructions) {
+                    page.drawText('Hybrid Testing Approach:', {
+                        x: margin + 10,
+                        y: yPosition,
+                        size: 10,
+                        font: boldFont,
+                        color: PDFLib.rgb(0.1, 0.4, 0.1), // Dark green color
+                    });
+                    yPosition -= 18;
+                    
+                    // Use hybrid instructions if available, fallback to specific instructions
+                    const hybridInstructions = requirement.hybrid_testing_instructions || requirement.specific_instructions || '';
+                    const hybridLines = hybridInstructions.split('\n').filter(line => line.trim());
+                    
+                    hybridLines.forEach(instruction => {
+                        const cleanInstruction = instruction.replace(/^[•\-\*]\s*/, '').trim(); // Remove existing bullets
+                        if (cleanInstruction) {
+                            // Add bullet point
+                            page.drawText('•', {
+                                x: margin + 20,
+                                y: yPosition,
+                                size: 10,
+                                font: font,
+                                color: PDFLib.rgb(0.1, 0.4, 0.1), // Dark green color
+                            });
+                            
+                            // Add instruction text with proper wrapping
+                            const instructionTextLines = this.splitTextToFitWidth(cleanInstruction, 460, 10);
+                            instructionTextLines.forEach((line, lineIndex) => {
+                                page.drawText(line, {
+                                    x: margin + 30, // Indented for bullet point
+                                    y: yPosition - (lineIndex * 12),
+                                    size: 10,
+                                    font: font,
+                                });
+                            });
+                            yPosition -= Math.max(instructionTextLines.length * 12, 12) + 3;
+                        }
+                    });
+                }
                 yPosition -= 20;
                 
                 // Acceptance Criteria Section
@@ -1639,7 +1727,7 @@ ${requirement.failure_examples}
                     size: 12,
                     font: boldFont,
                 });
-                yPosition -= 15;
+                yPosition -= 5;
                 
                 // Add horizontal line
                 page.drawLine({
@@ -1648,7 +1736,7 @@ ${requirement.failure_examples}
                     thickness: 1,
                     color: PDFLib.rgb(0, 0, 0),
                 });
-                yPosition -= 8;
+                yPosition -= 18;
                 
                 const acceptance = requirement.acceptance_criteria || 'Acceptance criteria not available';
                 const acceptanceLines = this.splitTextToFitWidth(acceptance, 500, 10);
@@ -1661,6 +1749,39 @@ ${requirement.failure_examples}
                     });
                     yPosition -= 14;
                 });
+                yPosition -= 15;
+                
+                // Success Indicators Section (indented) - Static formatted content like UI
+                page.drawText('Success Indicators:', {
+                    x: margin + 10,
+                    y: yPosition,
+                    size: 10,
+                    font: boldFont,
+                    color: PDFLib.rgb(0.4, 0.2, 0.6), // Purple color like in the UI
+                });
+                yPosition -= 18;
+                
+                // Static success indicators (matching UI)
+                const successIndicators = [
+                    '• All non-text content has appropriate text alternatives',
+                    '• Text alternatives serve equivalent purpose',
+                    '• Decorative content is properly marked',
+                    '• Assistive technology can access alternatives'
+                ];
+                
+                successIndicators.forEach(indicator => {
+                    const indicatorLines = this.splitTextToFitWidth(indicator, 460, 10);
+                    indicatorLines.forEach((line, lineIndex) => {
+                        page.drawText(line, {
+                            x: margin + 20, // Indented for bullet point
+                            y: yPosition - (lineIndex * 12),
+                            size: 10,
+                            font: font,
+                            color: PDFLib.rgb(0.4, 0.2, 0.6), // Purple color
+                        });
+                    });
+                    yPosition -= Math.max(indicatorLines.length * 12, 12) + 3;
+                });
                 yPosition -= 20;
                 
                 // Common Failure Examples Section
@@ -1670,7 +1791,7 @@ ${requirement.failure_examples}
                     size: 12,
                     font: boldFont,
                 });
-                yPosition -= 15;
+                yPosition -= 5;
                 
                 // Add horizontal line
                 page.drawLine({
@@ -1679,9 +1800,9 @@ ${requirement.failure_examples}
                     thickness: 1,
                     color: PDFLib.rgb(0, 0, 0),
                 });
-                yPosition -= 8;
+                yPosition -= 18;
                 
-                const failures = requirement.common_failures || 'Common failure examples not available';
+                const failures = requirement.failure_examples || 'Common failure examples not available';
                 const failureLines = this.splitTextToFitWidth(failures, 500, 10);
                 failureLines.forEach(line => {
                     page.drawText(line, {
@@ -1692,6 +1813,73 @@ ${requirement.failure_examples}
                     });
                     yPosition -= 14;
                 });
+                yPosition -= 15;
+                
+                // Common Failure Patterns Section (indented) - Static formatted content like UI
+                page.drawText('Common Failure Patterns:', {
+                    x: margin + 10,
+                    y: yPosition,
+                    size: 10,
+                    font: boldFont,
+                    color: PDFLib.rgb(0.6, 0.2, 0.2), // Red/brown color like in the UI
+                });
+                yPosition -= 18;
+                
+                // Static failure patterns (matching UI with bold labels and descriptions)
+                const failurePatterns = [
+                    '• Missing alt attributes: Images without any alternative text',
+                    '• Generic alt text: "image", "photo", "picture" without context',
+                    '• Decorative images: Not marked as decorative or with empty alt',
+                    '• Complex images: Charts, graphs without proper descriptions',
+                    '• Functional images: Buttons, links without descriptive alt text'
+                ];
+                
+                failurePatterns.forEach(pattern => {
+                    // Split the pattern into label and description
+                    const colonIndex = pattern.indexOf(':');
+                    if (colonIndex !== -1) {
+                        const label = pattern.substring(0, colonIndex + 1); // Include the colon
+                        const description = pattern.substring(colonIndex + 1).trim();
+                        
+                        // Draw the label (bold)
+                        page.drawText(label, {
+                            x: margin + 20,
+                            y: yPosition,
+                            size: 10,
+                            font: boldFont,
+                            color: PDFLib.rgb(0.6, 0.2, 0.2), // Red color
+                        });
+                        
+                        // Calculate width of the label to position description
+                        const labelWidth = boldFont.widthOfTextAtSize(label, 10);
+                        
+                        // Draw the description (normal font)
+                        const descriptionLines = this.splitTextToFitWidth(description, 460 - labelWidth, 10);
+                        descriptionLines.forEach((line, lineIndex) => {
+                            page.drawText(line, {
+                                x: margin + 20 + labelWidth + 5, // Position after label
+                                y: yPosition - (lineIndex * 12),
+                                size: 10,
+                                font: font,
+                                color: PDFLib.rgb(0.6, 0.2, 0.2), // Red color
+                            });
+                        });
+                        yPosition -= Math.max(descriptionLines.length * 12, 12) + 3;
+                    } else {
+                        // Fallback for patterns without colon
+                        const patternLines = this.splitTextToFitWidth(pattern, 460, 10);
+                        patternLines.forEach((line, lineIndex) => {
+                            page.drawText(line, {
+                                x: margin + 20,
+                                y: yPosition - (lineIndex * 12),
+                                size: 10,
+                                font: font,
+                                color: PDFLib.rgb(0.6, 0.2, 0.2), // Red color
+                            });
+                        });
+                        yPosition -= Math.max(patternLines.length * 12, 12) + 3;
+                    }
+                });
                 yPosition -= 20;
                 
                 // WCAG Documentation Section
@@ -1701,7 +1889,7 @@ ${requirement.failure_examples}
                     size: 12,
                     font: boldFont,
                 });
-                yPosition -= 15;
+                yPosition -= 5;
                 
                 // Add horizontal line
                 page.drawLine({
@@ -1710,7 +1898,7 @@ ${requirement.failure_examples}
                     thickness: 1,
                     color: PDFLib.rgb(0, 0, 0),
                 });
-                yPosition -= 8;
+                yPosition -= 18;
                 
                 const wcagUrl = requirement.wcag_url || 'https://www.w3.org/WAI/WCAG21/Understanding/';
                 page.drawText(wcagUrl, {
@@ -1731,23 +1919,41 @@ ${requirement.failure_examples}
                 });
                 yPosition -= 25; // More space after section header
                 
-                // Create checkboxes for each test instance
+                // Force new page for test instances (there's not enough room on page 1)
+                page = pdfDoc.addPage();
+                const { width: pageWidth, height: pageHeight } = page.getSize();
+                width = pageWidth;
+                height = pageHeight;
+                yPosition = pageHeight - 50;
+                
+                // Add page header for test instances
+                page.drawText(`WCAG ${requirement.criterion_number}: ${requirement.title} - Test Instances`, {
+                    x: margin,
+                    y: yPosition,
+                    size: 14,
+                    font: boldFont,
+                });
+                yPosition -= 40;
+                
+                // Create checkboxes for each test instance (max 4 per page)
                 testInstances.forEach((instance, index) => {
-                    // Check if we need a new page (need at least 120 points for a test instance)
-                    if (yPosition < 120) {
+                    // Check if we need a new page or if we've reached 4 instances per page
+                    const instancesOnPage = index % 4;
+                    if (instancesOnPage === 0 && index > 0) {
                         page = pdfDoc.addPage();
                         const { width: pageWidth, height: pageHeight } = page.getSize();
                         width = pageWidth; // Update width reference
+                        height = pageHeight; // Update height reference
                         yPosition = pageHeight - 50; // Reset position for new page
                         
                         // Add page header
-                        page.drawText(`WCAG ${requirement.criterion_number}: ${requirement.title} (continued)`, {
+                        page.drawText(`WCAG ${requirement.criterion_number}: ${requirement.title} - Test Instances (continued)`, {
                             x: margin,
                             y: yPosition,
                             size: 14,
                             font: boldFont,
                         });
-                        yPosition -= 30;
+                        yPosition -= 40;
                     }
                     
                     // Test Instance Header
@@ -1757,26 +1963,28 @@ ${requirement.failure_examples}
                         size: 11,
                         font: boldFont,
                     });
-                    yPosition -= 18; // More space after header
+                    yPosition -= 20; // More space after header
                     
-                    // URL
-                    page.drawText('URL:', {
+                    // URL on same line as label
+                    const url = instance.page_url || 'URL not available';
+                    const urlLabel = 'URL: ';
+                    
+                    page.drawText(urlLabel, {
                         x: margin,
                         y: yPosition,
                         size: 10,
                         font: boldFont,
                     });
-                    yPosition -= 14; // More space after URL label
                     
-                    const url = instance.page_url || 'URL not available';
-                    page.drawText(url.substring(0, 80), { // Truncate long URLs
-                        x: margin + 5,
+                    const urlLabelWidth = boldFont.widthOfTextAtSize(urlLabel, 10);
+                    page.drawText(url.substring(0, 75), { // Truncate long URLs to fit on same line
+                        x: margin + urlLabelWidth,
                         y: yPosition,
-                        size: 9,
+                        size: 11, // Larger font for URL
                         font: font,
                         color: PDFLib.rgb(0, 0, 1), // Blue color for URL
                     });
-                    yPosition -= 25; // More space after URL
+                    yPosition -= 25; // Space after URL line
                     
                     // Test Result with properly sized checkboxes
                     page.drawText('Test Result:', {
@@ -1803,15 +2011,15 @@ ${requirement.failure_examples}
                             height: checkboxSize,
                         });
                         
-                        // Add label below checkbox with more space
+                        // Add label to the right of checkbox
                         page.drawText(option, {
-                            x: xPos,
-                            y: yPosition - 20,
+                            x: xPos + checkboxSize + 5, // Position to the right of checkbox
+                            y: yPosition + 4, // Align with checkbox center
                             size: 9,
                             font: font,
                         });
                     });
-                    yPosition -= 45; // More space after checkboxes and labels
+                    yPosition -= 30; // Less space needed since labels are to the right
                     
                     // Testing Notes
                     page.drawText('Testing Notes:', {
@@ -1820,15 +2028,15 @@ ${requirement.failure_examples}
                         size: 10,
                         font: boldFont,
                     });
-                    yPosition -= 18; // More space before notes box
+                    yPosition -= 8; // Bring comment box closer to title
                     
-                    // Create text field for notes
+                    // Create text field for notes (4px taller)
                     const textField = form.createTextField(`notes_${index}`);
                     textField.addToPage(page, {
                         x: margin,
                         y: yPosition - 40,
                         width: 500,
-                        height: 35,  // Slightly smaller to avoid overlap
+                        height: 39,  // Increased from 35 to 39 (4px taller)
                     });
                     textField.enableMultiline();
                     textField.setFontSize(8);  // Smaller font size for more text
@@ -1838,16 +2046,18 @@ ${requirement.failure_examples}
                         textField.setText(instance.notes);
                     }
                     
-                    yPosition -= 60;
+                    yPosition -= 50; // Reduced spacing for 4 instances per page
                     
-                    // Separator line
-                    page.drawLine({
-                        start: { x: margin, y: yPosition },
-                        end: { x: width - margin, y: yPosition },
-                        thickness: 1,
-                        color: PDFLib.rgb(0.8, 0.8, 0.8),
-                    });
-                    yPosition -= 15;
+                    // Separator line (only if not the last instance on page)
+                    if ((index + 1) % 4 !== 0 && index < testInstances.length - 1) {
+                        page.drawLine({
+                            start: { x: margin, y: yPosition },
+                            end: { x: width - margin, y: yPosition },
+                            thickness: 1,
+                            color: PDFLib.rgb(0.8, 0.8, 0.8),
+                        });
+                        yPosition -= 15;
+                    }
                 });
                 
                 // Add Testing Checklist Section

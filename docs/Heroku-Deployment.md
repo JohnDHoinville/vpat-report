@@ -77,3 +77,4 @@ If you prefer one app but don’t want an extra static host, add an Express stat
 - `JWT_SECRET`, `CORS_ORIGINS`, and optional flags configured
 - Code pushed and logs healthy
 - (Optional) Backup imported
+
