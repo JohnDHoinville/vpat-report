@@ -1549,6 +1549,8 @@ ${requirement.failure_examples}
             
             console.log('🔍 DEBUG PDF: Full currentRequirement object =', this.currentRequirement);
             console.log('🔍 DEBUG PDF: understanding_url field =', this.currentRequirement.understanding_url);
+            console.log('🔍 DEBUG PDF: wcag_url field =', this.currentRequirement.wcag_url);
+            console.log('🔍 DEBUG PDF: Object keys =', Object.keys(this.currentRequirement));
 
             const requirement = this.currentRequirement;
             const testInstances = this.getRequirementTestInstances(requirement.criterion_number);
@@ -2118,10 +2120,10 @@ ${requirement.failure_examples}
                 });
                 yPosition -= 40;
                 
-                // Create checkboxes for each test instance (max 4 per page)
+                // Create checkboxes for each test instance (max 3 per page)
                 testInstances.forEach((instance, index) => {
-                    // Check if we need a new page or if we've reached 4 instances per page
-                    const instancesOnPage = index % 4;
+                    // Check if we need a new page or if we've reached 3 instances per page
+                    const instancesOnPage = index % 3;
                     if (instancesOnPage === 0 && index > 0) {
                         page = pdfDoc.addPage();
                         const { width: pageWidth, height: pageHeight } = page.getSize();
@@ -2233,10 +2235,10 @@ ${requirement.failure_examples}
                         textField.setText(instance.notes);
                     }
                     
-                    yPosition -= 50; // Reduced spacing for 4 instances per page
+                    yPosition -= 60; // Increased spacing for 3 instances per page
                     
                     // Separator line (only if not the last instance on page)
-                    if ((index + 1) % 4 !== 0 && index < testInstances.length - 1) {
+                    if ((index + 1) % 3 !== 0 && index < testInstances.length - 1) {
                         page.drawLine({
                             start: { x: margin, y: yPosition },
                             end: { x: width - margin, y: yPosition },

@@ -1922,9 +1922,9 @@
                     <i class="fas fa-external-link-alt mr-2"></i>External Resources
                 </h4>
                 <div class="space-y-2">
-                    <div x-show="currentRequirement?.understanding_url" class="flex items-center justify-between bg-white border border-indigo-200 rounded-lg p-3">
-                        <a :href="currentRequirement?.understanding_url" target="_blank" class="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline flex-1 mr-3" x-text="currentRequirement?.understanding_url"></a>
-                        <a :href="currentRequirement?.understanding_url" target="_blank" class="text-indigo-600 hover:text-indigo-800">
+                    <div x-show="currentRequirement?.understanding_url || currentRequirement?.wcag_url" class="flex items-center justify-between bg-white border border-indigo-200 rounded-lg p-3">
+                        <a :href="currentRequirement?.understanding_url || currentRequirement?.wcag_url" target="_blank" class="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline flex-1 mr-3" x-text="currentRequirement?.understanding_url || currentRequirement?.wcag_url"></a>
+                        <a :href="currentRequirement?.understanding_url || currentRequirement?.wcag_url" target="_blank" class="text-indigo-600 hover:text-indigo-800">
                             <i class="fas fa-external-link-alt"></i>
                         </a>
                     </div>

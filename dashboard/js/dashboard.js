@@ -1604,6 +1604,8 @@ ${requirement.failure_examples}
             
             console.log('🔍 DEBUG PDF: Full currentRequirement object =', this.currentRequirement);
             console.log('🔍 DEBUG PDF: understanding_url field =', this.currentRequirement.understanding_url);
+            console.log('🔍 DEBUG PDF: wcag_url field =', this.currentRequirement.wcag_url);
+            console.log('🔍 DEBUG PDF: Object keys =', Object.keys(this.currentRequirement));
 
             const requirement = this.currentRequirement;
             const testInstances = this.getRequirementTestInstances(requirement.criterion_number);
@@ -2175,8 +2177,8 @@ ${requirement.failure_examples}
                 
                 // Create checkboxes for each test instance
                 testInstances.forEach((instance, index) => {
-                    // Check if we need a new page (4 instances per page)
-                    const instancesOnPage = index % 4;
+                    // Check if we need a new page (3 instances per page)
+                    const instancesOnPage = index % 3;
                     if (instancesOnPage === 0 && index > 0) {
                         page = pdfDoc.addPage();
                         const { width: pageWidth, height: pageHeight } = page.getSize();
@@ -2290,14 +2292,16 @@ ${requirement.failure_examples}
                     
                     yPosition -= 60;
                     
-                    // Separator line
-                    page.drawLine({
-                        start: { x: margin, y: yPosition },
-                        end: { x: width - margin, y: yPosition },
-                        thickness: 1,
-                        color: PDFLib.rgb(0.8, 0.8, 0.8),
-                    });
-                    yPosition -= 15;
+                    // Separator line (only if not the last instance on page)
+                    if ((index + 1) % 3 !== 0 && index < testInstances.length - 1) {
+                        page.drawLine({
+                            start: { x: margin, y: yPosition },
+                            end: { x: width - margin, y: yPosition },
+                            thickness: 1,
+                            color: PDFLib.rgb(0.8, 0.8, 0.8),
+                        });
+                        yPosition -= 15;
+                    }
                 });
                 
                 // Add Testing Checklist Section
