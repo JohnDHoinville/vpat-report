@@ -1659,7 +1659,7 @@
      class="fixed inset-0 bg-black bg-opacity-50 z-60 flex items-center justify-center p-4"
      @click.self="closeRequirementDetailsModal()">
      
-    <div class="bg-white rounded-lg shadow-xl w-full max-w-6xl max-h-[95vh] overflow-y-auto"
+    <div class="bg-white rounded-lg shadow-xl w-full max-w-[80vw] max-h-[95vh] overflow-y-auto"
          @click.stop>
          
         <div x-show="currentRequirement" class="p-6 space-y-6">
@@ -1820,6 +1820,27 @@
                                 <span class="ml-2 text-blue-900" x-text="currentRequirement?.manual_tests?.length || 0"></span>
                             </div>
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- External Resources -->
+            <div class="bg-gradient-to-br from-indigo-50 to-purple-50 border border-indigo-200 rounded-lg p-6">
+                <h4 class="text-lg font-semibold text-indigo-900 mb-3 flex items-center">
+                    <i class="fas fa-external-link-alt mr-2"></i>External Resources
+                </h4>
+                <div class="space-y-2">
+                    <div x-show="currentRequirement?.wcag_url" class="flex items-center justify-between bg-white border border-indigo-200 rounded-lg p-3">
+                        <a :href="currentRequirement?.wcag_url" target="_blank" class="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline flex-1 mr-3" x-text="currentRequirement?.wcag_url"></a>
+                        <a :href="currentRequirement?.wcag_url" target="_blank" class="text-indigo-600 hover:text-indigo-800">
+                            <i class="fas fa-external-link-alt"></i>
+                        </a>
+                    </div>
+                    <div x-show="currentRequirement?.section_508_url" class="flex items-center justify-between bg-white border border-indigo-200 rounded-lg p-3">
+                        <span class="text-sm font-medium text-gray-900">Section 508 Documentation</span>
+                        <a :href="currentRequirement?.section_508_url" target="_blank" class="text-indigo-600 hover:text-indigo-800">
+                            <i class="fas fa-external-link-alt"></i>
+                        </a>
                     </div>
                 </div>
             </div>
@@ -2006,83 +2027,70 @@
                                 </div>
                                 <div x-show="getRequirementTestInstances(currentRequirement?.criterion_number)?.length > 0" class="space-y-4">
                                     <template x-for="instance in getRequirementTestInstances(currentRequirement?.criterion_number)" :key="instance.id">
-                                        <div class="bg-white border border-teal-200 rounded-lg p-4 shadow-sm">
-                                            <div class="font-medium text-gray-900 mb-3" x-text="instance.page_url || 'Site-wide test (all applicable pages)'"></div>
+                                        <div class="bg-white rounded-lg p-4">
+                                            <div class="font-medium text-gray-900 mb-3">
+                                                <template x-if="instance.page_url && instance.page_url !== 'Site-wide test (all applicable pages)'">
+                                                    <a :href="instance.page_url" 
+                                                       target="_blank" 
+                                                       rel="noopener noreferrer"
+                                                       class="text-blue-600 hover:text-blue-800 hover:underline"
+                                                       x-text="instance.page_url"></a>
+                                                </template>
+                                                <template x-if="!instance.page_url || instance.page_url === 'Site-wide test (all applicable pages)'">
+                                                    <span x-text="'Site-wide test (all applicable pages)'"></span>
+                                                </template>
+                                            </div>
                                             
                                             <!-- Status Radio Button Group -->
                                             <div class="space-y-2">
                                                 <div class="text-xs font-medium text-gray-600 mb-2">Status:</div>
-                                                <div class="grid grid-cols-3 gap-2">
-                                                    <!-- Pending -->
-                                                    <label class="flex items-center p-2 rounded border cursor-pointer hover:bg-gray-50" 
-                                                           :class="instance.status === 'pending' ? 'bg-gray-100 border-gray-400' : 'border-gray-200'">
-                                                        <input type="radio" 
-                                                               :name="'status_' + instance.id" 
-                                                               value="pending"
-                                                               :checked="instance.status === 'pending'"
-                                                               @change="updateInstanceStatus(instance.id, 'pending')"
-                                                               class="mr-2 text-gray-600">
-                                                        <span class="text-xs">⏳ Pending</span>
-                                                    </label>
-                                                    
-                                                    <!-- In Progress -->
-                                                    <label class="flex items-center p-2 rounded border cursor-pointer hover:bg-blue-50" 
-                                                           :class="instance.status === 'in_progress' ? 'bg-blue-100 border-blue-400' : 'border-gray-200'">
-                                                        <input type="radio" 
-                                                               :name="'status_' + instance.id" 
-                                                               value="in_progress"
-                                                               :checked="instance.status === 'in_progress'"
-                                                               @change="updateInstanceStatus(instance.id, 'in_progress')"
-                                                               class="mr-2 text-blue-600">
-                                                        <span class="text-xs">🔄 In Progress</span>
-                                                    </label>
-                                                    
+                                                <div class="grid grid-cols-4 gap-2">
                                                     <!-- Passed -->
-                                                    <label class="flex items-center p-2 rounded border cursor-pointer hover:bg-green-50" 
+                                                    <label class="flex items-center justify-center p-2 rounded border cursor-pointer hover:bg-green-50" 
                                                            :class="instance.status === 'passed' ? 'bg-green-100 border-green-400' : 'border-gray-200'">
                                                         <input type="radio" 
                                                                :name="'status_' + instance.id" 
                                                                value="passed"
                                                                :checked="instance.status === 'passed'"
                                                                @change="updateInstanceStatus(instance.id, 'passed')"
-                                                               class="mr-2 text-green-600">
-                                                        <span class="text-xs">✅ Passed</span>
+                                                               class="mr-1 text-green-600">
+                                                        <span class="text-xs">Passed</span>
                                                     </label>
                                                     
                                                     <!-- Failed -->
-                                                    <label class="flex items-center p-2 rounded border cursor-pointer hover:bg-red-50" 
+                                                    <label class="flex items-center justify-center p-2 rounded border cursor-pointer hover:bg-red-50" 
                                                            :class="instance.status === 'failed' ? 'bg-red-100 border-red-400' : 'border-gray-200'">
                                                         <input type="radio" 
                                                                :name="'status_' + instance.id" 
                                                                value="failed"
                                                                :checked="instance.status === 'failed'"
                                                                @change="updateInstanceStatus(instance.id, 'failed')"
-                                                               class="mr-2 text-red-600">
-                                                        <span class="text-xs">❌ Failed</span>
+                                                               class="mr-1 text-red-600">
+                                                        <span class="text-xs">Failed</span>
                                                     </label>
                                                     
                                                     <!-- Needs Review -->
-                                                    <label class="flex items-center p-2 rounded border cursor-pointer hover:bg-yellow-50" 
+                                                    <label class="flex items-center justify-center p-2 rounded border cursor-pointer hover:bg-yellow-50" 
                                                            :class="instance.status === 'needs_review' ? 'bg-yellow-100 border-yellow-400' : 'border-gray-200'">
                                                         <input type="radio" 
                                                                :name="'status_' + instance.id" 
                                                                value="needs_review"
                                                                :checked="instance.status === 'needs_review'"
                                                                @change="updateInstanceStatus(instance.id, 'needs_review')"
-                                                               class="mr-2 text-yellow-600">
-                                                        <span class="text-xs">⚠️ Needs Review</span>
+                                                               class="mr-1 text-yellow-600">
+                                                        <span class="text-xs">Review</span>
                                                     </label>
                                                     
                                                     <!-- Not Applicable -->
-                                                    <label class="flex items-center p-2 rounded border cursor-pointer hover:bg-gray-50" 
+                                                    <label class="flex items-center justify-center p-2 rounded border cursor-pointer hover:bg-gray-50" 
                                                            :class="instance.status === 'not_applicable' ? 'bg-gray-100 border-gray-400' : 'border-gray-200'">
                                                         <input type="radio" 
                                                                :name="'status_' + instance.id" 
                                                                value="not_applicable"
                                                                :checked="instance.status === 'not_applicable'"
                                                                @change="updateInstanceStatus(instance.id, 'not_applicable')"
-                                                               class="mr-2 text-gray-600">
-                                                        <span class="text-xs">🚫 Not Applicable</span>
+                                                               class="mr-1 text-gray-600">
+                                                        <span class="text-xs">N/A</span>
                                                     </label>
                                                 </div>
                                                 
@@ -2090,6 +2098,18 @@
                                                 <div x-show="updatingStatus === instance.id" class="flex items-center justify-center py-2">
                                                     <i class="fas fa-spinner fa-spin text-blue-600 mr-2"></i>
                                                     <span class="text-xs text-blue-600">Updating status...</span>
+                                                </div>
+                                                
+                                                <!-- Test Notes Section -->
+                                                <div class="mt-3">
+                                                    <label class="block text-xs font-medium text-gray-600 mb-1">Test Notes:</label>
+                                                    <textarea 
+                                                        :value="instance.notes || ''"
+                                                        @input="updateInstanceNotes(instance.id, $event.target.value)"
+                                                        @blur="saveInstanceNotes(instance.id, $event.target.value)"
+                                                        placeholder="Add test notes or comments..."
+                                                        class="w-full px-2 py-1 text-xs border border-gray-300 rounded resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                        rows="2"></textarea>
                                                 </div>
                                             </div>
                                         </div>
@@ -2240,26 +2260,7 @@
                         </div>
                     </div>
 
-                    <!-- External Links -->
-                    <div class="bg-gradient-to-br from-indigo-50 to-purple-50 border border-indigo-200 rounded-lg p-6">
-                        <h4 class="text-lg font-semibold text-indigo-900 mb-3 flex items-center">
-                            <i class="fas fa-external-link-alt mr-2"></i>External Resources
-                        </h4>
-                        <div class="space-y-2">
-                            <div x-show="currentRequirement?.wcag_url" class="flex items-center justify-between bg-white border border-indigo-200 rounded-lg p-3">
-                                <span class="text-sm font-medium text-gray-900">WCAG Documentation</span>
-                                <a :href="currentRequirement?.wcag_url" target="_blank" class="text-indigo-600 hover:text-indigo-800">
-                                    <i class="fas fa-external-link-alt"></i>
-                                </a>
-                            </div>
-                            <div x-show="currentRequirement?.section_508_url" class="flex items-center justify-between bg-white border border-indigo-200 rounded-lg p-3">
-                                <span class="text-sm font-medium text-gray-900">Section 508 Documentation</span>
-                                <a :href="currentRequirement?.section_508_url" target="_blank" class="text-indigo-600 hover:text-indigo-800">
-                                    <i class="fas fa-external-link-alt"></i>
-                                </a>
-                            </div>
-                        </div>
-                    </div>
+
                 </div>
             </div>
 

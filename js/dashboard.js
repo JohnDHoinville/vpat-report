@@ -1159,6 +1159,46 @@ window.dashboard = function() {
                 this.showNotification('error', 'Update Failed', error.message);
             }
         },
+
+        // Update test instance notes locally (for real-time updates)
+        updateInstanceNotes: function(instanceId, notes) {
+            // Update the local instance data immediately for UI responsiveness
+            const testInstances = this.getRequirementTestInstances(this.currentRequirement?.criterion_number);
+            const instance = testInstances.find(t => t.id === instanceId);
+            if (instance) {
+                instance.notes = notes;
+            }
+        },
+
+        // Save test instance notes to database
+        saveInstanceNotes: async function(instanceId, notes) {
+            try {
+                const response = await this.apiCall(`/test-instances/${instanceId}`, {
+                    method: 'PUT',
+                    body: JSON.stringify({ notes: notes })
+                });
+                
+                if (response.success) {
+                    // Update local data
+                    const testInstances = this.getRequirementTestInstances(this.currentRequirement?.criterion_number);
+                    const instance = testInstances.find(t => t.id === instanceId);
+                    if (instance) {
+                        instance.notes = notes;
+                        instance.updated_at = new Date().toISOString();
+                    }
+                    
+                    // Show subtle notification only if notes are not empty
+                    if (notes.trim()) {
+                        this.showNotification('success', 'Notes Saved', 'Test notes updated successfully');
+                    }
+                } else {
+                    throw new Error(response.error || 'Failed to save notes');
+                }
+            } catch (error) {
+                console.error('Error saving test instance notes:', error);
+                this.showNotification('error', 'Save Failed', error.message);
+            }
+        },
         
         copyRequirementToClipboard: function() {
             if (!this.currentRequirement) return;
@@ -5766,46 +5806,14 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
             this.showNotification('success', 'Sessions Refreshed', 'Session list has been updated');
         },
 
-        // Create a new testing session
+        // ARCHIVED: Legacy session creation - use session wizard instead
         async createTestingSession() {
-            if (!this.data.selectedProject || !this.newTestingSession.name.trim() || !this.newTestingSession.conformance_level) {
-                this.showNotification('error', 'Missing Information', 'Please fill in all required fields');
-                return;
-            }
-
-            try {
-                this.loading = true;
-                
-                const sessionData = {
-                    name: this.newTestingSession.name.trim(),
-                    description: this.newTestingSession.description.trim(),
-                    project_id: this.data.selectedProject,
-                    conformance_level: this.newTestingSession.conformance_level,
-                    testing_approach: this.newTestingSession.testing_approach || 'hybrid'
-                };
-
-                const response = await this.apiCall('/sessions', {
-                    method: 'POST',
-                    body: JSON.stringify(sessionData)
-                });
-
-                if (response.success) {
-                    this.showNotification('success', 'Session Created', 
-                        `Session "${sessionData.name}" created with ${response.data.total_tests_count || 0} test instances`
-                    );
-                    
-                    this.showCreateTestingSession = false;
-                    this.resetNewTestingSession();
-                    await this.loadComplianceSessions();
-                } else {
-                    throw new Error(response.error || 'Failed to create testing session');
-                }
-            } catch (error) {
-                console.error('Error creating testing session:', error);
-                this.showNotification('error', 'Creation Failed', error.message || 'Failed to create testing session');
-            } finally {
-                this.loading = false;
-            }
+            this.showNotification('info', 'Use Session Wizard', 
+                'Please use the Session Wizard for creating new testing sessions. It provides better page selection, conformance level options, and smart filtering.');
+            
+            // Redirect to wizard or show wizard modal
+            // TODO: Implement wizard modal or redirect to wizard UI
+            console.warn('Legacy session creation called - redirect to wizard system');
         },
 
         // Delete a testing session with confirmation
@@ -10516,7 +10524,8 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
         // Load session test instances
         async loadSessionTestInstances(sessionId) {
             try {
-                const response = await this.apiCall(`/test-instances?session_id=${sessionId}`);
+                // Set a high limit to get all test instances for the session
+                const response = await this.apiCall(`/test-instances?session_id=${sessionId}&limit=10000`);
                 
                 if (response.success) {
                     // Add tester names to test instances
@@ -10530,6 +10539,16 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                     
                     this.sessionDetailsTestInstances = testInstances;
                     console.log('📋 Session test instances loaded:', testInstances.length);
+                    
+                    // Log pagination info for debugging
+                    if (response.pagination) {
+                        console.log('📊 Pagination info:', {
+                            total: response.pagination.total,
+                            current_page: response.pagination.current_page,
+                            total_pages: response.pagination.total_pages,
+                            loaded: testInstances.length
+                        });
+                    }
                 }
             } catch (error) {
                 console.error('Error loading session test instances:', error);

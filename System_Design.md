@@ -58,10 +58,15 @@ node api/server.js | cat
 ### Interactive Status Updates
 
 - Test Instance & URLs panel has interactive radio button groups for status updates
-- Status options: Pending, In Progress, Passed, Failed, Needs Review, Not Applicable
+- Status options: Passed, Failed, Review, N/A (clean text labels, 1x4 horizontal layout)
 - Real-time API calls via existing `updateTestInstanceStatus()` function
 - Visual feedback: loading spinners, color-coded statuses, success notifications
 - Single-selection enforcement via radio button groups (one status per instance)
+- Modal width set to 80% viewport width for optimal content display
+- External Resources panel moved directly under WCAG Details for better information flow
+- WCAG Documentation shows full URL as clickable link for direct access
+- Test notes textarea added under each status selection for detailed comments
+- Real-time notes updating with database persistence on blur/field exit
 
 
 

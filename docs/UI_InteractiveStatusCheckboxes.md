@@ -12,8 +12,6 @@ Added interactive radio button groups to the "Test Instances & URLs" panel in th
 - Visual loading indicators during status updates
 
 #### **Status Options:**
-- ⏳ **Pending** (gray)
-- 🔄 **In Progress** (blue)  
 - ✅ **Passed** (green)
 - ❌ **Failed** (red)
 - ⚠️ **Needs Review** (yellow)
@@ -46,8 +44,8 @@ updateInstanceStatus: async function(instanceId, newStatus) {
 
 #### **HTML Structure:**
 ```html
-<div class="grid grid-cols-3 gap-2">
-    <label class="flex items-center p-2 rounded border cursor-pointer hover:bg-green-50" 
+<div class="grid grid-cols-2 gap-2">
+    <label class="flex items-center p-3 rounded border cursor-pointer hover:bg-green-50" 
            :class="instance.status === 'passed' ? 'bg-green-100 border-green-400' : 'border-gray-200'">
         <input type="radio" 
                :name="'status_' + instance.id" 
@@ -55,9 +53,9 @@ updateInstanceStatus: async function(instanceId, newStatus) {
                :checked="instance.status === 'passed'"
                @change="updateInstanceStatus(instance.id, 'passed')"
                class="mr-2 text-green-600">
-        <span class="text-xs">✅ Passed</span>
+        <span class="text-sm">✅ Passed</span>
     </label>
-    <!-- ... other status options ... -->
+    <!-- ... other 3 status options ... -->
 </div>
 ```
 
@@ -74,8 +72,9 @@ updateInstanceStatus: async function(instanceId, newStatus) {
 - **Error handling** - Failed updates show error messages
 
 ### **Responsive Design**
-- 3-column grid layout for status options
+- 2x2 grid layout for 4 status options
 - Mobile-friendly with proper touch targets
+- Optimal modal width (80% viewport width) for balanced content display
 - Tailwind CSS classes for consistent styling
 
 ### **Benefits**

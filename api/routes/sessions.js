@@ -1040,107 +1040,33 @@ router.get('/:id/progress', async (req, res) => {
 });
 
 /**
- * POST /api/sessions
- * Create a new testing session with conformance level selection
+ * ARCHIVED: POST /api/sessions
+ * Legacy session creation endpoint - use /api/testing-sessions instead
  */
 router.post('/', async (req, res) => {
-    try {
-        const {
-            project_id,
-            name,
-            description,
-            conformance_level,
-            page_scope = 'all', // 'all' or 'selected'
-            selected_pages = [],
-            auto_generate_tests = true
-        } = req.body;
-
-        // Validate required fields
-        if (!project_id || !name || !conformance_level) {
-            return res.status(400).json({
-                success: false,
-                message: 'Missing required fields: project_id, name, conformance_level'
-            });
-        }
-
-        // Validate conformance level
-        const validConformanceLevels = ['A', 'AA', 'AAA', 'Section508', 'Custom'];
-        if (!validConformanceLevels.includes(conformance_level)) {
-            return res.status(400).json({
-                success: false,
-                message: 'Invalid conformance level'
-            });
-        }
-
-        // Verify project exists
-        const projectResult = await pool.query('SELECT id FROM projects WHERE id = $1', [project_id]);
-        if (projectResult.rows.length === 0) {
-            return res.status(404).json({
-                success: false,
-                message: 'Project not found'
-            });
-        }
-
-        // Start transaction
-        const client = await pool.connect();
-        
-        try {
-            await client.query('BEGIN');
-
-            // Create testing session
-            const sessionResult = await client.query(`
-                INSERT INTO test_sessions (
-                    project_id, name, description, conformance_level, 
-                    status, created_by
-                ) VALUES ($1, $2, $3, $4, $5, $6)
-                RETURNING *
-            `, [
-                project_id,
-                name,
-                description,
-                conformance_level,
-                'planning',
-                req.user?.id
-            ]);
-
-            const session = sessionResult.rows[0];
-
-            // Auto-generate test instances if requested
-            if (auto_generate_tests) {
-                await generateTestInstances(client, session.id, conformance_level, page_scope, selected_pages);
-            }
-
-            await client.query('COMMIT');
-
-            // Get updated session with statistics
-            const updatedSession = await pool.query(`
-                SELECT ts.*, p.name as project_name
-                FROM test_sessions ts
-                LEFT JOIN projects p ON ts.project_id = p.id
-                WHERE ts.id = $1
-            `, [session.id]);
-
-            res.status(201).json({
-                success: true,
-                message: 'Testing session created successfully',
-                data: updatedSession.rows[0]
-            });
-
-        } catch (error) {
-            await client.query('ROLLBACK');
-            throw error;
-        } finally {
-            client.release();
-        }
-
-    } catch (error) {
-        console.error('Error creating testing session:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Failed to create testing session',
-            error: error.message
-        });
-    }
+    return res.status(410).json({
+        success: false,
+        error: 'This endpoint has been archived',
+        message: 'Please use the session wizard via /api/testing-sessions instead',
+        migration_guide: {
+            old_endpoint: '/api/sessions',
+            new_endpoint: '/api/testing-sessions', 
+            benefits: [
+                'Wizard-based interface for better UX',
+                'Unified requirements system',
+                'Advanced page selection',
+                'Smart filtering capabilities',
+                'Better conformance level support'
+            ],
+            required_changes: [
+                'Use session wizard UI components',
+                'Pass conformance_levels array instead of single conformance_level',
+                'Include selected_page_ids and selected_crawler_ids',
+                'Consider enabling smart_filtering for better results'
+            ]
+        },
+        archived_since: '2025-01-22'
+    });
 });
 
 /**
