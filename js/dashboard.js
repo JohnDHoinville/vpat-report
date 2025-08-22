@@ -1508,6 +1508,11 @@ ${requirement.failure_examples}
 
     <div class="print-footer">
         <p>WCAG ${requirement.criterion_number} Testing Documentation | Generated ${reportDate}</p>
+        ${this.selectedTestSession ? `<p>Session Information: ${this.selectedTestSession.name || 'Unknown Session'} - ${this.selectedTestSession.id} / Created on ${new Date(this.selectedTestSession.created_at || this.selectedTestSession.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>` : ''}
+        <div style="margin: 15px 0;">
+            <label style="font-weight: bold; margin-right: 10px;">Tester name:</label>
+            <input type="text" style="border: 1px solid #ccc; padding: 5px; width: 200px; font-size: 10pt;" />
+        </div>
         <p>This document is for manual testing purposes and should be used alongside automated testing tools.</p>
     </div>
 </body>
@@ -1677,8 +1682,9 @@ ${requirement.failure_examples}
                 });
                 yPosition -= 15;
                 
-                // Hybrid Testing Instructions Section (indented) - if available in requirement
-                if (requirement.hybrid_testing_instructions || requirement.specific_instructions) {
+                // Hybrid Testing Instructions Section (indented) - extract from manual_test_procedure
+                const hybridInstructions = this.extractHybridTestingInstructions(requirement);
+                if (hybridInstructions) {
                     page.drawText('Hybrid Testing Approach:', {
                         x: margin + 10,
                         y: yPosition,
@@ -1688,33 +1694,62 @@ ${requirement.failure_examples}
                     });
                     yPosition -= 18;
                     
-                    // Use hybrid instructions if available, fallback to specific instructions
-                    const hybridInstructions = requirement.hybrid_testing_instructions || requirement.specific_instructions || '';
                     const hybridLines = hybridInstructions.split('\n').filter(line => line.trim());
                     
                     hybridLines.forEach(instruction => {
-                        const cleanInstruction = instruction.replace(/^[•\-\*]\s*/, '').trim(); // Remove existing bullets
-                        if (cleanInstruction) {
-                            // Add bullet point
-                            page.drawText('•', {
-                                x: margin + 20,
-                                y: yPosition,
-                                size: 10,
-                                font: font,
-                                color: PDFLib.rgb(0.1, 0.4, 0.1), // Dark green color
-                            });
-                            
-                            // Add instruction text with proper wrapping
-                            const instructionTextLines = this.splitTextToFitWidth(cleanInstruction, 460, 10);
-                            instructionTextLines.forEach((line, lineIndex) => {
-                                page.drawText(line, {
-                                    x: margin + 30, // Indented for bullet point
-                                    y: yPosition - (lineIndex * 12),
+                        const trimmedInstruction = instruction.trim();
+                        if (trimmedInstruction) {
+                            // Check if this is a phase header (ends with colon)
+                            if (trimmedInstruction.endsWith(':') && 
+                                (trimmedInstruction.includes('AUTOMATED') || trimmedInstruction.includes('MANUAL'))) {
+                                // Draw phase header (bold, larger, indented)
+                                page.drawText(trimmedInstruction, {
+                                    x: margin + 20,
+                                    y: yPosition,
+                                    size: 10,
+                                    font: boldFont,
+                                    color: PDFLib.rgb(0.1, 0.4, 0.1), // Dark green color
+                                });
+                                yPosition -= 15;
+                            } else if (trimmedInstruction.startsWith('•')) {
+                                // Bullet point - remove existing bullet and add our own
+                                const cleanInstruction = trimmedInstruction.substring(1).trim();
+                                
+                                // Add bullet point
+                                page.drawText('•', {
+                                    x: margin + 30,
+                                    y: yPosition,
                                     size: 10,
                                     font: font,
+                                    color: PDFLib.rgb(0.1, 0.4, 0.1), // Dark green color
                                 });
-                            });
-                            yPosition -= Math.max(instructionTextLines.length * 12, 12) + 3;
+                                
+                                // Add instruction text with proper wrapping
+                                const instructionTextLines = this.splitTextToFitWidth(cleanInstruction, 450, 10);
+                                instructionTextLines.forEach((line, lineIndex) => {
+                                    page.drawText(line, {
+                                        x: margin + 40, // Further indented for bullet point
+                                        y: yPosition - (lineIndex * 12),
+                                        size: 10,
+                                        font: font,
+                                        color: PDFLib.rgb(0.1, 0.4, 0.1), // Dark green color
+                                    });
+                                });
+                                yPosition -= Math.max(instructionTextLines.length * 12, 12) + 3;
+                            } else {
+                                // Regular text line
+                                const instructionTextLines = this.splitTextToFitWidth(trimmedInstruction, 460, 10);
+                                instructionTextLines.forEach((line, lineIndex) => {
+                                    page.drawText(line, {
+                                        x: margin + 20,
+                                        y: yPosition - (lineIndex * 12),
+                                        size: 10,
+                                        font: font,
+                                        color: PDFLib.rgb(0.1, 0.4, 0.1), // Dark green color
+                                    });
+                                });
+                                yPosition -= Math.max(instructionTextLines.length * 12, 12) + 3;
+                            }
                         }
                     });
                 }
@@ -2184,20 +2219,78 @@ ${requirement.failure_examples}
                 
                 yPosition -= generalNotesHeight + 40;
                 
-                // Add document footer
-                const footerText = `WCAG ${requirement.criterion_number} Testing Documentation | Generated ${new Date().toLocaleDateString('en-US', { 
+                // Add document footer with session information
+                const generatedDate = new Date().toLocaleDateString('en-US', { 
                     weekday: 'long', 
                     year: 'numeric', 
                     month: 'long', 
                     day: 'numeric' 
-                })}`;
+                });
                 
+                // First line: Testing documentation info
+                const footerText = `WCAG ${requirement.criterion_number} Testing Documentation | Generated ${generatedDate}`;
                 page.drawText(footerText, {
                     x: margin,
                     y: yPosition,
                     size: 9,
                     font: font,
                     color: PDFLib.rgb(0.5, 0.5, 0.5), // Gray color
+                });
+                
+                yPosition -= 15;
+                
+                // Second line: Session information
+                if (this.selectedTestSession) {
+                    const sessionDate = new Date(this.selectedTestSession.created_at || this.selectedTestSession.createdAt);
+                    const formattedSessionDate = sessionDate.toLocaleDateString('en-US', { 
+                        year: 'numeric', 
+                        month: 'long', 
+                        day: 'numeric' 
+                    });
+                    const sessionInfo = `Session Information: ${this.selectedTestSession.name || 'Unknown Session'} - ${this.selectedTestSession.id} / Created on ${formattedSessionDate}`;
+                    
+                    page.drawText(sessionInfo, {
+                        x: margin,
+                        y: yPosition,
+                        size: 8,
+                        font: font,
+                        color: PDFLib.rgb(0.5, 0.5, 0.5), // Gray color
+                    });
+                    yPosition -= 15; // Add spacing after session info
+                } else {
+                    // Debug: Add placeholder text if no session data
+                    page.drawText('Session Information: No session data available', {
+                        x: margin,
+                        y: yPosition,
+                        size: 8,
+                        font: font,
+                        color: PDFLib.rgb(0.8, 0.2, 0.2), // Red color for debug
+                    });
+                    yPosition -= 15;
+                }
+                
+                yPosition -= 20;
+                
+                // Tester name field
+                page.drawText('Tester name:', {
+                    x: margin,
+                    y: yPosition,
+                    size: 10,
+                    font: font,
+                    color: PDFLib.rgb(0, 0, 0), // Black color
+                });
+                
+                // Add text field for tester name (aligned with the label)
+                const testerNameField = form.createTextField('tester_name');
+                testerNameField.setText('');
+                testerNameField.addToPage(page, {
+                    x: margin + 80, // Position after "Tester name:" label
+                    y: yPosition - 5, // Align with the text baseline
+                    width: 200,
+                    height: 18,
+                    borderColor: PDFLib.rgb(0.5, 0.5, 0.5),
+                    borderWidth: 1,
+                    backgroundColor: PDFLib.rgb(1, 1, 1), // White background
                 });
                 yPosition -= 15;
                 
@@ -2218,7 +2311,7 @@ ${requirement.failure_examples}
                 const url = URL.createObjectURL(blob);
                 const link = document.createElement('a');
                 link.href = url;
-                link.download = `WCAG_${requirement.criterion_number}_Testing_Form_pdf-lib.pdf`;
+                link.download = `WCAG_${requirement.criterion_number}_Testing_Form.pdf`;
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
@@ -2230,6 +2323,60 @@ ${requirement.failure_examples}
                 console.error('Error generating PDF with pdf-lib:', error);
                 this.showNotification('Error generating PDF: ' + error.message, 'error');
             }
+        },
+
+        extractHybridTestingInstructions: function(requirement) {
+            // Extract hybrid testing instructions from manual_test_procedure
+            if (requirement.testing_instructions && typeof requirement.testing_instructions === 'object') {
+                const steps = requirement.testing_instructions.steps;
+                if (Array.isArray(steps)) {
+                    // Look for steps that contain "HYBRID" or hybrid testing patterns
+                    const hybridStep = steps.find(step => 
+                        step && typeof step === 'string' && 
+                        (step.toUpperCase().includes('HYBRID') || 
+                         step.includes('automated scanning') || 
+                         step.includes('Manual verification'))
+                    );
+                    
+                    if (hybridStep) {
+                        // Parse the hybrid step to extract structured instructions
+                        if (hybridStep.includes('HYBRID TESTING APPROACH:')) {
+                            // Extract the structured part after "HYBRID TESTING APPROACH:"
+                            const structuredPart = hybridStep.split('HYBRID TESTING APPROACH:')[1];
+                            if (structuredPart) {
+                                return structuredPart.trim();
+                            }
+                        }
+                        
+                        // For steps like "HYBRID: Start with automated scanning..."
+                        if (hybridStep.startsWith('HYBRID:')) {
+                            const instructions = hybridStep.substring(7).trim(); // Remove "HYBRID:" prefix
+                            
+                            // Convert to structured format with AUTOMATED and MANUAL phases
+                            return this.formatHybridInstructions(instructions);
+                        }
+                        
+                        return hybridStep;
+                    }
+                }
+            }
+            
+            // Fallback: look for hybrid_testing_instructions or specific_instructions properties
+            return requirement.hybrid_testing_instructions || requirement.specific_instructions || null;
+        },
+
+        formatHybridInstructions: function(instructions) {
+            // Convert basic hybrid instructions to structured format
+            return `AUTOMATED PHASE:
+• Run automated tools (axe-core, pa11y, WAVE)
+• Review automated findings and violations
+• Document tool-detected issues
+
+MANUAL PHASE:
+• Verify automated findings manually
+• Test scenarios tools cannot detect
+• Evaluate user experience and context
+• Confirm real-world usability`;
         },
 
         splitTextToFitWidth: function(text, maxWidth, fontSize) {
