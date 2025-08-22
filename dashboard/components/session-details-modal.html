@@ -1704,9 +1704,19 @@
                             </div>
                         </div>
                     </div>
-                    <button @click="closeRequirementDetailsModal()" class="text-white hover:text-blue-200 transition-colors">
-                    <i class="fas fa-times text-xl"></i>
-                </button>
+                    <div class="flex items-center space-x-3">
+                        <button @click="printRequirementDetails()" 
+                                class="bg-white bg-opacity-20 hover:bg-opacity-30 text-white px-3 py-2 rounded-md transition-colors text-sm">
+                            <i class="fas fa-print mr-2"></i>Print
+                        </button>
+                        <button @click="generatePDFWithPdfLib()" 
+                                class="bg-white bg-opacity-20 hover:bg-opacity-30 text-white px-3 py-2 rounded-md transition-colors text-sm">
+                            <i class="fas fa-file-pdf mr-2"></i>Print PDF
+                        </button>
+                        <button @click="closeRequirementDetailsModal()" class="text-white hover:text-blue-200 transition-colors">
+                            <i class="fas fa-times text-xl"></i>
+                        </button>
+                    </div>
                 </div>
             </div>
 

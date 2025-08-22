@@ -1257,6 +1257,1218 @@ ${requirement.failure_examples}
                 this.showNotification('error', 'Copy Failed', 'Failed to copy to clipboard');
             });
         },
+
+        printRequirementDetails: function() {
+            if (!this.currentRequirement) return;
+            
+            const requirement = this.currentRequirement;
+            const testInstances = this.getRequirementTestInstances(requirement.criterion_number);
+            
+            // Create a print-friendly HTML document
+            const printWindow = window.open('', '_blank');
+            const printDoc = printWindow.document;
+            
+            // Get current date for the report
+            const reportDate = new Date().toLocaleDateString('en-US', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+            
+            // Build the print content
+            const printContent = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WCAG ${requirement.criterion_number} - ${requirement.title} - Testing Documentation</title>
+    <style>
+        @page {
+            margin: 0.75in;
+            size: letter;
+        }
+        
+        body {
+            font-family: "Times New Roman", serif;
+            font-size: 12pt;
+            line-height: 1.4;
+            color: #000;
+            margin: 0;
+            padding: 20px;
+        }
+        
+        .print-header {
+            border-bottom: 2px solid #000;
+            padding-bottom: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .print-title {
+            font-size: 18pt;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+        
+        .print-subtitle {
+            font-size: 14pt;
+            margin-bottom: 5px;
+        }
+        
+        .print-meta {
+            font-size: 10pt;
+            color: #666;
+            margin-bottom: 3px;
+        }
+        
+        .print-section {
+            margin-bottom: 25px;
+            page-break-inside: avoid;
+        }
+        
+        .print-section-title {
+            font-size: 14pt;
+            font-weight: bold;
+            margin-bottom: 10px;
+            border-bottom: 1px solid #ccc;
+            padding-bottom: 3px;
+        }
+        
+        .print-section-content {
+            font-size: 11pt;
+            line-height: 1.5;
+            margin-bottom: 10px;
+        }
+        
+        .print-test-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+            font-size: 10pt;
+        }
+        
+        .print-test-table th,
+        .print-test-table td {
+            border: 1px solid #000;
+            padding: 8px;
+            text-align: left;
+            vertical-align: top;
+        }
+        
+        .print-test-table th {
+            background-color: #f0f0f0;
+            font-weight: bold;
+        }
+        
+        .print-url {
+            font-family: "Courier New", monospace;
+            font-size: 9pt;
+            word-break: break-all;
+        }
+        
+        .print-notes {
+            min-height: 100px;
+            border: 1px solid #ccc;
+            padding: 10px;
+            background-color: #fafafa;
+        }
+        
+        .print-footer {
+            margin-top: 40px;
+            padding-top: 15px;
+            border-top: 1px solid #ccc;
+            font-size: 9pt;
+            text-align: center;
+            color: #666;
+        }
+        
+        .print-checklist {
+            margin-top: 20px;
+        }
+        
+        .print-checklist-item {
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px dotted #ccc;
+            display: flex;
+            align-items: flex-start;
+        }
+        
+        .print-checkbox {
+            width: 15px;
+            height: 15px;
+            border: 2px solid #000;
+            margin-right: 10px;
+            margin-top: 2px;
+            flex-shrink: 0;
+        }
+        
+        .print-checklist-content {
+            flex: 1;
+        }
+        
+        .print-test-notes {
+            border: 1px solid #000;
+            min-height: 80px;
+            padding: 10px;
+            margin-top: 10px;
+            background: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="print-header">
+        <div class="print-title">WCAG ${requirement.criterion_number}: ${requirement.title}</div>
+        <div class="print-subtitle">Accessibility Testing Documentation</div>
+        <div class="print-meta">Level: ${requirement.level?.toUpperCase() || 'N/A'} | Test Method: ${(requirement.test_method || 'manual').charAt(0).toUpperCase() + (requirement.test_method || 'manual').slice(1)}</div>
+        <div class="print-meta">Priority: ${requirement.priority === 1 ? 'High' : requirement.priority === 2 ? 'Medium' : 'Low'} | Estimated Time: ${requirement.estimated_time_minutes ? requirement.estimated_time_minutes + ' minutes' : 'Not specified'}</div>
+        <div class="print-meta">Report Generated: ${reportDate}</div>
+    </div>
+
+    <div class="print-section">
+        <div class="print-section-title">Requirement Description</div>
+        <div class="print-section-content">${requirement.description || 'No description available'}</div>
+    </div>
+
+    ${requirement.testing_instructions ? `
+    <div class="print-section">
+        <div class="print-section-title">Testing Instructions</div>
+        <div class="print-section-content">${requirement.testing_instructions}</div>
+    </div>
+    ` : ''}
+
+    ${requirement.acceptance_criteria ? `
+    <div class="print-section">
+        <div class="print-section-title">Acceptance Criteria</div>
+        <div class="print-section-content">${requirement.acceptance_criteria}</div>
+    </div>
+    ` : ''}
+
+    ${requirement.failure_examples ? `
+    <div class="print-section">
+        <div class="print-section-title">Common Failure Examples</div>
+        <div class="print-section-content">${requirement.failure_examples}</div>
+    </div>
+    ` : ''}
+
+    ${requirement.wcag_url ? `
+    <div class="print-section">
+        <div class="print-section-title">WCAG Documentation</div>
+        <div class="print-section-content">${requirement.wcag_url}</div>
+    </div>
+    ` : ''}
+
+    <div class="print-section">
+        <div class="print-section-title">Test Instances (${testInstances.length} pages to test)</div>
+        ${testInstances.length > 0 ? `
+        <table class="print-test-table">
+            <thead>
+                <tr>
+                    <th style="width: 50%;">Page URL</th>
+                    <th style="width: 15%;">Status</th>
+                    <th style="width: 35%;">Notes</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${testInstances.map(instance => `
+                <tr>
+                    <td class="print-url">${instance.page_url || 'URL not available'}</td>
+                    <td style="text-align: center;">
+                        ☐ Pass<br>
+                        ☐ Fail<br>
+                        ☐ Review<br>
+                        ☐ N/A
+                    </td>
+                    <td>
+                        <div class="print-test-notes"></div>
+                    </td>
+                </tr>
+                `).join('')}
+            </tbody>
+        </table>
+        ` : '<div class="print-section-content">No test instances found for this requirement.</div>'}
+    </div>
+
+    <div class="print-section">
+        <div class="print-section-title">Testing Checklist</div>
+        <div class="print-checklist">
+            <div class="print-checklist-item">
+                <div class="print-checkbox"></div>
+                <div class="print-checklist-content">
+                    <strong>Review requirement details and understand acceptance criteria</strong>
+                </div>
+            </div>
+            <div class="print-checklist-item">
+                <div class="print-checkbox"></div>
+                <div class="print-checklist-content">
+                    <strong>Test each page listed above using the specified test method</strong>
+                </div>
+            </div>
+            <div class="print-checklist-item">
+                <div class="print-checkbox"></div>
+                <div class="print-checklist-content">
+                    <strong>Document findings and evidence for each test instance</strong>
+                </div>
+            </div>
+            <div class="print-checklist-item">
+                <div class="print-checkbox"></div>
+                <div class="print-checklist-content">
+                    <strong>Update status in testing platform with results and notes</strong>
+                </div>
+            </div>
+            <div class="print-checklist-item">
+                <div class="print-checkbox"></div>
+                <div class="print-checklist-content">
+                    <strong>Review and validate findings before marking as complete</strong>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="print-section">
+        <div class="print-section-title">General Testing Notes</div>
+        <div class="print-notes" style="min-height: 150px;"></div>
+    </div>
+
+    <div class="print-footer">
+        <p>WCAG ${requirement.criterion_number} Testing Documentation | Generated ${reportDate}</p>
+        <p>This document is for manual testing purposes and should be used alongside automated testing tools.</p>
+    </div>
+</body>
+</html>`;
+            
+            printDoc.write(printContent);
+            printDoc.close();
+            
+            // Focus the print window and trigger print
+            printWindow.focus();
+            setTimeout(() => {
+                printWindow.print();
+                // Note: We don't close the window automatically to allow user to save as PDF
+            }, 250);
+            
+            this.showNotification('success', 'Print Ready', 'Testing documentation opened in new window. You can print or save as PDF.');
+        },
+
+        generatePDFWithPdfLib: async function() {
+            if (!this.currentRequirement) {
+                this.showNotification('No requirement selected', 'error');
+                return;
+            }
+
+            const requirement = this.currentRequirement;
+            const testInstances = this.getRequirementTestInstances(requirement.criterion_number);
+
+            try {
+                // Create a new PDF document using pdf-lib
+                const pdfDoc = await PDFLib.PDFDocument.create();
+                
+                // Add a page
+                let page = pdfDoc.addPage();
+                let { width, height } = page.getSize();
+                const font = await pdfDoc.embedFont(PDFLib.StandardFonts.Helvetica);
+                const boldFont = await pdfDoc.embedFont(PDFLib.StandardFonts.HelveticaBold);
+                
+                // Get the form
+                const form = pdfDoc.getForm();
+                
+                let yPosition = height - 50;
+                const margin = 50;
+                const lineHeight = 20;
+                
+                // Title
+                page.drawText(`WCAG ${requirement.criterion_number}: ${requirement.title}`, {
+                    x: margin,
+                    y: yPosition,
+                    size: 16,
+                    font: boldFont,
+                });
+                yPosition -= 30;
+                
+                // Subtitle - Accessibility Testing Documentation
+                page.drawText('Accessibility Testing Documentation', {
+                    x: margin,
+                    y: yPosition,
+                    size: 12,
+                    font: font,
+                });
+                yPosition -= 30;
+                
+                // Requirement Description Section
+                page.drawText('Requirement Description', {
+                    x: margin,
+                    y: yPosition,
+                    size: 12,
+                    font: boldFont,
+                });
+                yPosition -= 15;
+                
+                // Add horizontal line under section header
+                page.drawLine({
+                    start: { x: margin, y: yPosition },
+                    end: { x: width - margin, y: yPosition },
+                    thickness: 1,
+                    color: PDFLib.rgb(0, 0, 0),
+                });
+                yPosition -= 8;
+                
+                const description = requirement.description || 'Description not available';
+                const descriptionLines = this.splitTextToFitWidth(description, 500, 10);
+                descriptionLines.forEach(line => {
+                    page.drawText(line, {
+                        x: margin,
+                        y: yPosition,
+                        size: 10,
+                        font: font,
+                    });
+                    yPosition -= 14;
+                });
+                yPosition -= 20;
+                
+                // Testing Instructions Section
+                page.drawText('Testing Instructions', {
+                    x: margin,
+                    y: yPosition,
+                    size: 12,
+                    font: boldFont,
+                });
+                yPosition -= 15;
+                
+                // Add horizontal line
+                page.drawLine({
+                    start: { x: margin, y: yPosition },
+                    end: { x: width - margin, y: yPosition },
+                    thickness: 1,
+                    color: PDFLib.rgb(0, 0, 0),
+                });
+                yPosition -= 8;
+                
+                const instructions = requirement.testing_instructions || 'Testing instructions not available';
+                const instructionLines = this.splitTextToFitWidth(instructions, 500, 10);
+                instructionLines.forEach(line => {
+                    page.drawText(line, {
+                        x: margin,
+                        y: yPosition,
+                        size: 10,
+                        font: font,
+                    });
+                    yPosition -= 14;
+                });
+                yPosition -= 20;
+                
+                // Acceptance Criteria Section
+                page.drawText('Acceptance Criteria', {
+                    x: margin,
+                    y: yPosition,
+                    size: 12,
+                    font: boldFont,
+                });
+                yPosition -= 15;
+                
+                // Add horizontal line
+                page.drawLine({
+                    start: { x: margin, y: yPosition },
+                    end: { x: width - margin, y: yPosition },
+                    thickness: 1,
+                    color: PDFLib.rgb(0, 0, 0),
+                });
+                yPosition -= 8;
+                
+                const acceptance = requirement.acceptance_criteria || 'Acceptance criteria not available';
+                const acceptanceLines = this.splitTextToFitWidth(acceptance, 500, 10);
+                acceptanceLines.forEach(line => {
+                    page.drawText(line, {
+                        x: margin,
+                        y: yPosition,
+                        size: 10,
+                        font: font,
+                    });
+                    yPosition -= 14;
+                });
+                yPosition -= 20;
+                
+                // Common Failure Examples Section
+                page.drawText('Common Failure Examples', {
+                    x: margin,
+                    y: yPosition,
+                    size: 12,
+                    font: boldFont,
+                });
+                yPosition -= 15;
+                
+                // Add horizontal line
+                page.drawLine({
+                    start: { x: margin, y: yPosition },
+                    end: { x: width - margin, y: yPosition },
+                    thickness: 1,
+                    color: PDFLib.rgb(0, 0, 0),
+                });
+                yPosition -= 8;
+                
+                const failures = requirement.common_failures || 'Common failure examples not available';
+                const failureLines = this.splitTextToFitWidth(failures, 500, 10);
+                failureLines.forEach(line => {
+                    page.drawText(line, {
+                        x: margin,
+                        y: yPosition,
+                        size: 10,
+                        font: font,
+                    });
+                    yPosition -= 14;
+                });
+                yPosition -= 20;
+                
+                // WCAG Documentation Section
+                page.drawText('WCAG Documentation', {
+                    x: margin,
+                    y: yPosition,
+                    size: 12,
+                    font: boldFont,
+                });
+                yPosition -= 15;
+                
+                // Add horizontal line
+                page.drawLine({
+                    start: { x: margin, y: yPosition },
+                    end: { x: width - margin, y: yPosition },
+                    thickness: 1,
+                    color: PDFLib.rgb(0, 0, 0),
+                });
+                yPosition -= 8;
+                
+                const wcagUrl = requirement.wcag_url || 'https://www.w3.org/WAI/WCAG21/Understanding/';
+                page.drawText(wcagUrl, {
+                    x: margin,
+                    y: yPosition,
+                    size: 10,
+                    font: font,
+                    color: PDFLib.rgb(0, 0, 1), // Blue for URL
+                });
+                yPosition -= 25;
+                
+                // Test Instances
+                page.drawText(`Test Instances (${testInstances.length} pages to test)`, {
+                    x: margin,
+                    y: yPosition,
+                    size: 12,
+                    font: boldFont,
+                });
+                yPosition -= 25; // More space after section header
+                
+                // Create checkboxes for each test instance
+                testInstances.forEach((instance, index) => {
+                    // Check if we need a new page (need at least 120 points for a test instance)
+                    if (yPosition < 120) {
+                        page = pdfDoc.addPage();
+                        const { width: pageWidth, height: pageHeight } = page.getSize();
+                        width = pageWidth; // Update width reference
+                        height = pageHeight; // Update height reference
+                        yPosition = pageHeight - 50; // Reset position for new page
+                        
+                        // Add page header
+                        page.drawText(`WCAG ${requirement.criterion_number}: ${requirement.title} (continued)`, {
+                            x: margin,
+                            y: yPosition,
+                            size: 14,
+                            font: boldFont,
+                        });
+                        yPosition -= 30;
+                    }
+                    
+                    // Test Instance Header
+                    page.drawText(`Test Instance ${index + 1}`, {
+                        x: margin,
+                        y: yPosition,
+                        size: 11,
+                        font: boldFont,
+                    });
+                    yPosition -= 18; // More space after header
+                    
+                    // URL
+                    page.drawText('URL:', {
+                        x: margin,
+                        y: yPosition,
+                        size: 10,
+                        font: boldFont,
+                    });
+                    yPosition -= 14; // More space after URL label
+                    
+                    const url = instance.page_url || 'URL not available';
+                    page.drawText(url.substring(0, 80), { // Truncate long URLs
+                        x: margin + 5,
+                        y: yPosition,
+                        size: 9,
+                        font: font,
+                        color: PDFLib.rgb(0, 0, 1), // Blue color for URL
+                    });
+                    yPosition -= 25; // More space after URL
+                    
+                    // Test Result with properly sized checkboxes
+                    page.drawText('Test Result:', {
+                        x: margin,
+                        y: yPosition,
+                        size: 10,
+                        font: boldFont,
+                    });
+                    yPosition -= 25; // More space before checkboxes to avoid overlap
+                    
+                    const statusOptions = ['Pass', 'Fail', 'Needs Review', 'Not Applicable'];
+                    const checkboxSize = 18; // 1/4 inch = 18 points
+                    const labelSpacing = 120; // Space between options
+                    
+                    statusOptions.forEach((option, optIndex) => {
+                        const xPos = margin + (optIndex * labelSpacing);
+                        
+                        // Create checkbox with pdf-lib - this should give us proper control!
+                        const checkbox = form.createCheckBox(`status_${index}_${option.toLowerCase().replace(' ', '_')}`);
+                        checkbox.addToPage(page, {
+                            x: xPos,
+                            y: yPosition,
+                            width: checkboxSize,
+                            height: checkboxSize,
+                        });
+                        
+                        // Add label below checkbox with more space
+                        page.drawText(option, {
+                            x: xPos,
+                            y: yPosition - 20,
+                            size: 9,
+                            font: font,
+                        });
+                    });
+                    yPosition -= 45; // More space after checkboxes and labels
+                    
+                    // Testing Notes
+                    page.drawText('Testing Notes:', {
+                        x: margin,
+                        y: yPosition,
+                        size: 10,
+                        font: boldFont,
+                    });
+                    yPosition -= 18; // More space before notes box
+                    
+                    // Create text field for notes
+                    const textField = form.createTextField(`notes_${index}`);
+                    textField.addToPage(page, {
+                        x: margin,
+                        y: yPosition - 40,
+                        width: 500,
+                        height: 35,  // Slightly smaller to avoid overlap
+                    });
+                    textField.enableMultiline();
+                    textField.setFontSize(8);  // Smaller font size for more text
+                    
+                    // Pre-fill with existing notes if any
+                    if (instance.notes) {
+                        textField.setText(instance.notes);
+                    }
+                    
+                    yPosition -= 60;
+                    
+                    // Separator line
+                    page.drawLine({
+                        start: { x: margin, y: yPosition },
+                        end: { x: width - margin, y: yPosition },
+                        thickness: 1,
+                        color: PDFLib.rgb(0.8, 0.8, 0.8),
+                    });
+                    yPosition -= 15;
+                });
+                
+                // Add Testing Checklist Section
+                // Check if we need a new page for the checklist
+                if (yPosition < 200) {
+                    page = pdfDoc.addPage();
+                    const { width: pageWidth, height: pageHeight } = page.getSize();
+                    width = pageWidth;
+                    height = pageHeight;
+                    yPosition = pageHeight - 50;
+                }
+                
+                yPosition -= 30; // Extra space before checklist
+                
+                // Testing Checklist Header
+                page.drawText('Testing Checklist', {
+                    x: margin,
+                    y: yPosition,
+                    size: 14,
+                    font: boldFont,
+                });
+                yPosition -= 25;
+                
+                // Checklist items
+                const checklistItems = [
+                    'Review requirement details and understand acceptance criteria',
+                    'Test each page listed above using the specified test method',
+                    'Document findings and evidence for each test instance',
+                    'Update status in testing platform with results and notes',
+                    'Review and validate findings before marking as complete'
+                ];
+                
+                checklistItems.forEach((item, index) => {
+                    // Create checklist items with proper interactive area
+                    const checklistFieldName = `checklist_${index}`;
+                    const visualCheckboxSize = 8; // Small visual box
+                    const interactiveAreaSize = 12; // Larger interactive area for checklist
+                    
+                    // Draw a simple checkbox rectangle
+                    page.drawRectangle({
+                        x: margin,
+                        y: yPosition - 2,
+                        width: 10,
+                        height: 10,
+                        borderColor: PDFLib.rgb(0, 0, 0),
+                        borderWidth: 1,
+                    });
+                    
+                    // Add interactive checkbox with larger clickable area
+                    try {
+                        const checkbox = form.createCheckBox(checklistFieldName);
+                        checkbox.addToPage(page, {
+                            x: margin,
+                            y: yPosition - 2,
+                            width: interactiveAreaSize,
+                            height: interactiveAreaSize,
+                        });
+                    } catch (e) {
+                        // Visual checkbox already drawn above as fallback
+                    }
+                    
+                    // Add the checklist item text
+                    const itemLines = this.splitTextToFitWidth(item, 480, 10);
+                    itemLines.forEach((line, lineIndex) => {
+                        page.drawText(line, {
+                            x: margin + 15,
+                            y: yPosition - (lineIndex * 12),
+                            size: 10,
+                            font: font,
+                        });
+                    });
+                    yPosition -= Math.max(itemLines.length * 12, 15) + 8;
+                });
+                
+                yPosition -= 20;
+                
+                // General Testing Notes Section
+                page.drawText('General Testing Notes', {
+                    x: margin,
+                    y: yPosition,
+                    size: 14,
+                    font: boldFont,
+                });
+                yPosition -= 20;
+                
+                // Create large text field for general notes
+                const generalNotesHeight = 80;
+                
+                // Draw a border for the notes area
+                page.drawRectangle({
+                    x: margin,
+                    y: yPosition - generalNotesHeight,
+                    width: width - (margin * 2),
+                    height: generalNotesHeight,
+                    borderColor: PDFLib.rgb(0, 0, 0),
+                    borderWidth: 1,
+                });
+                
+                // Add some light guide lines for writing
+                for (let i = 1; i <= 6; i++) {
+                    const lineY = yPosition - (i * 12);
+                    page.drawLine({
+                        start: { x: margin + 5, y: lineY },
+                        end: { x: width - margin - 5, y: lineY },
+                        thickness: 0.3,
+                        color: PDFLib.rgb(0.9, 0.9, 0.9),
+                    });
+                }
+                
+                // Add interactive text field for general notes
+                try {
+                    const generalNotesField = form.createTextField('general_testing_notes');
+                    generalNotesField.addToPage(page, {
+                        x: margin,
+                        y: yPosition - generalNotesHeight,
+                        width: width - (margin * 2),
+                        height: generalNotesHeight,
+                    });
+                    generalNotesField.enableMultiline();
+                    generalNotesField.setFontSize(9);
+                } catch (e) {
+                    // Notes area already drawn above as fallback
+                }
+                
+                yPosition -= generalNotesHeight + 40;
+                
+                // Add document footer
+                const footerText = `WCAG ${requirement.criterion_number} Testing Documentation | Generated ${new Date().toLocaleDateString('en-US', { 
+                    weekday: 'long', 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                })}`;
+                
+                page.drawText(footerText, {
+                    x: margin,
+                    y: yPosition,
+                    size: 9,
+                    font: font,
+                    color: PDFLib.rgb(0.5, 0.5, 0.5), // Gray color
+                });
+                yPosition -= 15;
+                
+                const disclaimerText = 'This document is for manual testing purposes and should be used alongside automated testing tools.';
+                page.drawText(disclaimerText, {
+                    x: margin,
+                    y: yPosition,
+                    size: 8,
+                    font: font,
+                    color: PDFLib.rgb(0.5, 0.5, 0.5), // Gray color
+                });
+                
+                // Generate PDF bytes
+                const pdfBytes = await pdfDoc.save();
+                
+                // Create blob and download
+                const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `WCAG_${requirement.criterion_number}_Testing_Form_pdf-lib.pdf`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+                
+                this.showNotification('PDF generated successfully with pdf-lib!', 'success');
+                
+            } catch (error) {
+                console.error('Error generating PDF with pdf-lib:', error);
+                this.showNotification('Error generating PDF: ' + error.message, 'error');
+            }
+        },
+
+        splitTextToFitWidth: function(text, maxWidth, fontSize) {
+            // Clean up the text first - remove extra spaces and normalize
+            const cleanText = text.replace(/\s+/g, ' ').trim();
+            const words = cleanText.split(' ');
+            const lines = [];
+            let currentLine = '';
+            
+            words.forEach(word => {
+                const testLine = currentLine + (currentLine ? ' ' : '') + word;
+                // More accurate estimation: each character is about fontSize * 0.55 points wide
+                const estimatedWidth = testLine.length * fontSize * 0.55;
+                
+                if (estimatedWidth > maxWidth && currentLine) {
+                    lines.push(currentLine);
+                    currentLine = word;
+                } else {
+                    currentLine = testLine;
+                }
+            });
+            
+            if (currentLine) {
+                lines.push(currentLine);
+            }
+            
+            return lines;
+        },
+
+        generateInteractivePDF: function() {
+            if (!this.currentRequirement) return;
+            
+            const requirement = this.currentRequirement;
+            const testInstances = this.getRequirementTestInstances(requirement.criterion_number);
+            
+            try {
+                // Initialize jsPDF
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF('p', 'mm', 'a4');
+                
+                // Set global default appearance for checkboxes
+                try {
+                    doc.internal.acroform.DA = '/ZaDb 16 Tf 0 g'; // ZapfDingbats 16pt black
+                } catch (e) {
+                    console.log('Could not set global DA:', e);
+                }
+                
+                // Set up document properties
+                doc.setProperties({
+                    title: `WCAG ${requirement.criterion_number} - ${requirement.title}`,
+                    subject: 'Accessibility Testing Documentation',
+                    author: 'Accessibility Testing Platform',
+                    creator: 'VPAT Report Generator'
+                });
+                
+                // Get current date
+                const reportDate = new Date().toLocaleDateString('en-US', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                });
+                
+                let yPosition = 20;
+                const pageWidth = 210;
+                const margin = 20;
+                const contentWidth = pageWidth - (margin * 2);
+                
+                // Header section
+                doc.setFontSize(18);
+                doc.setFont('helvetica', 'bold');
+                doc.text(`WCAG ${requirement.criterion_number}: ${requirement.title}`, margin, yPosition);
+                yPosition += 10;
+                
+                doc.setFontSize(14);
+                doc.setFont('helvetica', 'normal');
+                doc.text('Accessibility Testing Documentation', margin, yPosition);
+                yPosition += 8;
+                
+                doc.setFontSize(10);
+                doc.text(`Level: ${requirement.level?.toUpperCase() || 'N/A'} | Test Method: ${(requirement.test_method || 'manual').charAt(0).toUpperCase() + (requirement.test_method || 'manual').slice(1)}`, margin, yPosition);
+                yPosition += 4;
+                doc.text(`Priority: ${requirement.priority === 1 ? 'High' : requirement.priority === 2 ? 'Medium' : 'Low'} | Estimated Time: ${requirement.estimated_time_minutes ? requirement.estimated_time_minutes + ' minutes' : 'Not specified'}`, margin, yPosition);
+                yPosition += 4;
+                doc.text(`Report Generated: ${reportDate}`, margin, yPosition);
+                yPosition += 8;
+                
+                // Add line separator
+                doc.setDrawColor(0, 0, 0);
+                doc.line(margin, yPosition, pageWidth - margin, yPosition);
+                yPosition += 10;
+                
+                // Requirement Description
+                doc.setFontSize(12);
+                doc.setFont('helvetica', 'bold');
+                doc.text('Requirement Description', margin, yPosition);
+                yPosition += 6;
+                
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(10);
+                const descriptionText = requirement.description || 'No description available';
+                const descriptionLines = doc.splitTextToSize(descriptionText, contentWidth);
+                doc.text(descriptionLines, margin, yPosition);
+                yPosition += descriptionLines.length * 4 + 8;
+                
+                // Testing Instructions (if available)
+                if (requirement.testing_instructions) {
+                    doc.setFontSize(12);
+                    doc.setFont('helvetica', 'bold');
+                    doc.text('Testing Instructions', margin, yPosition);
+                    yPosition += 6;
+                    
+                    doc.setFont('helvetica', 'normal');
+                    doc.setFontSize(10);
+                    const instructionsLines = doc.splitTextToSize(requirement.testing_instructions, contentWidth);
+                    doc.text(instructionsLines, margin, yPosition);
+                    yPosition += instructionsLines.length * 4 + 8;
+                }
+                
+                // Acceptance Criteria (if available)
+                if (requirement.acceptance_criteria) {
+                    doc.setFontSize(12);
+                    doc.setFont('helvetica', 'bold');
+                    doc.text('Acceptance Criteria', margin, yPosition);
+                    yPosition += 6;
+                    
+                    doc.setFont('helvetica', 'normal');
+                    doc.setFontSize(10);
+                    const criteriaLines = doc.splitTextToSize(requirement.acceptance_criteria, contentWidth);
+                    doc.text(criteriaLines, margin, yPosition);
+                    yPosition += criteriaLines.length * 4 + 8;
+                }
+                
+                // WCAG Documentation (if available)
+                if (requirement.wcag_url) {
+                    doc.setFontSize(12);
+                    doc.setFont('helvetica', 'bold');
+                    doc.text('WCAG Documentation', margin, yPosition);
+                    yPosition += 6;
+                    
+                    doc.setFont('helvetica', 'normal');
+                    doc.setFontSize(10);
+                    doc.setTextColor(0, 0, 255); // Blue color for link
+                    doc.textWithLink(requirement.wcag_url, margin, yPosition, { url: requirement.wcag_url });
+                    doc.setTextColor(0, 0, 0); // Reset to black
+                    yPosition += 8;
+                }
+                
+                // Check if we need a new page for test instances
+                if (yPosition > 200) {
+                    doc.addPage();
+                    yPosition = 20;
+                }
+                
+                // Test Instances Section
+                doc.setFontSize(12);
+                doc.setFont('helvetica', 'bold');
+                doc.text(`Test Instances (${testInstances.length} pages to test)`, margin, yPosition);
+                yPosition += 8;
+                
+                if (testInstances.length > 0) {
+                    // Create clean, professional test instances layout
+                    testInstances.forEach((instance, index) => {
+                        // Check if we need a new page
+                        if (yPosition > 240) {
+                            doc.addPage();
+                            yPosition = 20;
+                        }
+                        
+                        // URL Header with better styling
+                        doc.setFontSize(11);
+                        doc.setFont('helvetica', 'bold');
+                        doc.setFillColor(240, 240, 240);
+                        doc.rect(margin, yPosition - 2, contentWidth, 8, 'F');
+                        doc.text(`Test Instance ${index + 1}`, margin + 2, yPosition + 3);
+                        yPosition += 10;
+                        
+                        // URL section with better formatting
+                        doc.setFontSize(9);
+                        doc.setFont('helvetica', 'bold');
+                        doc.text('URL:', margin, yPosition);
+                        yPosition += 4;
+                        
+                        doc.setFont('helvetica', 'normal');
+                        doc.setTextColor(0, 0, 255);
+                        const url = instance.page_url || 'URL not available';
+                        const urlLines = doc.splitTextToSize(url, contentWidth - 10);
+                        
+                        // Make URL clickable if it's a valid URL
+                        if (url.startsWith('http')) {
+                            urlLines.forEach((line, lineIndex) => {
+                                if (lineIndex === 0) {
+                                    doc.textWithLink(line, margin + 5, yPosition, { url: url });
+                                } else {
+                                    doc.text(line, margin + 5, yPosition);
+                                }
+                                yPosition += 3.5;
+                            });
+                        } else {
+                            doc.text(urlLines, margin + 5, yPosition);
+                            yPosition += urlLines.length * 3.5;
+                        }
+                        doc.setTextColor(0, 0, 0);
+                        yPosition += 5;
+                        
+                        // Status section with horizontal layout and proper interactive area
+                        doc.setFont('helvetica', 'bold');
+                        doc.setFontSize(9);
+                        doc.text('Test Result:', margin, yPosition);
+                        yPosition += 6;
+                        
+                        const statusOptions = [
+                            { label: 'Pass', value: 'passed' },
+                            { label: 'Fail', value: 'failed' },
+                            { label: 'Needs Review', value: 'review' },
+                            { label: 'Not Applicable', value: 'na' }
+                        ];
+                        
+                        // Create horizontal layout with proper spacing
+                        const visualCheckboxSize = 8; // Small visual box
+                        const interactiveAreaSize = 18; // 1/4 inch interactive area
+                        const colWidth = contentWidth / 4;
+                        
+                        statusOptions.forEach((option, optIndex) => {
+                            const xPos = margin + (optIndex * colWidth);
+                            
+                            // Draw a small visual checkbox
+                            doc.setDrawColor(0, 0, 0);
+                            doc.setLineWidth(0.5);
+                            doc.rect(xPos, yPosition, visualCheckboxSize, visualCheckboxSize, 'S'); // Just stroke, no fill
+                            
+                            // Add interactive checkbox with larger area (1/4 inch)
+                            const fieldName = `status_${index}_${option.value}`;
+                            try {
+                                const checkbox = new doc.AcroFormCheckBox();
+                                checkbox.fieldName = fieldName;
+                                checkbox.Rect = [xPos, yPosition, xPos + interactiveAreaSize, yPosition + interactiveAreaSize];
+                                checkbox.value = 'Off';
+                                checkbox.appearanceState = 'Off';
+                                
+                                doc.addField(checkbox);
+                            } catch (e) {
+                                console.log(`Error creating checkbox ${fieldName}:`, e);
+                                // Visual checkbox already drawn above as fallback
+                            }
+                            
+                            // Add label below the visual checkbox
+                            doc.setFont('helvetica', 'normal');
+                            doc.setFontSize(8);
+                            doc.text(option.label, xPos, yPosition + interactiveAreaSize + 4);
+                        });
+                        yPosition += interactiveAreaSize + 10; // Space for interactive area + label + padding
+                        
+                        // Notes section - simple and clean
+                        doc.setFont('helvetica', 'bold');
+                        doc.setFontSize(9);
+                        doc.text('Testing Notes:', margin, yPosition);
+                        yPosition += 5;
+                        
+                        // Create a simple bordered notes area
+                        const notesHeight = 25;
+                        doc.setDrawColor(0, 0, 0);
+                        doc.setLineWidth(0.5);
+                        doc.rect(margin, yPosition, contentWidth, notesHeight, 'S'); // Just stroke outline
+                        
+                        // Add some light guide lines for writing
+                        doc.setDrawColor(220, 220, 220);
+                        doc.setLineWidth(0.2);
+                        for (let i = 1; i <= 4; i++) {
+                            const lineY = yPosition + (i * 5);
+                            doc.line(margin + 2, lineY, margin + contentWidth - 2, lineY);
+                        }
+                        
+                        // Add interactive text field for notes
+                        const notesFieldName = `notes_${index}`;
+                        try {
+                            const textField = new doc.AcroFormTextField();
+                            textField.fieldName = notesFieldName;
+                            textField.Rect = [margin, yPosition, margin + contentWidth, yPosition + notesHeight];
+                            textField.multiline = true;
+                            textField.strokeColor = [0, 0, 0];
+                            textField.backgroundColor = [1, 1, 1]; // White background
+                            
+                            // Pre-fill with existing notes if any
+                            if (instance.notes) {
+                                textField.value = instance.notes;
+                            }
+                            
+                            doc.addField(textField);
+                        } catch (e) {
+                            // Add existing notes as text if any
+                            if (instance.notes) {
+                                doc.setFontSize(8);
+                                doc.setFont('helvetica', 'normal');
+                                doc.setDrawColor(0, 0, 0);
+                                const noteLines = doc.splitTextToSize(instance.notes, contentWidth - 6);
+                                doc.text(noteLines.slice(0, 4), margin + 3, yPosition + 4);
+                            }
+                        }
+                        
+                        yPosition += notesHeight + 8;
+                        
+                        // Add a clean separator line
+                        doc.setDrawColor(150, 150, 150);
+                        doc.setLineWidth(0.5);
+                        doc.line(margin, yPosition, pageWidth - margin, yPosition);
+                        yPosition += 10;
+                    });
+                } else {
+                    doc.setFont('helvetica', 'normal');
+                    doc.setFontSize(10);
+                    doc.text('No test instances found for this requirement.', margin, yPosition);
+                    yPosition += 10;
+                }
+                
+                // Add new page for checklist if needed
+                if (yPosition > 200) {
+                    doc.addPage();
+                    yPosition = 20;
+                }
+                
+                // Testing Checklist
+                doc.setFontSize(12);
+                doc.setFont('helvetica', 'bold');
+                doc.text('Testing Checklist', margin, yPosition);
+                yPosition += 8;
+                
+                const checklistItems = [
+                    'Review requirement details and understand acceptance criteria',
+                    'Test each page listed above using the specified test method',
+                    'Document findings and evidence for each test instance',
+                    'Update status in testing platform with results and notes',
+                    'Review and validate findings before marking as complete'
+                ];
+                
+                checklistItems.forEach((item, index) => {
+                    // Create checklist items with proper interactive area
+                    const checklistFieldName = `checklist_${index}`;
+                    const visualCheckboxSize = 8; // Small visual box
+                    const interactiveAreaSize = 12; // Larger interactive area for checklist
+                    
+                    // Draw a small visual checkbox
+                    doc.setDrawColor(0, 0, 0);
+                    doc.setLineWidth(0.5);
+                    doc.rect(margin, yPosition, visualCheckboxSize, visualCheckboxSize, 'S'); // Just stroke, no fill
+                    
+                    // Add interactive checkbox with larger clickable area
+                    try {
+                        const checkbox = new doc.AcroFormCheckBox();
+                        checkbox.fieldName = checklistFieldName;
+                        checkbox.Rect = [margin, yPosition, margin + interactiveAreaSize, yPosition + interactiveAreaSize];
+                        checkbox.value = 'Off';
+                        checkbox.appearanceState = 'Off';
+                        
+                        doc.addField(checkbox);
+                    } catch (e) {
+                        console.log(`Error creating checklist checkbox ${checklistFieldName}:`, e);
+                        // Visual checkbox already drawn above as fallback
+                    }
+                    
+                    // Add the checklist item text
+                    doc.setFont('helvetica', 'normal');
+                    doc.setFontSize(9);
+                    const itemLines = doc.splitTextToSize(item, contentWidth - 20);
+                    doc.text(itemLines, margin + interactiveAreaSize + 2, yPosition + (interactiveAreaSize / 2) + 1);
+                    yPosition += Math.max(itemLines.length * 4, interactiveAreaSize + 2) + 2;
+                });
+                
+                yPosition += 5;
+                
+                // General Notes Section with professional styling
+                doc.setFontSize(12);
+                doc.setFont('helvetica', 'bold');
+                doc.text('General Testing Notes', margin, yPosition);
+                yPosition += 8;
+                
+                // Create a professional notes area
+                const generalNotesHeight = 35;
+                doc.setDrawColor(0, 0, 0);
+                doc.setFillColor(250, 250, 250);
+                doc.rect(margin, yPosition, contentWidth, generalNotesHeight, 'FD');
+                
+                // Add lines for writing
+                doc.setDrawColor(200, 200, 200);
+                doc.setLineWidth(0.3);
+                for (let i = 1; i <= 7; i++) {
+                    const lineY = yPosition + (i * 5);
+                    doc.line(margin + 2, lineY, margin + contentWidth - 2, lineY);
+                }
+                
+                // Add interactive text field for general notes
+                try {
+                    const generalNotesField = new doc.AcroFormTextField();
+                    generalNotesField.fieldName = 'general_notes';
+                    generalNotesField.Rect = [margin, yPosition, margin + contentWidth, yPosition + generalNotesHeight];
+                    generalNotesField.multiline = true;
+                    generalNotesField.strokeColor = [0, 0, 0];
+                    generalNotesField.backgroundColor = [0.98, 0.98, 0.98];
+                    doc.addField(generalNotesField);
+                } catch (e) {
+                    // Notes area already drawn above with lines
+                }
+                
+                yPosition += 45;
+                
+                // Footer
+                doc.setFontSize(8);
+                doc.setFont('helvetica', 'normal');
+                doc.text(`WCAG ${requirement.criterion_number} Testing Documentation | Generated ${reportDate}`, margin, yPosition);
+                yPosition += 3;
+                doc.text('This document contains interactive form fields. Save as PDF to preserve your inputs.', margin, yPosition);
+                
+                // Save the PDF
+                const filename = `WCAG_${requirement.criterion_number}_${requirement.title.replace(/[^a-zA-Z0-9]/g, '_')}_Testing.pdf`;
+                doc.save(filename);
+                
+                this.showNotification('success', 'Interactive PDF Generated', 'PDF with fillable form fields has been downloaded. You can save your progress directly in the PDF.');
+                
+            } catch (error) {
+                console.error('Error generating interactive PDF:', error);
+                this.showNotification('error', 'PDF Generation Failed', 'Failed to generate interactive PDF: ' + error.message);
+            }
+        },
         
         getRequirementTestInstances: function(criterionNumber) {
             if (!criterionNumber || !this.sessionDetailsTestInstances) return [];
