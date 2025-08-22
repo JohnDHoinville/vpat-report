@@ -253,6 +253,7 @@ window.dashboard = function() {
         showRequirementDetailsModal: false,
         currentRequirement: null,
         loadingRequirementDetails: false,
+        updatingStatus: null, // Track which instance is being updated
         allRequirements: [],
         sessionRequirements: [],
         filteredRequirements: [],
@@ -1152,6 +1153,36 @@ window.dashboard = function() {
         closeRequirementDetailsModal: function() {
             this.showRequirementDetailsModal = false;
             this.currentRequirement = null;
+        },
+
+        // Update test instance status from requirement details modal
+        updateInstanceStatus: async function(instanceId, newStatus) {
+            try {
+                // Set loading state for this specific instance
+                this.updatingStatus = instanceId;
+                
+                // Call the existing updateTestInstanceStatus function
+                await this.updateTestInstanceStatus(instanceId, newStatus);
+                
+                // Update the local instance data immediately for UI responsiveness
+                const testInstances = this.getRequirementTestInstances(this.currentRequirement?.criterion_number);
+                const instance = testInstances.find(t => t.id === instanceId);
+                if (instance) {
+                    instance.status = newStatus;
+                    instance.updated_at = new Date().toISOString();
+                }
+                
+                // Clear loading state
+                this.updatingStatus = null;
+                
+                this.showNotification('success', 'Status Updated', 
+                    `Test instance status updated to ${newStatus.replace('_', ' ')}`);
+                
+            } catch (error) {
+                console.error('Error updating instance status from requirement modal:', error);
+                this.updatingStatus = null;
+                this.showNotification('error', 'Update Failed', error.message);
+            }
         },
         
         copyRequirementToClipboard: function() {

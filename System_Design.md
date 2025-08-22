@@ -55,5 +55,13 @@ node api/server.js | cat
   - `components/session-details-modal.html`
   - `dashboard/components/session-details-modal.html`
 
+### Interactive Status Updates
+
+- Test Instance & URLs panel has interactive radio button groups for status updates
+- Status options: Pending, In Progress, Passed, Failed, Needs Review, Not Applicable
+- Real-time API calls via existing `updateTestInstanceStatus()` function
+- Visual feedback: loading spinners, color-coded statuses, success notifications
+- Single-selection enforcement via radio button groups (one status per instance)
+
 
 

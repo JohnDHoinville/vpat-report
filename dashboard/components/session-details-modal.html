@@ -2004,11 +2004,94 @@
                                     <span class="text-sm font-medium text-gray-900">Test Instances</span>
                                     <span class="text-xs text-teal-600 bg-teal-100 px-2 py-1 rounded-full" x-text="getRequirementTestInstances(currentRequirement?.criterion_number)?.length || 0 + ' instances'"></span>
                                 </div>
-                                <div x-show="getRequirementTestInstances(currentRequirement?.criterion_number)?.length > 0" class="space-y-2">
+                                <div x-show="getRequirementTestInstances(currentRequirement?.criterion_number)?.length > 0" class="space-y-4">
                                     <template x-for="instance in getRequirementTestInstances(currentRequirement?.criterion_number)" :key="instance.id">
-                                        <div class="text-xs text-gray-600 p-2 bg-gray-50 rounded border">
-                                            <div class="font-medium" x-text="instance.page_url || 'Site-wide test (all applicable pages)'"></div>
-                                            <div class="text-gray-500" x-text="'Status: ' + (instance.status || 'Not tested')"></div>
+                                        <div class="bg-white border border-teal-200 rounded-lg p-4 shadow-sm">
+                                            <div class="font-medium text-gray-900 mb-3" x-text="instance.page_url || 'Site-wide test (all applicable pages)'"></div>
+                                            
+                                            <!-- Status Radio Button Group -->
+                                            <div class="space-y-2">
+                                                <div class="text-xs font-medium text-gray-600 mb-2">Status:</div>
+                                                <div class="grid grid-cols-3 gap-2">
+                                                    <!-- Pending -->
+                                                    <label class="flex items-center p-2 rounded border cursor-pointer hover:bg-gray-50" 
+                                                           :class="instance.status === 'pending' ? 'bg-gray-100 border-gray-400' : 'border-gray-200'">
+                                                        <input type="radio" 
+                                                               :name="'status_' + instance.id" 
+                                                               value="pending"
+                                                               :checked="instance.status === 'pending'"
+                                                               @change="updateInstanceStatus(instance.id, 'pending')"
+                                                               class="mr-2 text-gray-600">
+                                                        <span class="text-xs">⏳ Pending</span>
+                                                    </label>
+                                                    
+                                                    <!-- In Progress -->
+                                                    <label class="flex items-center p-2 rounded border cursor-pointer hover:bg-blue-50" 
+                                                           :class="instance.status === 'in_progress' ? 'bg-blue-100 border-blue-400' : 'border-gray-200'">
+                                                        <input type="radio" 
+                                                               :name="'status_' + instance.id" 
+                                                               value="in_progress"
+                                                               :checked="instance.status === 'in_progress'"
+                                                               @change="updateInstanceStatus(instance.id, 'in_progress')"
+                                                               class="mr-2 text-blue-600">
+                                                        <span class="text-xs">🔄 In Progress</span>
+                                                    </label>
+                                                    
+                                                    <!-- Passed -->
+                                                    <label class="flex items-center p-2 rounded border cursor-pointer hover:bg-green-50" 
+                                                           :class="instance.status === 'passed' ? 'bg-green-100 border-green-400' : 'border-gray-200'">
+                                                        <input type="radio" 
+                                                               :name="'status_' + instance.id" 
+                                                               value="passed"
+                                                               :checked="instance.status === 'passed'"
+                                                               @change="updateInstanceStatus(instance.id, 'passed')"
+                                                               class="mr-2 text-green-600">
+                                                        <span class="text-xs">✅ Passed</span>
+                                                    </label>
+                                                    
+                                                    <!-- Failed -->
+                                                    <label class="flex items-center p-2 rounded border cursor-pointer hover:bg-red-50" 
+                                                           :class="instance.status === 'failed' ? 'bg-red-100 border-red-400' : 'border-gray-200'">
+                                                        <input type="radio" 
+                                                               :name="'status_' + instance.id" 
+                                                               value="failed"
+                                                               :checked="instance.status === 'failed'"
+                                                               @change="updateInstanceStatus(instance.id, 'failed')"
+                                                               class="mr-2 text-red-600">
+                                                        <span class="text-xs">❌ Failed</span>
+                                                    </label>
+                                                    
+                                                    <!-- Needs Review -->
+                                                    <label class="flex items-center p-2 rounded border cursor-pointer hover:bg-yellow-50" 
+                                                           :class="instance.status === 'needs_review' ? 'bg-yellow-100 border-yellow-400' : 'border-gray-200'">
+                                                        <input type="radio" 
+                                                               :name="'status_' + instance.id" 
+                                                               value="needs_review"
+                                                               :checked="instance.status === 'needs_review'"
+                                                               @change="updateInstanceStatus(instance.id, 'needs_review')"
+                                                               class="mr-2 text-yellow-600">
+                                                        <span class="text-xs">⚠️ Needs Review</span>
+                                                    </label>
+                                                    
+                                                    <!-- Not Applicable -->
+                                                    <label class="flex items-center p-2 rounded border cursor-pointer hover:bg-gray-50" 
+                                                           :class="instance.status === 'not_applicable' ? 'bg-gray-100 border-gray-400' : 'border-gray-200'">
+                                                        <input type="radio" 
+                                                               :name="'status_' + instance.id" 
+                                                               value="not_applicable"
+                                                               :checked="instance.status === 'not_applicable'"
+                                                               @change="updateInstanceStatus(instance.id, 'not_applicable')"
+                                                               class="mr-2 text-gray-600">
+                                                        <span class="text-xs">🚫 Not Applicable</span>
+                                                    </label>
+                                                </div>
+                                                
+                                                <!-- Loading indicator for this instance -->
+                                                <div x-show="updatingStatus === instance.id" class="flex items-center justify-center py-2">
+                                                    <i class="fas fa-spinner fa-spin text-blue-600 mr-2"></i>
+                                                    <span class="text-xs text-blue-600">Updating status...</span>
+                                                </div>
+                                            </div>
                                         </div>
                                     </template>
                                 </div>
