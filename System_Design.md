@@ -140,5 +140,50 @@ node api/server.js | cat
 - Applied to both `js/dashboard.js` and `dashboard/js/dashboard.js` for consistency
 - Result: Professional PDF documents with properly formatted numbered testing steps and bulleted violation examples
 
+### Manual URL Database Fix
+
+- Fixed database schema issue preventing manual URL addition to crawlers
+- Issue: `POST .../pages` returning 500 error "column 'discovered_manually' does not exist"
+- Root Cause: Frontend sending `discovered_manually: true`, API attempting INSERT, but database missing column
+- Solution: Added `discovered_manually BOOLEAN DEFAULT false` column to `crawler_discovered_pages` table
+- Migration: Created safe migration script `database/migrations/add-discovered-manually-column.sql` with existence check
+- Files: `MANUAL_URL_DATABASE_FIX.md` documents complete fix process and testing procedures
+- Result: Manual URL addition fully functional, users can add URLs to crawlers without database errors
+- Impact: Restored critical crawler functionality, enables manual page discovery workflow
+
+### Common Failures Pagination Fix
+
+- Fixed PDF pagination issue where Common Failure Examples section was getting cut off and lost in fold
+- Issue: Common Failures content appearing incomplete or missing from second page in PDF output
+- Root Cause: No page break detection before Common Failures section, content getting cut at page boundary
+- Solution: Added smart page break logic with 150px height estimation to ensure complete section appears on page 2
+- Technical: Conditional `pdfDoc.addPage()` with proper page variable updates and position reset
+- Files: Applied to both `js/dashboard.js` and `dashboard/js/dashboard.js` with `COMMON_FAILURES_PAGINATION_FIX.md` documentation
+- Result: Common Failure Examples section now displays completely on appropriate page without cutoff
+- Impact: Improved PDF quality and completeness, ensures users receive full testing guidance documentation
+
+### Crawler Runs Column Fix
+
+- Fixed database column mismatch preventing manual URL addition to crawlers
+- Issue: `POST .../pages` returning 500 error "column 'pages_found' does not exist" when adding manual URLs
+- Root Cause: API code trying to INSERT into non-existent `pages_found` column in `crawler_runs` table
+- Solution: Updated API code to use correct existing column `pages_discovered` instead of `pages_found`
+- Technical: Changed INSERT statement in `api/routes/web-crawlers.js` line 947 to use proper database schema
+- Files: `CRAWLER_RUNS_COLUMN_FIX.md` documents complete analysis and fix process
+- Result: Manual URL addition functionality fully restored without database errors
+- Impact: Users can seamlessly add manual URLs to crawlers, maintaining proper data relationships and workflow
+
+### User Management Modal Definitive Fix
+
+- Permanently resolved persistent auto-opening issue of user management modal across all scenarios
+- Issue: Modal auto-opening at inappropriate times, especially after login, despite multiple previous fix attempts
+- Root Cause: Missing `showUserManagement` sync in `syncLegacyState()` + auto-protection disabling timers
+- Solution: Nuclear auto-open prevention (blocks ALL auto-opens), manual-only state tracking, protected state sync
+- Technical: Added `_userManagementManuallyOpened` flag, removed problematic `setTimeout` protection disablers
+- Critical Fix: `syncLegacyState()` now only syncs modal state if `_userManagementManuallyOpened = true`
+- Files: `USER_MANAGEMENT_MODAL_DEFINITIVE_FIX.md` provides comprehensive analysis and implementation details
+- Result: Modal ONLY opens when explicitly requested by user action, eliminates all random popup scenarios
+- Impact: Stable, predictable user experience with no unwanted modal interruptions during normal system use
+
 
 

@@ -34,6 +34,11 @@ else
     exit 1
 fi
 
+# Sync dashboard resources
+echo "🔄 Syncing dashboard resources..."
+cd "$(dirname "$0")"
+./sync-dashboard-resources.sh
+
 # Start frontend
 echo "🌐 Starting frontend server..."
 cd "$(dirname "$0")/dashboard"

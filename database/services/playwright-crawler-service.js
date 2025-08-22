@@ -1353,7 +1353,7 @@ class PlaywrightCrawlerService {
         const client = await this.pool.connect();
         try {
             const result = await client.query(
-                'SELECT * FROM crawler_auth_sessions WHERE crawler_id = $1 AND is_active = true ORDER BY last_used_at DESC LIMIT 1',
+                'SELECT * FROM crawler_auth_sessions WHERE crawler_id = $1 AND is_active = true ORDER BY COALESCE(last_used_at, created_at) DESC NULLS LAST, created_at DESC NULLS LAST LIMIT 1',
                 [crawlerId]
             );
             

@@ -944,7 +944,7 @@ router.post('/crawlers/:crawlerId/pages', authenticateToken, async (req, res) =>
             } else {
                 // Create a special run for manual entries
                 const createRunQuery = `
-                    INSERT INTO crawler_runs (crawler_id, status, pages_found, started_at, completed_at)
+                    INSERT INTO crawler_runs (crawler_id, status, pages_discovered, started_at, completed_at)
                     VALUES ($1, 'completed', 0, NOW(), NOW())
                     RETURNING id
                 `;

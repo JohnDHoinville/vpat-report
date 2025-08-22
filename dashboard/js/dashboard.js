@@ -602,10 +602,10 @@ window.dashboard = function() {
                             </details>
                         </div>
                         
-                        ${testInstance.wcag_url || testInstance.section_508_url ? `
+                        ${testInstance.understanding_url || testInstance.wcag_url || testInstance.section_508_url ? `
                         <div class="mt-4 flex space-x-4">
-                            ${testInstance.wcag_url ? `
-                            <a href="${testInstance.wcag_url}" target="_blank" class="inline-flex items-center text-sm text-blue-600 hover:text-blue-800">
+                            ${testInstance.understanding_url || testInstance.wcag_url ? `
+                            <a href="${testInstance.understanding_url || testInstance.wcag_url}" target="_blank" class="inline-flex items-center text-sm text-blue-600 hover:text-blue-800">
                                 <i class="fas fa-external-link-alt mr-1"></i>WCAG Understanding Guide
                             </a>` : ''}
                             ${testInstance.section_508_url ? `
@@ -1278,7 +1278,7 @@ ${requirement.acceptance_criteria}
 ` : ''}${requirement.failure_examples ? `Failure Examples:
 ${requirement.failure_examples}
 
-` : ''}${requirement.wcag_url ? `WCAG Documentation: ${requirement.wcag_url}` : ''}`;
+` : ''}${requirement.understanding_url || requirement.wcag_url ? `WCAG Documentation: ${requirement.understanding_url || requirement.wcag_url}` : ''}`;
             
             navigator.clipboard.writeText(text).then(() => {
                 this.showNotification('success', 'Copied!', 'Requirement details copied to clipboard');
@@ -1461,7 +1461,12 @@ ${requirement.failure_examples}
         <div class="print-section-content">${requirement.description || 'No description available'}</div>
     </div>
 
-
+    ${requirement.testing_instructions ? `
+    <div class="print-section">
+        <div class="print-section-title">Testing Instructions</div>
+        <div class="print-section-content">${requirement.testing_instructions}</div>
+    </div>
+    ` : ''}
 
     <div class="print-section">
         <div class="print-section-title">Step-by-Step Testing Guide</div>
@@ -1487,10 +1492,10 @@ ${requirement.failure_examples}
     </div>
     ` : ''}
 
-    ${requirement.wcag_url ? `
+    ${requirement.understanding_url || requirement.wcag_url ? `
     <div class="print-section">
         <div class="print-section-title">WCAG Documentation</div>
-        <div class="print-section-content">${requirement.wcag_url}</div>
+        <div class="print-section-content">${requirement.understanding_url || requirement.wcag_url}</div>
     </div>
     ` : ''}
 
@@ -1596,6 +1601,9 @@ ${requirement.failure_examples}
                 this.showNotification('No requirement selected', 'error');
                 return;
             }
+            
+            console.log('🔍 DEBUG PDF: Full currentRequirement object =', this.currentRequirement);
+            console.log('🔍 DEBUG PDF: understanding_url field =', this.currentRequirement.understanding_url);
 
             const requirement = this.currentRequirement;
             const testInstances = this.getRequirementTestInstances(requirement.criterion_number);
@@ -1737,8 +1745,36 @@ ${requirement.failure_examples}
                 });
                 yPosition -= 20;
                 
-                // Testing Instructions section removed as requested
-
+                // Testing Instructions Section
+                page.drawText('Testing Instructions', {
+                    x: margin,
+                    y: yPosition,
+                    size: 12,
+                    font: boldFont,
+                });
+                yPosition -= 5;
+                
+                // Add horizontal line
+                page.drawLine({
+                    start: { x: margin, y: yPosition },
+                    end: { x: width - margin, y: yPosition },
+                    thickness: 1,
+                    color: PDFLib.rgb(0, 0, 0),
+                });
+                yPosition -= 25;
+                
+                const instructions = requirement.testing_instructions || 'Testing instructions not available';
+                const instructionLines = this.splitTextToFitWidth(instructions, 500, 10);
+                instructionLines.forEach(line => {
+                    page.drawText(line, {
+                        x: margin,
+                        y: yPosition,
+                        size: 10,
+                        font: font,
+                    });
+                    yPosition -= 14;
+                });
+                yPosition -= 20;
                 
                 // Step-by-Step Testing Guide Section
                 page.drawText('Step-by-Step Testing Guide', {
@@ -1937,6 +1973,19 @@ ${requirement.failure_examples}
                 });
                 yPosition -= 20;
                 
+                // Check if we need a new page for Common Failure Examples section
+                const commonFailuresHeight = 150; // Approximate height needed for Common Failures section
+                let currentPageNumber = 1; // Initialize page number tracker
+                if (yPosition < (margin + commonFailuresHeight)) {
+                    // Add page break to ensure Common Failure Examples appears on page 2
+                    page = pdfDoc.addPage();
+                    const { width: pageWidth, height: pageHeight } = page.getSize();
+                    width = pageWidth;
+                    height = pageHeight;
+                    yPosition = pageHeight - 50;
+                    currentPageNumber = 2;
+                }
+                
                 // Common Failure Examples Section
                 page.drawText('Common Failure Examples', {
                     x: margin,
@@ -2053,33 +2102,70 @@ ${requirement.failure_examples}
                 });
                 yPosition -= 18;
                 
-                const wcagUrl = requirement.wcag_url || 'https://www.w3.org/WAI/WCAG21/Understanding/';
-                page.drawText(wcagUrl, {
-                    x: margin,
-                    y: yPosition,
-                    size: 10,
-                    font: font,
-                    color: PDFLib.rgb(0, 0, 1), // Blue for URL
-                });
+                console.log('🔍 DEBUG PDF: requirement.understanding_url || requirement.wcag_url =', requirement.understanding_url || requirement.wcag_url);
+                console.log('🔍 DEBUG PDF: requirement.wcag_url =', requirement.wcag_url);
+                const wcagUrl = requirement.understanding_url || requirement.wcag_url || requirement.wcag_url;
+                console.log('🔍 DEBUG PDF: Final wcagUrl =', wcagUrl);
+                
+                if (wcagUrl) {
+                        page.drawText(wcagUrl, {
+                        x: margin,
+                        y: yPosition,
+                        size: 10,
+                        font: font,
+                        color: PDFLib.rgb(0, 0, 1), // Blue for URL
+                    });
+                } else {
+                    console.warn('⚠️ No understanding_url available for requirement:', requirement.criterion_number);
+                    page.drawText('No WCAG documentation URL available', {
+                        x: margin,
+                        y: yPosition,
+                        size: 10,
+                        font: font,
+                        color: PDFLib.rgb(0.5, 0.5, 0.5), // Gray color
+                    });
+                }
                 yPosition -= 25;
                 
-                // Test Instances
-                page.drawText(`Test Instances (${testInstances.length} pages to test)`, {
-                    x: margin,
-                    y: yPosition,
-                    size: 12,
-                    font: boldFont,
-                });
-                yPosition -= 25;
+                // Check if we need to continue to page 2 for remaining content
+                const remainingContentHeight = 100; // Estimate space needed for section header
+                const testInstancesStartThreshold = 150; // Minimum space to start test instances
                 
-                // Force new page for test instances
+                // If not enough space for test instances header, continue content on page 2
+                if (yPosition < testInstancesStartThreshold) {
+                    // Add page break for page 2 continuation
+                    page = pdfDoc.addPage();
+                    const { width: pageWidth, height: pageHeight } = page.getSize();
+                    width = pageWidth;
+                    height = pageHeight;
+                    yPosition = pageHeight - 50;
+                    currentPageNumber = 2;
+                    
+                    // Add continuation header
+                    page.drawText(`WCAG ${requirement.criterion_number}: ${requirement.title} (continued)`, {
+                        x: margin,
+                        y: yPosition,
+                        size: 14,
+                        font: boldFont,
+                    });
+                    yPosition -= 40;
+                    
+                    // Add any additional content that needs to be on page 2 here if needed
+                    // For now, we'll just ensure we have space and continue to test instances
+                }
+                
+                // Always start Test Instances on a new page (page 2 or 3 depending on content flow)
+                const testInstancesPage = currentPageNumber === 1 ? 2 : 3;
+                
+                // Force new page for test instances to start on dedicated page
                 page = pdfDoc.addPage();
                 const { width: pageWidth, height: pageHeight } = page.getSize();
                 width = pageWidth;
                 height = pageHeight;
                 yPosition = pageHeight - 50;
                 
-                page.drawText(`WCAG ${requirement.criterion_number}: ${requirement.title} - Test Instances`, {
+                // Add page header for test instances with page number
+                page.drawText(`WCAG ${requirement.criterion_number}: ${requirement.title} - Test Instances (Page ${testInstancesPage})`, {
                     x: margin,
                     y: yPosition,
                     size: 14,
@@ -2098,8 +2184,12 @@ ${requirement.failure_examples}
                         height = pageHeight; // Update height reference
                         yPosition = pageHeight - 50; // Reset position for new page
                         
-                        // Add page header
-                        page.drawText(`WCAG ${requirement.criterion_number}: ${requirement.title} - Test Instances (continued)`, {
+                        // Calculate current page number for test instances continuation
+                        const additionalTestPages = Math.floor(index / 4);
+                        const currentTestInstancePageNumber = testInstancesPage + additionalTestPages;
+                        
+                        // Add page header with proper page numbering
+                        page.drawText(`WCAG ${requirement.criterion_number}: ${requirement.title} - Test Instances (Page ${currentTestInstancePageNumber} continued)`, {
                             x: margin,
                             y: yPosition,
                             size: 14,
@@ -2629,7 +2719,7 @@ MANUAL PHASE:
                 }
                 
                 // WCAG Documentation (if available)
-                if (requirement.wcag_url) {
+                if (requirement.understanding_url || requirement.wcag_url) {
                     doc.setFontSize(12);
                     doc.setFont('helvetica', 'bold');
                     doc.text('WCAG Documentation', margin, yPosition);
@@ -2638,7 +2728,7 @@ MANUAL PHASE:
                     doc.setFont('helvetica', 'normal');
                     doc.setFontSize(10);
                     doc.setTextColor(0, 0, 255); // Blue color for link
-                    doc.textWithLink(requirement.wcag_url, margin, yPosition, { url: requirement.wcag_url });
+                    doc.textWithLink(requirement.understanding_url || requirement.wcag_url, margin, yPosition, { url: requirement.understanding_url || requirement.wcag_url });
                     doc.setTextColor(0, 0, 0); // Reset to black
                     yPosition += 8;
                 }
@@ -3087,6 +3177,7 @@ MANUAL PHASE:
             this._showUserManagement = value;
         },
         _showUserManagement: false,
+        _userManagementManuallyOpened: false, // Track if user management was manually opened
         showUserForm: false,
         showDeleteUserModal: false,
         preventAutoUserManagement: true, // Prevent auto-opening during initialization
@@ -4416,6 +4507,7 @@ MANUAL PHASE:
         
         closeCrawlerPagesModal() {
             this.ui.modals.showCrawlerPagesModal = false;
+            this.showCrawlerPagesModal = false;
             this.selectedCrawlerForPages = null;
             this.crawlerPages = [];
             this.filteredCrawlerPages = [];
@@ -4499,11 +4591,8 @@ MANUAL PHASE:
                     await this.loadInitialData();
                     this.syncLegacyState(); // Sync legacy state
                     
-                    // Allow user management modal to open after initialization is complete
-                    setTimeout(() => {
-                        this.preventAutoUserManagement = false;
-                        console.log('✅ User management modal auto-open protection disabled');
-                    }, 30000); // Wait 30 seconds after auth check (extended from 10s)
+                    // REMOVED: Auto-protection disabling to prevent unwanted modal popups
+                    // this.preventAutoUserManagement remains true to block all auto-opens
                 } else if (response.status === 401 && refreshToken) {
                     // Try to refresh token
                     await this.refreshToken();
@@ -4646,11 +4735,8 @@ MANUAL PHASE:
                     // Load automation tools now that we're authenticated
                     await this.loadAvailableTools();
                     
-                    // Allow user management modal to open after initialization is complete
-                    setTimeout(() => {
-                        this.preventAutoUserManagement = false;
-                        console.log('✅ User management modal auto-open protection disabled');
-                    }, 3000); // Wait 3 seconds after login
+                    // REMOVED: Auto-protection disabling to prevent unwanted modal popups
+                    // this.preventAutoUserManagement remains true to block all auto-opens
                 } else {
                     this.loginError = data.error || 'Login failed';
                 }
@@ -6271,6 +6357,8 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
         openCreateCrawlerModal(mode = 'basic') {
             console.log('🔍 DEBUG: openCreateCrawlerModal called with mode:', mode);
             this.ui.modals.showCreateCrawler = true;
+            // Also flip the legacy top-level flag in case initialization guard blocks sync
+            this.showCreateCrawler = true;
             this.newCrawler.mode = mode;
             this.syncLegacyState();
             console.log('🔍 DEBUG: After sync - this.showCreateCrawler:', this.showCreateCrawler);
@@ -6279,6 +6367,7 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
         
         closeCreateCrawlerModal() {
             this.ui.modals.showCreateCrawler = false;
+            this.showCreateCrawler = false;
             this.resetCrawlerForm();
             this.syncLegacyState();
         },
@@ -6878,6 +6967,8 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                     console.log('🔍 DEBUG: Opening modal with showCrawlerPagesModal =', true);
                     
                     this.ui.modals.showCrawlerPagesModal = true;
+                    // Also flip the legacy top-level flag in case initialization guard blocks sync
+                    this.showCrawlerPagesModal = true;
                     this.syncLegacyState();
                 } else {
                     this.showNotification('error', 'Load Failed', 'Failed to load crawler pages');
@@ -6892,6 +6983,7 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
 
         closeCrawlerPagesModal() {
             this.ui.modals.showCrawlerPagesModal = false;
+            this.showCrawlerPagesModal = false;
             this.selectedCrawlerForPages = null;
             this.crawlerPages = [];
             this.filteredCrawlerPages = [];
@@ -9667,6 +9759,7 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
         closeUserManagement() {
             console.log('🔍 Closing user management modal');
             this.showUserManagement = false;
+            this._userManagementManuallyOpened = false; // Reset manual flag
             this.closeUserForm();
             this.closeDeleteUserModal();
         },
@@ -12422,10 +12515,10 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                             </details>
                         </div>
                         
-                        ${testInstance.wcag_url || testInstance.section_508_url ? `
+                        ${testInstance.understanding_url || testInstance.wcag_url || testInstance.section_508_url ? `
                         <div class="mt-4 flex space-x-4">
-                            ${testInstance.wcag_url ? `
-                            <a href="${testInstance.wcag_url}" target="_blank" class="inline-flex items-center text-sm text-blue-600 hover:text-blue-800">
+                            ${testInstance.understanding_url || testInstance.wcag_url ? `
+                            <a href="${testInstance.understanding_url || testInstance.wcag_url}" target="_blank" class="inline-flex items-center text-sm text-blue-600 hover:text-blue-800">
                                 <i class="fas fa-external-link-alt mr-1"></i>WCAG Understanding Guide
                             </a>` : ''}
                             ${testInstance.section_508_url ? `

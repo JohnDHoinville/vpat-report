@@ -682,7 +682,8 @@ class TestAutomationService {
                             AND (cas.expires_at IS NULL OR cas.expires_at > CURRENT_TIMESTAMP)
                             AND cas.cookies IS NOT NULL
                             AND jsonb_array_length(cas.cookies) > 0
-                            ORDER BY cas.last_used_at DESC
+                            ORDER BY COALESCE(cas.last_used_at, cas.created_at) DESC NULLS LAST,
+                                     cas.created_at DESC NULLS LAST
                             LIMIT 1
                         `, [session.project_id]);
                         
@@ -1026,7 +1027,8 @@ class TestAutomationService {
                         AND (cas.expires_at IS NULL OR cas.expires_at > CURRENT_TIMESTAMP)
                         AND cas.cookies IS NOT NULL
                         AND jsonb_array_length(cas.cookies) > 0
-                        ORDER BY cas.last_used_at DESC
+                        ORDER BY COALESCE(cas.last_used_at, cas.created_at) DESC NULLS LAST,
+                                 cas.created_at DESC NULLS LAST
                         LIMIT 1
                     `, [session.project_id]);
                     
@@ -5821,7 +5823,8 @@ class TestAutomationService {
                 AND (cas.expires_at IS NULL OR cas.expires_at > CURRENT_TIMESTAMP)
                 AND cas.cookies IS NOT NULL
                 AND jsonb_array_length(cas.cookies) > 0
-                ORDER BY cas.created_at DESC, cas.last_used_at DESC
+                ORDER BY COALESCE(cas.last_used_at, cas.created_at) DESC NULLS LAST,
+                         cas.created_at DESC NULLS LAST
                 LIMIT 1
             `, [session.project_id]);
             

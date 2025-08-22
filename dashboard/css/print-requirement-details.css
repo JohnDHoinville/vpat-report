@@ -1,0 +1,223 @@
+/* Print Styles for Requirement Details Modal */
+/* This file contains CSS specifically for printing requirement details */
+
+@media print {
+    /* Hide everything except the print content */
+    body * {
+        visibility: hidden;
+    }
+    
+    /* Show only the printable content and its children */
+    .print-requirement-details,
+    .print-requirement-details * {
+        visibility: visible;
+    }
+    
+    /* Position the print content */
+    .print-requirement-details {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100% !important;
+        max-width: none !important;
+        margin: 0 !important;
+        padding: 20px !important;
+        background: white !important;
+        box-shadow: none !important;
+        border-radius: 0 !important;
+    }
+    
+    /* Page setup */
+    @page {
+        margin: 0.75in;
+        size: letter;
+    }
+    
+    /* Typography for print */
+    .print-requirement-details {
+        font-family: "Times New Roman", serif;
+        font-size: 12pt;
+        line-height: 1.4;
+        color: #000 !important;
+    }
+    
+    /* Header styling */
+    .print-header {
+        border-bottom: 2px solid #000;
+        padding-bottom: 15px;
+        margin-bottom: 20px;
+    }
+    
+    .print-title {
+        font-size: 18pt;
+        font-weight: bold;
+        margin-bottom: 8px;
+        color: #000 !important;
+    }
+    
+    .print-subtitle {
+        font-size: 14pt;
+        color: #333 !important;
+        margin-bottom: 5px;
+    }
+    
+    .print-meta {
+        font-size: 10pt;
+        color: #666 !important;
+        margin-bottom: 3px;
+    }
+    
+    /* Section styling */
+    .print-section {
+        margin-bottom: 25px;
+        page-break-inside: avoid;
+    }
+    
+    .print-section-title {
+        font-size: 14pt;
+        font-weight: bold;
+        color: #000 !important;
+        margin-bottom: 10px;
+        border-bottom: 1px solid #ccc;
+        padding-bottom: 3px;
+    }
+    
+    .print-section-content {
+        font-size: 11pt;
+        line-height: 1.5;
+        margin-bottom: 10px;
+    }
+    
+    /* Test instance table */
+    .print-test-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 15px;
+        font-size: 10pt;
+    }
+    
+    .print-test-table th,
+    .print-test-table td {
+        border: 1px solid #000;
+        padding: 8px;
+        text-align: left;
+        vertical-align: top;
+    }
+    
+    .print-test-table th {
+        background-color: #f0f0f0 !important;
+        font-weight: bold;
+    }
+    
+    /* URL formatting */
+    .print-url {
+        font-family: "Courier New", monospace;
+        font-size: 9pt;
+        word-break: break-all;
+    }
+    
+    /* Status indicators */
+    .print-status {
+        font-weight: bold;
+        text-transform: uppercase;
+    }
+    
+    .print-status-passed { color: #000 !important; }
+    .print-status-failed { color: #000 !important; }
+    .print-status-review { color: #000 !important; }
+    .print-status-na { color: #000 !important; }
+    .print-status-pending { color: #000 !important; }
+    
+    /* Notes section */
+    .print-notes {
+        min-height: 100px;
+        border: 1px solid #ccc;
+        padding: 10px;
+        background-color: #fafafa !important;
+    }
+    
+    /* Footer */
+    .print-footer {
+        margin-top: 40px;
+        padding-top: 15px;
+        border-top: 1px solid #ccc;
+        font-size: 9pt;
+        text-align: center;
+        color: #666 !important;
+    }
+    
+    /* Page breaks */
+    .print-page-break {
+        page-break-before: always;
+    }
+    
+    /* Hide interactive elements */
+    .print-hide,
+    button,
+    .bg-gradient-to-r,
+    [class*="hover:"],
+    [class*="transition"] {
+        display: none !important;
+    }
+    
+    /* Ensure backgrounds are visible */
+    .print-force-background {
+        background: #f8f9fa !important;
+        -webkit-print-color-adjust: exact;
+        color-adjust: exact;
+    }
+    
+    /* Testing checklist */
+    .print-checklist {
+        margin-top: 20px;
+    }
+    
+    .print-checklist-item {
+        margin-bottom: 15px;
+        padding-bottom: 10px;
+        border-bottom: 1px dotted #ccc;
+        display: flex;
+        align-items: flex-start;
+    }
+    
+    .print-checkbox {
+        width: 15px;
+        height: 15px;
+        border: 2px solid #000;
+        margin-right: 10px;
+        margin-top: 2px;
+        flex-shrink: 0;
+    }
+    
+    .print-checklist-content {
+        flex: 1;
+    }
+    
+    /* Testing notes area */
+    .print-test-notes {
+        border: 1px solid #000;
+        min-height: 80px;
+        padding: 10px;
+        margin-top: 10px;
+        background: white !important;
+    }
+    
+    .print-test-notes::before {
+        content: "Testing Notes:";
+        font-weight: bold;
+        display: block;
+        margin-bottom: 10px;
+    }
+}
+
+/* Screen styles for print preview (optional) */
+.print-preview {
+    max-width: 8.5in;
+    margin: 0 auto;
+    padding: 0.75in;
+    background: white;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    font-family: "Times New Roman", serif;
+    font-size: 12pt;
+    line-height: 1.4;
+}
