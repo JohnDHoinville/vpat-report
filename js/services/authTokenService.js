@@ -14,7 +14,7 @@ window.AuthTokenService = {
     config: {
         refreshThresholdMinutes: 10, // Refresh token when 10 minutes left
         maxRetryAttempts: 3,
-        refreshCheckInterval: 60000, // Check every minute
+        refreshCheckInterval: 300000, // Check every 5 minutes
     },
 
     // Internal state
@@ -158,7 +158,7 @@ window.AuthTokenService = {
             this.checkTokenExpiry();
         }, this.config.refreshCheckInterval);
 
-        console.log('⏰ Started token monitoring (check every minute)');
+        console.log('⏰ Started token monitoring (check every 5 minutes)');
     },
 
     /**

@@ -83,37 +83,37 @@ router.get('/', authenticateToken, async (req, res) => {
 
         if (conformance_level) {
             paramCount++;
-            conditions.push(`level = $${paramCount}`);
+            conditions.push(`tr.level = $${paramCount}`);
             params.push(conformance_level);
         }
 
         if (requirement_type) {
             paramCount++;
-            conditions.push(`requirement_type = $${paramCount}`);
+            conditions.push(`tr.requirement_type = $${paramCount}`);
             params.push(requirement_type);
         }
 
         if (category) {
             paramCount++;
-            conditions.push(`test_method = $${paramCount}`);
+            conditions.push(`tr.test_method = $${paramCount}`);
             params.push(category);
         }
 
         if (test_method) {
             paramCount++;
-            conditions.push(`test_method = $${paramCount}`);
+            conditions.push(`tr.test_method = $${paramCount}`);
             params.push(test_method);
         }
 
         if (enabled !== undefined) {
             paramCount++;
-            conditions.push(`is_active = $${paramCount}`);
+            conditions.push(`tr.is_active = $${paramCount}`);
             params.push(enabled === 'true');
         }
 
         if (search) {
             paramCount++;
-            conditions.push(`(title ILIKE $${paramCount} OR description ILIKE $${paramCount})`);
+            conditions.push(`(tr.title ILIKE $${paramCount} OR tr.description ILIKE $${paramCount})`);
             params.push(`%${search}%`);
         }
 
@@ -132,7 +132,8 @@ router.get('/', authenticateToken, async (req, res) => {
         // Get total count
         const countQuery = `
             SELECT COUNT(*) as total
-            FROM test_requirements
+            FROM test_requirements tr
+            LEFT JOIN wcag_requirements wr ON tr.criterion_number = wr.criterion_number
             ${whereClause}
         `;
         const countResult = await pool.query(countQuery, params);
@@ -143,27 +144,28 @@ router.get('/', authenticateToken, async (req, res) => {
         paramCount += 2;
         const query = `
             SELECT 
-                id as requirement_id,
-                requirement_type,
-                criterion_number,
-                title,
-                description,
-                level,
-                test_method,
-                testing_instructions,
-                acceptance_criteria,
-                failure_examples,
-                wcag_url,
-                section_508_url,
-                is_active as enabled,
-                priority,
-                estimated_time_minutes,
-
-                created_at,
-                updated_at
-            FROM test_requirements
+                tr.id as requirement_id,
+                tr.requirement_type,
+                tr.criterion_number,
+                tr.title,
+                tr.description,
+                tr.level,
+                tr.test_method,
+                tr.testing_instructions,
+                tr.acceptance_criteria,
+                tr.failure_examples,
+                tr.wcag_url,
+                wr.understanding_url,
+                tr.section_508_url,
+                tr.is_active as enabled,
+                tr.priority,
+                tr.estimated_time_minutes,
+                tr.created_at,
+                tr.updated_at
+            FROM test_requirements tr
+            LEFT JOIN wcag_requirements wr ON tr.criterion_number = wr.criterion_number
             ${whereClause}
-            ORDER BY ${sortField} ${sortOrder}, criterion_number ASC
+            ORDER BY tr.${sortField} ${sortOrder}, tr.criterion_number ASC
             LIMIT $${paramCount - 1} OFFSET $${paramCount}
         `;
         params.push(limitNum, offset);

@@ -52,7 +52,7 @@ const AuthModals = ({ alpineData }) => {
                 dashboardInstance.showLogin = false;
                 
                 // Store token
-                localStorage.setItem('auth_token', response.token);
+                localStorage.setItem('authToken', response.token);
                 
                 // Initialize profile form
                 dashboardInstance.profileForm.full_name = response.user.full_name || '';
@@ -66,7 +66,7 @@ const AuthModals = ({ alpineData }) => {
                 
                 // Initialize WebSocket and load data
                 dashboardInstance.initializeWebSocket();
-                dashboardInstance.loadInitialData();
+                await dashboardInstance.loadInitialData();
             }
             
             setState(prev => ({ 

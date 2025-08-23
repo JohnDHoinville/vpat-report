@@ -1096,18 +1096,36 @@ window.dashboard = function() {
         fetchFullRequirementDetails: function(criterionNumber) {
             if (!criterionNumber) return;
             
-            this.apiCall('/requirements', {
-                method: 'GET',
-                params: {
-                    search: criterionNumber,
-                    limit: 10
-                }
+            // First try searching by criterion number, then by title if needed
+            this.apiCall(`/requirements?search=${encodeURIComponent(criterionNumber)}&limit=50`, {
+                method: 'GET'
             }).then(response => {
                 if (response.success && response.data && response.data.requirements && response.data.requirements.length > 0) {
                     // Find the exact match for the criterion number
-                    const fullRequirement = response.data.requirements.find(req => 
+                    let fullRequirement = response.data.requirements.find(req => 
                         req.criterion_number === criterionNumber
                     );
+                    
+                    // If not found by criterion number, try by title (for WCAG requirements)
+                    if (!fullRequirement && this.currentRequirement?.title) {
+                        return this.apiCall(`/requirements?search=${encodeURIComponent(this.currentRequirement.title)}&limit=10`, {
+                            method: 'GET'
+                        }).then(titleResponse => {
+                            if (titleResponse.success && titleResponse.data?.requirements?.length > 0) {
+                                fullRequirement = titleResponse.data.requirements.find(req => 
+                                    req.criterion_number === criterionNumber
+                                );
+                                if (fullRequirement) {
+                                    this.currentRequirement = {
+                                        ...this.currentRequirement,
+                                        ...fullRequirement
+                                    };
+                                    console.log('✅ Loaded full requirement details via title search:', fullRequirement);
+                                }
+                            }
+                            this.loadingRequirementDetails = false;
+                        });
+                    }
                     
                     if (fullRequirement) {
                         // Merge the full requirement details with the current requirement
@@ -3612,7 +3630,7 @@ MANUAL PHASE:
             // Protect against timing issues by periodically checking nested objects
             setInterval(() => {
                 this.ensureNestedObjects();
-            }, 1000); // Check every second
+            }, 5000); // Check every 5 seconds (reasonable compromise)
             
             // Also protect against component loading that might reset objects
             const observer = new MutationObserver(() => {
@@ -3655,8 +3673,8 @@ MANUAL PHASE:
                 };
             }, 100);
             
-            // Call async initialization
-            this.initAsync();
+            // Removed initAsync() call to prevent duplicate loadInitialData() calls
+            // loadInitialData() will be called by checkAuthentication() if authenticated
         },
 
         // ===== INTERACTIVE AUTHENTICATION METHODS =====
@@ -4694,6 +4712,7 @@ MANUAL PHASE:
         // ===== AUTHENTICATION METHODS =====
         
         async checkAuthentication() {
+            
             const token = localStorage.getItem('auth_token');
             const refreshToken = localStorage.getItem('refresh_token');
             
@@ -4773,7 +4792,7 @@ MANUAL PHASE:
                     this.auth.token = data.token || data.access_token;
                     this.auth.refreshToken = data.refresh_token;
                     
-                    localStorage.setItem('auth_token', data.token || data.access_token);
+                    localStorage.setItem('authToken', data.token || data.access_token);
                     localStorage.setItem('refresh_token', data.refresh_token);
                     
                     this.auth.isAuthenticated = true;
@@ -4874,12 +4893,14 @@ MANUAL PHASE:
                     // ALWAYS GO TO PROJECTS TAB AFTER LOGIN
                     this.activeTab = 'projects';
                     
-                    // Initialize WebSocket and load data
+                    // Initialize WebSocket and load initial data
                     this.initializeWebSocket();
-                    await this.loadInitialData();
                     
                     // Load automation tools now that we're authenticated
                     await this.loadAvailableTools();
+                    
+                    // Load initial data now that we're authenticated
+                    await this.loadInitialData();
                     
                     // REMOVED: Auto-protection disabling to prevent unwanted modal popups
                     // this.preventAutoUserManagement remains true to block all auto-opens
@@ -5357,9 +5378,17 @@ MANUAL PHASE:
         // ===== DATA LOADING =====
         
         async loadInitialData() {
-            // Set up global references for dynamically loaded components
-            window.dashboardFilterRequirements = this.filterRequirements.bind(this);
-            window.dashboardRequirementFilters = this.requirementFilters;
+            // Prevent multiple simultaneous calls
+            if (this._loadingInitialData) {
+                console.log('📊 loadInitialData already in progress, skipping');
+                return;
+            }
+            this._loadingInitialData = true;
+            
+            try {
+                // Set up global references for dynamically loaded components
+                window.dashboardFilterRequirements = this.filterRequirements.bind(this);
+                window.dashboardRequirementFilters = this.requirementFilters;
             
             await Promise.all([
                 this.loadProjects(),
@@ -5368,8 +5397,11 @@ MANUAL PHASE:
                 this.loadAvailableTesters()  // Load testers for test grid
             ]);
             
-            // Restore previously selected project from localStorage
-            this.restoreSelectedProject();
+                // Restore previously selected project from localStorage
+                this.restoreSelectedProject();
+            } finally {
+                this._loadingInitialData = false;
+            }
         },
         
         restoreSelectedProject() {
