@@ -1151,31 +1151,70 @@ window.dashboard = function() {
             try {
                 this.savingRequirementChanges = true;
                 
-                const response = await this.apiCall(`/requirements/${this.currentRequirement.id}`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(this.requirementChanges)
-                });
-                
-                if (response.success) {
-                    console.log('✅ Requirement changes saved successfully');
+                // Handle manual_status_override specially
+                if (this.requirementChanges.manual_status_override) {
+                    const response = await this.apiCall(`/unified-requirements/${this.currentRequirement.id}/status-override`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ 
+                            manual_status_override: this.requirementChanges.manual_status_override 
+                        })
+                    });
                     
-                    // Update the current requirement with saved changes
-                    Object.assign(this.currentRequirement, this.requirementChanges);
-                    
-                    // Reset change tracking
-                    this.requirementChanges = {};
-                    this.hasRequirementChanges = false;
-                    this.originalRequirement = JSON.parse(JSON.stringify(this.currentRequirement));
-                    
-                    // Show success message
-                    this.showNotification('Requirement changes saved successfully', 'success');
-                    
+                    if (response.success) {
+                        console.log('✅ Status override saved successfully');
+                        
+                        // Update the current requirement with saved changes
+                        this.currentRequirement.manual_status_override = this.requirementChanges.manual_status_override;
+                        
+                        // Also update in requirements list if present
+                        const requirement = this.sessionRequirements?.find(r => r.id === this.currentRequirement.id);
+                        if (requirement) {
+                            requirement.manual_status_override = this.requirementChanges.manual_status_override;
+                        }
+                        
+                        // Reset change tracking
+                        this.requirementChanges = {};
+                        this.hasRequirementChanges = false;
+                        this.originalRequirement = JSON.parse(JSON.stringify(this.currentRequirement));
+                        
+                        // Show success message
+                        this.showNotification('Requirement status saved successfully', 'success');
+                        
+                    } else {
+                        console.error('❌ Failed to save requirement status:', response.error);
+                        this.showNotification('Failed to save status: ' + (response.error || 'Unknown error'), 'error');
+                    }
                 } else {
-                    console.error('❌ Failed to save requirement changes:', response.error);
-                    this.showNotification('Failed to save changes: ' + (response.error || 'Unknown error'), 'error');
+                    // Handle other requirement changes (if any)
+                    const response = await this.apiCall(`/requirements/${this.currentRequirement.id}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(this.requirementChanges)
+                    });
+                    
+                    if (response.success) {
+                        console.log('✅ Requirement changes saved successfully');
+                        
+                        // Update the current requirement with saved changes
+                        Object.assign(this.currentRequirement, this.requirementChanges);
+                        
+                        // Reset change tracking
+                        this.requirementChanges = {};
+                        this.hasRequirementChanges = false;
+                        this.originalRequirement = JSON.parse(JSON.stringify(this.currentRequirement));
+                        
+                        // Show success message
+                        this.showNotification('Requirement changes saved successfully', 'success');
+                        
+                    } else {
+                        console.error('❌ Failed to save requirement changes:', response.error);
+                        this.showNotification('Failed to save changes: ' + (response.error || 'Unknown error'), 'error');
+                    }
                 }
                 
             } catch (error) {

@@ -77,3 +77,29 @@ Users can now:
 
 ## Impact
 This fix resolves the issue where users were being unexpectedly logged out during save operations, improving the overall reliability and user experience of the VPAT reporting system.
+
+---
+
+# SAVE FUNCTIONALITY FIX
+
+## Additional Issue Fixed
+After resolving the authentication error handling, we discovered that the change detection save system was calling the wrong API endpoint.
+
+### Problem
+The `saveRequirementChanges()` function was calling `/requirements/{id}` instead of the correct `/unified-requirements/{id}/status-override` endpoint for manual status overrides.
+
+### Solution
+Updated the save function to:
+1. **Route manual status overrides** to the correct `/unified-requirements/{id}/status-override` endpoint
+2. **Maintain compatibility** with other requirement changes through the original endpoint
+3. **Preserve data consistency** by updating both local state and requirements list
+
+### Result
+✅ **Save Changes button now works correctly**  
+✅ **Status overrides persist after page reload**  
+✅ **Both immediate save and batch save systems work**  
+
+Users can now:
+- See the "Save Changes" button when making status changes
+- Successfully save manual status overrides
+- Have changes persist across page reloads
