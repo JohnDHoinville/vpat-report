@@ -1084,27 +1084,54 @@ window.dashboard = function() {
         // filterRequirements function moved to the correct location later in the file (line ~14579)
         
         viewRequirementDetails: function(requirement) {
+            console.log('🔍 viewRequirementDetails called with:', {
+                criterion_number: requirement?.criterion_number,
+                title: requirement?.title,
+                id: requirement?.id
+            });
+            
             // First show the modal with basic info
             this.currentRequirement = requirement;
             this.showRequirementDetailsModal = true;
             this.loadingRequirementDetails = true;
+            
+            console.log('✅ Modal state updated:', {
+                showModal: this.showRequirementDetailsModal,
+                loading: this.loadingRequirementDetails,
+                currentReq: this.currentRequirement?.criterion_number
+            });
             
             // Then fetch the full requirement details from the database
             this.fetchFullRequirementDetails(requirement.criterion_number);
         },
         
         fetchFullRequirementDetails: function(criterionNumber) {
-            if (!criterionNumber) return;
+            if (!criterionNumber) {
+                console.warn('❌ No criterion number provided to fetchFullRequirementDetails');
+                return;
+            }
+            
+            console.log('🔍 Fetching full requirement details for:', criterionNumber);
             
             // First try searching by criterion number, then by title if needed
             this.apiCall(`/requirements?search=${encodeURIComponent(criterionNumber)}&limit=50`, {
                 method: 'GET'
             }).then(response => {
+                console.log('📋 API response for', criterionNumber, ':', response);
                 if (response.success && response.data && response.data.requirements && response.data.requirements.length > 0) {
+                    console.log('📊 Found', response.data.requirements.length, 'requirements in search results');
+                    
+                    // Log all found requirements for debugging
+                    response.data.requirements.forEach((req, index) => {
+                        console.log(`  ${index + 1}. ${req.criterion_number} - ${req.title}`);
+                    });
+                    
                     // Find the exact match for the criterion number
                     let fullRequirement = response.data.requirements.find(req => 
                         req.criterion_number === criterionNumber
                     );
+                    
+                    console.log('🎯 Exact match found:', fullRequirement ? `${fullRequirement.criterion_number} - ${fullRequirement.title}` : 'None');
                     
                     // If not found by criterion number, try by title (for WCAG requirements)
                     if (!fullRequirement && this.currentRequirement?.title) {
@@ -3619,6 +3646,10 @@ MANUAL PHASE:
             window._dashboardInstance = this;
             console.log('✅ Dashboard instance stored globally');
             
+            // Also ensure it's accessible via multiple paths for reliability
+            window.dashboard = this;
+            window.dashboardComponent = this;
+            
             // Register global functions immediately
             window.toggleAutomationResults = (instanceId) => this.toggleAutomationResults(instanceId);
             window.toggleTestHistory = (instanceId) => this.toggleTestHistory(instanceId);
@@ -5386,9 +5417,9 @@ MANUAL PHASE:
             this._loadingInitialData = true;
             
             try {
-                // Set up global references for dynamically loaded components
-                window.dashboardFilterRequirements = this.filterRequirements.bind(this);
-                window.dashboardRequirementFilters = this.requirementFilters;
+            // Set up global references for dynamically loaded components
+            window.dashboardFilterRequirements = this.filterRequirements.bind(this);
+            window.dashboardRequirementFilters = this.requirementFilters;
             
             await Promise.all([
                 this.loadProjects(),
@@ -5397,8 +5428,8 @@ MANUAL PHASE:
                 this.loadAvailableTesters()  // Load testers for test grid
             ]);
             
-                // Restore previously selected project from localStorage
-                this.restoreSelectedProject();
+            // Restore previously selected project from localStorage
+            this.restoreSelectedProject();
             } finally {
                 this._loadingInitialData = false;
             }
@@ -17475,6 +17506,10 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
     // 🛡️ Mark as initialized and store instance
     window._dashboardInitialized = true;
     window._dashboardInstance = componentInstance;
+    
+    // Ensure multiple access paths for reliability
+    window.dashboard = componentInstance;
+    window.dashboardComponent = componentInstance;
     
     // Also store in Alpine's global store for better accessibility
     if (window.Alpine && window.Alpine.store) {
