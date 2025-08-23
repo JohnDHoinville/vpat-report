@@ -113,7 +113,7 @@ router.get('/', authenticateToken, async (req, res) => {
 
         if (search) {
             paramCount++;
-            conditions.push(`(tr.title ILIKE $${paramCount} OR tr.description ILIKE $${paramCount})`);
+            conditions.push(`(tr.criterion_number ILIKE $${paramCount} OR tr.title ILIKE $${paramCount} OR tr.description ILIKE $${paramCount})`);
             params.push(`%${search}%`);
         }
 
@@ -393,7 +393,8 @@ router.put('/:id', authenticateToken, async (req, res) => {
             acceptance_criteria,
             failure_examples,
             reference_links,
-            enabled
+            enabled,
+            manual_status_override
         } = req.body;
 
         // Check if requirement exists
@@ -452,6 +453,12 @@ router.put('/:id', authenticateToken, async (req, res) => {
             paramCount++;
             updates.push(`is_active = $${paramCount}`);
             params.push(enabled);
+        }
+
+        if (manual_status_override !== undefined) {
+            paramCount++;
+            updates.push(`manual_status_override = $${paramCount}`);
+            params.push(manual_status_override);
         }
 
         if (updates.length === 0) {

@@ -260,6 +260,12 @@ window.dashboard = function() {
         showRequirementDetailsModal: false,
         currentRequirement: null,
         loadingRequirementDetails: false,
+        
+        // ===== REQUIREMENT CHANGE TRACKING =====
+        requirementChanges: {},
+        hasRequirementChanges: false,
+        originalRequirement: null,
+        savingRequirementChanges: false,
         updatingStatus: null, // Track which instance is being updated
         allRequirements: [],
         sessionRequirements: [],
@@ -1095,6 +1101,11 @@ window.dashboard = function() {
             this.showRequirementDetailsModal = true;
             this.loadingRequirementDetails = true;
             
+            // Initialize change tracking
+            this.requirementChanges = {};
+            this.hasRequirementChanges = false;
+            this.originalRequirement = null;
+            
             console.log('✅ Modal state updated:', {
                 showModal: this.showRequirementDetailsModal,
                 loading: this.loadingRequirementDetails,
@@ -1103,6 +1114,95 @@ window.dashboard = function() {
             
             // Then fetch the full requirement details from the database
             this.fetchFullRequirementDetails(requirement.criterion_number);
+        },
+        
+        // Change tracking for requirement details
+        trackRequirementChange: function(field, value) {
+            // Store original value on first change
+            if (!this.originalRequirement) {
+                this.originalRequirement = JSON.parse(JSON.stringify(this.currentRequirement));
+            }
+            
+            // Track the change
+            this.requirementChanges[field] = value;
+            
+            // Check if there are actual changes
+            this.hasRequirementChanges = Object.keys(this.requirementChanges).some(key => {
+                return this.requirementChanges[key] !== this.originalRequirement[key];
+            });
+            
+            console.log('🔍 Requirement change tracked:', {
+                field,
+                value,
+                hasChanges: this.hasRequirementChanges,
+                totalChanges: Object.keys(this.requirementChanges).length
+            });
+        },
+        
+        // Save requirement changes
+        saveRequirementChanges: async function() {
+            if (!this.hasRequirementChanges || !this.currentRequirement?.id) {
+                console.log('⚠️ No changes to save or missing requirement ID');
+                return;
+            }
+            
+            console.log('💾 Saving requirement changes:', this.requirementChanges);
+            
+            try {
+                this.savingRequirementChanges = true;
+                
+                const response = await this.apiCall(`/requirements/${this.currentRequirement.id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(this.requirementChanges)
+                });
+                
+                if (response.success) {
+                    console.log('✅ Requirement changes saved successfully');
+                    
+                    // Update the current requirement with saved changes
+                    Object.assign(this.currentRequirement, this.requirementChanges);
+                    
+                    // Reset change tracking
+                    this.requirementChanges = {};
+                    this.hasRequirementChanges = false;
+                    this.originalRequirement = JSON.parse(JSON.stringify(this.currentRequirement));
+                    
+                    // Show success message
+                    this.showNotification('Requirement changes saved successfully', 'success');
+                    
+                } else {
+                    console.error('❌ Failed to save requirement changes:', response.error);
+                    this.showNotification('Failed to save changes: ' + (response.error || 'Unknown error'), 'error');
+                }
+                
+            } catch (error) {
+                console.error('❌ Error saving requirement changes:', error);
+                this.showNotification('Error saving changes: ' + error.message, 'error');
+            } finally {
+                this.savingRequirementChanges = false;
+            }
+        },
+        
+        // Discard requirement changes
+        discardRequirementChanges: function() {
+            if (!this.hasRequirementChanges) return;
+            
+            console.log('🔄 Discarding requirement changes');
+            
+            // Restore original values
+            if (this.originalRequirement) {
+                Object.assign(this.currentRequirement, this.originalRequirement);
+            }
+            
+            // Reset change tracking
+            this.requirementChanges = {};
+            this.hasRequirementChanges = false;
+            this.originalRequirement = null;
+            
+            this.showNotification('Changes discarded', 'info');
         },
         
         fetchFullRequirementDetails: function(criterionNumber) {
@@ -1161,7 +1261,12 @@ window.dashboard = function() {
                             ...fullRequirement
                         };
                         console.log('✅ Loaded full requirement details:', fullRequirement);
+                    } else {
+                        console.log('⚠️ No exact match found, using basic requirement data');
                     }
+                    this.loadingRequirementDetails = false;
+                } else {
+                    console.log('⚠️ No requirements found in API response');
                     this.loadingRequirementDetails = false;
                 }
             }).catch(error => {

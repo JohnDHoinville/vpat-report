@@ -1849,7 +1849,7 @@
                                                name="overall_requirement_status" 
                                                value="passed"
                                                :checked="currentRequirement && currentRequirement.manual_status_override === 'passed'"
-                                               @change="saveRequirementStatusOverride('passed')"
+                                               @change="trackRequirementChange('manual_status_override', 'passed')"
                                                class="mr-1 text-green-600">
                                         <span class="text-xs">Passed</span>
                                     </label>
@@ -1861,7 +1861,7 @@
                                                name="overall_requirement_status" 
                                                value="failed"
                                                :checked="currentRequirement && currentRequirement.manual_status_override === 'failed'"
-                                               @change="saveRequirementStatusOverride('failed')"
+                                               @change="trackRequirementChange('manual_status_override', 'failed')"
                                                class="mr-1 text-red-600">
                                         <span class="text-xs">Failed</span>
                                     </label>
@@ -1873,7 +1873,7 @@
                                                name="overall_requirement_status" 
                                                value="in_process"
                                                :checked="currentRequirement && currentRequirement.manual_status_override === 'in_process'"
-                                               @change="saveRequirementStatusOverride('in_process')"
+                                               @change="trackRequirementChange('manual_status_override', 'in_process')"
                                                class="mr-1 text-blue-600">
                                         <span class="text-xs">In Process</span>
                                     </label>
@@ -1885,7 +1885,7 @@
                                                name="overall_requirement_status" 
                                                value="needs_review"
                                                :checked="currentRequirement && currentRequirement.manual_status_override === 'needs_review'"
-                                               @change="saveRequirementStatusOverride('needs_review')"
+                                               @change="trackRequirementChange('manual_status_override', 'needs_review')"
                                                class="mr-1 text-yellow-600">
                                         <span class="text-xs">Needs Review</span>
                                     </label>
@@ -1897,7 +1897,7 @@
                                                name="overall_requirement_status" 
                                                value="not_applicable"
                                                :checked="currentRequirement && currentRequirement.manual_status_override === 'not_applicable'"
-                                               @change="saveRequirementStatusOverride('not_applicable')"
+                                               @change="trackRequirementChange('manual_status_override', 'not_applicable')"
                                                class="mr-1 text-gray-600">
                                         <span class="text-xs">Not Applicable</span>
                                     </label>
@@ -2268,7 +2268,7 @@
                                                     <label class="block text-xs font-medium text-gray-600 mb-1">Test Notes:</label>
                                                     <textarea 
                                                         :value="instance.notes || ''"
-                                                        @input="updateInstanceNotes(instance.id, $event.target.value)"
+                                                        @input="updateInstanceNotes(instance.id, $event.target.value); trackRequirementChange('instance_notes_' + instance.id, $event.target.value)"
                                                         @blur="saveInstanceNotes(instance.id, $event.target.value)"
                                                         placeholder="Add test notes or comments..."
                                                         class="w-full px-2 py-1 text-xs border border-gray-300 rounded resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -2523,6 +2523,23 @@
                     
                     <!-- Right side - Primary Actions -->
                     <div class="flex items-center space-x-3">
+                        <!-- Discard Changes Button -->
+                        <button @click="discardRequirementChanges()" 
+                                x-show="hasRequirementChanges"
+                                class="px-4 py-2 text-orange-600 border border-orange-300 rounded-md hover:bg-orange-50 transition-colors">
+                            <i class="fas fa-undo mr-2"></i>Discard Changes
+                        </button>
+                        
+                        <!-- Save Changes Button -->
+                        <button @click="saveRequirementChanges()" 
+                                x-show="hasRequirementChanges"
+                                :disabled="savingRequirementChanges"
+                                class="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors">
+                            <i class="fas fa-save mr-2" x-show="!savingRequirementChanges"></i>
+                            <i class="fas fa-spinner fa-spin mr-2" x-show="savingRequirementChanges"></i>
+                            <span x-text="savingRequirementChanges ? 'Saving...' : 'Save Changes'"></span>
+                        </button>
+                        
                         <button @click="closeRequirementDetailsModal()" 
                                 class="px-6 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors">
                             <i class="fas fa-times mr-2"></i>Close
