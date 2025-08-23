@@ -5120,9 +5120,10 @@ MANUAL PHASE:
                     ...options
                 });
                 
-                // Handle auth errors
+                // Handle auth errors with smart retry logic
                 if (response.status === 401) {
-                    this.handleAuthError();
+                    // Don't immediately clear auth state - let handleAuthError decide
+                    await this.handleAuthError();
                     throw new Error('Authentication required');
                 }
                 
@@ -5141,8 +5142,40 @@ MANUAL PHASE:
             }
         },
 
-        handleAuthError() {
-            console.log('Authentication error - clearing auth state');
+        async handleAuthError() {
+            console.log('Authentication error - attempting token validation before clearing auth state');
+            
+            // First, try to validate if we actually have a valid token
+            const token = this.getAuthToken();
+            if (!token) {
+                console.log('No token found - clearing auth state');
+                this.clearAuth();
+                this.showLogin = true;
+                this.ui.modals.showLogin = true;
+                return;
+            }
+            
+            // Try to validate the token with the server before clearing everything
+            try {
+                const response = await fetch('http://localhost:3001/api/auth/validate', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    console.log('Token is actually valid - authentication error may be temporary');
+                    this.showNotification('Authentication error occurred, but your session is still valid. Please try again.', 'warning');
+                    return; // Don't clear auth state if token is actually valid
+                }
+                
+                console.log('Token validation failed - clearing auth state');
+            } catch (error) {
+                console.log('Unable to validate token - clearing auth state as precaution');
+            }
+            
             this.clearAuth();
             this.showLogin = true;
             this.ui.modals.showLogin = true;
