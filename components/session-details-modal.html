@@ -2274,6 +2274,30 @@
                                                         class="w-full px-2 py-1 text-xs border border-gray-300 rounded resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                                         rows="2"></textarea>
                                                 </div>
+                                                
+                                                <!-- Test Results Section -->
+                                                <div class="mt-4">
+                                                    <label class="block text-xs font-medium text-gray-600 mb-1">Test Results:</label>
+                                                    <div :id="'results-editor-' + instance.id" 
+                                                         class="border border-gray-300 rounded min-h-[100px]"
+                                                         x-init="initTinyMCE('results-editor-' + instance.id, instance.results || '', (content) => { 
+                                                             trackRequirementChange('instance_results_' + instance.id, content);
+                                                             updateInstanceField(instance.id, 'results', content);
+                                                         })">
+                                                    </div>
+                                                </div>
+                                                
+                                                <!-- Test Recommendations Section -->
+                                                <div class="mt-4">
+                                                    <label class="block text-xs font-medium text-gray-600 mb-1">Recommendations:</label>
+                                                    <div :id="'recommendations-editor-' + instance.id" 
+                                                         class="border border-gray-300 rounded min-h-[100px]"
+                                                         x-init="initTinyMCE('recommendations-editor-' + instance.id, instance.recommendations || '', (content) => { 
+                                                             trackRequirementChange('instance_recommendations_' + instance.id, content);
+                                                             updateInstanceField(instance.id, 'recommendations', content);
+                                                         })">
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
                                     </template>

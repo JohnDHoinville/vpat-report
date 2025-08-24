@@ -1151,15 +1151,54 @@ window.dashboard = function() {
             try {
                 this.savingRequirementChanges = true;
                 
+                // Handle instance-specific changes (results, recommendations, notes)
+                const instanceChanges = {};
+                const statusOverrideChange = this.requirementChanges.manual_status_override;
+                
+                // Separate instance changes from requirement changes
+                Object.keys(this.requirementChanges).forEach(key => {
+                    if (key.startsWith('instance_results_') || key.startsWith('instance_recommendations_') || key.startsWith('instance_notes_')) {
+                        const instanceId = key.split('_').slice(2).join('_'); // Get ID after 'instance_[field]_'
+                        const field = key.split('_')[1]; // Get field name (results, recommendations, notes)
+                        
+                        if (!instanceChanges[instanceId]) {
+                            instanceChanges[instanceId] = {};
+                        }
+                        instanceChanges[instanceId][field] = this.requirementChanges[key];
+                    }
+                });
+                
+                // Save instance changes first
+                for (const [instanceId, changes] of Object.entries(instanceChanges)) {
+                    try {
+                        const response = await this.apiCall(`/test-instances/${instanceId}`, {
+                            method: 'PUT',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify(changes)
+                        });
+                        
+                        if (!response.success) {
+                            throw new Error(`Failed to save instance ${instanceId}: ${response.error}`);
+                        }
+                        
+                        console.log(`✅ Instance ${instanceId} changes saved successfully`);
+                    } catch (error) {
+                        console.error(`❌ Error saving instance ${instanceId}:`, error);
+                        throw error; // Re-throw to stop the save process
+                    }
+                }
+                
                 // Handle manual_status_override specially
-                if (this.requirementChanges.manual_status_override) {
+                if (statusOverrideChange) {
                     const response = await this.apiCall(`/unified-requirements/${this.currentRequirement.id}/status-override`, {
                         method: 'PUT',
                         headers: {
                             'Content-Type': 'application/json',
                         },
                         body: JSON.stringify({ 
-                            manual_status_override: this.requirementChanges.manual_status_override 
+                            manual_status_override: statusOverrideChange 
                         })
                     });
                     
@@ -1167,12 +1206,12 @@ window.dashboard = function() {
                         console.log('✅ Status override saved successfully');
                         
                         // Update the current requirement with saved changes
-                        this.currentRequirement.manual_status_override = this.requirementChanges.manual_status_override;
+                        this.currentRequirement.manual_status_override = statusOverrideChange;
                         
                         // Also update in requirements list if present
                         const requirement = this.sessionRequirements?.find(r => r.id === this.currentRequirement.id);
                         if (requirement) {
-                            requirement.manual_status_override = this.requirementChanges.manual_status_override;
+                            requirement.manual_status_override = statusOverrideChange;
                         }
                         
                         // Reset change tracking
@@ -1222,6 +1261,59 @@ window.dashboard = function() {
                 this.showNotification('Error saving changes: ' + error.message, 'error');
             } finally {
                 this.savingRequirementChanges = false;
+            }
+        },
+        
+        // Initialize TinyMCE editor
+        initTinyMCE: function(elementId, initialContent, onChangeCallback) {
+            // Wait for element to be available
+            setTimeout(() => {
+                const element = document.getElementById(elementId);
+                if (!element) {
+                    console.warn('TinyMCE element not found:', elementId);
+                    return;
+                }
+                
+                tinymce.init({
+                    target: element,
+                    height: 200,
+                    menubar: false,
+                    plugins: [
+                        'advlist', 'autolink', 'lists', 'link', 'image', 'charmap', 'preview',
+                        'anchor', 'searchreplace', 'visualblocks', 'code', 'fullscreen',
+                        'insertdatetime', 'media', 'table', 'help', 'wordcount'
+                    ],
+                    toolbar: 'undo redo | blocks | bold italic forecolor | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | removeformat | help',
+                    content_style: 'body { font-family: -apple-system, BlinkMacSystemFont, San Francisco, Segoe UI, Roboto, Helvetica Neue, sans-serif; font-size: 14px; }',
+                    setup: function(editor) {
+                        editor.on('init', function() {
+                            editor.setContent(initialContent || '');
+                        });
+                        
+                        editor.on('change keyup', function() {
+                            const content = editor.getContent();
+                            if (onChangeCallback) {
+                                onChangeCallback(content);
+                            }
+                        });
+                    }
+                });
+            }, 100);
+        },
+        
+        // Update instance field (for WYSIWYG editors)
+        updateInstanceField: function(instanceId, field, value) {
+            // Find the instance in sessionTestInstances and update it
+            const instance = this.sessionTestInstances?.find(inst => inst.id === instanceId);
+            if (instance) {
+                instance[field] = value;
+            }
+            
+            // Also update in requirement test instances if present
+            const reqInstances = this.getRequirementTestInstances(this.currentRequirement?.criterion_number);
+            const reqInstance = reqInstances?.find(inst => inst.id === instanceId);
+            if (reqInstance) {
+                reqInstance[field] = value;
             }
         },
         
@@ -1639,9 +1731,11 @@ ${requirement.failure_examples}
         <table class="print-test-table">
             <thead>
                 <tr>
-                    <th style="width: 50%;">Page URL</th>
-                    <th style="width: 15%;">Status</th>
-                    <th style="width: 35%;">Notes</th>
+                    <th style="width: 30%;">Page URL</th>
+                    <th style="width: 10%;">Status</th>
+                    <th style="width: 20%;">Notes</th>
+                    <th style="width: 20%;">Results</th>
+                    <th style="width: 20%;">Recommendations</th>
                 </tr>
             </thead>
             <tbody>
@@ -1655,7 +1749,13 @@ ${requirement.failure_examples}
                         ☐ N/A
                     </td>
                     <td>
-                        <div class="print-test-notes"></div>
+                        <div class="print-test-notes">${instance.notes || ''}</div>
+                    </td>
+                    <td>
+                        <div class="print-test-results">${instance.results ? instance.results.replace(/<[^>]*>/g, '') : ''}</div>
+                    </td>
+                    <td>
+                        <div class="print-test-recommendations">${instance.recommendations ? instance.recommendations.replace(/<[^>]*>/g, '') : ''}</div>
                     </td>
                 </tr>
                 `).join('')}

@@ -2891,6 +2891,54 @@ MANUAL PHASE:
                         
                         yPosition += notesHeight + 8;
                         
+                        // Results section
+                        doc.setFont('helvetica', 'bold');
+                        doc.setFontSize(9);
+                        doc.text('Test Results:', margin, yPosition);
+                        yPosition += 5;
+                        
+                        const resultsHeight = 30;
+                        doc.setDrawColor(0, 0, 0);
+                        doc.setLineWidth(0.5);
+                        doc.rect(margin, yPosition, contentWidth, resultsHeight, 'S');
+                        
+                        // Add existing results if available (strip HTML)
+                        if (instance.results) {
+                            doc.setFont('helvetica', 'normal');
+                            doc.setFontSize(8);
+                            const cleanResults = instance.results.replace(/<[^>]*>/g, ''); // Strip HTML
+                            const resultsLines = doc.splitTextToSize(cleanResults, contentWidth - 4);
+                            resultsLines.slice(0, 5).forEach((line, lineIndex) => {
+                                doc.text(line, margin + 2, yPosition + 4 + (lineIndex * 4));
+                            });
+                        }
+                        
+                        yPosition += resultsHeight + 8;
+                        
+                        // Recommendations section
+                        doc.setFont('helvetica', 'bold');
+                        doc.setFontSize(9);
+                        doc.text('Recommendations:', margin, yPosition);
+                        yPosition += 5;
+                        
+                        const recommendationsHeight = 30;
+                        doc.setDrawColor(0, 0, 0);
+                        doc.setLineWidth(0.5);
+                        doc.rect(margin, yPosition, contentWidth, recommendationsHeight, 'S');
+                        
+                        // Add existing recommendations if available (strip HTML)
+                        if (instance.recommendations) {
+                            doc.setFont('helvetica', 'normal');
+                            doc.setFontSize(8);
+                            const cleanRecommendations = instance.recommendations.replace(/<[^>]*>/g, ''); // Strip HTML
+                            const recommendationsLines = doc.splitTextToSize(cleanRecommendations, contentWidth - 4);
+                            recommendationsLines.slice(0, 5).forEach((line, lineIndex) => {
+                                doc.text(line, margin + 2, yPosition + 4 + (lineIndex * 4));
+                            });
+                        }
+                        
+                        yPosition += recommendationsHeight + 8;
+                        
                         // Add a clean separator line
                         doc.setDrawColor(150, 150, 150);
                         doc.setLineWidth(0.5);
@@ -3489,6 +3537,60 @@ MANUAL PHASE:
 
     // ===== MERGE WITH ORGANIZED STATE STRUCTURE =====
     return {
+        
+        // ===== TINYMCE WYSIWYG FUNCTIONS =====
+        // Initialize TinyMCE editor
+        initTinyMCE: function(elementId, initialContent, onChangeCallback) {
+            // Wait for element to be available
+            setTimeout(() => {
+                const element = document.getElementById(elementId);
+                if (!element) {
+                    console.warn('TinyMCE element not found:', elementId);
+                    return;
+                }
+                
+                tinymce.init({
+                    target: element,
+                    height: 200,
+                    menubar: false,
+                    plugins: [
+                        'advlist', 'autolink', 'lists', 'link', 'image', 'charmap', 'preview',
+                        'anchor', 'searchreplace', 'visualblocks', 'code', 'fullscreen',
+                        'insertdatetime', 'media', 'table', 'help', 'wordcount'
+                    ],
+                    toolbar: 'undo redo | blocks | bold italic forecolor | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | removeformat | help',
+                    content_style: 'body { font-family: -apple-system, BlinkMacSystemFont, San Francisco, Segoe UI, Roboto, Helvetica Neue, sans-serif; font-size: 14px; }',
+                    setup: function(editor) {
+                        editor.on('init', function() {
+                            editor.setContent(initialContent || '');
+                        });
+                        
+                        editor.on('change keyup', function() {
+                            const content = editor.getContent();
+                            if (onChangeCallback) {
+                                onChangeCallback(content);
+                            }
+                        });
+                    }
+                });
+            }, 100);
+        },
+        
+        // Update instance field (for WYSIWYG editors)
+        updateInstanceField: function(instanceId, field, value) {
+            // Find the instance in sessionTestInstances and update it
+            const instance = this.sessionTestInstances?.find(inst => inst.id === instanceId);
+            if (instance) {
+                instance[field] = value;
+            }
+            
+            // Also update in requirement test instances if present
+            const reqInstances = this.getRequirementTestInstances && this.getRequirementTestInstances(this.currentRequirement?.criterion_number);
+            const reqInstance = reqInstances?.find(inst => inst.id === instanceId);
+            if (reqInstance) {
+                reqInstance[field] = value;
+            }
+        },
         // Apply all defaults first
         ...defaults,
         

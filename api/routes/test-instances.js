@@ -483,7 +483,9 @@ router.put('/:id', authenticateToken, async (req, res) => {
             evidence,
             confidence_level,
             assigned_tester,
-            reviewer
+            reviewer,
+            results,
+            recommendations
         } = req.body;
         
         // Get current test instance
@@ -553,6 +555,18 @@ router.put('/:id', authenticateToken, async (req, res) => {
             params.push(reviewer);
         }
         
+        if (results !== undefined) {
+            paramCount++;
+            updates.push(`results = $${paramCount}`);
+            params.push(results);
+        }
+        
+        if (recommendations !== undefined) {
+            paramCount++;
+            updates.push(`recommendations = $${paramCount}`);
+            params.push(recommendations);
+        }
+        
         if (updates.length === 0) {
             await client.query('ROLLBACK');
             return res.status(400).json({
@@ -587,6 +601,12 @@ router.put('/:id', authenticateToken, async (req, res) => {
         }
         if (evidence) {
             changeDescription.push('Evidence updated');
+        }
+        if (results && results !== currentInstance.results) {
+            changeDescription.push('Results updated');
+        }
+        if (recommendations && recommendations !== currentInstance.recommendations) {
+            changeDescription.push('Recommendations updated');
         }
         
         if (changeDescription.length > 0) {
