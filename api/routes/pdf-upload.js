@@ -36,14 +36,25 @@ router.post('/', authenticateToken, handlePDFUpload, async (req, res) => {
             requirementId
         });
 
+        // Include PDF validation details in the response
+        const validationDetails = req.pdfValidation || {};
+
         // TODO: Implement PDF parsing logic here
-        // For now, return a placeholder response
+        // For now, return a placeholder response with validation info
         const parsedData = {
             metadata: {
                 filename: originalFilename,
                 fileSize: req.file.size,
                 uploadedAt: new Date().toISOString(),
                 uploadedBy: req.user.id
+            },
+            validation: {
+                isValid: true,
+                pdfVersion: validationDetails.version,
+                fileSize: validationDetails.fileSize,
+                structureScore: validationDetails.structureScore,
+                hasProperTrailer: validationDetails.hasProperTrailer,
+                hasXrefTable: validationDetails.hasXrefTable
             },
             requirement: {
                 number: null, // Will be extracted from PDF
@@ -105,11 +116,26 @@ router.get('/status', authenticateToken, (req, res) => {
         capabilities: {
             maxFileSize: '10MB',
             supportedFormats: ['application/pdf'],
+            validation: {
+                mimeTypeCheck: true,
+                fileExtensionCheck: true,
+                pdfHeaderValidation: true,
+                structuralValidation: true,
+                fileSizeLimits: true,
+                filenameValidation: true
+            },
             features: {
                 formFieldExtraction: false, // Will be true when implemented
                 urlMatching: false, // Will be true when implemented
                 requirementValidation: false // Will be true when implemented
             }
+        },
+        validation: {
+            minFileSize: '100 bytes',
+            maxFileSize: '10MB',
+            allowedExtensions: ['.pdf'],
+            filenamePattern: 'alphanumeric, spaces, hyphens, underscores, periods',
+            maxFilenameLength: 255
         },
         version: '1.0.0'
     });
