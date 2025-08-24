@@ -41,6 +41,7 @@ const webCrawlersRoutes = require('./routes/web-crawlers');
 const adminRoutes = require('./routes/admin');
 const auditTrailRoutes = require('./routes/audit-trail');
 const testAuthRoutes = require('./routes/test-auth');
+const pdfUploadRoutes = require('./routes/pdf-upload');
 
 // Import services
 const WebSocketService = require('./services/websocket-service');
@@ -238,6 +239,7 @@ app.use('/api/audit-trail', auditTrailRoutes);
 app.use('/api/automated-testing', automatedTestingRoutes);
 app.use('/api/automated-testing', unifiedAutomatedTestingRoutes);
 app.use('/api/test-auth', testAuthRoutes);
+app.use('/api/pdf-upload', pdfUploadRoutes);
 
 // Add API health check endpoint
 app.get('/api/health', asyncHandler(async (req, res) => {
