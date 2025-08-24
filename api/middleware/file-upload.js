@@ -2,6 +2,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const { logger } = require('../utils/logger');
+const { tempStorage } = require('../utils/temp-storage');
 
 // Ensure uploads directory exists
 const uploadsDir = path.join(__dirname, '../../uploads/temp');
@@ -206,9 +207,17 @@ const handlePDFUpload = (req, res, next) => {
             // Add validation details to request for use in route handlers
             req.pdfValidation = validation.details;
             
+            // Add storage management utilities to request
+            req.tempStorage = {
+                moveToProcessed: (newFilename) => tempStorage.moveToProcessed(req.file.path, newFilename),
+                archiveFile: (metadata) => tempStorage.archiveFile(req.file.path, metadata),
+                getStats: () => tempStorage.getStorageStats()
+            };
+            
             logger.info('PDF validation successful:', {
                 filename: req.file.originalname,
-                validation: validation.details
+                validation: validation.details,
+                tempPath: req.file.path
             });
 
             next();

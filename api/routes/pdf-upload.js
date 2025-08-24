@@ -4,6 +4,7 @@ const path = require('path');
 const { handlePDFUpload } = require('../middleware/file-upload');
 const { authenticateToken } = require('../middleware/auth');
 const { logger } = require('../utils/logger');
+const { tempStorage } = require('../utils/temp-storage');
 const router = express.Router();
 
 /**
@@ -33,11 +34,15 @@ router.post('/', authenticateToken, handlePDFUpload, async (req, res) => {
             userId: req.user.id,
             filename: originalFilename,
             fileSize: req.file.size,
-            requirementId
+            requirementId,
+            tempPath: tempFilePath
         });
 
         // Include PDF validation details in the response
         const validationDetails = req.pdfValidation || {};
+        
+        // Get storage statistics
+        const storageStats = await req.tempStorage.getStats();
 
         // TODO: Implement PDF parsing logic here
         // For now, return a placeholder response with validation info
@@ -46,7 +51,8 @@ router.post('/', authenticateToken, handlePDFUpload, async (req, res) => {
                 filename: originalFilename,
                 fileSize: req.file.size,
                 uploadedAt: new Date().toISOString(),
-                uploadedBy: req.user.id
+                uploadedBy: req.user.id,
+                tempPath: tempFilePath
             },
             validation: {
                 isValid: true,
@@ -55,6 +61,11 @@ router.post('/', authenticateToken, handlePDFUpload, async (req, res) => {
                 structureScore: validationDetails.structureScore,
                 hasProperTrailer: validationDetails.hasProperTrailer,
                 hasXrefTable: validationDetails.hasXrefTable
+            },
+            storage: {
+                tempFiles: storageStats?.temp?.count || 0,
+                totalStorageUsed: storageStats?.totalSize || 0,
+                tempStorageSize: storageStats?.temp?.size || 0
             },
             requirement: {
                 number: null, // Will be extracted from PDF
@@ -109,36 +120,113 @@ router.post('/', authenticateToken, handlePDFUpload, async (req, res) => {
  * @desc Get PDF upload and parsing status/capabilities
  * @access Private (requires authentication)
  */
-router.get('/status', authenticateToken, (req, res) => {
-    res.json({
-        success: true,
-        status: 'available',
-        capabilities: {
-            maxFileSize: '10MB',
-            supportedFormats: ['application/pdf'],
-            validation: {
-                mimeTypeCheck: true,
-                fileExtensionCheck: true,
-                pdfHeaderValidation: true,
-                structuralValidation: true,
-                fileSizeLimits: true,
-                filenameValidation: true
+router.get('/status', authenticateToken, async (req, res) => {
+    try {
+        const storageHealth = await tempStorage.getHealthStatus();
+        
+        res.json({
+            success: true,
+            status: 'available',
+            capabilities: {
+                maxFileSize: '10MB',
+                supportedFormats: ['application/pdf'],
+                validation: {
+                    mimeTypeCheck: true,
+                    fileExtensionCheck: true,
+                    pdfHeaderValidation: true,
+                    structuralValidation: true,
+                    fileSizeLimits: true,
+                    filenameValidation: true
+                },
+                storage: {
+                    temporaryFileManagement: true,
+                    automaticCleanup: true,
+                    storageMonitoring: true,
+                    fileArchiving: true
+                },
+                features: {
+                    formFieldExtraction: false, // Will be true when implemented
+                    urlMatching: false, // Will be true when implemented
+                    requirementValidation: false // Will be true when implemented
+                }
             },
-            features: {
-                formFieldExtraction: false, // Will be true when implemented
-                urlMatching: false, // Will be true when implemented
-                requirementValidation: false // Will be true when implemented
-            }
-        },
-        validation: {
-            minFileSize: '100 bytes',
-            maxFileSize: '10MB',
-            allowedExtensions: ['.pdf'],
-            filenamePattern: 'alphanumeric, spaces, hyphens, underscores, periods',
-            maxFilenameLength: 255
-        },
-        version: '1.0.0'
-    });
+            validation: {
+                minFileSize: '100 bytes',
+                maxFileSize: '10MB',
+                allowedExtensions: ['.pdf'],
+                filenamePattern: 'alphanumeric, spaces, hyphens, underscores, periods',
+                maxFilenameLength: 255
+            },
+            storage: storageHealth,
+            version: '1.0.0'
+        });
+    } catch (error) {
+        logger.error('Failed to get storage status:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to retrieve storage status',
+            code: 'STORAGE_STATUS_ERROR'
+        });
+    }
+});
+
+/**
+ * @route GET /api/pdf-upload/storage
+ * @desc Get detailed storage statistics and health
+ * @access Private (requires authentication)
+ */
+router.get('/storage', authenticateToken, async (req, res) => {
+    try {
+        const [stats, health] = await Promise.all([
+            tempStorage.getStorageStats(),
+            tempStorage.getHealthStatus()
+        ]);
+
+        res.json({
+            success: true,
+            statistics: stats,
+            health: health,
+            timestamp: new Date().toISOString()
+        });
+
+    } catch (error) {
+        logger.error('Failed to get storage details:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to retrieve storage details',
+            code: 'STORAGE_DETAILS_ERROR'
+        });
+    }
+});
+
+/**
+ * @route POST /api/pdf-upload/cleanup
+ * @desc Manually trigger storage cleanup
+ * @access Private (requires authentication)
+ */
+router.post('/cleanup', authenticateToken, async (req, res) => {
+    try {
+        logger.info(`🧹 Manual cleanup triggered by user: ${req.user.id}`);
+        
+        const cleanupResult = await tempStorage.cleanup();
+        
+        res.json({
+            success: true,
+            message: 'Storage cleanup completed',
+            result: cleanupResult,
+            triggeredBy: req.user.id,
+            timestamp: new Date().toISOString()
+        });
+
+    } catch (error) {
+        logger.error('Manual cleanup failed:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Storage cleanup failed',
+            code: 'CLEANUP_ERROR',
+            message: error.message
+        });
+    }
 });
 
 module.exports = router;
