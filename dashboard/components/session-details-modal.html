@@ -2521,6 +2521,12 @@
                     
                     <!-- Right side - Primary Actions -->
                     <div class="flex items-center space-x-3">
+                        <!-- Upload PDF Button -->
+                        <button @click="openPDFUploadModal()" 
+                                class="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors inline-flex items-center">
+                            <i class="fas fa-upload mr-2"></i>Upload PDF
+                        </button>
+                        
                         <button @click="saveAllInstanceChanges()" 
                                 x-show="hasUnsavedChanges"
                                 class="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors">
@@ -2535,6 +2541,248 @@
             </div>
 
 
+        </div>
+    </div>
+</div>
+
+<!-- PDF Upload Modal -->
+<div x-show="showPDFUploadModal" 
+     x-transition:enter="transition ease-out duration-300"
+     x-transition:enter-start="opacity-0"
+     x-transition:enter-end="opacity-100"
+     x-transition:leave="transition ease-in duration-200"
+     x-transition:leave-start="opacity-100"
+     x-transition:leave-end="opacity-0"
+     class="fixed inset-0 bg-black bg-opacity-50 z-60 flex items-center justify-center p-4"
+     @click.self="closePDFUploadModal()">
+     
+    <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col"
+         @click.stop>
+         
+        <!-- Modal Header -->
+        <div class="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 border-b border-blue-200 flex-shrink-0">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <div class="flex-shrink-0">
+                        <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                            <i class="fas fa-upload text-blue-600 text-xl"></i>
+                        </div>
+                    </div>
+                    <div>
+                        <h2 class="text-2xl font-bold text-gray-900">Upload PDF Test Results</h2>
+                        <p class="text-sm text-gray-600" x-text="'Requirement: ' + (currentRequirement?.requirement_number || 'N/A')"></p>
+                    </div>
+                </div>
+                <button @click="closePDFUploadModal()" 
+                        class="p-2 text-gray-400 hover:text-gray-600 transition-colors">
+                    <i class="fas fa-times text-lg"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Modal Content -->
+        <div class="flex-1 overflow-y-auto p-6">
+            <!-- Upload Area -->
+            <div x-show="!pdfUploadInProgress && !pdfUploadSuccess && !pdfUploadError">
+                <!-- Drag and Drop Area -->
+                <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center transition-colors"
+                     :class="{ 'border-blue-400 bg-blue-50': isDragOver }"
+                     @dragover.prevent="isDragOver = true"
+                     @dragleave.prevent="isDragOver = false"
+                     @drop.prevent="handlePDFDrop($event)">
+                    
+                    <div class="flex flex-col items-center space-y-4">
+                        <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
+                            <i class="fas fa-file-pdf text-gray-400 text-2xl"></i>
+                        </div>
+                        
+                        <div>
+                            <h3 class="text-lg font-medium text-gray-900">Upload PDF Test Results</h3>
+                            <p class="text-sm text-gray-500 mt-1">
+                                Drag and drop your PDF file here, or click to select
+                            </p>
+                        </div>
+                        
+                        <div class="flex flex-col space-y-2 text-xs text-gray-500">
+                            <span>• Maximum file size: 10MB</span>
+                            <span>• Only PDF files are accepted</span>
+                            <span>• Data will be reviewed before saving</span>
+                        </div>
+                        
+                        <!-- File Input (Hidden) -->
+                        <input type="file" 
+                               id="pdfFileInput" 
+                               accept=".pdf,application/pdf"
+                               @change="handlePDFSelection($event)"
+                               class="hidden">
+                        
+                        <button @click="document.getElementById('pdfFileInput').click()" 
+                                class="px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors inline-flex items-center">
+                            <i class="fas fa-folder-open mr-2"></i>Select PDF File
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Selected File Info -->
+                <div x-show="selectedPDFFile" class="mt-4 p-4 bg-gray-50 rounded-lg">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-3">
+                            <i class="fas fa-file-pdf text-red-500 text-xl"></i>
+                            <div>
+                                <p class="font-medium text-gray-900" x-text="selectedPDFFile?.name"></p>
+                                <p class="text-sm text-gray-500" x-text="formatFileSize(selectedPDFFile?.size)"></p>
+                            </div>
+                        </div>
+                        <button @click="clearSelectedPDF()" 
+                                class="text-gray-400 hover:text-gray-600">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Upload Progress -->
+            <div x-show="pdfUploadInProgress" class="space-y-4">
+                <div class="text-center">
+                    <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-spinner fa-spin text-blue-600 text-2xl"></i>
+                    </div>
+                    <h3 class="text-lg font-medium text-gray-900">Processing PDF...</h3>
+                    <p class="text-sm text-gray-500 mt-1" x-text="pdfUploadStatus"></p>
+                </div>
+                
+                <!-- Progress Bar -->
+                <div class="w-full bg-gray-200 rounded-full h-2">
+                    <div class="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+                         :style="`width: ${pdfUploadProgress}%`"></div>
+                </div>
+                
+                <p class="text-center text-sm text-gray-600" x-text="`${pdfUploadProgress}% complete`"></p>
+            </div>
+            
+            <!-- Upload Success -->
+            <div x-show="pdfUploadSuccess" class="space-y-4">
+                <div class="text-center">
+                    <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-check text-green-600 text-2xl"></i>
+                    </div>
+                    <h3 class="text-lg font-medium text-gray-900">PDF Processed Successfully!</h3>
+                    <p class="text-sm text-gray-500 mt-1">Review the extracted data below before saving.</p>
+                </div>
+                
+                <!-- Extracted Data Preview -->
+                <div x-show="pdfUploadResult" class="bg-gray-50 rounded-lg p-4 space-y-4">
+                    <!-- Requirement Info -->
+                    <div x-show="pdfUploadResult?.requirement">
+                        <h4 class="font-medium text-gray-900 mb-2">Requirement Information</h4>
+                        <div class="bg-white rounded p-3 space-y-2 text-sm">
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Number:</span>
+                                <span x-text="pdfUploadResult?.requirement?.number || 'Not found'"></span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Status:</span>
+                                <span x-text="pdfUploadResult?.requirement?.overallStatus || 'Not found'"></span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Test Instances -->
+                    <div x-show="pdfUploadResult?.testInstances?.length > 0">
+                        <h4 class="font-medium text-gray-900 mb-2">Test Instances</h4>
+                        <div class="space-y-2">
+                            <template x-for="instance in pdfUploadResult?.testInstances || []" :key="instance.index">
+                                <div class="bg-white rounded p-3">
+                                    <div class="grid grid-cols-2 gap-3 text-sm">
+                                        <div>
+                                            <span class="text-gray-600">URL:</span>
+                                            <span x-text="instance.url || 'Not found'" class="ml-2"></span>
+                                        </div>
+                                        <div>
+                                            <span class="text-gray-600">Status:</span>
+                                            <span x-text="instance.status || 'Not found'" class="ml-2"></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                    
+                    <!-- Warnings -->
+                    <div x-show="pdfUploadResult?.warnings?.length > 0" class="bg-yellow-50 border border-yellow-200 rounded p-3">
+                        <h4 class="font-medium text-yellow-800 mb-2">
+                            <i class="fas fa-exclamation-triangle mr-1"></i>Warnings
+                        </h4>
+                        <ul class="text-sm text-yellow-700 space-y-1">
+                            <template x-for="warning in pdfUploadResult?.warnings || []">
+                                <li x-text="warning"></li>
+                            </template>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Upload Error -->
+            <div x-show="pdfUploadError" class="space-y-4">
+                <div class="text-center">
+                    <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-exclamation-triangle text-red-600 text-2xl"></i>
+                    </div>
+                    <h3 class="text-lg font-medium text-gray-900">Upload Failed</h3>
+                    <p class="text-sm text-gray-500 mt-1" x-text="pdfUploadErrorMessage"></p>
+                </div>
+                
+                <div class="bg-red-50 border border-red-200 rounded p-4">
+                    <div class="flex">
+                        <i class="fas fa-exclamation-circle text-red-400 mr-3 mt-0.5"></i>
+                        <div class="text-sm text-red-700">
+                            <p x-text="pdfUploadErrorDetails || 'Please check your file and try again.'"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="bg-gray-50 px-6 py-4 border-t border-gray-200 flex-shrink-0">
+            <div class="flex items-center justify-between">
+                <!-- Left side - Info -->
+                <div class="flex items-center space-x-2 text-sm text-gray-600">
+                    <i class="fas fa-info-circle"></i>
+                    <span>Data will be populated into the requirement fields for review</span>
+                </div>
+                
+                <!-- Right side - Actions -->
+                <div class="flex items-center space-x-3">
+                    <!-- Upload Button -->
+                    <button @click="uploadPDFFile()" 
+                            x-show="selectedPDFFile && !pdfUploadInProgress && !pdfUploadSuccess"
+                            class="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
+                        <i class="fas fa-upload mr-2"></i>Upload & Process
+                    </button>
+                    
+                    <!-- Save Data Button -->
+                    <button @click="savePDFData()" 
+                            x-show="pdfUploadSuccess"
+                            class="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors">
+                        <i class="fas fa-save mr-2"></i>Save Data
+                    </button>
+                    
+                    <!-- Try Again Button -->
+                    <button @click="resetPDFUpload()" 
+                            x-show="pdfUploadError"
+                            class="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
+                        <i class="fas fa-redo mr-2"></i>Try Again
+                    </button>
+                    
+                    <!-- Cancel/Close Button -->
+                    <button @click="closePDFUploadModal()" 
+                            class="px-6 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors">
+                        <i class="fas fa-times mr-2"></i>
+                        <span x-text="pdfUploadSuccess ? 'Close' : 'Cancel'"></span>
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 </div> 

@@ -42,6 +42,19 @@ window.dashboard = function() {
         showAutomationRunDetailsModal: false,
         showTestGrid: false,
         
+        // ===== PDF UPLOAD MODAL STATES =====
+        showPDFUploadModal: false,
+        pdfUploadInProgress: false,
+        pdfUploadSuccess: false,
+        pdfUploadError: false,
+        pdfUploadStatus: '',
+        pdfUploadProgress: 0,
+        pdfUploadErrorMessage: '',
+        pdfUploadErrorDetails: '',
+        pdfUploadResult: null,
+        selectedPDFFile: null,
+        isDragOver: false,
+        
         // ===== PROGRESS AND STATE FLAGS =====
         loading: false,
         loadingAutomationRunDetails: false,
@@ -17913,6 +17926,218 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
     };
     
 
+    
+    // ===== PDF UPLOAD FUNCTIONS =====
+    componentInstance.openPDFUploadModal = function() {
+        console.log('🔵 Opening PDF upload modal');
+        this.showPDFUploadModal = true;
+        this.resetPDFUploadState();
+    };
+    
+    componentInstance.closePDFUploadModal = function() {
+        console.log('🔵 Closing PDF upload modal');
+        this.showPDFUploadModal = false;
+        this.resetPDFUploadState();
+    };
+    
+    componentInstance.resetPDFUploadState = function() {
+        this.pdfUploadInProgress = false;
+        this.pdfUploadSuccess = false;
+        this.pdfUploadError = false;
+        this.pdfUploadStatus = '';
+        this.pdfUploadProgress = 0;
+        this.pdfUploadErrorMessage = '';
+        this.pdfUploadErrorDetails = '';
+        this.pdfUploadResult = null;
+        this.selectedPDFFile = null;
+        this.isDragOver = false;
+    };
+    
+    componentInstance.handlePDFDrop = function(event) {
+        console.log('🔵 PDF file dropped');
+        this.isDragOver = false;
+        const files = event.dataTransfer.files;
+        if (files.length > 0) {
+            this.handlePDFFile(files[0]);
+        }
+    };
+    
+    componentInstance.handlePDFSelection = function(event) {
+        console.log('🔵 PDF file selected');
+        const files = event.target.files;
+        if (files.length > 0) {
+            this.handlePDFFile(files[0]);
+        }
+    };
+    
+    componentInstance.handlePDFFile = function(file) {
+        console.log('🔵 Handling PDF file:', file.name);
+        
+        // Validate file type
+        if (!file.type === 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+            this.pdfUploadError = true;
+            this.pdfUploadErrorMessage = 'Invalid file type';
+            this.pdfUploadErrorDetails = 'Only PDF files are allowed. Please select a valid PDF file.';
+            return;
+        }
+        
+        // Validate file size (10MB limit)
+        const maxSize = 10 * 1024 * 1024; // 10MB
+        if (file.size > maxSize) {
+            this.pdfUploadError = true;
+            this.pdfUploadErrorMessage = 'File too large';
+            this.pdfUploadErrorDetails = `File size is ${this.formatFileSize(file.size)}. Maximum allowed size is 10MB.`;
+            return;
+        }
+        
+        this.selectedPDFFile = file;
+        this.pdfUploadError = false;
+    };
+    
+    componentInstance.clearSelectedPDF = function() {
+        console.log('🔵 Clearing selected PDF');
+        this.selectedPDFFile = null;
+        // Clear the file input
+        const fileInput = document.getElementById('pdfFileInput');
+        if (fileInput) {
+            fileInput.value = '';
+        }
+    };
+    
+    componentInstance.formatFileSize = function(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    };
+    
+    componentInstance.uploadPDFFile = async function() {
+        if (!this.selectedPDFFile) {
+            console.warn('🔵 No PDF file selected for upload');
+            return;
+        }
+        
+        console.log('🔵 Starting PDF upload:', this.selectedPDFFile.name);
+        
+        this.pdfUploadInProgress = true;
+        this.pdfUploadError = false;
+        this.pdfUploadSuccess = false;
+        this.pdfUploadStatus = 'Preparing upload...';
+        this.pdfUploadProgress = 10;
+        
+        try {
+            // Create FormData
+            const formData = new FormData();
+            formData.append('pdf', this.selectedPDFFile);
+            
+            // Add requirement context if available
+            const requirementId = this.currentRequirement?.id;
+            
+            // Update progress
+            this.pdfUploadStatus = 'Uploading file...';
+            this.pdfUploadProgress = 30;
+            
+            // Prepare request URL with requirement context
+            let uploadUrl = '/api/pdf-upload';
+            if (requirementId) {
+                uploadUrl += `?requirementId=${requirementId}`;
+            }
+            
+            // Get authentication token
+            const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+            if (!token) {
+                throw new Error('Authentication token not found. Please log in again.');
+            }
+            
+            // Update progress
+            this.pdfUploadStatus = 'Processing PDF...';
+            this.pdfUploadProgress = 50;
+            
+            // Make the upload request
+            const response = await fetch(uploadUrl, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                },
+                body: formData
+            });
+            
+            // Update progress
+            this.pdfUploadProgress = 80;
+            this.pdfUploadStatus = 'Parsing data...';
+            
+            const result = await response.json();
+            
+            // Update progress
+            this.pdfUploadProgress = 100;
+            
+            if (!response.ok) {
+                throw new Error(result.message || `Upload failed with status ${response.status}`);
+            }
+            
+            if (!result.success) {
+                throw new Error(result.message || 'Upload failed');
+            }
+            
+            // Success
+            console.log('🔵 PDF upload successful:', result);
+            this.pdfUploadSuccess = true;
+            this.pdfUploadInProgress = false;
+            this.pdfUploadResult = result.data;
+            this.pdfUploadStatus = 'Processing complete!';
+            
+            // Show warnings if any
+            if (result.warnings && result.warnings.length > 0) {
+                console.warn('🔵 PDF upload warnings:', result.warnings);
+            }
+            
+        } catch (error) {
+            console.error('🔵 PDF upload failed:', error);
+            this.pdfUploadInProgress = false;
+            this.pdfUploadError = true;
+            this.pdfUploadErrorMessage = error.message || 'Upload failed';
+            this.pdfUploadErrorDetails = error.message || 'An unexpected error occurred during upload. Please try again.';
+        }
+    };
+    
+    componentInstance.savePDFData = async function() {
+        if (!this.pdfUploadResult) {
+            console.warn('🔵 No PDF data to save');
+            return;
+        }
+        
+        console.log('🔵 Saving PDF data to dashboard');
+        
+        try {
+            // For now, just show a notification that data would be saved
+            // In the actual implementation, this would populate the requirement fields
+            // and integrate with the existing save mechanism
+            
+            // Simulate saving process
+            this.pdfUploadStatus = 'Saving data...';
+            
+            // Placeholder: In real implementation, populate the currentRequirement
+            // and test instances with the extracted data
+            
+            this.showNotification('success', 'PDF Data Saved', 'PDF data has been populated into the requirement fields for review.');
+            
+            // Close the modal
+            this.closePDFUploadModal();
+            
+            // Refresh the requirement data if needed
+            // await this.loadRequirementDetails(this.currentRequirement.id);
+            
+        } catch (error) {
+            console.error('🔵 Failed to save PDF data:', error);
+            this.showNotification('error', 'Save Failed', 'Failed to save PDF data. Please try again.');
+        }
+    };
+    
+    componentInstance.resetPDFUpload = function() {
+        console.log('🔵 Resetting PDF upload');
+        this.resetPDFUploadState();
+    };
     
     return componentInstance;
 }

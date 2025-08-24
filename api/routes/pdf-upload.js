@@ -18,6 +18,12 @@ const {
     PDFErrorHandler,
     PDF_RESPONSE_CODES 
 } = require('../utils/pdf-response-handler');
+const { 
+    createUploadLogger,
+    createStorageLogger,
+    createAuthLogger,
+    logAPIRequest 
+} = require('../utils/pdf-logger');
 const router = express.Router();
 
 /**
@@ -36,6 +42,7 @@ router.post('/',
     async (req, res) => {
     let tempFilePath = null;
     const startTime = Date.now();
+    let pdfLogger = null;
     
     try {
         // Check if file was uploaded
@@ -45,6 +52,7 @@ router.post('/',
                 'No PDF file uploaded',
                 { expectedField: 'pdf' }
             );
+            logAPIRequest('POST', req.originalUrl, 400, Date.now() - startTime, req.user?.id);
             return res.status(400).json(response.toJSON());
         }
 
@@ -52,13 +60,13 @@ router.post('/',
         const originalFilename = req.file.originalname;
         const requirementId = req.query.requirementId;
 
-        logger.info(`📄 PDF upload received: ${originalFilename} (${req.file.size} bytes)`, {
-            userId: req.user.id,
-            filename: originalFilename,
-            fileSize: req.file.size,
-            requirementId,
-            tempPath: tempFilePath
-        });
+        // Initialize enhanced logger
+        pdfLogger = createUploadLogger(req.user.id, originalFilename, req.file.size);
+        pdfLogger.logUploadStart(originalFilename, req.file.size, req.user.id);
+
+        // Log authentication details
+        const authLogger = createAuthLogger(req.user.id);
+        authLogger.logAuth(req.user.id, req.user.username, req.user.role, req.uploadRateLimit);
 
         // Initialize parsed data structure
         const parsedData = new ParsedPDFData({
@@ -70,6 +78,10 @@ router.post('/',
 
         // Add processing step
         parsedData.addProcessingStep('file_upload', 'completed', {
+            filename: originalFilename,
+            size: req.file.size
+        });
+        pdfLogger.logProcessingStep('file_upload', 'completed', {
             filename: originalFilename,
             size: req.file.size
         });
@@ -96,6 +108,7 @@ router.post('/',
         };
         
         parsedData.addProcessingStep('pdf_validation', 'completed', validationDetails);
+        pdfLogger.logValidation(originalFilename, { isValid: true, ...validationDetails });
 
         // Set storage statistics
         const storageStats = await req.tempStorage.getStats();
@@ -110,14 +123,23 @@ router.post('/',
             tempFiles: parsedData.storage.tempFiles,
             totalSize: parsedData.storage.totalStorageUsed
         });
+        
+        const storageLogger = createStorageLogger('stats_collection');
+        storageLogger.logStorage('stats_collection', {
+            tempFiles: parsedData.storage.tempFiles,
+            totalSize: parsedData.storage.totalStorageUsed
+        });
 
         // TODO: Implement actual PDF parsing logic here
         // For now, simulate parsing with placeholder data
         parsedData.addProcessingStep('pdf_parsing', 'skipped', {
             reason: 'PDF parsing implementation pending'
         });
+        pdfLogger.logProcessingStep('pdf_parsing', 'skipped', {
+            reason: 'PDF parsing implementation pending'
+        });
 
-        parsedData.updateParsingStatus({
+        const parsingStatus = {
             success: false,
             message: 'PDF parsing not yet implemented - placeholder response',
             fieldsFound: 0,
@@ -125,7 +147,10 @@ router.post('/',
             fieldsWithErrors: 0,
             parsingDuration: 0,
             warnings: ['PDF parsing implementation is pending']
-        });
+        };
+        
+        parsedData.updateParsingStatus(parsingStatus);
+        pdfLogger.logParsing(originalFilename, parsingStatus);
 
         // Set placeholder requirement data
         parsedData.setRequirement({
@@ -147,9 +172,12 @@ router.post('/',
         try {
             await fs.unlink(tempFilePath);
             parsedData.addProcessingStep('file_cleanup', 'completed');
+            pdfLogger.logCleanup('temp_file_removal', { status: 'success', file: tempFilePath });
         } catch (unlinkError) {
-            logger.warn(`Failed to clean up temp file: ${tempFilePath}`, unlinkError);
             parsedData.addProcessingStep('file_cleanup', 'failed', {
+                error: unlinkError.message
+            });
+            pdfLogger.logWarning(`Failed to clean up temp file: ${tempFilePath}`, {
                 error: unlinkError.message
             });
         }
@@ -167,9 +195,34 @@ router.post('/',
             'URL matching and requirement validation pending'
         ]);
 
+        // Log successful completion
+        const duration = Date.now() - startTime;
+        pdfLogger.logCompletion(true, {
+            filename: originalFilename,
+            fileSize: req.file.size,
+            processingTime: duration
+        });
+        
+        logAPIRequest('POST', req.originalUrl, 200, duration, req.user.id);
+        
         res.json(response.toJSON());
 
     } catch (error) {
+        const duration = Date.now() - startTime;
+        
+        // Enhanced error logging
+        if (pdfLogger) {
+            pdfLogger.logError(error, {
+                filename: req.file?.originalname,
+                processingTime: duration
+            });
+            pdfLogger.logCompletion(false, {
+                filename: req.file?.originalname,
+                error: error.message,
+                processingTime: duration
+            });
+        }
+        
         PDFErrorHandler.logError(error, {
             userId: req.user?.id,
             filename: req.file?.originalname,
@@ -180,8 +233,15 @@ router.post('/',
         if (tempFilePath) {
             try {
                 await fs.unlink(tempFilePath);
+                if (pdfLogger) {
+                    pdfLogger.logCleanup('error_cleanup', { status: 'success', file: tempFilePath });
+                }
             } catch (unlinkError) {
-                logger.warn(`Failed to clean up temp file after error: ${tempFilePath}`, unlinkError);
+                if (pdfLogger) {
+                    pdfLogger.logWarning(`Failed to clean up temp file after error: ${tempFilePath}`, {
+                        error: unlinkError.message
+                    });
+                }
             }
         }
 
@@ -190,7 +250,7 @@ router.post('/',
             operation: 'pdf_upload',
             userId: req.user?.id,
             filename: req.file?.originalname,
-            processingTime: Date.now() - startTime
+            processingTime: duration
         });
 
         // Determine appropriate HTTP status code
@@ -207,6 +267,8 @@ router.post('/',
             statusCode = 401;
         }
 
+        logAPIRequest('POST', req.originalUrl, statusCode, duration, req.user?.id);
+        
         res.status(statusCode).json(errorResponse.toJSON());
     }
 });
