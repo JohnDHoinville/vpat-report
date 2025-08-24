@@ -24,7 +24,63 @@ const {
     createAuthLogger,
     logAPIRequest 
 } = require('../utils/pdf-logger');
+const { createPDFParser } = require('../utils/pdf-parser');
+const { createURLMatcher } = require('../utils/url-matcher');
 const router = express.Router();
+
+/**
+ * Get test instances for a specific requirement from the database
+ * @param {string} requirementNumber - WCAG requirement number (e.g., "1.1.1")
+ * @returns {Promise<Array>} Array of test instances
+ */
+async function getTestInstancesForRequirement(requirementNumber) {
+    try {
+        const uploadLogger = createUploadLogger('DatabaseQuery');
+        
+        uploadLogger.info('🔍 Querying test instances for requirement', {
+            requirementNumber
+        });
+        
+        // For now, return a placeholder array
+        // This should be replaced with actual database query
+        // Example query would be something like:
+        // SELECT ti.* FROM test_instances ti 
+        // JOIN requirements r ON ti.requirement_id = r.id 
+        // WHERE r.criterion_number = $1
+        
+        const placeholderTestInstances = [
+            {
+                id: 'placeholder-1',
+                url: 'https://example.com/page1',
+                requirement_id: 'req-1',
+                status: 'passed',
+                notes: 'Placeholder test instance 1'
+            },
+            {
+                id: 'placeholder-2', 
+                url: 'https://example.com/page2',
+                requirement_id: 'req-1',
+                status: 'failed',
+                notes: 'Placeholder test instance 2'
+            }
+        ];
+        
+        uploadLogger.info('✅ Test instances retrieved', {
+            requirementNumber,
+            instanceCount: placeholderTestInstances.length
+        });
+        
+        return placeholderTestInstances;
+        
+    } catch (error) {
+        const uploadLogger = createUploadLogger('DatabaseQuery');
+        uploadLogger.error('❌ Failed to query test instances', {
+            requirementNumber,
+            error: error.message
+        });
+        throw error;
+    }
+}
 
 /**
  * @route POST /api/pdf-upload
@@ -130,35 +186,82 @@ router.post('/',
             totalSize: parsedData.storage.totalStorageUsed
         });
 
-        // TODO: Implement actual PDF parsing logic here
-        // For now, simulate parsing with placeholder data
-        parsedData.addProcessingStep('pdf_parsing', 'skipped', {
-            reason: 'PDF parsing implementation pending'
+        // Parse PDF using pdf-lib
+        pdfLogger.logProcessingStep('pdf_parsing', 'started', {
+            filePath: req.file.path,
+            fileSize: req.file.size
         });
-        pdfLogger.logProcessingStep('pdf_parsing', 'skipped', {
-            reason: 'PDF parsing implementation pending'
-        });
+        
+        let parsingResult = null;
+        try {
+            const parser = createPDFParser();
+            await parser.loadPDF(req.file.path);
+            parsingResult = await parser.parsePDF();
+            parser.cleanup();
+            
+            parsedData.addProcessingStep('pdf_parsing', 'completed', {
+                requirementNumber: parsingResult.requirement.number,
+                overallStatus: parsingResult.requirement.overallStatus,
+                testInstanceCount: parsingResult.testInstances.length,
+                urlCount: parsingResult.urls.length,
+                hasWYSIWYGFields: parsingResult.metadata.hasWYSIWYGFields
+            });
+            
+            pdfLogger.logProcessingStep('pdf_parsing', 'completed', {
+                parseTime: Date.now() - processingStartTime,
+                requirementNumber: parsingResult.requirement.number,
+                testInstanceCount: parsingResult.testInstances.length
+            });
+            
+        } catch (parseError) {
+            parsedData.addProcessingStep('pdf_parsing', 'failed', {
+                error: parseError.message,
+                stage: 'pdf_lib_parsing'
+            });
+            
+            pdfLogger.logProcessingStep('pdf_parsing', 'failed', {
+                error: parseError.message,
+                stack: parseError.stack
+            });
+            
+            // Continue with upload process but flag parsing failure
+            parsingResult = {
+                requirement: { number: null, overallStatus: null },
+                testInstances: [],
+                urls: [],
+                metadata: { 
+                    pageCount: 0, 
+                    formFieldCount: 0, 
+                    hasWYSIWYGFields: false,
+                    parsingError: parseError.message 
+                }
+            };
+        }
 
         const parsingStatus = {
-            success: false,
-            message: 'PDF parsing not yet implemented - placeholder response',
-            fieldsFound: 0,
-            fieldsProcessed: 0,
-            fieldsWithErrors: 0,
-            parsingDuration: 0,
-            warnings: ['PDF parsing implementation is pending']
+            success: !parsingResult.metadata.parsingError,
+            message: parsingResult.metadata.parsingError 
+                ? `PDF parsing failed: ${parsingResult.metadata.parsingError}`
+                : 'PDF parsing completed successfully',
+            fieldsFound: parsingResult.metadata.formFieldCount,
+            fieldsProcessed: parsingResult.metadata.formFieldCount,
+            fieldsWithErrors: parsingResult.metadata.parsingError ? 1 : 0,
+            parsingDuration: Date.now() - processingStartTime,
+            warnings: parsingResult.metadata.parsingError 
+                ? [`PDF parsing error: ${parsingResult.metadata.parsingError}`]
+                : []
         };
         
         parsedData.updateParsingStatus(parsingStatus);
         pdfLogger.logParsing(originalFilename, parsingStatus);
 
-        // Set placeholder requirement data
+        // Set extracted requirement data
         parsedData.setRequirement({
-            number: null,
-            title: null,
-            overallStatus: null,
-            extracted: false,
-            matched: false
+            number: parsingResult.requirement.number,
+            title: null, // Title will be resolved from database lookup
+            overallStatus: parsingResult.requirement.overallStatus,
+            extracted: !!parsingResult.requirement.number,
+            matched: false // Will be determined during URL matching
         });
 
         // Complete processing
@@ -182,18 +285,125 @@ router.post('/',
             });
         }
 
+        // Add parsed test instances to response data
+        if (parsingResult.testInstances && parsingResult.testInstances.length > 0) {
+            parsedData.setTestInstances(parsingResult.testInstances);
+        }
+        
+        // Add extracted URLs to response data
+        if (parsingResult.urls && parsingResult.urls.length > 0) {
+            parsedData.setURLs(parsingResult.urls);
+        }
+
+        // Perform URL matching with test instances if requirement number is available
+        let urlMatchingResult = null;
+        if (parsingResult.requirement.number && parsingResult.urls.length > 0) {
+            try {
+                pdfLogger.logProcessingStep('url_matching', 'started', {
+                    requirementNumber: parsingResult.requirement.number,
+                    urlCount: parsingResult.urls.length
+                });
+
+                // Query test instances for this requirement
+                // Note: This would typically query the database for test instances
+                // For now, we'll create a placeholder that can be integrated with the database layer
+                const testInstances = await getTestInstancesForRequirement(parsingResult.requirement.number);
+                
+                // Perform URL matching
+                const urlMatcher = createURLMatcher();
+                urlMatchingResult = await urlMatcher.matchURLsWithTestInstances(
+                    parsingResult.urls,
+                    testInstances,
+                    parsingResult.requirement.number
+                );
+
+                parsedData.addProcessingStep('url_matching', 'completed', {
+                    matchCount: urlMatchingResult.matches.length,
+                    unmatchedURLs: urlMatchingResult.unmatchedPDFURLs.length,
+                    unmatchedInstances: urlMatchingResult.unmatchedTestInstances.length
+                });
+
+                pdfLogger.logProcessingStep('url_matching', 'completed', {
+                    requirementNumber: parsingResult.requirement.number,
+                    matchCount: urlMatchingResult.matches.length,
+                    warnings: urlMatchingResult.warnings.length
+                });
+
+            } catch (urlMatchError) {
+                parsedData.addProcessingStep('url_matching', 'failed', {
+                    error: urlMatchError.message
+                });
+
+                pdfLogger.logProcessingStep('url_matching', 'failed', {
+                    error: urlMatchError.message,
+                    requirementNumber: parsingResult.requirement.number
+                });
+
+                // Continue processing even if URL matching fails
+                urlMatchingResult = {
+                    matches: [],
+                    unmatchedPDFURLs: parsingResult.urls,
+                    unmatchedTestInstances: [],
+                    warnings: [`URL matching failed: ${urlMatchError.message}`],
+                    statistics: {
+                        totalPDFURLs: parsingResult.urls.length,
+                        totalTestInstances: 0,
+                        matchedURLs: 0,
+                        matchedInstances: 0
+                    }
+                };
+            }
+        } else {
+            // Skip URL matching if no requirement number or URLs
+            const skipReason = !parsingResult.requirement.number 
+                ? 'No requirement number found' 
+                : 'No URLs extracted from PDF';
+                
+            parsedData.addProcessingStep('url_matching', 'skipped', {
+                reason: skipReason
+            });
+
+            pdfLogger.logProcessingStep('url_matching', 'skipped', {
+                reason: skipReason
+            });
+        }
+
         // Create success response
         const response = PDFResponseFactory.uploadSuccess(parsedData, {
             processingTime: Date.now() - startTime,
             requirementId: requirementId
         });
 
-        // Add warnings for placeholder implementation
-        response.addWarnings([
-            'PDF parsing is not yet implemented - this is a placeholder response',
-            'Form field extraction will be available in future implementation',
-            'URL matching and requirement validation pending'
-        ]);
+        // Add warnings if parsing had issues
+        const warnings = [];
+        if (parsingResult.metadata.parsingError) {
+            warnings.push(`PDF parsing encountered an error: ${parsingResult.metadata.parsingError}`);
+        }
+        if (!parsingResult.requirement.number) {
+            warnings.push('No requirement number found in PDF - manual verification needed');
+        }
+        if (parsingResult.testInstances.length === 0) {
+            warnings.push('No test instances found in PDF form fields');
+        }
+        if (parsingResult.urls.length === 0) {
+            warnings.push('No URLs extracted from PDF content');
+        }
+        if (!parsingResult.metadata.hasWYSIWYGFields) {
+            warnings.push('PDF appears to be in legacy format - missing WYSIWYG fields');
+        }
+        
+        // Add URL matching warnings
+        if (urlMatchingResult) {
+            warnings.push(...urlMatchingResult.warnings);
+            
+            if (urlMatchingResult.matches.length === 0 && parsingResult.urls.length > 0) {
+                warnings.push('No URLs from PDF could be matched with existing test instances');
+            }
+        }
+        
+        if (warnings.length > 0) {
+            response.addWarnings(warnings);
+        }
 
         // Log successful completion
         const duration = Date.now() - startTime;

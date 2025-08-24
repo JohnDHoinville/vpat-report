@@ -54,6 +54,8 @@ window.dashboard = function() {
         pdfUploadResult: null,
         selectedPDFFile: null,
         isDragOver: false,
+        pdfUploadCancelled: false,
+        pdfUploadController: null,
         
         // ===== PROGRESS AND STATE FLAGS =====
         loading: false,
@@ -17951,6 +17953,13 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
         this.pdfUploadResult = null;
         this.selectedPDFFile = null;
         this.isDragOver = false;
+        this.pdfUploadCancelled = false;
+        
+        // Abort any ongoing upload
+        if (this.pdfUploadController) {
+            this.pdfUploadController.abort();
+            this.pdfUploadController = null;
+        }
     };
     
     componentInstance.handlePDFDrop = function(event) {
@@ -18020,9 +18029,13 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
         
         console.log('🔵 Starting PDF upload:', this.selectedPDFFile.name);
         
+        // Create abort controller for cancellation
+        this.pdfUploadController = new AbortController();
+        
         this.pdfUploadInProgress = true;
         this.pdfUploadError = false;
         this.pdfUploadSuccess = false;
+        this.pdfUploadCancelled = false;
         this.pdfUploadStatus = 'Preparing upload...';
         this.pdfUploadProgress = 10;
         
@@ -18060,7 +18073,8 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                 headers: {
                     'Authorization': `Bearer ${token}`
                 },
-                body: formData
+                body: formData,
+                signal: this.pdfUploadController.signal
             });
             
             // Update progress
@@ -18095,9 +18109,19 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
         } catch (error) {
             console.error('🔵 PDF upload failed:', error);
             this.pdfUploadInProgress = false;
-            this.pdfUploadError = true;
-            this.pdfUploadErrorMessage = error.message || 'Upload failed';
-            this.pdfUploadErrorDetails = error.message || 'An unexpected error occurred during upload. Please try again.';
+            
+            // Check if the request was cancelled
+            if (error.name === 'AbortError') {
+                console.log('🔵 PDF upload cancelled by user');
+                this.pdfUploadCancelled = true;
+                this.pdfUploadStatus = 'Upload cancelled';
+                this.pdfUploadErrorMessage = 'Upload cancelled';
+                this.pdfUploadErrorDetails = 'The upload was cancelled by the user.';
+            } else {
+                this.pdfUploadError = true;
+                this.pdfUploadErrorMessage = error.message || 'Upload failed';
+                this.pdfUploadErrorDetails = error.message || 'An unexpected error occurred during upload. Please try again.';
+            }
         }
     };
     
@@ -18137,6 +18161,20 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
     componentInstance.resetPDFUpload = function() {
         console.log('🔵 Resetting PDF upload');
         this.resetPDFUploadState();
+    };
+    
+    componentInstance.cancelPDFUpload = function() {
+        console.log('🔵 Cancelling PDF upload');
+        
+        if (this.pdfUploadController) {
+            this.pdfUploadController.abort();
+            console.log('🔵 Upload request aborted');
+        }
+        
+        this.pdfUploadInProgress = false;
+        this.pdfUploadCancelled = true;
+        this.pdfUploadStatus = 'Upload cancelled by user';
+        this.pdfUploadProgress = 0;
     };
     
     return componentInstance;

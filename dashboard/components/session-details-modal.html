@@ -2658,6 +2658,14 @@
                 </div>
                 
                 <p class="text-center text-sm text-gray-600" x-text="`${pdfUploadProgress}% complete`"></p>
+                
+                <!-- Cancel Button -->
+                <div class="text-center mt-4">
+                    <button @click="cancelPDFUpload()" 
+                            class="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors">
+                        <i class="fas fa-times mr-2"></i>Cancel Upload
+                    </button>
+                </div>
             </div>
             
             <!-- Upload Success -->
@@ -2722,6 +2730,26 @@
                 </div>
             </div>
             
+            <!-- Upload Cancelled -->
+            <div x-show="pdfUploadCancelled" class="space-y-4">
+                <div class="text-center">
+                    <div class="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-ban text-yellow-600 text-2xl"></i>
+                    </div>
+                    <h3 class="text-lg font-medium text-gray-900">Upload Cancelled</h3>
+                    <p class="text-sm text-gray-500 mt-1">The PDF upload was cancelled by the user.</p>
+                </div>
+                
+                <div class="bg-yellow-50 border border-yellow-200 rounded p-4">
+                    <div class="flex">
+                        <i class="fas fa-info-circle text-yellow-400 mr-3 mt-0.5"></i>
+                        <div class="text-sm text-yellow-700">
+                            <p>You can select a new file or close this modal to try again later.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
             <!-- Upload Error -->
             <div x-show="pdfUploadError" class="space-y-4">
                 <div class="text-center">
@@ -2770,7 +2798,7 @@
                     
                     <!-- Try Again Button -->
                     <button @click="resetPDFUpload()" 
-                            x-show="pdfUploadError"
+                            x-show="pdfUploadError || pdfUploadCancelled"
                             class="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
                         <i class="fas fa-redo mr-2"></i>Try Again
                     </button>

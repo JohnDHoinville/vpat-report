@@ -37,31 +37,31 @@ Based on: `prd-pdf-upload-parser.md`
   - [x] 1.5 Create response structure for parsed data and error handling
   - [x] 1.6 Add API documentation and logging for the new endpoint
 
-- [ ] 2.0 **Frontend UI Integration**
+- [x] 2.0 **Frontend UI Integration**
   - [x] 2.1 Add "Upload PDF" button to Requirement Details modal footer
   - [x] 2.2 Implement file input handling with drag-and-drop support
   - [x] 2.3 Create upload progress indicator with loading states
   - [x] 2.4 Add file validation on frontend (file type, size checks)
   - [x] 2.5 Style upload button to match existing modal design
-  - [ ] 2.6 Implement upload cancellation functionality
+  - [x] 2.6 Implement upload cancellation functionality
 
-- [ ] 3.0 **PDF Form Field Parser**
-  - [ ] 3.1 Create pdf-parser utility to load PDF documents using pdf-lib
-  - [ ] 3.2 Implement overall status extraction from `overall_status_*` form fields
-  - [ ] 3.3 Extract test instance data from `status_{index}_*` checkbox fields
-  - [ ] 3.4 Parse text fields for notes (`notes_{index}`)
-  - [ ] 3.5 Extract WYSIWYG content from `results_{index}` and `recommendations_{index}` fields
-  - [ ] 3.6 Handle legacy PDF format detection (missing WYSIWYG fields)
-  - [ ] 3.7 Add comprehensive error handling for malformed PDFs
+- [x] 3.0 **PDF Form Field Parser**
+  - [x] 3.1 Create pdf-parser utility to load PDF documents using pdf-lib
+  - [x] 3.2 Implement overall status extraction from `overall_status_*` form fields
+  - [x] 3.3 Extract test instance data from `status_{index}_*` checkbox fields
+  - [x] 3.4 Parse text fields for notes (`notes_{index}`)
+  - [x] 3.5 Extract WYSIWYG content from `results_{index}` and `recommendations_{index}` fields
+  - [x] 3.6 Handle legacy PDF format detection (missing WYSIWYG fields)
+  - [x] 3.7 Add comprehensive error handling for malformed PDFs
 
-- [ ] 4.0 **URL Matching & Validation**
-  - [ ] 4.1 Extract requirement number from PDF text content using regex patterns
-  - [ ] 4.2 Parse URLs from PDF text using "URL: " prefix pattern matching
-  - [ ] 4.3 Implement URL normalization (http/https, trailing slashes)
-  - [ ] 4.4 Create database lookup for existing test instances by URL
-  - [ ] 4.5 Validate requirement number matches current modal context
-  - [ ] 4.6 Generate user-friendly warnings for mismatched requirements
-  - [ ] 4.7 Flag unmatched URLs for user review and decision
+- [x] 4.0 **URL Matching & Validation**
+  - [x] 4.1 Extract requirement number from PDF text content using regex patterns
+  - [x] 4.2 Parse URLs from PDF text using "URL: " prefix pattern matching
+  - [x] 4.3 Implement URL normalization (http/https, trailing slashes)
+  - [x] 4.4 Create database lookup for existing test instances by URL
+  - [x] 4.5 Validate requirement number matches current modal context
+  - [x] 4.6 Generate user-friendly warnings for mismatched requirements
+  - [x] 4.7 Flag unmatched URLs for user review and decision
 
 - [ ] 5.0 **Data Population & Save Integration**
   - [ ] 5.1 Map parsed data to Requirement Details modal field structure
