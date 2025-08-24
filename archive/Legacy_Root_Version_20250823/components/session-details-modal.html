@@ -758,8 +758,8 @@
                                 <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 mb-2">Test Status</label>
-                                        <select x-model="requirementFilters.testStatus" 
-                                                @change="filterRequirements()"
+                                        <select :value="requirementFilters?.testStatus || window.dashboardRequirementFilters?.testStatus || ''" 
+                                                @change="console.log('🔧 Filter dropdown changed to:', $event.target.value); if (requirementFilters) { requirementFilters.testStatus = $event.target.value; } else if (window.dashboardRequirementFilters) { window.dashboardRequirementFilters.testStatus = $event.target.value; } console.log('🔧 Alpine scope check:', typeof filterRequirements, typeof requirementFilters); if (typeof filterRequirements === 'function') { filterRequirements(); } else if (window.dashboardFilterRequirements) { console.log('🔧 Using global fallback'); window.dashboardFilterRequirements(); } else { console.error('filterRequirements not accessible in any scope'); }"
                                                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                                             <option value="">All Statuses</option>
                                             <option value="passed">Passed</option>
@@ -809,34 +809,42 @@
                                 </div>
                                 
                                 <!-- Requirements Statistics -->
-                                <div class="grid grid-cols-2 md:grid-cols-8 gap-4 text-center">
+                                <div class="grid grid-cols-2 md:grid-cols-12 gap-4 text-center">
                                     <div class="bg-blue-100 p-3 rounded-lg">
                                         <div class="text-xl font-bold text-blue-600" x-text="requirementStats.total || 0"></div>
                                         <div class="text-xs text-blue-700">Total</div>
                                     </div>
                                     <div class="bg-green-100 p-3 rounded-lg">
-                                        <div class="text-xl font-bold text-green-600" x-text="(requirementStats.automated_requirements || 0) + (requirementStats.hybrid_requirements || 0)"></div>
-                                        <div class="text-xs text-green-700">Can Auto</div>
+                                        <div class="text-xl font-bold text-green-600" x-text="requirementStats.completed || 0"></div>
+                                        <div class="text-xs text-green-700">Completed</div>
                                     </div>
                                     <div class="bg-emerald-100 p-3 rounded-lg">
-                                        <div class="text-xl font-bold text-emerald-600" x-text="requirementStats.automated_passed || 0"></div>
-                                        <div class="text-xs text-emerald-700">Auto Passed</div>
+                                        <div class="text-xl font-bold text-emerald-600" x-text="requirementStats.passed || 0"></div>
+                                        <div class="text-xs text-emerald-700">Passed</div>
                                     </div>
                                     <div class="bg-red-100 p-3 rounded-lg">
-                                        <div class="text-xl font-bold text-red-600" x-text="requirementStats.automated_failed || 0"></div>
-                                        <div class="text-xs text-red-700">Auto Failed</div>
+                                        <div class="text-xl font-bold text-red-600" x-text="requirementStats.failed || 0"></div>
+                                        <div class="text-xs text-red-700">Failed</div>
                                     </div>
                                     <div class="bg-orange-100 p-3 rounded-lg">
-                                        <div class="text-xl font-bold text-orange-600" x-text="(requirementStats.automated_pending || 0) + (requirementStats.automated_in_progress || 0) + (requirementStats.automated_running || 0) + (requirementStats.automated_needs_review || 0)"></div>
+                                        <div class="text-xl font-bold text-orange-600" x-text="requirementStats.in_progress || 0"></div>
                                         <div class="text-xs text-orange-700">In Progress</div>
                                     </div>
-                                    <div class="bg-yellow-100 p-3 rounded-lg">
-                                        <div class="text-xl font-bold text-yellow-600" x-text="requirementStats.manual_completed || 0"></div>
-                                        <div class="text-xs text-yellow-700">Manual Done</div>
+                                    <div class="bg-amber-100 p-3 rounded-lg">
+                                        <div class="text-xl font-bold text-amber-600" x-text="requirementStats.pending || 0"></div>
+                                        <div class="text-xs text-amber-700">Pending</div>
+                                    </div>
+                                    <div class="bg-indigo-100 p-3 rounded-lg">
+                                        <div class="text-xl font-bold text-indigo-600" x-text="requirementStats.running || 0"></div>
+                                        <div class="text-xs text-indigo-700">Running</div>
                                     </div>
                                     <div class="bg-purple-100 p-3 rounded-lg">
-                                        <div class="text-xl font-bold text-purple-600" x-text="requirementStats.manual_pending || 0"></div>
-                                        <div class="text-xs text-purple-700">Manual Pending</div>
+                                        <div class="text-xl font-bold text-purple-600" x-text="requirementStats.needs_review || 0"></div>
+                                        <div class="text-xs text-purple-700">Needs Review</div>
+                                    </div>
+                                    <div class="bg-fuchsia-100 p-3 rounded-lg">
+                                        <div class="text-xl font-bold text-fuchsia-600" x-text="requirementStats.manual_pending || 0"></div>
+                                        <div class="text-xs text-fuchsia-700">Manual Pending</div>
                                     </div>
                                     <div class="bg-gray-100 p-3 rounded-lg">
                                         <div class="text-xl font-bold text-gray-600" x-text="requirementStats.not_tested || 0"></div>
@@ -981,8 +989,12 @@
                                                     
                                                     <!-- Overall Status -->
                                                     <td class="px-6 py-4 whitespace-nowrap w-16">
-                                                        <span :class="getRequirementOverallStatusClass(requirement) + ' px-2 py-1 text-xs font-medium rounded-full'" 
-                                                              x-text="getRequirementOverallStatus(requirement)"></span>
+                                                        <requirement-status-badge 
+                                                            :status="requirement.overall_status"
+                                                            :auto="requirement.automated_status"
+                                                            :manual="requirement.manual_status"
+                                                            :method="requirement.test_method">
+                                                        </requirement-status-badge>
                                                     </td>
                                                     
                                                     <!-- Actions -->
@@ -999,12 +1011,23 @@
                                                     </td>
                                                 </tr>
                                             </template>
+                                            
+                                            <!-- Empty State for Filtered Requirements -->
+                                            <tr x-show="!paginatedRequirements || paginatedRequirements.length === 0">
+                                                <td colspan="6" class="px-6 py-8 text-center">
+                                                    <div class="text-gray-500">
+                                                        <i class="fas fa-filter text-2xl mb-2"></i>
+                                                        <p class="text-lg font-medium">No requirements match the current filter</p>
+                                                        <p class="text-sm">Try adjusting your filter criteria or clearing filters to see more results</p>
+                                                    </div>
+                                                </td>
+                                            </tr>
                                         </tbody>
                                     </table>
                                 </div>
                                 
                                 <!-- Pagination for Requirements -->
-                                <div x-show="sessionRequirements?.length > requirementPageSize" class="px-6 py-4 border-t border-gray-200">
+                                <div x-show="filteredRequirements?.length > requirementPageSize" class="px-6 py-4 border-t border-gray-200">
                                     <div class="flex items-center justify-between">
                                         <div class="text-sm text-gray-700">
                                             Showing <span x-text="((requirementCurrentPage - 1) * requirementPageSize) + 1"></span> 
@@ -1713,9 +1736,9 @@
                                 class="bg-white bg-opacity-20 hover:bg-opacity-30 text-white px-3 py-2 rounded-md transition-colors text-sm">
                             <i class="fas fa-file-pdf mr-2"></i>Print PDF
                         </button>
-                        <button @click="closeRequirementDetailsModal()" class="text-white hover:text-blue-200 transition-colors">
-                            <i class="fas fa-times text-xl"></i>
-                        </button>
+                    <button @click="closeRequirementDetailsModal()" class="text-white hover:text-blue-200 transition-colors">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
                     </div>
                 </div>
             </div>
@@ -1817,65 +1840,68 @@
                         <h4 class="text-lg font-semibold text-blue-900 mb-3">Test Status</h4>
                         <div class="space-y-2 text-sm">
                             <div>
-                                <span class="font-medium text-blue-800">Overall Status:</span>
-                                <span :class="(currentRequirement ? getRequirementOverallStatusClass(currentRequirement) : 'bg-gray-100 text-gray-600') + ' ml-2 px-2 py-1 text-xs font-medium rounded-full'" 
-                                      x-text="currentRequirement ? getRequirementOverallStatus(currentRequirement) : 'N/A'"></span>
-                            </div>
-                            
-                            <!-- Manual Overall Status Override -->
-                            <div class="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg" x-show="currentRequirement">
-                                <span class="font-medium text-blue-800 block mb-2">Manual Status Override for PDF:</span>
+                                <span class="font-medium text-blue-800 mb-2 block">Overall Status:</span>
                                 <div class="grid grid-cols-5 gap-2">
-                                    <label class="flex items-center space-x-1 cursor-pointer">
+                                    <!-- Passed -->
+                                    <label class="flex items-center justify-center p-2 rounded border cursor-pointer hover:bg-green-50" 
+                                           :class="getRequirementOverallStatus(currentRequirement) === 'Passed' ? 'bg-green-100 border-green-400' : 'border-gray-200'">
                                         <input type="radio" 
                                                name="overall_requirement_status" 
                                                value="passed"
                                                :checked="currentRequirement && currentRequirement.manual_status_override === 'passed'"
-                                               @change="saveRequirementStatusOverride('passed')"
-                                               class="text-green-600">
-                                        <span class="text-sm text-green-700">Pass</span>
+                                               @change="trackRequirementChange('manual_status_override', 'passed')"
+                                               class="mr-1 text-green-600">
+                                        <span class="text-xs">Passed</span>
                                     </label>
-                                    <label class="flex items-center space-x-1 cursor-pointer">
+                                    
+                                    <!-- Failed -->
+                                    <label class="flex items-center justify-center p-2 rounded border cursor-pointer hover:bg-red-50" 
+                                           :class="getRequirementOverallStatus(currentRequirement) === 'Failed' ? 'bg-red-100 border-red-400' : 'border-gray-200'">
                                         <input type="radio" 
                                                name="overall_requirement_status" 
                                                value="failed"
                                                :checked="currentRequirement && currentRequirement.manual_status_override === 'failed'"
-                                               @change="saveRequirementStatusOverride('failed')"
-                                               class="text-red-600">
-                                        <span class="text-sm text-red-700">Fail</span>
+                                               @change="trackRequirementChange('manual_status_override', 'failed')"
+                                               class="mr-1 text-red-600">
+                                        <span class="text-xs">Failed</span>
                                     </label>
-                                    <label class="flex items-center space-x-1 cursor-pointer">
+
+                                    <!-- In Process -->
+                                    <label class="flex items-center justify-center p-2 rounded border cursor-pointer hover:bg-blue-50" 
+                                           :class="getRequirementOverallStatus(currentRequirement) === 'In Process' ? 'bg-blue-100 border-blue-400' : 'border-gray-200'">
                                         <input type="radio" 
                                                name="overall_requirement_status" 
                                                value="in_process"
                                                :checked="currentRequirement && currentRequirement.manual_status_override === 'in_process'"
-                                               @change="saveRequirementStatusOverride('in_process')"
-                                               class="text-blue-600">
-                                        <span class="text-sm text-blue-700">In Process</span>
+                                               @change="trackRequirementChange('manual_status_override', 'in_process')"
+                                               class="mr-1 text-blue-600">
+                                        <span class="text-xs">In Process</span>
                                     </label>
-                                    <label class="flex items-center space-x-1 cursor-pointer">
+                                    
+                                    <!-- Needs Review -->
+                                    <label class="flex items-center justify-center p-2 rounded border cursor-pointer hover:bg-yellow-50" 
+                                           :class="getRequirementOverallStatus(currentRequirement) === 'Needs Review' ? 'bg-yellow-100 border-yellow-400' : 'border-gray-200'">
                                         <input type="radio" 
                                                name="overall_requirement_status" 
                                                value="needs_review"
                                                :checked="currentRequirement && currentRequirement.manual_status_override === 'needs_review'"
-                                               @change="saveRequirementStatusOverride('needs_review')"
-                                               class="text-yellow-600">
-                                        <span class="text-sm text-yellow-700">Needs Review</span>
+                                               @change="trackRequirementChange('manual_status_override', 'needs_review')"
+                                               class="mr-1 text-yellow-600">
+                                        <span class="text-xs">Needs Review</span>
                                     </label>
-                                    <label class="flex items-center space-x-1 cursor-pointer">
+                                    
+                                    <!-- Not Applicable -->
+                                    <label class="flex items-center justify-center p-2 rounded border cursor-pointer hover:bg-gray-50" 
+                                           :class="getRequirementOverallStatus(currentRequirement) === 'Not Applicable' ? 'bg-gray-100 border-gray-400' : 'border-gray-200'">
                                         <input type="radio" 
                                                name="overall_requirement_status" 
                                                value="not_applicable"
                                                :checked="currentRequirement && currentRequirement.manual_status_override === 'not_applicable'"
-                                               @change="saveRequirementStatusOverride('not_applicable')"
-                                               class="text-gray-600">
-                                        <span class="text-sm text-gray-700">Not Applicable</span>
+                                               @change="trackRequirementChange('manual_status_override', 'not_applicable')"
+                                               class="mr-1 text-gray-600">
+                                        <span class="text-xs">Not Applicable</span>
                                     </label>
                                 </div>
-                                <button @click="clearManualStatusOverride()" 
-                                        class="mt-2 text-xs text-blue-600 hover:text-blue-800 underline">
-                                    Clear override (use computed status)
-                                </button>
                             </div>
                             <div x-show="currentRequirement?.automated_tests && currentRequirement?.automated_tests.length > 0">
                                 <span class="font-medium text-blue-800">Automated Tests:</span>
@@ -2242,7 +2268,7 @@
                                                     <label class="block text-xs font-medium text-gray-600 mb-1">Test Notes:</label>
                                                     <textarea 
                                                         :value="instance.notes || ''"
-                                                        @input="updateInstanceNotes(instance.id, $event.target.value)"
+                                                        @input="updateInstanceNotes(instance.id, $event.target.value); trackRequirementChange('instance_notes_' + instance.id, $event.target.value)"
                                                         @blur="saveInstanceNotes(instance.id, $event.target.value)"
                                                         placeholder="Add test notes or comments..."
                                                         class="w-full px-2 py-1 text-xs border border-gray-300 rounded resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -2521,11 +2547,23 @@
                     
                     <!-- Right side - Primary Actions -->
                     <div class="flex items-center space-x-3">
-                        <button @click="saveAllInstanceChanges()" 
-                                x-show="hasUnsavedChanges"
-                                class="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors">
-                            <i class="fas fa-save mr-2"></i>Save Changes
+                        <!-- Discard Changes Button -->
+                        <button @click="discardRequirementChanges()" 
+                                x-show="hasRequirementChanges"
+                                class="px-4 py-2 text-orange-600 border border-orange-300 rounded-md hover:bg-orange-50 transition-colors">
+                            <i class="fas fa-undo mr-2"></i>Discard Changes
                         </button>
+                        
+                        <!-- Save Changes Button -->
+                        <button @click="saveRequirementChanges()" 
+                                x-show="hasRequirementChanges"
+                                :disabled="savingRequirementChanges"
+                                class="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors">
+                            <i class="fas fa-save mr-2" x-show="!savingRequirementChanges"></i>
+                            <i class="fas fa-spinner fa-spin mr-2" x-show="savingRequirementChanges"></i>
+                            <span x-text="savingRequirementChanges ? 'Saving...' : 'Save Changes'"></span>
+                        </button>
+                        
                         <button @click="closeRequirementDetailsModal()" 
                                 class="px-6 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors">
                             <i class="fas fa-times mr-2"></i>Close

@@ -63,11 +63,6 @@ window.dashboard = function() {
         // ===== TEST SELECTION STATE =====
         testSelectionStatus: null,
         
-        // ===== CHANGE TRACKING =====
-        pendingChanges: {},
-        hasChanges: false,
-        hasUnsavedChanges: false,
-        
         // ===== FORM OBJECTS =====
         loginForm: { username: '', password: '' },
         profileForm: { full_name: '', email: '' },
@@ -258,7 +253,6 @@ window.dashboard = function() {
         showRequirementDetailsModal: false,
         currentRequirement: null,
         loadingRequirementDetails: false,
-        updatingStatus: null, // Track which instance is being updated
         allRequirements: [],
         sessionRequirements: [],
         filteredRequirements: [],
@@ -607,10 +601,10 @@ window.dashboard = function() {
                             </details>
                         </div>
                         
-                        ${testInstance.understanding_url || testInstance.wcag_url || testInstance.section_508_url ? `
+                        ${testInstance.wcag_url || testInstance.section_508_url ? `
                         <div class="mt-4 flex space-x-4">
-                            ${testInstance.understanding_url || testInstance.wcag_url ? `
-                            <a href="${testInstance.understanding_url || testInstance.wcag_url}" target="_blank" class="inline-flex items-center text-sm text-blue-600 hover:text-blue-800">
+                            ${testInstance.wcag_url ? `
+                            <a href="${testInstance.wcag_url}" target="_blank" class="inline-flex items-center text-sm text-blue-600 hover:text-blue-800">
                                 <i class="fas fa-external-link-alt mr-1"></i>WCAG Understanding Guide
                             </a>` : ''}
                             ${testInstance.section_508_url ? `
@@ -693,7 +687,7 @@ window.dashboard = function() {
                                 <textarea id="test-notes" 
                                           rows="4" 
                                           placeholder="Enter detailed test notes, findings, and observations..."
-                                          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">${window.DashboardUtils.convertZuluToLocal(testInstance.notes || '')}</textarea>
+                                          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">${testInstance.notes || ''}</textarea>
                             </div>
                         </div>
                     </div>
@@ -888,11 +882,11 @@ window.dashboard = function() {
                         if (requirementsResponse.success && requirementsResponse.data?.requirements) {
                             requirementsData = requirementsResponse.data.requirements;
                             console.log(`✅ Successfully loaded ${requirementsData.length} requirements for session`);
-                            console.log(`🔍 DEBUG: Sample API response automated_status:`, requirementsData.slice(0, 5).map(r => ({
-                                id: r.criterion_number, 
-                                automated_status: r.automated_status, 
-                                manual_status: r.manual_status
-                            })));
+                            console.log(`🔍 DEBUG: Sample requirement automated_status:`, requirementsData.slice(0, 5).map(r => ({id: r.criterion_number, automated_status: r.automated_status, manual_status: r.manual_status, failed_instances: r.failed_instances})));
+                            
+                            // Check specifically for our failed requirements
+                            const failedReqs = requirementsData.filter(r => ['1.3.6', '1.4.6', '2.4.12', '2.4.13'].includes(r.criterion_number));
+                            console.log(`🔍 DEBUG: Our expected failed requirements:`, failedReqs.map(r => ({id: r.criterion_number, automated_status: r.automated_status, failed_instances: r.failed_instances})));
                         } else {
                             // Fallback to conformance level endpoint
                             console.log(`📋 Trying conformance level endpoint for ${conformanceLevel}`);
@@ -945,9 +939,9 @@ window.dashboard = function() {
                         test_method: req.test_method || 'both',
                         automated_tools: req.automated_tools || [],
                         automation_confidence: req.automation_confidence || 'none',
-                        status: req.status !== undefined && req.status !== null ? req.status : 'not_tested',
-                        automated_status: req.automated_status !== undefined && req.automated_status !== null ? req.automated_status : 'not_tested',
-                        manual_status: req.manual_status !== undefined && req.manual_status !== null ? req.manual_status : 'not_tested',
+                        status: req.status || 'not_tested',
+                        automated_status: req.automated_status || 'not_tested',
+                        manual_status: req.manual_status || 'not_tested',
                         notes: req.notes || '',
                         created_at: req.created_at,
                         updated_at: req.updated_at
@@ -988,7 +982,28 @@ window.dashboard = function() {
         
         // ===== REQUIREMENTS HELPER FUNCTIONS =====
         calculateRequirementStats: function() {
-            if (!this.sessionRequirements) return;
+            console.log(`🔍 DEBUG: calculateRequirementStats called, sessionRequirements length:`, this.sessionRequirements?.length);
+            
+            if (!this.sessionRequirements) {
+                console.log(`🔍 DEBUG: No sessionRequirements found, setting empty stats`);
+                this.requirementStats = {
+                    total: 0,
+                    automated_requirements: 0,
+                    hybrid_requirements: 0,
+                    manual_requirements: 0,
+                    automated_passed: 0,
+                    automated_failed: 0,
+                    automated_pending: 0,
+                    automated_in_progress: 0,
+                    automated_running: 0,
+                    automated_needs_review: 0,
+                    manual_completed: 0,
+                    manual_pending: 0,
+                    manual_in_progress: 0,
+                    not_tested: 0
+                };
+                return;
+            }
             
             // Count requirements by test method (this is what determines if they can be automated)
             const automatedRequirements = this.sessionRequirements.filter(r => r.test_method === 'automated').length;
@@ -996,16 +1011,43 @@ window.dashboard = function() {
             const manualRequirements = this.sessionRequirements.filter(r => r.test_method === 'manual').length;
             
             // Count requirements by actual test status using the correct field names from API
-            const automatedPassed = this.sessionRequirements.filter(r => r.automated_status === 'passed').length;
-            const automatedFailed = this.sessionRequirements.filter(r => r.automated_status === 'failed').length;
-            const automatedPending = this.sessionRequirements.filter(r => r.automated_status === 'pending').length;
-            const automatedInProgress = this.sessionRequirements.filter(r => r.automated_status === 'in_progress').length;
-            const automatedRunning = this.sessionRequirements.filter(r => r.automated_status === 'running').length;
-            const automatedNeedsReview = this.sessionRequirements.filter(r => r.automated_status === 'needs_review').length;
-            const manualCompleted = this.sessionRequirements.filter(r => r.manual_status === 'passed').length; // Changed from 'completed' to 'passed'
-            const manualPending = this.sessionRequirements.filter(r => r.manual_status === 'pending').length;
-            const manualInProgress = this.sessionRequirements.filter(r => r.manual_status === 'in_progress').length;
-            const notTested = this.sessionRequirements.filter(r => r.overall_status === 'not_tested').length; // Changed from 'status' to 'overall_status'
+            // For automated status - only count requirements that can be automated (automated or both)
+            const automatedPassed = this.sessionRequirements.filter(r => 
+                (r.test_method === 'automated' || r.test_method === 'both') && r.automated_status === 'passed'
+            ).length;
+            const automatedFailed = this.sessionRequirements.filter(r => 
+                (r.test_method === 'automated' || r.test_method === 'both') && r.automated_status === 'failed'
+            ).length;
+            const automatedPending = this.sessionRequirements.filter(r => 
+                (r.test_method === 'automated' || r.test_method === 'both') && r.automated_status === 'pending'
+            ).length;
+            const automatedInProgress = this.sessionRequirements.filter(r => 
+                (r.test_method === 'automated' || r.test_method === 'both') && r.automated_status === 'in_progress'
+            ).length;
+            const automatedRunning = this.sessionRequirements.filter(r => 
+                (r.test_method === 'automated' || r.test_method === 'both') && r.automated_status === 'running'
+            ).length;
+            const automatedNeedsReview = this.sessionRequirements.filter(r => 
+                (r.test_method === 'automated' || r.test_method === 'both') && r.automated_status === 'needs_review'
+            ).length;
+            
+            // For manual status - only count requirements that can be manual (manual or both)
+            const manualCompleted = this.sessionRequirements.filter(r => 
+                (r.test_method === 'manual' || r.test_method === 'both') && 
+                (r.manual_status === 'passed' || r.manual_status === 'completed')
+            ).length;
+            const manualPending = this.sessionRequirements.filter(r => 
+                (r.test_method === 'manual' || r.test_method === 'both') && r.manual_status === 'pending'
+            ).length;
+            const manualInProgress = this.sessionRequirements.filter(r => 
+                (r.test_method === 'manual' || r.test_method === 'both') && r.manual_status === 'in_progress'
+            ).length;
+            
+            // Not tested - requirements that have no testing done
+            const notTested = this.sessionRequirements.filter(r => 
+                r.overall_status === 'not_tested' || 
+                (r.automated_status === 'not_tested' && r.manual_status === 'not_tested')
+            ).length;
             
             // Alternative approach: Count based on test instance data if available
             let automatedPassedAlt = 0;
@@ -1074,6 +1116,13 @@ window.dashboard = function() {
                 not_tested: notTestedAlt > 0 ? notTestedAlt : notTested
             };
             
+            if (automatedFailed > 0) {
+                console.log(`🔍 DEBUG: Found ${automatedFailed} failed automated requirements`);
+            }
+            
+            console.log(`📊 DEBUG: Final stats from main function:`, this.requirementStats);
+            console.log(`🔍 DEBUG: Breakdown - Can Auto: ${automatedRequirements + hybridRequirements}, Manual: ${manualRequirements + hybridRequirements}`);
+            
             console.log(`📊 Requirements stats calculated:`, {
                 total: this.requirementStats.total,
                 automated: this.requirementStats.automated_requirements,
@@ -1111,7 +1160,37 @@ window.dashboard = function() {
             this.requirementTotalPages = Math.ceil(this.filteredRequirements.length / this.requirementPageSize);
         },
         
-        // filterRequirements function moved to the correct location later in the file (line ~14579)
+        filterRequirements: function() {
+            if (!this.sessionRequirements) return;
+            
+            let filtered = [...this.sessionRequirements];
+            
+            // Apply filters
+            if (this.requirementFilters.testStatus) {
+                filtered = filtered.filter(r => r.status === this.requirementFilters.testStatus);
+            }
+            
+            if (this.requirementFilters.wcagLevel) {
+                filtered = filtered.filter(r => r.wcag_level === this.requirementFilters.wcagLevel);
+            }
+            
+            if (this.requirementFilters.testMethod) {
+                filtered = filtered.filter(r => r.test_method === this.requirementFilters.testMethod);
+            }
+            
+            if (this.requirementFilters.searchTerm) {
+                const search = this.requirementFilters.searchTerm.toLowerCase();
+                filtered = filtered.filter(r => 
+                    r.title.toLowerCase().includes(search) ||
+                    r.description.toLowerCase().includes(search) ||
+                    r.criterion_number.toLowerCase().includes(search)
+                );
+            }
+            
+            this.filteredRequirements = filtered;
+            this.requirementCurrentPage = 1; // Reset to first page
+            this.updateRequirementsPagination();
+        },
         
         viewRequirementDetails: function(requirement) {
             // First show the modal with basic info
@@ -1159,106 +1238,6 @@ window.dashboard = function() {
             this.showRequirementDetailsModal = false;
             this.currentRequirement = null;
         },
-
-        // Update test instance status from requirement details modal
-        updateInstanceStatus: async function(instanceId, newStatus) {
-            try {
-                // Set loading state for this specific instance
-                this.updatingStatus = instanceId;
-                
-                // Call the existing updateTestInstanceStatus function
-                await this.updateTestInstanceStatus(instanceId, newStatus);
-                
-                // Update the local instance data immediately for UI responsiveness
-                const testInstances = this.getRequirementTestInstances(this.currentRequirement?.criterion_number);
-                const instance = testInstances.find(t => t.id === instanceId);
-                if (instance) {
-                    instance.status = newStatus;
-                    instance.updated_at = new Date().toISOString();
-                }
-                
-                // Clear loading state
-                this.updatingStatus = null;
-                
-                this.showNotification('success', 'Status Updated', 
-                    `Test instance status updated to ${newStatus.replace('_', ' ')}`);
-                
-            } catch (error) {
-                console.error('Error updating instance status from requirement modal:', error);
-                this.updatingStatus = null;
-                this.showNotification('error', 'Update Failed', error.message);
-            }
-        },
-
-        // Update test instance notes locally (for real-time updates)
-        updateInstanceNotes: function(instanceId, notes) {
-            // Update the local instance data immediately for UI responsiveness
-            const testInstances = this.getRequirementTestInstances(this.currentRequirement?.criterion_number);
-            const instance = testInstances.find(t => t.id === instanceId);
-            if (instance) {
-                instance.notes = notes;
-            }
-        },
-
-        // Update requirement status override
-        updateRequirementStatus: async function(requirementId, status) {
-            try {
-                const response = await this.apiCall(`/unified-requirements/${requirementId}/status`, {
-                    method: 'PUT',
-                    body: JSON.stringify({ status_override: status })
-                });
-
-                if (response.success) {
-                    // Update local requirement data
-                    if (this.currentRequirement && this.currentRequirement.id === requirementId) {
-                        this.currentRequirement.status_override = status;
-                    }
-                    
-                    // Update in requirements list if present
-                    const requirement = this.sessionRequirements?.find(r => r.id === requirementId);
-                    if (requirement) {
-                        requirement.status_override = status;
-                    }
-
-                    this.showNotification('success', 'Status Updated', 'Requirement status override has been saved');
-                } else {
-                    throw new Error(response.error || 'Failed to update requirement status');
-                }
-            } catch (error) {
-                console.error('Error updating requirement status:', error);
-                this.showNotification('error', 'Update Failed', 'Failed to update requirement status: ' + error.message);
-            }
-        },
-
-        // Save test instance notes to database
-        saveInstanceNotes: async function(instanceId, notes) {
-            try {
-                const response = await this.apiCall(`/test-instances/${instanceId}`, {
-                    method: 'PUT',
-                    body: JSON.stringify({ notes: notes })
-                });
-                
-                if (response.success) {
-                    // Update local data
-                    const testInstances = this.getRequirementTestInstances(this.currentRequirement?.criterion_number);
-                    const instance = testInstances.find(t => t.id === instanceId);
-                    if (instance) {
-                        instance.notes = notes;
-                        instance.updated_at = new Date().toISOString();
-                    }
-                    
-                    // Show subtle notification only if notes are not empty
-                    if (notes.trim()) {
-                        this.showNotification('success', 'Notes Saved', 'Test notes updated successfully');
-                    }
-                } else {
-                    throw new Error(response.error || 'Failed to save notes');
-                }
-            } catch (error) {
-                console.error('Error saving test instance notes:', error);
-                this.showNotification('error', 'Save Failed', error.message);
-            }
-        },
         
         copyRequirementToClipboard: function() {
             if (!this.currentRequirement) return;
@@ -1283,7 +1262,7 @@ ${requirement.acceptance_criteria}
 ` : ''}${requirement.failure_examples ? `Failure Examples:
 ${requirement.failure_examples}
 
-` : ''}${requirement.understanding_url || requirement.wcag_url ? `WCAG Documentation: ${requirement.understanding_url || requirement.wcag_url}` : ''}`;
+` : ''}${requirement.wcag_url ? `WCAG Documentation: ${requirement.wcag_url}` : ''}`;
             
             navigator.clipboard.writeText(text).then(() => {
                 this.showNotification('success', 'Copied!', 'Requirement details copied to clipboard');
@@ -1292,1845 +1271,6 @@ ${requirement.failure_examples}
                 this.showNotification('error', 'Copy Failed', 'Failed to copy to clipboard');
             });
         },
-
-        printRequirementDetails: function() {
-            if (!this.currentRequirement) return;
-            
-            const requirement = this.currentRequirement;
-            const testInstances = this.getRequirementTestInstances(requirement.criterion_number);
-            
-            // Create a print-friendly HTML document
-            const printWindow = window.open('', '_blank');
-            const printDoc = printWindow.document;
-            
-            // Get current date for the report
-            const reportDate = new Date().toLocaleDateString('en-US', {
-                weekday: 'long',
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric'
-            });
-            
-            // Build the print content
-            const printContent = `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WCAG ${requirement.criterion_number} - ${requirement.title} - Testing Documentation</title>
-    <style>
-        @page {
-            margin: 0.75in;
-            size: letter;
-        }
-        
-        body {
-            font-family: "Times New Roman", serif;
-            font-size: 12pt;
-            line-height: 1.4;
-            color: #000;
-            margin: 0;
-            padding: 20px;
-        }
-        
-        .print-header {
-            border-bottom: 2px solid #000;
-            padding-bottom: 15px;
-            margin-bottom: 20px;
-        }
-        
-        .print-title {
-            font-size: 18pt;
-            font-weight: bold;
-            margin-bottom: 8px;
-        }
-        
-        .print-subtitle {
-            font-size: 14pt;
-            margin-bottom: 5px;
-        }
-        
-        .print-meta {
-            font-size: 10pt;
-            color: #666;
-            margin-bottom: 3px;
-        }
-        
-        .print-section {
-            margin-bottom: 25px;
-            page-break-inside: avoid;
-        }
-        
-        .print-section-title {
-            font-size: 14pt;
-            font-weight: bold;
-            margin-bottom: 10px;
-            border-bottom: 1px solid #ccc;
-            padding-bottom: 3px;
-        }
-        
-        .print-section-content {
-            font-size: 11pt;
-            line-height: 1.5;
-            margin-bottom: 10px;
-        }
-        
-        .print-test-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 15px;
-            font-size: 10pt;
-        }
-        
-        .print-test-table th,
-        .print-test-table td {
-            border: 1px solid #000;
-            padding: 8px;
-            text-align: left;
-            vertical-align: top;
-        }
-        
-        .print-test-table th {
-            background-color: #f0f0f0;
-            font-weight: bold;
-        }
-        
-        .print-url {
-            font-family: "Courier New", monospace;
-            font-size: 9pt;
-            word-break: break-all;
-        }
-        
-        .print-notes {
-            min-height: 100px;
-            border: 1px solid #ccc;
-            padding: 10px;
-            background-color: #fafafa;
-        }
-        
-        .print-footer {
-            margin-top: 40px;
-            padding-top: 15px;
-            border-top: 1px solid #ccc;
-            font-size: 9pt;
-            text-align: center;
-            color: #666;
-        }
-        
-        .print-checklist {
-            margin-top: 20px;
-        }
-        
-        .print-checklist-item {
-            margin-bottom: 15px;
-            padding-bottom: 10px;
-            border-bottom: 1px dotted #ccc;
-            display: flex;
-            align-items: flex-start;
-        }
-        
-        .print-checkbox {
-            width: 15px;
-            height: 15px;
-            border: 2px solid #000;
-            margin-right: 10px;
-            margin-top: 2px;
-            flex-shrink: 0;
-        }
-        
-        .print-checklist-content {
-            flex: 1;
-        }
-        
-        .print-test-notes {
-            border: 1px solid #000;
-            min-height: 80px;
-            padding: 10px;
-            margin-top: 10px;
-            background: white;
-        }
-    </style>
-</head>
-<body>
-    <div class="print-header">
-        <div class="print-title">WCAG ${requirement.criterion_number}: ${requirement.title}</div>
-        <div class="print-subtitle">Accessibility Testing Documentation</div>
-        <div class="print-meta">Level: ${requirement.level?.toUpperCase() || 'N/A'} | Test Method: ${(requirement.test_method || 'manual').charAt(0).toUpperCase() + (requirement.test_method || 'manual').slice(1)}</div>
-        <div class="print-meta">Priority: ${requirement.priority === 1 ? 'High' : requirement.priority === 2 ? 'Medium' : 'Low'} | Estimated Time: ${requirement.estimated_time_minutes ? requirement.estimated_time_minutes + ' minutes' : 'Not specified'}</div>
-        <div class="print-meta">Report Generated: ${reportDate}</div>
-    </div>
-
-    <div class="print-section">
-        <div class="print-section-title">Requirement Description</div>
-        <div class="print-section-content">${requirement.description || 'No description available'}</div>
-    </div>
-
-    ${requirement.testing_instructions ? `
-    <div class="print-section">
-        <div class="print-section-title">Testing Instructions</div>
-        <div class="print-section-content">${requirement.testing_instructions}</div>
-    </div>
-    ` : ''}
-
-    <div class="print-section">
-        <div class="print-section-title">Step-by-Step Testing Guide</div>
-        <div class="print-section-content">${this.getDetailedTestingSteps(requirement.requirement_id, requirement.test_method)}</div>
-    </div>
-
-    <div class="print-section">
-        <div class="print-section-title">Common Violations & Examples</div>
-        <div class="print-section-content" style="color: #b45309;">${this.getCommonViolations(requirement.requirement_id)}</div>
-    </div>
-
-    ${requirement.acceptance_criteria ? `
-    <div class="print-section">
-        <div class="print-section-title">Acceptance Criteria</div>
-        <div class="print-section-content">${requirement.acceptance_criteria}</div>
-    </div>
-    ` : ''}
-
-    ${requirement.failure_examples ? `
-    <div class="print-section">
-        <div class="print-section-title">Common Failure Examples</div>
-        <div class="print-section-content">${requirement.failure_examples}</div>
-    </div>
-    ` : ''}
-
-    ${requirement.understanding_url || requirement.wcag_url ? `
-    <div class="print-section">
-        <div class="print-section-title">WCAG Documentation</div>
-        <div class="print-section-content">${requirement.understanding_url || requirement.wcag_url}</div>
-    </div>
-    ` : ''}
-
-    <div class="print-section">
-        <div class="print-section-title">Test Instances (${testInstances.length} pages to test)</div>
-        ${testInstances.length > 0 ? `
-        <table class="print-test-table">
-            <thead>
-                <tr>
-                    <th style="width: 50%;">Page URL</th>
-                    <th style="width: 15%;">Status</th>
-                    <th style="width: 35%;">Notes</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${testInstances.map(instance => `
-                <tr>
-                    <td class="print-url">${instance.page_url || 'URL not available'}</td>
-                    <td style="text-align: center;">
-                        ☐ Pass<br>
-                        ☐ Fail<br>
-                        ☐ Review<br>
-                        ☐ N/A
-                    </td>
-                    <td>
-                        <div class="print-test-notes"></div>
-                    </td>
-                </tr>
-                `).join('')}
-            </tbody>
-        </table>
-        ` : '<div class="print-section-content">No test instances found for this requirement.</div>'}
-    </div>
-
-    <div class="print-section">
-        <div class="print-section-title">Testing Checklist</div>
-        <div class="print-checklist">
-            <div class="print-checklist-item">
-                <div class="print-checkbox"></div>
-                <div class="print-checklist-content">
-                    <strong>Review requirement details and understand acceptance criteria</strong>
-                </div>
-            </div>
-            <div class="print-checklist-item">
-                <div class="print-checkbox"></div>
-                <div class="print-checklist-content">
-                    <strong>Test each page listed above using the specified test method</strong>
-                </div>
-            </div>
-            <div class="print-checklist-item">
-                <div class="print-checkbox"></div>
-                <div class="print-checklist-content">
-                    <strong>Document findings and evidence for each test instance</strong>
-                </div>
-            </div>
-            <div class="print-checklist-item">
-                <div class="print-checkbox"></div>
-                <div class="print-checklist-content">
-                    <strong>Update status in testing platform with results and notes</strong>
-                </div>
-            </div>
-            <div class="print-checklist-item">
-                <div class="print-checkbox"></div>
-                <div class="print-checklist-content">
-                    <strong>Review and validate findings before marking as complete</strong>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="print-section">
-        <div class="print-section-title">General Testing Notes</div>
-        <div class="print-notes" style="min-height: 150px;"></div>
-    </div>
-
-    <div class="print-footer">
-        <p>WCAG ${requirement.criterion_number} Testing Documentation | Generated ${reportDate}</p>
-        ${(this.selectedSessionDetails || this.selectedTestSession) ? `<p>Session Information: ${(this.selectedSessionDetails || this.selectedTestSession).name || 'Unknown Session'} - ${(this.selectedSessionDetails || this.selectedTestSession).id} / Created on ${new Date((this.selectedSessionDetails || this.selectedTestSession).created_at || (this.selectedSessionDetails || this.selectedTestSession).createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>` : ''}
-        <div style="margin: 15px 0;">
-            <label style="font-weight: bold; margin-right: 10px;">Tester name:</label>
-            <input type="text" style="border: 1px solid #ccc; padding: 5px; width: 200px; font-size: 10pt;" />
-        </div>
-        <p>This document is for manual testing purposes and should be used alongside automated testing tools.</p>
-    </div>
-</body>
-</html>`;
-            
-            printDoc.write(printContent);
-            printDoc.close();
-            
-            // Focus the print window and trigger print
-            printWindow.focus();
-            setTimeout(() => {
-                printWindow.print();
-                // Note: We don't close the window automatically to allow user to save as PDF
-            }, 250);
-            
-            this.showNotification('success', 'Print Ready', 'Testing documentation opened in new window. You can print or save as PDF.');
-        },
-
-        // Helper function to convert HTML to plain text for PDF
-        htmlToPlainText: function(html) {
-            if (!html) return '';
-            // Create a temporary div element to parse HTML
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = html;
-            // Get text content and clean up extra whitespace
-            return tempDiv.textContent || tempDiv.innerText || '';
-        },
-
-        generatePDFWithPdfLib: async function() {
-            if (!this.currentRequirement) {
-                this.showNotification('No requirement selected', 'error');
-                return;
-            }
-            
-            console.log('🔍 DEBUG PDF: Full currentRequirement object =', this.currentRequirement);
-            console.log('🔍 DEBUG PDF: understanding_url field =', this.currentRequirement.understanding_url);
-            console.log('🔍 DEBUG PDF: wcag_url field =', this.currentRequirement.wcag_url);
-            console.log('🔍 DEBUG PDF: Object keys =', Object.keys(this.currentRequirement));
-
-            const requirement = this.currentRequirement;
-            const testInstances = this.getRequirementTestInstances(requirement.criterion_number);
-
-            try {
-                // Create a new PDF document using pdf-lib
-                const pdfDoc = await PDFLib.PDFDocument.create();
-                
-                // Add a page
-                let page = pdfDoc.addPage();
-                let { width, height } = page.getSize();
-                const font = await pdfDoc.embedFont(PDFLib.StandardFonts.Helvetica);
-                const boldFont = await pdfDoc.embedFont(PDFLib.StandardFonts.HelveticaBold);
-                
-                // Get the form
-                const form = pdfDoc.getForm();
-                
-                let yPosition = height - 50;
-                const margin = 50;
-                const lineHeight = 20;
-                
-                // Title
-                page.drawText(`WCAG ${requirement.criterion_number}: ${requirement.title}`, {
-                    x: margin,
-                    y: yPosition,
-                    size: 16,
-                    font: boldFont,
-                });
-                
-                // Add save instructions in the top right corner (more compact positioning)
-                page.drawText('SAVE PROGRESS: Use File > Save As', {
-                    x: width - 200,
-                    y: yPosition - 15,
-                    size: 8,
-                    font: font,
-                    color: PDFLib.rgb(0.2, 0.4, 0.8),
-                });
-                
-                page.drawText('Replace _BLANK_ with status: _PASSED, _FAILED, etc.', {
-                    x: width - 200,
-                    y: yPosition - 28,
-                    size: 7,
-                    font: font,
-                    color: PDFLib.rgb(0.5, 0.5, 0.5),
-                });
-                
-                yPosition -= 30;
-                
-                // Subtitle - Accessibility Testing Documentation
-                page.drawText('Accessibility Testing Documentation', {
-                    x: margin,
-                    y: yPosition,
-                    size: 12,
-                    font: font,
-                });
-                yPosition -= 30;
-                
-                // Overall Requirement Status Section
-                page.drawText('Overall Requirement Status:', {
-                    x: margin,
-                    y: yPosition,
-                    size: 12,
-                    font: boldFont,
-                });
-                yPosition -= 5;
-                
-                // Add horizontal line under section header
-                page.drawLine({
-                    start: { x: margin, y: yPosition },
-                    end: { x: width - margin, y: yPosition },
-                    thickness: 1,
-                    color: PDFLib.rgb(0, 0, 0),
-                });
-                yPosition -= 25;
-                
-                // Overall status checkboxes (same layout as test instances)
-                const overallStatusOptions = ['Pass', 'Fail', 'In Process', 'Needs Review', 'Not Applicable'];
-                const overallCheckboxSize = 18; // 1/4 inch = 18 points
-                const overallLabelSpacing = 95; // Reduced space to fit 5 options
-                
-                overallStatusOptions.forEach((option, optIndex) => {
-                    const xPos = margin + (optIndex * overallLabelSpacing);
-                    const statusValue = ['passed', 'failed', 'in_process', 'needs_review', 'not_applicable'][optIndex];
-                    
-                    // Create checkbox with pdf-lib
-                    const checkbox = form.createCheckBox(`overall_status_${option.toLowerCase().replace(' ', '_')}`);
-                    
-                    // Pre-check if this matches the manual override
-                    const manualOverride = requirement.manual_status_override;
-                    if (manualOverride && manualOverride === statusValue) {
-                        checkbox.check();
-                    }
-                    
-                    checkbox.addToPage(page, {
-                        x: xPos,
-                        y: yPosition,
-                        width: overallCheckboxSize,
-                        height: overallCheckboxSize,
-                    });
-                    
-                    // Add label to the right of checkbox
-                    page.drawText(option, {
-                        x: xPos + overallCheckboxSize + 5, // Position to the right of checkbox
-                        y: yPosition + 4, // Align with checkbox center
-                        size: 9,
-                        font: font,
-                    });
-                });
-                yPosition -= 40; // Space after status checkboxes
-                
-                // Requirement Description Section
-                page.drawText('Requirement Description', {
-                    x: margin,
-                    y: yPosition,
-                    size: 12,
-                    font: boldFont,
-                });
-                yPosition -= 5;
-                
-                // Add horizontal line under section header
-                page.drawLine({
-                    start: { x: margin, y: yPosition },
-                    end: { x: width - margin, y: yPosition },
-                    thickness: 1,
-                    color: PDFLib.rgb(0, 0, 0),
-                });
-                yPosition -= 18;
-                
-                const description = requirement.description || 'Description not available';
-                const descriptionLines = this.splitTextToFitWidth(description, 500, 10);
-                descriptionLines.forEach(line => {
-                    page.drawText(line, {
-                        x: margin,
-                        y: yPosition,
-                        size: 10,
-                        font: font,
-                    });
-                    yPosition -= 14;
-                });
-                yPosition -= 20;
-                
-                // Testing Instructions Section
-                page.drawText('Testing Instructions', {
-                    x: margin,
-                    y: yPosition,
-                    size: 12,
-                    font: boldFont,
-                });
-                yPosition -= 5;
-                
-                // Add horizontal line
-                page.drawLine({
-                    start: { x: margin, y: yPosition },
-                    end: { x: width - margin, y: yPosition },
-                    thickness: 1,
-                    color: PDFLib.rgb(0, 0, 0),
-                });
-                yPosition -= 25;
-                
-                const instructions = requirement.testing_instructions || 'Testing instructions not available';
-                const instructionLines = this.splitTextToFitWidth(instructions, 500, 10);
-                instructionLines.forEach(line => {
-                    page.drawText(line, {
-                        x: margin,
-                        y: yPosition,
-                        size: 10,
-                        font: font,
-                    });
-                    yPosition -= 14;
-                });
-                yPosition -= 20;
-                
-                // Step-by-Step Testing Guide Section
-                page.drawText('Step-by-Step Testing Guide', {
-                    x: margin,
-                        y: yPosition,
-                    size: 12,
-                        font: boldFont,
-                });
-                yPosition -= 5;
-                
-                // Add horizontal line
-                page.drawLine({
-                    start: { x: margin, y: yPosition },
-                    end: { x: width - margin, y: yPosition },
-                    thickness: 1,
-                    color: PDFLib.rgb(0, 0, 0),
-                    });
-                    yPosition -= 18;
-                    
-                // Get detailed testing steps and format as numbered list
-                const detailedStepsHTML = this.getDetailedTestingSteps(requirement.requirement_id, requirement.test_method);
-                // Extract text content but preserve list structure
-                const stepMatches = detailedStepsHTML.match(/<li>(.*?)<\/li>/g);
-                if (stepMatches) {
-                    stepMatches.forEach((step, index) => {
-                        const stepText = step.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
-                        const stepNumber = `${index + 1}. `;
-                        
-                        // Draw step number
-                        page.drawText(stepNumber, {
-                            x: margin,
-                                    y: yPosition,
-                                    size: 10,
-                                    font: boldFont,
-                        });
-                        
-                        // Draw step text with proper wrapping
-                        const stepLines = this.splitTextToFitWidth(stepText, 480, 10);
-                        stepLines.forEach((line, lineIndex) => {
-                            page.drawText(line, {
-                                x: margin + 15, // Indent for step text
-                                y: yPosition - (lineIndex * 14),
-                                size: 10,
-                                font: font,
-                            });
-                        });
-                        yPosition -= Math.max(stepLines.length * 14, 14) + 5;
-                    });
-                } else {
-                    // Fallback if no list items found
-                    const cleanStepsText = detailedStepsHTML.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
-                    const stepsLines = this.splitTextToFitWidth(cleanStepsText, 500, 10);
-                    stepsLines.forEach(line => {
-                        if (line.trim()) {
-                            page.drawText(line, {
-                                x: margin,
-                                    y: yPosition,
-                                    size: 10,
-                                    font: font,
-                            });
-                            yPosition -= 14;
-                        }
-                    });
-                }
-                yPosition -= 20;
-                
-                // Common Violations & Examples Section
-                page.drawText('Common Violations & Examples', {
-                    x: margin,
-                    y: yPosition,
-                    size: 12,
-                    font: boldFont,
-                });
-                yPosition -= 5;
-                
-                // Add horizontal line
-                page.drawLine({
-                    start: { x: margin, y: yPosition },
-                    end: { x: width - margin, y: yPosition },
-                    thickness: 1,
-                    color: PDFLib.rgb(0, 0, 0),
-                });
-                yPosition -= 18;
-                
-                // Get common violations and format as bulleted list
-                const violationsHTML = this.getCommonViolations(requirement.requirement_id);
-                // Extract text content but preserve list structure
-                const violationMatches = violationsHTML.match(/<li>(.*?)<\/li>/g);
-                if (violationMatches) {
-                    violationMatches.forEach((violation) => {
-                        const violationText = violation.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
-                        const bullet = '\u2022 ';
-                        
-                        // Draw bullet
-                        page.drawText(bullet, {
-                            x: margin,
-                            y: yPosition,
-                            size: 10,
-                            font: boldFont,
-                            color: PDFLib.rgb(0.8, 0.3, 0.1), // Orange color for violations
-                        });
-                        
-                        // Draw violation text with proper wrapping
-                        const violationLines = this.splitTextToFitWidth(violationText, 480, 10);
-                        violationLines.forEach((line, lineIndex) => {
-                                    page.drawText(line, {
-                                x: margin + 10, // Indent for bullet text
-                                y: yPosition - (lineIndex * 14),
-                                        size: 10,
-                                        font: font,
-                                color: PDFLib.rgb(0.8, 0.3, 0.1), // Orange color for violations
-                                    });
-                                });
-                        yPosition -= Math.max(violationLines.length * 14, 14) + 3;
-                    });
-                            } else {
-                    // Fallback if no list items found
-                    const cleanViolationsText = violationsHTML.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
-                    const violationsLines = this.splitTextToFitWidth(cleanViolationsText, 500, 10);
-                    violationsLines.forEach(line => {
-                        if (line.trim()) {
-                                    page.drawText(line, {
-                                x: margin,
-                                y: yPosition,
-                                        size: 10,
-                                        font: font,
-                                color: PDFLib.rgb(0.8, 0.3, 0.1), // Orange color for violations
-                                    });
-                            yPosition -= 14;
-                        }
-                    });
-                }
-                yPosition -= 20;
-                
-                // Acceptance Criteria Section
-                page.drawText('Acceptance Criteria', {
-                    x: margin,
-                    y: yPosition,
-                    size: 12,
-                    font: boldFont,
-                });
-                yPosition -= 5;
-                
-                // Add horizontal line
-                page.drawLine({
-                    start: { x: margin, y: yPosition },
-                    end: { x: width - margin, y: yPosition },
-                    thickness: 1,
-                    color: PDFLib.rgb(0, 0, 0),
-                });
-                yPosition -= 18;
-                
-                const acceptance = requirement.acceptance_criteria || 'Acceptance criteria not available';
-                const acceptanceLines = this.splitTextToFitWidth(acceptance, 500, 10);
-                acceptanceLines.forEach(line => {
-                    page.drawText(line, {
-                        x: margin,
-                        y: yPosition,
-                        size: 10,
-                        font: font,
-                    });
-                    yPosition -= 14;
-                });
-                yPosition -= 15;
-                
-                // Success Indicators Section (indented) - Static formatted content like UI
-                page.drawText('Success Indicators:', {
-                    x: margin + 10,
-                    y: yPosition,
-                    size: 10,
-                    font: boldFont,
-                    color: PDFLib.rgb(0.4, 0.2, 0.6), // Purple color like in the UI
-                });
-                yPosition -= 18;
-                
-                // Static success indicators (matching UI)
-                const successIndicators = [
-                    '• All non-text content has appropriate text alternatives',
-                    '• Text alternatives serve equivalent purpose',
-                    '• Decorative content is properly marked',
-                    '• Assistive technology can access alternatives'
-                ];
-                
-                successIndicators.forEach(indicator => {
-                    const indicatorLines = this.splitTextToFitWidth(indicator, 460, 10);
-                    indicatorLines.forEach((line, lineIndex) => {
-                        page.drawText(line, {
-                            x: margin + 20, // Indented for bullet point
-                            y: yPosition - (lineIndex * 12),
-                            size: 10,
-                            font: font,
-                            color: PDFLib.rgb(0.4, 0.2, 0.6), // Purple color
-                        });
-                    });
-                    yPosition -= Math.max(indicatorLines.length * 12, 12) + 3;
-                });
-                yPosition -= 20;
-                
-                // Check if we need a new page for Common Failure Examples section
-                const commonFailuresHeight = 150; // Approximate height needed for Common Failures section
-                let currentPageNumber = 1; // Initialize page number tracker
-                if (yPosition < (margin + commonFailuresHeight)) {
-                    // Add page break to ensure Common Failure Examples appears on page 2
-                    page = pdfDoc.addPage();
-                    const { width: pageWidth, height: pageHeight } = page.getSize();
-                    width = pageWidth;
-                    height = pageHeight;
-                    yPosition = pageHeight - 50;
-                    currentPageNumber = 2;
-                }
-                
-                // Common Failure Examples Section
-                page.drawText('Common Failure Examples', {
-                    x: margin,
-                    y: yPosition,
-                    size: 12,
-                    font: boldFont,
-                });
-                yPosition -= 5;
-                
-                // Add horizontal line
-                page.drawLine({
-                    start: { x: margin, y: yPosition },
-                    end: { x: width - margin, y: yPosition },
-                    thickness: 1,
-                    color: PDFLib.rgb(0, 0, 0),
-                });
-                yPosition -= 18;
-                
-                const failures = requirement.common_failures || 'Common failure examples not available';
-                const failureLines = this.splitTextToFitWidth(failures, 500, 10);
-                failureLines.forEach(line => {
-                    page.drawText(line, {
-                        x: margin,
-                        y: yPosition,
-                        size: 10,
-                        font: font,
-                    });
-                    yPosition -= 14;
-                });
-                yPosition -= 15;
-                
-                // Common Failure Patterns Section (indented) - Static formatted content like UI
-                page.drawText('Common Failure Patterns:', {
-                    x: margin + 10,
-                    y: yPosition,
-                    size: 10,
-                    font: boldFont,
-                    color: PDFLib.rgb(0.6, 0.2, 0.2), // Red/brown color like in the UI
-                });
-                yPosition -= 18;
-                
-                // Static failure patterns (matching UI with bold labels and descriptions)
-                const failurePatterns = [
-                    '• Missing alt attributes: Images without any alternative text',
-                    '• Generic alt text: "image", "photo", "picture" without context',
-                    '• Decorative images: Not marked as decorative or with empty alt',
-                    '• Complex images: Charts, graphs without proper descriptions',
-                    '• Functional images: Buttons, links without descriptive alt text'
-                ];
-                
-                failurePatterns.forEach(pattern => {
-                    // Split the pattern into label and description
-                    const colonIndex = pattern.indexOf(':');
-                    if (colonIndex !== -1) {
-                        const label = pattern.substring(0, colonIndex + 1); // Include the colon
-                        const description = pattern.substring(colonIndex + 1).trim();
-                        
-                        // Draw the label (bold)
-                        page.drawText(label, {
-                            x: margin + 20,
-                            y: yPosition,
-                            size: 10,
-                            font: boldFont,
-                            color: PDFLib.rgb(0.6, 0.2, 0.2), // Red color
-                        });
-                        
-                        // Calculate width of the label to position description
-                        const labelWidth = boldFont.widthOfTextAtSize(label, 10);
-                        
-                        // Draw the description (normal font)
-                        const descriptionLines = this.splitTextToFitWidth(description, 460 - labelWidth, 10);
-                        descriptionLines.forEach((line, lineIndex) => {
-                            page.drawText(line, {
-                                x: margin + 20 + labelWidth + 5, // Position after label
-                                y: yPosition - (lineIndex * 12),
-                                size: 10,
-                                font: font,
-                                color: PDFLib.rgb(0.6, 0.2, 0.2), // Red color
-                            });
-                        });
-                        yPosition -= Math.max(descriptionLines.length * 12, 12) + 3;
-                    } else {
-                        // Fallback for patterns without colon
-                        const patternLines = this.splitTextToFitWidth(pattern, 460, 10);
-                        patternLines.forEach((line, lineIndex) => {
-                            page.drawText(line, {
-                                x: margin + 20,
-                                y: yPosition - (lineIndex * 12),
-                                size: 10,
-                                font: font,
-                                color: PDFLib.rgb(0.6, 0.2, 0.2), // Red color
-                            });
-                        });
-                        yPosition -= Math.max(patternLines.length * 12, 12) + 3;
-                    }
-                });
-                yPosition -= 20;
-                
-                // WCAG Documentation Section
-                page.drawText('WCAG Documentation', {
-                    x: margin,
-                    y: yPosition,
-                    size: 12,
-                    font: boldFont,
-                });
-                yPosition -= 5;
-                
-                // Add horizontal line
-                page.drawLine({
-                    start: { x: margin, y: yPosition },
-                    end: { x: width - margin, y: yPosition },
-                    thickness: 1,
-                    color: PDFLib.rgb(0, 0, 0),
-                });
-                yPosition -= 18;
-                
-                console.log('🔍 DEBUG PDF: requirement.understanding_url || requirement.wcag_url =', requirement.understanding_url || requirement.wcag_url);
-                console.log('🔍 DEBUG PDF: requirement.wcag_url =', requirement.wcag_url);
-                const wcagUrl = requirement.understanding_url || requirement.wcag_url || requirement.wcag_url;
-                console.log('🔍 DEBUG PDF: Final wcagUrl =', wcagUrl);
-                
-                if (wcagUrl) {
-                page.drawText(wcagUrl, {
-                    x: margin,
-                    y: yPosition,
-                    size: 10,
-                    font: font,
-                    color: PDFLib.rgb(0, 0, 1), // Blue for URL
-                });
-                } else {
-                    console.warn('⚠️ No understanding_url available for requirement:', requirement.criterion_number);
-                    page.drawText('No WCAG documentation URL available', {
-                        x: margin,
-                        y: yPosition,
-                        size: 10,
-                        font: font,
-                        color: PDFLib.rgb(0.5, 0.5, 0.5), // Gray color
-                    });
-                }
-                yPosition -= 25;
-                
-                // Check if we need to continue to page 2 for remaining content
-                const remainingContentHeight = 100; // Estimate space needed for section header
-                const testInstancesStartThreshold = 150; // Minimum space to start test instances
-                
-                // If not enough space for test instances header, continue content on page 2
-                if (yPosition < testInstancesStartThreshold) {
-                    // Add page break for page 2 continuation
-                    page = pdfDoc.addPage();
-                    const { width: pageWidth, height: pageHeight } = page.getSize();
-                    width = pageWidth;
-                    height = pageHeight;
-                    yPosition = pageHeight - 50;
-                    currentPageNumber = 2;
-                    
-                    // Add continuation header
-                    page.drawText(`WCAG ${requirement.criterion_number}: ${requirement.title} (continued)`, {
-                    x: margin,
-                    y: yPosition,
-                        size: 14,
-                    font: boldFont,
-                });
-                    yPosition -= 40;
-                    
-                    // Add any additional content that needs to be on page 2 here if needed
-                    // For now, we'll just ensure we have space and continue to test instances
-                }
-                
-                // Always start Test Instances on a new page (page 2 or 3 depending on content flow)
-                const testInstancesPage = currentPageNumber === 1 ? 2 : 3;
-                
-                // Force new page for test instances to start on dedicated page
-                page = pdfDoc.addPage();
-                const { width: pageWidth, height: pageHeight } = page.getSize();
-                width = pageWidth;
-                height = pageHeight;
-                yPosition = pageHeight - 50;
-                
-                // Add page header for test instances with page number
-                page.drawText(`WCAG ${requirement.criterion_number}: ${requirement.title} - Test Instances (Page ${testInstancesPage})`, {
-                    x: margin,
-                    y: yPosition,
-                    size: 14,
-                    font: boldFont,
-                });
-                yPosition -= 40; // More space after section header
-                
-                // Create checkboxes for each test instance
-                testInstances.forEach((instance, index) => {
-                    // Check if we need a new page (2 instances per page)
-                    const instancesOnPage = index % 2;
-                    if (instancesOnPage === 0 && index > 0) {
-                        page = pdfDoc.addPage();
-                        const { width: pageWidth, height: pageHeight } = page.getSize();
-                        width = pageWidth; // Update width reference
-                        height = pageHeight; // Update height reference
-                        yPosition = pageHeight - 50; // Reset position for new page
-                        
-                        // Calculate current page number for test instances continuation
-                        const additionalTestPages = Math.floor(index / 2);
-                        const currentTestInstancePageNumber = testInstancesPage + additionalTestPages;
-                        
-                        // Add page header with proper page numbering
-                        page.drawText(`WCAG ${requirement.criterion_number}: ${requirement.title} - Test Instances (Page ${currentTestInstancePageNumber} continued)`, {
-                            x: margin,
-                            y: yPosition,
-                            size: 14,
-                            font: boldFont,
-                        });
-                        yPosition -= 40;
-                    }
-                    
-                    // Test Instance Header
-                    page.drawText(`Test Instance ${index + 1}`, {
-                        x: margin,
-                        y: yPosition,
-                        size: 11,
-                        font: boldFont,
-                    });
-                    yPosition -= 20; // More space after header
-                    
-                    // URL on same line as label
-                    const url = instance.page_url || 'URL not available';
-                    const urlLabel = 'URL: ';
-                    
-                    page.drawText(urlLabel, {
-                        x: margin,
-                        y: yPosition,
-                        size: 10,
-                        font: boldFont,
-                    });
-                    
-                    const urlLabelWidth = boldFont.widthOfTextAtSize(urlLabel, 10);
-                    page.drawText(url.substring(0, 75), { // Truncate long URLs to fit on same line
-                        x: margin + urlLabelWidth,
-                        y: yPosition,
-                        size: 11, // Larger font for URL
-                        font: font,
-                        color: PDFLib.rgb(0, 0, 1), // Blue color for URL
-                    });
-                    yPosition -= 25; // Space after URL line
-                    
-                    // Test Result with properly sized checkboxes
-                    page.drawText('Test Result:', {
-                        x: margin,
-                        y: yPosition,
-                        size: 10,
-                        font: boldFont,
-                    });
-                    yPosition -= 25; // More space before checkboxes to avoid overlap
-                    
-                    const statusOptions = ['Pass', 'Fail', 'Needs Review', 'Not Applicable'];
-                    const checkboxSize = 18; // 1/4 inch = 18 points
-                    const labelSpacing = 120; // Space between options
-                    
-                    statusOptions.forEach((option, optIndex) => {
-                        const xPos = margin + (optIndex * labelSpacing);
-                        
-                        // Create checkbox with pdf-lib - this should give us proper control!
-                        const checkbox = form.createCheckBox(`status_${index}_${option.toLowerCase().replace(' ', '_')}`);
-                        checkbox.addToPage(page, {
-                            x: xPos,
-                            y: yPosition,
-                            width: checkboxSize,
-                            height: checkboxSize,
-                        });
-                        
-                        // Add label below checkbox with more space
-                        page.drawText(option, {
-                            x: xPos,
-                            y: yPosition - 20,
-                            size: 9,
-                            font: font,
-                        });
-                    });
-                    yPosition -= 45; // More space after checkboxes and labels
-                    
-                    // Testing Notes
-                    page.drawText('Testing Notes:', {
-                        x: margin,
-                        y: yPosition,
-                        size: 10,
-                        font: boldFont,
-                    });
-                    yPosition -= 18; // More space before notes box
-                    
-                    // Create text field for notes
-                    const textField = form.createTextField(`notes_${index}`);
-                    textField.addToPage(page, {
-                        x: margin,
-                        y: yPosition - 40,
-                        width: 500,
-                        height: 35,  // Slightly smaller to avoid overlap
-                    });
-                    textField.enableMultiline();
-                    textField.setFontSize(8);  // Smaller font size for more text
-                    
-                    // Pre-fill with existing notes if any
-                    if (instance.notes) {
-                        textField.setText(instance.notes);
-                    }
-                    
-                    yPosition -= 70;
-                    
-                    // Test Results Section
-                    page.drawText('Test Results:', {
-                        x: margin,
-                        y: yPosition,
-                        size: 10,
-                        font: boldFont,
-                    });
-                    yPosition -= 18;
-                    
-                    // Create text field for results
-                    const resultsField = form.createTextField(`results_${index}`);
-                    resultsField.addToPage(page, {
-                        x: margin,
-                        y: yPosition - 40,
-                        width: 500,
-                        height: 35,
-                    });
-                    resultsField.enableMultiline();
-                    resultsField.setFontSize(8);
-                    
-                    // Pre-fill with existing results if any (convert HTML to plain text)
-                    if (instance.results) {
-                        const plainTextResults = this.htmlToPlainText(instance.results);
-                        resultsField.setText(plainTextResults);
-                    }
-                    
-                    yPosition -= 70;
-                    
-                    // Recommendations Section
-                    page.drawText('Recommendations:', {
-                        x: margin,
-                        y: yPosition,
-                        size: 10,
-                        font: boldFont,
-                    });
-                    yPosition -= 18;
-                    
-                    // Create text field for recommendations
-                    const recommendationsField = form.createTextField(`recommendations_${index}`);
-                    recommendationsField.addToPage(page, {
-                        x: margin,
-                        y: yPosition - 40,
-                        width: 500,
-                        height: 35,
-                    });
-                    recommendationsField.enableMultiline();
-                    recommendationsField.setFontSize(8);
-                    
-                    // Pre-fill with existing recommendations if any (convert HTML to plain text)
-                    if (instance.recommendations) {
-                        const plainTextRecommendations = this.htmlToPlainText(instance.recommendations);
-                        recommendationsField.setText(plainTextRecommendations);
-                    }
-                    
-                    yPosition -= 70;
-                    
-                    // Separator line (only if not the last instance on page)
-                    if ((index + 1) % 2 !== 0 && index < testInstances.length - 1) {
-                    page.drawLine({
-                        start: { x: margin, y: yPosition },
-                        end: { x: width - margin, y: yPosition },
-                        thickness: 1,
-                        color: PDFLib.rgb(0.8, 0.8, 0.8),
-                    });
-                    yPosition -= 15;
-                    }
-                });
-                
-                // Add Testing Checklist Section
-                // Check if we need a new page for the checklist
-                if (yPosition < 200) {
-                    page = pdfDoc.addPage();
-                    const { width: pageWidth, height: pageHeight } = page.getSize();
-                    width = pageWidth;
-                    height = pageHeight;
-                    yPosition = pageHeight - 50;
-                }
-                
-                yPosition -= 30; // Extra space before checklist
-                
-                // Testing Checklist Header
-                page.drawText('Testing Checklist', {
-                    x: margin,
-                    y: yPosition,
-                    size: 14,
-                    font: boldFont,
-                });
-                yPosition -= 25;
-                
-                // Checklist items
-                const checklistItems = [
-                    'Review requirement details and understand acceptance criteria',
-                    'Test each page listed above using the specified test method',
-                    'Document findings and evidence for each test instance',
-                    'Update status in testing platform with results and notes',
-                    'Review and validate findings before marking as complete'
-                ];
-                
-                checklistItems.forEach((item, index) => {
-                    // Create checklist items with proper interactive area
-                    const checklistFieldName = `checklist_${index}`;
-                    const visualCheckboxSize = 8; // Small visual box
-                    const interactiveAreaSize = 12; // Larger interactive area for checklist
-                    
-                    // Draw a simple checkbox rectangle
-                    page.drawRectangle({
-                        x: margin,
-                        y: yPosition - 2,
-                        width: 10,
-                        height: 10,
-                        borderColor: PDFLib.rgb(0, 0, 0),
-                        borderWidth: 1,
-                    });
-                    
-                    // Add interactive checkbox with larger clickable area
-                    try {
-                        const checkbox = form.createCheckBox(checklistFieldName);
-                        checkbox.addToPage(page, {
-                            x: margin,
-                            y: yPosition - 2,
-                            width: interactiveAreaSize,
-                            height: interactiveAreaSize,
-                        });
-                    } catch (e) {
-                        // Visual checkbox already drawn above as fallback
-                    }
-                    
-                    // Add the checklist item text
-                    const itemLines = this.splitTextToFitWidth(item, 480, 10);
-                    itemLines.forEach((line, lineIndex) => {
-                        page.drawText(line, {
-                            x: margin + 15,
-                            y: yPosition - (lineIndex * 12),
-                            size: 10,
-                            font: font,
-                        });
-                    });
-                    yPosition -= Math.max(itemLines.length * 12, 15) + 8;
-                });
-                
-                yPosition -= 20;
-                
-                // General Testing Notes Section
-                page.drawText('General Testing Notes', {
-                    x: margin,
-                    y: yPosition,
-                    size: 14,
-                    font: boldFont,
-                });
-                yPosition -= 20;
-                
-                // Create large text field for general notes
-                const generalNotesHeight = 80;
-                
-                // Draw a border for the notes area
-                page.drawRectangle({
-                    x: margin,
-                    y: yPosition - generalNotesHeight,
-                    width: width - (margin * 2),
-                    height: generalNotesHeight,
-                    borderColor: PDFLib.rgb(0, 0, 0),
-                    borderWidth: 1,
-                });
-                
-                // Add some light guide lines for writing
-                for (let i = 1; i <= 6; i++) {
-                    const lineY = yPosition - (i * 12);
-                    page.drawLine({
-                        start: { x: margin + 5, y: lineY },
-                        end: { x: width - margin - 5, y: lineY },
-                        thickness: 0.3,
-                        color: PDFLib.rgb(0.9, 0.9, 0.9),
-                    });
-                }
-                
-                // Add interactive text field for general notes
-                try {
-                    const generalNotesField = form.createTextField('general_testing_notes');
-                    generalNotesField.addToPage(page, {
-                        x: margin,
-                        y: yPosition - generalNotesHeight,
-                        width: width - (margin * 2),
-                        height: generalNotesHeight,
-                    });
-                    generalNotesField.enableMultiline();
-                    generalNotesField.setFontSize(9);
-                } catch (e) {
-                    // Notes area already drawn above as fallback
-                }
-                
-                yPosition -= generalNotesHeight + 40;
-                
-                // Add document footer with session information
-                const generatedDate = new Date().toLocaleDateString('en-US', { 
-                    weekday: 'long', 
-                    year: 'numeric', 
-                    month: 'long', 
-                    day: 'numeric' 
-                });
-                
-                // First line: Testing documentation info
-                const footerText = `WCAG ${requirement.criterion_number} Testing Documentation | Generated ${generatedDate}`;
-                page.drawText(footerText, {
-                    x: margin,
-                    y: yPosition,
-                    size: 9,
-                    font: font,
-                    color: PDFLib.rgb(0.5, 0.5, 0.5), // Gray color
-                });
-                
-                yPosition -= 15;
-                
-                // Second line: Session information
-                const sessionData = this.selectedSessionDetails || this.selectedTestSession;
-                if (sessionData) {
-                    const sessionDate = new Date(sessionData.created_at || sessionData.createdAt);
-                    const formattedSessionDate = sessionDate.toLocaleDateString('en-US', { 
-                        year: 'numeric', 
-                        month: 'long', 
-                        day: 'numeric' 
-                    });
-                    const sessionInfo = `Session Information: ${sessionData.name || 'Unknown Session'} - ${sessionData.id} / Created on ${formattedSessionDate}`;
-                    
-                    page.drawText(sessionInfo, {
-                        x: margin,
-                        y: yPosition,
-                        size: 8,
-                        font: font,
-                        color: PDFLib.rgb(0.5, 0.5, 0.5), // Gray color
-                    });
-                    yPosition -= 15; // Add spacing after session info
-                } else {
-                    // Debug: Add placeholder text if no session data
-                    page.drawText('Session Information: No session data available', {
-                        x: margin,
-                        y: yPosition,
-                        size: 8,
-                        font: font,
-                        color: PDFLib.rgb(0.8, 0.2, 0.2), // Red color for debug
-                    });
-                    yPosition -= 15;
-                }
-                
-                yPosition -= 20;
-                
-                // Tester name field
-                page.drawText('Tester name:', {
-                    x: margin,
-                    y: yPosition,
-                    size: 10,
-                    font: font,
-                    color: PDFLib.rgb(0, 0, 0), // Black color
-                });
-                
-                // Add text field for tester name (aligned with the label)
-                const testerNameField = form.createTextField('tester_name');
-                testerNameField.setText('');
-                testerNameField.addToPage(page, {
-                    x: margin + 80, // Position after "Tester name:" label
-                    y: yPosition - 5, // Align with the text baseline
-                    width: 200,
-                    height: 18,
-                    borderColor: PDFLib.rgb(0.5, 0.5, 0.5),
-                    borderWidth: 1,
-                    backgroundColor: PDFLib.rgb(1, 1, 1), // White background
-                });
-                yPosition -= 15;
-                
-                const disclaimerText = 'This document is for manual testing purposes and should be used alongside automated testing tools.';
-                page.drawText(disclaimerText, {
-                    x: margin,
-                    y: yPosition,
-                    size: 8,
-                    font: font,
-                    color: PDFLib.rgb(0.5, 0.5, 0.5), // Gray color
-                });
-                
-                // Generate PDF bytes
-                const pdfBytes = await pdfDoc.save();
-                
-                // Create blob and download
-                const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-                const url = URL.createObjectURL(blob);
-                const link = document.createElement('a');
-                link.href = url;
-                // Generate filename with BLANK status for user to rename when saving
-                const timestamp = new Date().toISOString().slice(0, 16).replace(/[:-]/g, '');
-                link.download = `WCAG_${requirement.criterion_number}_Testing_Form_BLANK_${timestamp}.pdf`;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                URL.revokeObjectURL(url);
-                
-                this.showNotification('PDF generated successfully with pdf-lib!', 'success');
-                
-            } catch (error) {
-                console.error('Error generating PDF with pdf-lib:', error);
-                this.showNotification('Error generating PDF: ' + error.message, 'error');
-            }
-        },
-
-        extractHybridTestingInstructions: function(requirement) {
-            // Extract hybrid testing instructions from manual_test_procedure
-            if (requirement.testing_instructions && typeof requirement.testing_instructions === 'object') {
-                const steps = requirement.testing_instructions.steps;
-                if (Array.isArray(steps)) {
-                    // Look for steps that contain "HYBRID" or hybrid testing patterns
-                    const hybridStep = steps.find(step => 
-                        step && typeof step === 'string' && 
-                        (step.toUpperCase().includes('HYBRID') || 
-                         step.includes('automated scanning') || 
-                         step.includes('Manual verification'))
-                    );
-                    
-                    if (hybridStep) {
-                        // Parse the hybrid step to extract structured instructions
-                        if (hybridStep.includes('HYBRID TESTING APPROACH:')) {
-                            // Extract the structured part after "HYBRID TESTING APPROACH:"
-                            const structuredPart = hybridStep.split('HYBRID TESTING APPROACH:')[1];
-                            if (structuredPart) {
-                                return structuredPart.trim();
-                            }
-                        }
-                        
-                        // For steps like "HYBRID: Start with automated scanning..."
-                        if (hybridStep.startsWith('HYBRID:')) {
-                            const instructions = hybridStep.substring(7).trim(); // Remove "HYBRID:" prefix
-                            
-                            // Convert to structured format with AUTOMATED and MANUAL phases
-                            return this.formatHybridInstructions(instructions);
-                        }
-                        
-                        return hybridStep;
-                    }
-                }
-            }
-            
-            // Fallback: look for hybrid_testing_instructions or specific_instructions properties
-            return requirement.hybrid_testing_instructions || requirement.specific_instructions || null;
-        },
-
-        formatHybridInstructions: function(instructions) {
-            // Convert basic hybrid instructions to structured format
-            return `AUTOMATED PHASE:
-• Run automated tools (axe-core, pa11y, WAVE)
-• Review automated findings and violations
-• Document tool-detected issues
-
-MANUAL PHASE:
-• Verify automated findings manually
-• Test scenarios tools cannot detect
-• Evaluate user experience and context
-• Confirm real-world usability`;
-        },
-
-        splitTextToFitWidth: function(text, maxWidth, fontSize) {
-            // Clean up the text first - remove extra spaces and normalize
-            const cleanText = text.replace(/\s+/g, ' ').trim();
-            const words = cleanText.split(' ');
-            const lines = [];
-            let currentLine = '';
-            
-            words.forEach(word => {
-                const testLine = currentLine + (currentLine ? ' ' : '') + word;
-                // More accurate estimation: each character is about fontSize * 0.55 points wide
-                const estimatedWidth = testLine.length * fontSize * 0.55;
-                
-                if (estimatedWidth > maxWidth && currentLine) {
-                    lines.push(currentLine);
-                    currentLine = word;
-                } else {
-                    currentLine = testLine;
-                }
-            });
-            
-            if (currentLine) {
-                lines.push(currentLine);
-            }
-            
-            return lines;
-        },
-
-        generateInteractivePDF: function() {
-            if (!this.currentRequirement) return;
-            
-            const requirement = this.currentRequirement;
-            const testInstances = this.getRequirementTestInstances(requirement.criterion_number);
-            
-            try {
-                // Initialize jsPDF
-                const { jsPDF } = window.jspdf;
-                const doc = new jsPDF('p', 'mm', 'a4');
-                
-                // Set global default appearance for checkboxes
-                try {
-                    doc.internal.acroform.DA = '/ZaDb 16 Tf 0 g'; // ZapfDingbats 16pt black
-                } catch (e) {
-                    console.log('Could not set global DA:', e);
-                }
-                
-                // Set up document properties
-                doc.setProperties({
-                    title: `WCAG ${requirement.criterion_number} - ${requirement.title}`,
-                    subject: 'Accessibility Testing Documentation',
-                    author: 'Accessibility Testing Platform',
-                    creator: 'VPAT Report Generator'
-                });
-                
-                // Get current date
-                const reportDate = new Date().toLocaleDateString('en-US', {
-                    weekday: 'long',
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric'
-                });
-                
-                let yPosition = 20;
-                const pageWidth = 210;
-                const margin = 20;
-                const contentWidth = pageWidth - (margin * 2);
-                
-                // Header section
-                doc.setFontSize(18);
-                doc.setFont('helvetica', 'bold');
-                doc.text(`WCAG ${requirement.criterion_number}: ${requirement.title}`, margin, yPosition);
-                yPosition += 10;
-                
-                doc.setFontSize(14);
-                doc.setFont('helvetica', 'normal');
-                doc.text('Accessibility Testing Documentation', margin, yPosition);
-                yPosition += 8;
-                
-                doc.setFontSize(10);
-                doc.text(`Level: ${requirement.level?.toUpperCase() || 'N/A'} | Test Method: ${(requirement.test_method || 'manual').charAt(0).toUpperCase() + (requirement.test_method || 'manual').slice(1)}`, margin, yPosition);
-                yPosition += 4;
-                doc.text(`Priority: ${requirement.priority === 1 ? 'High' : requirement.priority === 2 ? 'Medium' : 'Low'} | Estimated Time: ${requirement.estimated_time_minutes ? requirement.estimated_time_minutes + ' minutes' : 'Not specified'}`, margin, yPosition);
-                yPosition += 4;
-                doc.text(`Report Generated: ${reportDate}`, margin, yPosition);
-                yPosition += 8;
-                
-                // Add line separator
-                doc.setDrawColor(0, 0, 0);
-                doc.line(margin, yPosition, pageWidth - margin, yPosition);
-                yPosition += 10;
-                
-                // Requirement Description
-                doc.setFontSize(12);
-                doc.setFont('helvetica', 'bold');
-                doc.text('Requirement Description', margin, yPosition);
-                yPosition += 6;
-                
-                doc.setFont('helvetica', 'normal');
-                doc.setFontSize(10);
-                const descriptionText = requirement.description || 'No description available';
-                const descriptionLines = doc.splitTextToSize(descriptionText, contentWidth);
-                doc.text(descriptionLines, margin, yPosition);
-                yPosition += descriptionLines.length * 4 + 8;
-                
-                // Testing Instructions (if available)
-                if (requirement.testing_instructions) {
-                    doc.setFontSize(12);
-                    doc.setFont('helvetica', 'bold');
-                    doc.text('Testing Instructions', margin, yPosition);
-                    yPosition += 6;
-                    
-                    doc.setFont('helvetica', 'normal');
-                    doc.setFontSize(10);
-                    const instructionsLines = doc.splitTextToSize(requirement.testing_instructions, contentWidth);
-                    doc.text(instructionsLines, margin, yPosition);
-                    yPosition += instructionsLines.length * 4 + 8;
-                }
-                
-                // Acceptance Criteria (if available)
-                if (requirement.acceptance_criteria) {
-                    doc.setFontSize(12);
-                    doc.setFont('helvetica', 'bold');
-                    doc.text('Acceptance Criteria', margin, yPosition);
-                    yPosition += 6;
-                    
-                    doc.setFont('helvetica', 'normal');
-                    doc.setFontSize(10);
-                    const criteriaLines = doc.splitTextToSize(requirement.acceptance_criteria, contentWidth);
-                    doc.text(criteriaLines, margin, yPosition);
-                    yPosition += criteriaLines.length * 4 + 8;
-                }
-                
-                // WCAG Documentation (if available)
-                if (requirement.understanding_url || requirement.wcag_url) {
-                    doc.setFontSize(12);
-                    doc.setFont('helvetica', 'bold');
-                    doc.text('WCAG Documentation', margin, yPosition);
-                    yPosition += 6;
-                    
-                    doc.setFont('helvetica', 'normal');
-                    doc.setFontSize(10);
-                    doc.setTextColor(0, 0, 255); // Blue color for link
-                    doc.textWithLink(requirement.understanding_url || requirement.wcag_url, margin, yPosition, { url: requirement.understanding_url || requirement.wcag_url });
-                    doc.setTextColor(0, 0, 0); // Reset to black
-                    yPosition += 8;
-                }
-                
-                // Check if we need a new page for test instances
-                if (yPosition > 200) {
-                    doc.addPage();
-                    yPosition = 20;
-                }
-                
-                // Test Instances Section
-                doc.setFontSize(12);
-                doc.setFont('helvetica', 'bold');
-                doc.text(`Test Instances (${testInstances.length} pages to test)`, margin, yPosition);
-                yPosition += 8;
-                
-                if (testInstances.length > 0) {
-                    // Create clean, professional test instances layout
-                    testInstances.forEach((instance, index) => {
-                        // Check if we need a new page
-                        if (yPosition > 240) {
-                            doc.addPage();
-                            yPosition = 20;
-                        }
-                        
-                        // URL Header with better styling
-                        doc.setFontSize(11);
-                        doc.setFont('helvetica', 'bold');
-                        doc.setFillColor(240, 240, 240);
-                        doc.rect(margin, yPosition - 2, contentWidth, 8, 'F');
-                        doc.text(`Test Instance ${index + 1}`, margin + 2, yPosition + 3);
-                        yPosition += 10;
-                        
-                        // URL section with better formatting
-                        doc.setFontSize(9);
-                        doc.setFont('helvetica', 'bold');
-                        doc.text('URL:', margin, yPosition);
-                        yPosition += 4;
-                        
-                        doc.setFont('helvetica', 'normal');
-                        doc.setTextColor(0, 0, 255);
-                        const url = instance.page_url || 'URL not available';
-                        const urlLines = doc.splitTextToSize(url, contentWidth - 10);
-                        
-                        // Make URL clickable if it's a valid URL
-                        if (url.startsWith('http')) {
-                            urlLines.forEach((line, lineIndex) => {
-                                if (lineIndex === 0) {
-                                    doc.textWithLink(line, margin + 5, yPosition, { url: url });
-                                } else {
-                                    doc.text(line, margin + 5, yPosition);
-                                }
-                                yPosition += 3.5;
-                            });
-                        } else {
-                            doc.text(urlLines, margin + 5, yPosition);
-                            yPosition += urlLines.length * 3.5;
-                        }
-                        doc.setTextColor(0, 0, 0);
-                        yPosition += 5;
-                        
-                        // Status section with horizontal layout and proper interactive area
-                        doc.setFont('helvetica', 'bold');
-                        doc.setFontSize(9);
-                        doc.text('Test Result:', margin, yPosition);
-                        yPosition += 6;
-                        
-                        const statusOptions = [
-                            { label: 'Pass', value: 'passed' },
-                            { label: 'Fail', value: 'failed' },
-                            { label: 'Needs Review', value: 'review' },
-                            { label: 'Not Applicable', value: 'na' }
-                        ];
-                        
-                        // Create horizontal layout with proper spacing
-                        const visualCheckboxSize = 8; // Small visual box
-                        const interactiveAreaSize = 18; // 1/4 inch interactive area
-                        const colWidth = contentWidth / 4;
-                        
-                        statusOptions.forEach((option, optIndex) => {
-                            const xPos = margin + (optIndex * colWidth);
-                            
-                            // Draw a small visual checkbox
-                            doc.setDrawColor(0, 0, 0);
-                            doc.setLineWidth(0.5);
-                            doc.rect(xPos, yPosition, visualCheckboxSize, visualCheckboxSize, 'S'); // Just stroke, no fill
-                            
-                            // Add interactive checkbox with larger area (1/4 inch)
-                            const fieldName = `status_${index}_${option.value}`;
-                            try {
-                                const checkbox = new doc.AcroFormCheckBox();
-                                checkbox.fieldName = fieldName;
-                                checkbox.Rect = [xPos, yPosition, xPos + interactiveAreaSize, yPosition + interactiveAreaSize];
-                                checkbox.value = 'Off';
-                                checkbox.appearanceState = 'Off';
-                                
-                                doc.addField(checkbox);
-                            } catch (e) {
-                                console.log(`Error creating checkbox ${fieldName}:`, e);
-                                // Visual checkbox already drawn above as fallback
-                            }
-                            
-                            // Add label below the visual checkbox
-                            doc.setFont('helvetica', 'normal');
-                            doc.setFontSize(8);
-                            doc.text(option.label, xPos, yPosition + interactiveAreaSize + 4);
-                        });
-                        yPosition += interactiveAreaSize + 10; // Space for interactive area + label + padding
-                        
-                        // Notes section - simple and clean
-                        doc.setFont('helvetica', 'bold');
-                        doc.setFontSize(9);
-                        doc.text('Testing Notes:', margin, yPosition);
-                        yPosition += 5;
-                        
-                        // Create a simple bordered notes area
-                        const notesHeight = 25;
-                        doc.setDrawColor(0, 0, 0);
-                        doc.setLineWidth(0.5);
-                        doc.rect(margin, yPosition, contentWidth, notesHeight, 'S'); // Just stroke outline
-                        
-                        // Add some light guide lines for writing
-                        doc.setDrawColor(220, 220, 220);
-                        doc.setLineWidth(0.2);
-                        for (let i = 1; i <= 4; i++) {
-                            const lineY = yPosition + (i * 5);
-                            doc.line(margin + 2, lineY, margin + contentWidth - 2, lineY);
-                        }
-                        
-                        // Add interactive text field for notes
-                        const notesFieldName = `notes_${index}`;
-                        try {
-                            const textField = new doc.AcroFormTextField();
-                            textField.fieldName = notesFieldName;
-                            textField.Rect = [margin, yPosition, margin + contentWidth, yPosition + notesHeight];
-                            textField.multiline = true;
-                            textField.strokeColor = [0, 0, 0];
-                            textField.backgroundColor = [1, 1, 1]; // White background
-                            
-                            // Pre-fill with existing notes if any
-                            if (instance.notes) {
-                                textField.value = instance.notes;
-                            }
-                            
-                            doc.addField(textField);
-                        } catch (e) {
-                            // Add existing notes as text if any
-                            if (instance.notes) {
-                                doc.setFontSize(8);
-                                doc.setFont('helvetica', 'normal');
-                                doc.setDrawColor(0, 0, 0);
-                                const noteLines = doc.splitTextToSize(instance.notes, contentWidth - 6);
-                                doc.text(noteLines.slice(0, 4), margin + 3, yPosition + 4);
-                            }
-                        }
-                        
-                        yPosition += notesHeight + 8;
-                        
-                        // Results section
-                        doc.setFont('helvetica', 'bold');
-                        doc.setFontSize(9);
-                        doc.text('Test Results:', margin, yPosition);
-                        yPosition += 5;
-                        
-                        const resultsHeight = 30;
-                        doc.setDrawColor(0, 0, 0);
-                        doc.setLineWidth(0.5);
-                        doc.rect(margin, yPosition, contentWidth, resultsHeight, 'S');
-                        
-                        // Add existing results if available (strip HTML)
-                        if (instance.results) {
-                            doc.setFont('helvetica', 'normal');
-                            doc.setFontSize(8);
-                            const cleanResults = instance.results.replace(/<[^>]*>/g, ''); // Strip HTML
-                            const resultsLines = doc.splitTextToSize(cleanResults, contentWidth - 4);
-                            resultsLines.slice(0, 5).forEach((line, lineIndex) => {
-                                doc.text(line, margin + 2, yPosition + 4 + (lineIndex * 4));
-                            });
-                        }
-                        
-                        yPosition += resultsHeight + 8;
-                        
-                        // Recommendations section
-                        doc.setFont('helvetica', 'bold');
-                        doc.setFontSize(9);
-                        doc.text('Recommendations:', margin, yPosition);
-                        yPosition += 5;
-                        
-                        const recommendationsHeight = 30;
-                        doc.setDrawColor(0, 0, 0);
-                        doc.setLineWidth(0.5);
-                        doc.rect(margin, yPosition, contentWidth, recommendationsHeight, 'S');
-                        
-                        // Add existing recommendations if available (strip HTML)
-                        if (instance.recommendations) {
-                            doc.setFont('helvetica', 'normal');
-                            doc.setFontSize(8);
-                            const cleanRecommendations = instance.recommendations.replace(/<[^>]*>/g, ''); // Strip HTML
-                            const recommendationsLines = doc.splitTextToSize(cleanRecommendations, contentWidth - 4);
-                            recommendationsLines.slice(0, 5).forEach((line, lineIndex) => {
-                                doc.text(line, margin + 2, yPosition + 4 + (lineIndex * 4));
-                            });
-                        }
-                        
-                        yPosition += recommendationsHeight + 8;
-                        
-                        // Add a clean separator line
-                        doc.setDrawColor(150, 150, 150);
-                        doc.setLineWidth(0.5);
-                        doc.line(margin, yPosition, pageWidth - margin, yPosition);
-                        yPosition += 10;
-                    });
-                } else {
-                    doc.setFont('helvetica', 'normal');
-                    doc.setFontSize(10);
-                    doc.text('No test instances found for this requirement.', margin, yPosition);
-                    yPosition += 10;
-                }
-                
-                // Add new page for checklist if needed
-                if (yPosition > 200) {
-                    doc.addPage();
-                    yPosition = 20;
-                }
-                
-                // Testing Checklist
-                doc.setFontSize(12);
-                doc.setFont('helvetica', 'bold');
-                doc.text('Testing Checklist', margin, yPosition);
-                yPosition += 8;
-                
-                const checklistItems = [
-                    'Review requirement details and understand acceptance criteria',
-                    'Test each page listed above using the specified test method',
-                    'Document findings and evidence for each test instance',
-                    'Update status in testing platform with results and notes',
-                    'Review and validate findings before marking as complete'
-                ];
-                
-                checklistItems.forEach((item, index) => {
-                    // Create checklist items with proper interactive area
-                    const checklistFieldName = `checklist_${index}`;
-                    const visualCheckboxSize = 8; // Small visual box
-                    const interactiveAreaSize = 12; // Larger interactive area for checklist
-                    
-                    // Draw a small visual checkbox
-                    doc.setDrawColor(0, 0, 0);
-                    doc.setLineWidth(0.5);
-                    doc.rect(margin, yPosition, visualCheckboxSize, visualCheckboxSize, 'S'); // Just stroke, no fill
-                    
-                    // Add interactive checkbox with larger clickable area
-                    try {
-                        const checkbox = new doc.AcroFormCheckBox();
-                        checkbox.fieldName = checklistFieldName;
-                        checkbox.Rect = [margin, yPosition, margin + interactiveAreaSize, yPosition + interactiveAreaSize];
-                        checkbox.value = 'Off';
-                        checkbox.appearanceState = 'Off';
-                        
-                        doc.addField(checkbox);
-                    } catch (e) {
-                        console.log(`Error creating checklist checkbox ${checklistFieldName}:`, e);
-                        // Visual checkbox already drawn above as fallback
-                    }
-                    
-                    // Add the checklist item text
-                    doc.setFont('helvetica', 'normal');
-                    doc.setFontSize(9);
-                    const itemLines = doc.splitTextToSize(item, contentWidth - 20);
-                    doc.text(itemLines, margin + interactiveAreaSize + 2, yPosition + (interactiveAreaSize / 2) + 1);
-                    yPosition += Math.max(itemLines.length * 4, interactiveAreaSize + 2) + 2;
-                });
-                
-                yPosition += 5;
-                
-                // General Notes Section with professional styling
-                doc.setFontSize(12);
-                doc.setFont('helvetica', 'bold');
-                doc.text('General Testing Notes', margin, yPosition);
-                yPosition += 8;
-                
-                // Create a professional notes area
-                const generalNotesHeight = 35;
-                doc.setDrawColor(0, 0, 0);
-                doc.setFillColor(250, 250, 250);
-                doc.rect(margin, yPosition, contentWidth, generalNotesHeight, 'FD');
-                
-                // Add lines for writing
-                doc.setDrawColor(200, 200, 200);
-                doc.setLineWidth(0.3);
-                for (let i = 1; i <= 7; i++) {
-                    const lineY = yPosition + (i * 5);
-                    doc.line(margin + 2, lineY, margin + contentWidth - 2, lineY);
-                }
-                
-                // Add interactive text field for general notes
-                try {
-                    const generalNotesField = new doc.AcroFormTextField();
-                    generalNotesField.fieldName = 'general_notes';
-                    generalNotesField.Rect = [margin, yPosition, margin + contentWidth, yPosition + generalNotesHeight];
-                    generalNotesField.multiline = true;
-                    generalNotesField.strokeColor = [0, 0, 0];
-                    generalNotesField.backgroundColor = [0.98, 0.98, 0.98];
-                    doc.addField(generalNotesField);
-                } catch (e) {
-                    // Notes area already drawn above with lines
-                }
-                
-                yPosition += 45;
-                
-                // Footer
-                doc.setFontSize(8);
-                doc.setFont('helvetica', 'normal');
-                doc.text(`WCAG ${requirement.criterion_number} Testing Documentation | Generated ${reportDate}`, margin, yPosition);
-                yPosition += 3;
-                doc.text('This document contains interactive form fields. Save as PDF to preserve your inputs.', margin, yPosition);
-                
-                // Save the PDF
-                const filename = `WCAG_${requirement.criterion_number}_${requirement.title.replace(/[^a-zA-Z0-9]/g, '_')}_Testing.pdf`;
-                doc.save(filename);
-                
-                this.showNotification('success', 'Interactive PDF Generated', 'PDF with fillable form fields has been downloaded. You can save your progress directly in the PDF.');
-                
-            } catch (error) {
-                console.error('Error generating interactive PDF:', error);
-                this.showNotification('error', 'PDF Generation Failed', 'Failed to generate interactive PDF: ' + error.message);
-            }
-        },
         
         getRequirementTestInstances: function(criterionNumber) {
             if (!criterionNumber || !this.sessionDetailsTestInstances) return [];
@@ -3138,115 +1278,6 @@ MANUAL PHASE:
             return this.sessionDetailsTestInstances.filter(instance => 
                 instance.criterion_number === criterionNumber
             );
-        },
-
-        getOverallTestStatus: function(testInstances) {
-            if (!testInstances || testInstances.length === 0) return 'NOT_TESTED';
-            
-            const statuses = testInstances.map(instance => instance.status || 'pending');
-            const uniqueStatuses = [...new Set(statuses)];
-            
-            // Priority order for status determination
-            if (statuses.includes('failed')) return 'FAILED';
-            if (statuses.includes('needs_review')) return 'NEEDS_REVIEW';
-            if (statuses.includes('in_progress')) return 'IN_PROGRESS';
-            if (uniqueStatuses.length === 1 && uniqueStatuses[0] === 'passed') return 'PASSED';
-            if (uniqueStatuses.length === 1 && uniqueStatuses[0] === 'not_applicable') return 'NOT_APPLICABLE';
-            if (statuses.includes('pending')) return 'PENDING';
-            
-            return 'MIXED';
-        },
-
-        // Get the selected overall requirement status (manual override or computed)
-        getSelectedOverallStatus: function() {
-            const requirement = this.currentRequirement;
-            if (!requirement) return 'NOT_TESTED';
-            
-            // Check if there's a manual status override
-            if (requirement.manual_status_override) {
-                return requirement.manual_status_override.toUpperCase();
-            }
-            
-            // Fall back to computed status from test instances
-            const testInstances = this.getRequirementTestInstances(requirement.criterion_number);
-            return this.getOverallTestStatus(testInstances);
-        },
-
-        // Save requirement status override to database
-        saveRequirementStatusOverride: async function(status) {
-            console.log('🔧 saveRequirementStatusOverride called with status:', status);
-            console.log('🔧 currentRequirement:', this.currentRequirement?.id);
-            
-            if (!this.currentRequirement) {
-                console.error('❌ No currentRequirement available');
-                this.showNotification('error', 'Save Failed', 'No requirement selected');
-                return;
-            }
-
-            try {
-                console.log('🔧 Making API call to save status override...');
-                const response = await this.apiCall(`/unified-requirements/${this.currentRequirement.id}/status-override`, {
-                    method: 'PUT',
-                    body: JSON.stringify({ 
-                        manual_status_override: status 
-                    })
-                });
-
-                console.log('🔧 API response:', response);
-
-                if (response.success) {
-                    // Update local requirement data
-                    this.currentRequirement.manual_status_override = status;
-                    
-                    // Update in requirements list if present
-                    const requirement = this.sessionRequirements?.find(r => r.id === this.currentRequirement.id);
-                    if (requirement) {
-                        requirement.manual_status_override = status;
-                    }
-
-                    console.log('✅ Status override saved successfully');
-                    console.log('🔧 Updated currentRequirement.manual_status_override:', this.currentRequirement.manual_status_override);
-                    console.log('🔧 Overall status should now be:', this.getRequirementOverallStatus(this.currentRequirement));
-                    
-                    this.showNotification('success', 'Status Saved', `Requirement status set to: ${status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' ')}`);
-                } else {
-                    throw new Error(response.error || 'Failed to save requirement status');
-                }
-            } catch (error) {
-                console.error('❌ Error saving requirement status override:', error);
-                this.showNotification('error', 'Save Failed', 'Failed to save requirement status: ' + error.message);
-                
-                // Don't revert UI change immediately - let user see what they selected
-                console.log('⚠️ Not reverting UI change to show user selection');
-            }
-        },
-
-        // Clear manual status override
-        clearManualStatusOverride: async function() {
-            if (!this.currentRequirement) return;
-
-            try {
-                const response = await this.apiCall(`/unified-requirements/${this.currentRequirement.id}/status-override`, {
-                    method: 'DELETE'
-                });
-
-                if (response.success) {
-                    this.currentRequirement.manual_status_override = null;
-                    
-                    // Update in requirements list if present
-                    const requirement = this.sessionRequirements?.find(r => r.id === this.currentRequirement.id);
-                    if (requirement) {
-                        requirement.manual_status_override = null;
-                    }
-
-                    this.showNotification('success', 'Override Cleared', 'Manual status override removed');
-                } else {
-                    throw new Error(response.error || 'Failed to clear status override');
-                }
-            } catch (error) {
-                console.error('Error clearing requirement status override:', error);
-                this.showNotification('error', 'Clear Failed', 'Failed to clear status override: ' + error.message);
-            }
         },
         
         // ===== AUDIT TIMELINE FUNCTIONS (for Alpine.js template access) =====
@@ -3300,7 +1331,6 @@ MANUAL PHASE:
             this._showUserManagement = value;
         },
         _showUserManagement: false,
-        _userManagementManuallyOpened: false, // Track if user management was manually opened
         showUserForm: false,
         showDeleteUserModal: false,
         preventAutoUserManagement: true, // Prevent auto-opening during initialization
@@ -3598,202 +1628,8 @@ MANUAL PHASE:
         
             };
 
-    // ===== EARLY GLOBAL FUNCTION DEFINITIONS FOR ALPINE.JS =====
-    window.filterRequirements = window.filterRequirements || function() {
-        console.log('🔍 Early filterRequirements called - component not ready yet');
-    };
-
-    // Declare componentInstance variable
-    let componentInstance;
-
     // ===== MERGE WITH ORGANIZED STATE STRUCTURE =====
     return {
-        
-        // ===== TINYMCE WYSIWYG FUNCTIONS =====
-        // Initialize TinyMCE editor
-        initTinyMCE: function(elementId, initialContent, onChangeCallback) {
-            // Wait for element to be available
-            setTimeout(() => {
-                const element = document.getElementById(elementId);
-                if (!element) {
-                    console.warn('TinyMCE element not found:', elementId);
-                    return;
-                }
-                
-                tinymce.init({
-                    target: element,
-                    height: 200,
-                    menubar: false,
-                    plugins: [
-                        // Core editing features
-                        'anchor', 'autolink', 'charmap', 'codesample', 'emoticons', 'link', 'lists', 'media', 'searchreplace', 'table', 'visualblocks', 'wordcount',
-                        // Premium features (available with your API key)
-                        'checklist', 'mediaembed', 'casechange', 'formatpainter', 'pageembed', 'a11ychecker', 'tinymcespellchecker', 'permanentpen', 'powerpaste', 'advtable', 'advcode', 'advtemplate'
-                    ],
-                    toolbar: 'undo redo | blocks fontfamily fontsize | bold italic underline strikethrough | link media table | spellcheckdialog a11ycheck | align lineheight | checklist numlist bullist indent outdent | emoticons charmap | removeformat',
-                    content_style: 'body { font-family: -apple-system, BlinkMacSystemFont, San Francisco, Segoe UI, Roboto, Helvetica Neue, sans-serif; font-size: 14px; }',
-                    branding: false,
-                    promotion: false,
-                    setup: function(editor) {
-                        editor.on('init', function() {
-                            editor.setContent(initialContent || '');
-                        });
-                        
-                        editor.on('change keyup paste', function() {
-                            const content = editor.getContent();
-                            if (onChangeCallback) {
-                                onChangeCallback(content);
-                            }
-                        });
-                    }
-                });
-            }, 100);
-        },
-        
-        // Update instance field (for WYSIWYG editors)
-        updateInstanceField: function(instanceId, field, value) {
-            // Find the instance in sessionTestInstances and update it
-            const instance = this.sessionTestInstances?.find(inst => inst.id === instanceId);
-            if (instance) {
-                instance[field] = value;
-            }
-            
-            // Also update in requirement test instances if present
-            const reqInstances = this.getRequirementTestInstances && this.getRequirementTestInstances(this.currentRequirement?.criterion_number);
-            const reqInstance = reqInstances?.find(inst => inst.id === instanceId);
-            if (reqInstance) {
-                reqInstance[field] = value;
-            }
-            
-            // Mark as having unsaved changes
-            this.hasUnsavedChanges = true;
-        },
-        
-        // Track requirement changes (for WYSIWYG editors and other fields)
-        trackRequirementChange: function(field, value) {
-            console.log('🔍 Requirement change tracked:', { field, value, hasChanges: true, totalChanges: Object.keys(this.pendingChanges).length + 1 });
-            
-            // Store the change
-            this.pendingChanges[field] = value;
-            this.hasChanges = true;
-            this.hasUnsavedChanges = true;
-            
-            // Auto-save for WYSIWYG fields after a delay
-            if (field.startsWith('instance_results_') || field.startsWith('instance_recommendations_') || field.startsWith('instance_notes_')) {
-                this.scheduleAutoSave();
-            }
-        },
-        
-        // Schedule auto-save with debouncing
-        scheduleAutoSave: function() {
-            // Clear existing timeout
-            if (this.autoSaveTimeout) {
-                clearTimeout(this.autoSaveTimeout);
-            }
-            
-            // Set new timeout for 3 seconds
-            this.autoSaveTimeout = setTimeout(() => {
-                this.autoSaveInstanceChanges();
-            }, 3000);
-        },
-        
-        // Auto-save instance changes (debounced)
-        autoSaveInstanceChanges: async function() {
-            if (!this.pendingChanges || Object.keys(this.pendingChanges).length === 0) {
-                return;
-            }
-            
-            console.log('🔧 Auto-saving instance changes:', this.pendingChanges);
-            
-            try {
-                const savePromises = [];
-                
-                // Process each change
-                for (const [changeKey, value] of Object.entries(this.pendingChanges)) {
-                    if (changeKey.startsWith('instance_results_') || changeKey.startsWith('instance_recommendations_') || changeKey.startsWith('instance_notes_')) {
-                        const parts = changeKey.split('_');
-                        const field = parts[1]; // 'results', 'recommendations', or 'notes'
-                        const instanceId = parts[2]; // instance ID
-                        
-                        // Create save promise for this instance
-                        const updateData = { [field]: value };
-                        savePromises.push(
-                            this.apiCall(`/test-instances/${instanceId}`, {
-                                method: 'PUT',
-                                body: JSON.stringify(updateData)
-                            })
-                        );
-                    }
-                }
-                
-                // Execute all saves in parallel
-                const results = await Promise.all(savePromises);
-                
-                // Check if all saves were successful
-                const allSuccessful = results.every(result => result.success);
-                
-                if (allSuccessful) {
-                    console.log('✅ Auto-saved all instance changes successfully');
-                    this.pendingChanges = {}; // Clear pending changes
-                    this.hasUnsavedChanges = false;
-                } else {
-                    console.error('❌ Some auto-save operations failed');
-                }
-                
-            } catch (error) {
-                console.error('Error auto-saving instance changes:', error);
-            }
-        },
-        
-        // Save all pending instance changes
-        saveAllInstanceChanges: async function() {
-            if (!this.pendingChanges || Object.keys(this.pendingChanges).length === 0) {
-                this.showNotification('info', 'No Changes', 'No changes to save');
-                return;
-            }
-            
-            console.log('🔧 Saving all instance changes:', this.pendingChanges);
-            
-            try {
-                const savePromises = [];
-                
-                // Process each change
-                for (const [changeKey, value] of Object.entries(this.pendingChanges)) {
-                    if (changeKey.startsWith('instance_results_') || changeKey.startsWith('instance_recommendations_') || changeKey.startsWith('instance_notes_')) {
-                        const parts = changeKey.split('_');
-                        const field = parts[1]; // 'results', 'recommendations', or 'notes'
-                        const instanceId = parts[2]; // instance ID
-                        
-                        // Create save promise for this instance
-                        const updateData = { [field]: value };
-                        savePromises.push(
-                            this.apiCall(`/test-instances/${instanceId}`, {
-                                method: 'PUT',
-                                body: JSON.stringify(updateData)
-                            })
-                        );
-                    }
-                }
-                
-                // Execute all saves in parallel
-                const results = await Promise.all(savePromises);
-                
-                // Check if all saves were successful
-                const allSuccessful = results.every(result => result.success);
-                
-                if (allSuccessful) {
-                    this.showNotification('success', 'Changes Saved', 'All test instance changes have been saved successfully');
-                    this.pendingChanges = {}; // Clear pending changes
-                    this.hasUnsavedChanges = false;
-                } else {
-                    throw new Error('Some changes failed to save');
-                }
-                
-            } catch (error) {
-                console.error('Error saving instance changes:', error);
-                this.showNotification('error', 'Save Failed', error.message || 'Failed to save changes');
-            }
-        },
         // Apply all defaults first
         ...defaults,
         
@@ -3987,140 +1823,8 @@ MANUAL PHASE:
             });
         },
 
-        // Alpine.js init function (called automatically)
-        init() {
-            console.log('🚀 ALPINE INIT CALLED - Starting component initialization');
-            // Assign this Alpine component instance to the componentInstance variable
-            componentInstance = this;
-            console.log('✅ componentInstance assigned to Alpine component', componentInstance);
-            
-            // Delay the global function setup to ensure all methods are available
-            setTimeout(() => {
-                console.log('🔍 Testing componentInstance.filterRequirements after delay:', typeof componentInstance.filterRequirements);
-                
-                // Update the global function after methods are available
-                window.filterRequirements = () => {
-                    console.log('🔍 Updated Global filterRequirements called');
-                    console.log('🔍 componentInstance type:', typeof componentInstance);
-                    console.log('🔍 componentInstance.filterRequirements type:', typeof componentInstance?.filterRequirements);
-                    
-                    // Try to find the Alpine component instance with filterRequirements
-                    const alpineInstance = componentInstance || window._dashboardInstance;
-                    
-                    if (alpineInstance && alpineInstance.filterRequirements) {
-                        console.log('🔍 Calling alpineInstance.filterRequirements');
-                        return alpineInstance.filterRequirements();
-                    } else {
-                        console.log('🔍 Searching for filterRequirements in DOM elements...');
-                        // Fallback: search for Alpine component in DOM
-                        const elements = document.querySelectorAll('[x-data]');
-                        for (const element of elements) {
-                            const data = element._x_dataStack?.[0];
-                            if (data && data.filterRequirements) {
-                                console.log('🔍 Found filterRequirements in DOM element');
-                                return data.filterRequirements();
-                            }
-                        }
-                        console.error('❌ filterRequirements not found anywhere');
-                    }
-                };
-                console.log('✅ Global filterRequirements function updated with delay');
-            }, 100);
-            
-            // Call async initialization
-            this.initAsync();
-        },
-
         async initAsync() {
             await this.loadInitialData();
-        },
-
-        // Add filterRequirements method directly to Alpine component
-        filterRequirements() {
-            console.log('🔍 ALPINE filterRequirements called');
-            if (!this.sessionRequirements) {
-                this.filteredRequirements = [];
-                this.updateRequirementsPagination();
-                return;
-            }
-
-            let filtered = [...this.sessionRequirements];
-
-            // Apply filters
-            if (this.requirementFilters.testStatus) {
-                const status = this.requirementFilters.testStatus;
-                console.log(`🔍 FILTER DEBUG: Filtering by status "${status}"`);
-                
-                // Debug status distribution before filtering
-                const statusDistribution = {};
-                this.sessionRequirements.forEach(req => {
-                    const key = `${req.test_method}:auto=${req.automated_status},manual=${req.manual_status}`;
-                    statusDistribution[key] = (statusDistribution[key] || 0) + 1;
-                });
-                console.log(`🔍 STATUS DISTRIBUTION:`, statusDistribution);
-                
-                filtered = filtered.filter(req => {
-                    // Check automated status for automated/both requirements
-                    const hasAutomatedMatch = (req.test_method === 'automated' || req.test_method === 'both') && 
-                                             req.automated_status === status;
-                    
-                    // Check manual status for manual/both requirements  
-                    const hasManualMatch = (req.test_method === 'manual' || req.test_method === 'both') && 
-                                          req.manual_status === status;
-                    
-                    // Debug first few requirements when filtering by "failed" or when filtering by passed and we get unexpected results
-                    if ((status === 'failed' && (req.criterion_number === '1.3.6' || req.criterion_number === '1.4.6' || req.criterion_number === '2.4.12' || req.criterion_number === '2.4.13')) ||
-                        (status === 'passed' && hasAutomatedMatch)) {
-                        console.log(`🔍 FILTER CHECK: ${req.criterion_number} - test_method="${req.test_method}", automated_status="${req.automated_status}", manual_status="${req.manual_status}" - hasAutomatedMatch=${hasAutomatedMatch}, hasManualMatch=${hasManualMatch}`);
-                    }
-                    
-                    // Return true if either automated or manual status matches
-                    return hasAutomatedMatch || hasManualMatch;
-                });
-                
-                console.log(`🔍 FILTER RESULT: Found ${filtered.length} requirements matching "${status}"`);
-            }
-
-            if (this.requirementFilters.wcagLevel) {
-                filtered = filtered.filter(req => req.level === this.requirementFilters.wcagLevel);
-            }
-
-            if (this.requirementFilters.testMethod) {
-                filtered = filtered.filter(req => req.test_method === this.requirementFilters.testMethod);
-            }
-
-            if (this.requirementFilters.searchTerm) {
-                const term = this.requirementFilters.searchTerm.toLowerCase();
-                filtered = filtered.filter(req => 
-                    req.criterion_number.toLowerCase().includes(term) ||
-                    req.title.toLowerCase().includes(term) ||
-                    req.description.toLowerCase().includes(term)
-                );
-            }
-
-            this.filteredRequirements = filtered;
-            this.updateRequirementsPagination();
-            console.log(`🔍 Filtered requirements: ${filtered.length}/${this.sessionRequirements.length}`);
-        },
-
-        // Add updateRequirementsPagination method directly to Alpine component
-        updateRequirementsPagination() {
-            if (!this.filteredRequirements) return;
-            
-            const totalItems = this.filteredRequirements.length;
-            this.requirementTotalPages = Math.ceil(totalItems / this.requirementPageSize) || 1;
-            
-            // Ensure current page is valid
-            if (this.requirementCurrentPage > this.requirementTotalPages) {
-                this.requirementCurrentPage = 1;
-            }
-
-            // Calculate paginated results
-            const startIndex = (this.requirementCurrentPage - 1) * this.requirementPageSize;
-            const endIndex = startIndex + this.requirementPageSize;
-            this.paginatedRequirements = this.filteredRequirements.slice(startIndex, endIndex);
-            
-            console.log(`🔍 Pagination: Page ${this.requirementCurrentPage}/${this.requirementTotalPages}, showing ${this.paginatedRequirements.length} items`);
         },
         
         // ===== WEBSOCKET METHODS =====
@@ -4816,7 +2520,6 @@ MANUAL PHASE:
         
         closeCrawlerPagesModal() {
             this.ui.modals.showCrawlerPagesModal = false;
-            this.showCrawlerPagesModal = false;
             this.selectedCrawlerForPages = null;
             this.crawlerPages = [];
             this.filteredCrawlerPages = [];
@@ -4900,8 +2603,11 @@ MANUAL PHASE:
                     await this.loadInitialData();
                     this.syncLegacyState(); // Sync legacy state
                     
-                    // REMOVED: Auto-protection disabling to prevent unwanted modal popups
-                    // this.preventAutoUserManagement remains true to block all auto-opens
+                    // Allow user management modal to open after initialization is complete
+                    setTimeout(() => {
+                        this.preventAutoUserManagement = false;
+                        console.log('✅ User management modal auto-open protection disabled');
+                    }, 30000); // Wait 30 seconds after auth check (extended from 10s)
                 } else if (response.status === 401 && refreshToken) {
                     // Try to refresh token
                     await this.refreshToken();
@@ -5044,8 +2750,11 @@ MANUAL PHASE:
                     // Load automation tools now that we're authenticated
                     await this.loadAvailableTools();
                     
-                    // REMOVED: Auto-protection disabling to prevent unwanted modal popups
-                    // this.preventAutoUserManagement remains true to block all auto-opens
+                    // Allow user management modal to open after initialization is complete
+                    setTimeout(() => {
+                        this.preventAutoUserManagement = false;
+                        console.log('✅ User management modal auto-open protection disabled');
+                    }, 3000); // Wait 3 seconds after login
                 } else {
                     this.loginError = data.error || 'Login failed';
                 }
@@ -5127,10 +2836,9 @@ MANUAL PHASE:
                     ...options
                 });
                 
-                // Handle auth errors with smart retry logic
+                // Handle auth errors
                 if (response.status === 401) {
-                    // Don't immediately clear auth state - let handleAuthError decide
-                    await this.handleAuthError();
+                    this.handleAuthError();
                     throw new Error('Authentication required');
                 }
                 
@@ -5149,40 +2857,8 @@ MANUAL PHASE:
             }
         },
 
-        async handleAuthError() {
-            console.log('Authentication error - attempting token validation before clearing auth state');
-            
-            // First, try to validate if we actually have a valid token
-            const token = this.getAuthToken();
-            if (!token) {
-                console.log('No token found - clearing auth state');
-                this.clearAuth();
-                this.showLogin = true;
-                this.ui.modals.showLogin = true;
-                return;
-            }
-            
-            // Try to validate the token with the server before clearing everything
-            try {
-                const response = await fetch('http://localhost:3001/api/auth/validate', {
-                    method: 'GET',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    }
-                });
-                
-                if (response.ok) {
-                    console.log('Token is actually valid - authentication error may be temporary');
-                    this.showNotification('Authentication error occurred, but your session is still valid. Please try again.', 'warning');
-                    return; // Don't clear auth state if token is actually valid
-                }
-                
-                console.log('Token validation failed - clearing auth state');
-            } catch (error) {
-                console.log('Unable to validate token - clearing auth state as precaution');
-            }
-            
+        handleAuthError() {
+            console.log('Authentication error - clearing auth state');
             this.clearAuth();
             this.showLogin = true;
             this.ui.modals.showLogin = true;
@@ -6699,8 +4375,6 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
         openCreateCrawlerModal(mode = 'basic') {
             console.log('🔍 DEBUG: openCreateCrawlerModal called with mode:', mode);
             this.ui.modals.showCreateCrawler = true;
-            // Also flip the legacy top-level flag in case initialization guard blocks sync
-            this.showCreateCrawler = true;
             this.newCrawler.mode = mode;
             this.syncLegacyState();
             console.log('🔍 DEBUG: After sync - this.showCreateCrawler:', this.showCreateCrawler);
@@ -6709,7 +4383,6 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
         
         closeCreateCrawlerModal() {
             this.ui.modals.showCreateCrawler = false;
-            this.showCreateCrawler = false;
             this.resetCrawlerForm();
             this.syncLegacyState();
         },
@@ -7309,8 +4982,6 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                     console.log('🔍 DEBUG: Opening modal with showCrawlerPagesModal =', true);
                     
                     this.ui.modals.showCrawlerPagesModal = true;
-                    // Also flip the legacy top-level flag in case initialization guard blocks sync
-                    this.showCrawlerPagesModal = true;
                     this.syncLegacyState();
                 } else {
                     this.showNotification('error', 'Load Failed', 'Failed to load crawler pages');
@@ -7325,7 +4996,6 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
 
         closeCrawlerPagesModal() {
             this.ui.modals.showCrawlerPagesModal = false;
-            this.showCrawlerPagesModal = false;
             this.selectedCrawlerForPages = null;
             this.crawlerPages = [];
             this.filteredCrawlerPages = [];
@@ -7671,14 +5341,46 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
             this.showNotification('success', 'Sessions Refreshed', 'Session list has been updated');
         },
 
-        // ARCHIVED: Legacy session creation - use session wizard instead
+        // Create a new testing session
         async createTestingSession() {
-            this.showNotification('info', 'Use Session Wizard', 
-                'Please use the Session Wizard for creating new testing sessions. It provides better page selection, conformance level options, and smart filtering.');
-            
-            // Redirect to wizard or show wizard modal
-            // TODO: Implement wizard modal or redirect to wizard UI
-            console.warn('Legacy session creation called - redirect to wizard system');
+            if (!this.data.selectedProject || !this.newTestingSession.name.trim() || !this.newTestingSession.conformance_level) {
+                this.showNotification('error', 'Missing Information', 'Please fill in all required fields');
+                return;
+            }
+
+            try {
+                this.loading = true;
+                
+                const sessionData = {
+                    name: this.newTestingSession.name.trim(),
+                    description: this.newTestingSession.description.trim(),
+                    project_id: this.data.selectedProject,
+                    conformance_level: this.newTestingSession.conformance_level,
+                    testing_approach: this.newTestingSession.testing_approach || 'hybrid'
+                };
+
+                const response = await this.apiCall('/sessions', {
+                    method: 'POST',
+                    body: JSON.stringify(sessionData)
+                });
+
+                if (response.success) {
+                    this.showNotification('success', 'Session Created', 
+                        `Session "${sessionData.name}" created with ${response.data.total_tests_count || 0} test instances`
+                    );
+                    
+                    this.showCreateTestingSession = false;
+                    this.resetNewTestingSession();
+                    await this.loadComplianceSessions();
+                } else {
+                    throw new Error(response.error || 'Failed to create testing session');
+                }
+            } catch (error) {
+                console.error('Error creating testing session:', error);
+                this.showNotification('error', 'Creation Failed', error.message || 'Failed to create testing session');
+            } finally {
+                this.loading = false;
+            }
         },
 
         // Delete a testing session with confirmation
@@ -10101,7 +7803,6 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
         closeUserManagement() {
             console.log('🔍 Closing user management modal');
             this.showUserManagement = false;
-            this._userManagementManuallyOpened = false; // Reset manual flag
             this.closeUserForm();
             this.closeDeleteUserModal();
         },
@@ -11423,9 +9124,6 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                 // Load automation summary
                 await this.loadAutomationSummary(sessionId);
                 
-                // Load available automation tools
-                await this.loadAvailableTools();
-                
                 // Load test selection status
                 await this.getTestSelectionStatus(sessionId);
                 
@@ -12377,8 +10075,7 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
         // Load session test instances
         async loadSessionTestInstances(sessionId) {
             try {
-                // Set a high limit to get all test instances for the session
-                const response = await this.apiCall(`/test-instances?session_id=${sessionId}&limit=10000`);
+                const response = await this.apiCall(`/test-instances?session_id=${sessionId}`);
                 
                 if (response.success) {
                     // Add tester names to test instances
@@ -12392,16 +10089,6 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                     
                     this.sessionDetailsTestInstances = testInstances;
                     console.log('📋 Session test instances loaded:', testInstances.length);
-                    
-                    // Log pagination info for debugging
-                    if (response.pagination) {
-                        console.log('📊 Pagination info:', {
-                            total: response.pagination.total,
-                            current_page: response.pagination.current_page,
-                            total_pages: response.pagination.total_pages,
-                            loaded: testInstances.length
-                        });
-                    }
                 }
             } catch (error) {
                 console.error('Error loading session test instances:', error);
@@ -12857,10 +10544,10 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                             </details>
                         </div>
                         
-                        ${testInstance.understanding_url || testInstance.wcag_url || testInstance.section_508_url ? `
+                        ${testInstance.wcag_url || testInstance.section_508_url ? `
                         <div class="mt-4 flex space-x-4">
-                            ${testInstance.understanding_url || testInstance.wcag_url ? `
-                            <a href="${testInstance.understanding_url || testInstance.wcag_url}" target="_blank" class="inline-flex items-center text-sm text-blue-600 hover:text-blue-800">
+                            ${testInstance.wcag_url ? `
+                            <a href="${testInstance.wcag_url}" target="_blank" class="inline-flex items-center text-sm text-blue-600 hover:text-blue-800">
                                 <i class="fas fa-external-link-alt mr-1"></i>WCAG Understanding Guide
                             </a>` : ''}
                             ${testInstance.section_508_url ? `
@@ -12943,7 +10630,7 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                                 <textarea id="test-notes" 
                                           rows="4" 
                                           placeholder="Add detailed notes about the test results, findings, or observations..."
-                                          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">${window.DashboardUtils.convertZuluToLocal(testInstance.notes || '')}</textarea>
+                                          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">${testInstance.notes || ''}</textarea>
                             </div>
 
                             <div>
@@ -13870,88 +11557,28 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                 let html = '<div class="space-y-3">';
                 let totalViolations = 0;
                 
-                Object.entries(rawResults.violations_by_page).forEach(([pageUrl, pageData]) => {
-                    html += `<div class="border-l-4 border-blue-500 pl-3 mb-3">
-                        <div class="text-sm font-medium text-blue-700 mb-2">📄 ${pageUrl}</div>`;
-                    
-                    // Handle different tool formats
-                    if (pageData.details) {
-                        if (Array.isArray(pageData.details)) {
-                            // axe-core and pa11y format: details is an array of violations
-                            const violations = pageData.details;
-                            if (violations.length > 0) {
+                Object.entries(rawResults.violations_by_page).forEach(([pageUrl, violations]) => {
+                    if (Array.isArray(violations) && violations.length > 0) {
                         totalViolations += violations.length;
-                                html += `<div class="text-red-600 font-medium mb-1">❌ ${violations.length} Violation${violations.length > 1 ? 's' : ''}</div>
-                                    <ul class="list-disc list-inside space-y-1 ml-2">`;
+                        html += `<div class="border-l-4 border-red-500 pl-3 mb-3">
+                            <div class="text-sm font-medium text-red-700 mb-2">${pageUrl}</div>
+                            <ul class="list-disc list-inside space-y-1">`;
                         
-                                violations.slice(0, 3).forEach(violation => {
+                        violations.slice(0, 5).forEach(violation => {
                             const description = violation.description || violation.help || violation.message || violation.title || 'Accessibility violation';
                             html += `<li class="text-red-600 text-sm">${description}</li>`;
                         });
                         
-                                if (violations.length > 3) {
-                                    html += `<li class="text-gray-500 italic text-sm">... and ${violations.length - 3} more</li>`;
-                                }
-                                html += '</ul>';
-                            }
-                        } else if (typeof pageData.details === 'object') {
-                            // lighthouse format: details is an object of audit results
-                            const auditResults = pageData.details;
-                            const failedAudits = [];
-                            const passedAudits = [];
-                            
-                            Object.entries(auditResults).forEach(([auditId, audit]) => {
-                                if (audit.score === 0) {
-                                    failedAudits.push(audit);
-                                } else if (audit.score === 1) {
-                                    passedAudits.push(audit);
-                                }
-                            });
-                            
-                            if (failedAudits.length > 0) {
-                                totalViolations += failedAudits.length;
-                                html += `<div class="text-red-600 font-medium mb-1">❌ ${failedAudits.length} Failed Audit${failedAudits.length > 1 ? 's' : ''}</div>
-                                    <ul class="list-disc list-inside space-y-1 ml-2">`;
-                                
-                                failedAudits.slice(0, 3).forEach(audit => {
-                                    html += `<li class="text-red-600 text-sm">${audit.title}</li>`;
-                                });
-                                
-                                if (failedAudits.length > 3) {
-                                    html += `<li class="text-gray-500 italic text-sm">... and ${failedAudits.length - 3} more</li>`;
-                                }
-                                html += '</ul>';
-                            }
-                            
-                            if (passedAudits.length > 0) {
-                                html += `<div class="text-green-600 font-medium mb-1">✅ ${passedAudits.length} Passed Audit${passedAudits.length > 1 ? 's' : ''}</div>`;
-                            }
-                            
-                            // Show accessibility score if available
-                            if (pageData.accessibility_score !== undefined) {
-                                const score = pageData.accessibility_score;
-                                const scoreColor = score >= 90 ? 'text-green-600' : score >= 70 ? 'text-yellow-600' : 'text-red-600';
-                                html += `<div class="${scoreColor} font-medium">🎯 Accessibility Score: ${score}%</div>`;
-                            }
+                        if (violations.length > 5) {
+                            html += `<li class="text-gray-500 italic text-sm">... and ${violations.length - 5} more</li>`;
                         }
+                        
+                        html += '</ul></div>';
                     }
-                    
-                    // Show violation counts if available
-                    if (pageData.violations !== undefined) {
-                        const violations = pageData.violations;
-                        const critical = pageData.critical || 0;
-                        if (violations > 0) {
-                            html += `<div class="text-red-600 text-sm">Total: ${violations} violation${violations > 1 ? 's' : ''} (${critical} critical)</div>`;
-                        } else {
-                            html += `<div class="text-green-600 text-sm">✓ No violations detected</div>`;
-                        }
-                    }
-                    
-                    html += '</div>';
                 });
                 
                 if (totalViolations === 0) {
-                    html += '<div class="text-green-600 text-sm font-medium">🎉 All tests passed - No violations detected!</div>';
+                    html += '<div class="text-green-600 text-sm">✓ No violations detected</div>';
                 }
                 
                 html += '</div>';
@@ -14959,7 +12586,7 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                 console.log(`📋 Found ${testInstances.length} total test instances for requirement ${criterionNumber}`);
                 
                 const automatedInstances = testInstances.filter(instance => 
-                    instance.test_method === 'automated' || instance.test_method === 'both' || instance.test_method === 'hybrid'
+                    instance.test_method_used === 'automated' || instance.test_method_used === 'hybrid'
                 );
                 
                 console.log(`🤖 Found ${automatedInstances.length} automated/hybrid test instances for requirement ${criterionNumber}`);
@@ -14982,13 +12609,10 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                 this.showNotification('info', 'Starting Tests', `Running unified automation for requirement ${criterionNumber} (${automatedInstances.length} instances)...`);
 
                 // Use UnifiedAutomationService for requirement-specific automation
-                const unifiedService = new window.UnifiedAutomationService(
-                    this.apiCall.bind(this),
-                    this.showNotification.bind(this)
-                );
+                const unifiedService = new window.UnifiedAutomationService();
                 const response = await unifiedService.runRequirementAutomation(
                     this.selectedSessionDetails.id,
-                    [requirement.id], // Fixed: Target this specific requirement by ID
+                    [requirement.id], // Target this specific requirement
                     {
                         tools: ['axe-core', 'pa11y', 'lighthouse'],
                         run_async: true,
@@ -15747,18 +13371,6 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
         getRequirementOverallStatusClass(requirement) {
             if (!requirement) return 'bg-gray-100 text-gray-600';
             
-            // Check for manual status override first
-            if (requirement.manual_status_override) {
-                const statusClassMap = {
-                    'passed': 'bg-green-100 text-green-800',
-                    'failed': 'bg-red-100 text-red-800',
-                    'in_process': 'bg-blue-100 text-blue-800',
-                    'needs_review': 'bg-yellow-100 text-yellow-800',
-                    'not_applicable': 'bg-gray-100 text-gray-600'
-                };
-                return statusClassMap[requirement.manual_status_override] || 'bg-gray-100 text-gray-600';
-            }
-            
             // Check if requirement has test instances
             const testInstances = this.getTestInstancesForRequirement(requirement.requirement_id);
             
@@ -15786,19 +13398,6 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
         // Get requirement overall status text
         getRequirementOverallStatus(requirement) {
             if (!requirement) return 'Not Tested';
-            
-            // Check for manual status override first
-            if (requirement.manual_status_override) {
-                // Convert status to display format
-                const statusMap = {
-                    'passed': 'Passed',
-                    'failed': 'Failed', 
-                    'in_process': 'In Process',
-                    'needs_review': 'Needs Review',
-                    'not_applicable': 'Not Applicable'
-                };
-                return statusMap[requirement.manual_status_override] || requirement.manual_status_override;
-            }
             
             // Check if requirement has test instances
             const testInstances = this.getTestInstancesForRequirement(requirement.requirement_id);
@@ -16813,141 +14412,9 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
 
     // ===== REQUIREMENTS FUNCTIONALITY =====
     
-    // Load session requirements
-    componentInstance.loadSessionRequirements = async function(sessionId) {
-        console.log(`🚀 loadSessionRequirements called with sessionId: ${sessionId}`);
-        console.log(`📊 Current state - sessionRequirements length:`, this.sessionRequirements?.length || 0);
-        
-        if (!sessionId) {
-            console.error('❌ No session ID provided to loadSessionRequirements');
-            this.showNotification('error', 'Requirements Error', 'Session ID is required');
-            return;
-        }
-        
-        try {
-            console.log(`🔍 Loading requirements for session ${sessionId}`);
-            this.loading = true;
-            
-            // Initialize requirements arrays if they don't exist
-            if (!this.sessionRequirements) this.sessionRequirements = [];
-            if (!this.filteredRequirements) this.filteredRequirements = [];
-            if (!this.paginatedRequirements) this.paginatedRequirements = [];
-            if (!this.requirementFilters) {
-                this.requirementFilters = {
-                    testStatus: '',
-                    wcagLevel: '',
-                    testMethod: '',
-                    searchTerm: ''
-                };
-            }
-            if (!this.requirementStats) {
-                this.requirementStats = {
-                    total: 0,
-                    automated_passed: 0,
-                    automated_failed: 0,
-                    manual_completed: 0,
-                    manual_pending: 0,
-                    not_tested: 0
-                };
-            }
-            if (!this.requirementCurrentPage) this.requirementCurrentPage = 1;
-            if (!this.requirementPageSize) this.requirementPageSize = 20;
-            if (!this.requirementTotalPages) this.requirementTotalPages = 1;
-            
-            // Load requirements directly from the requirements API
-            let requirementsData = [];
-            
-            try {
-                console.log(`📋 Loading requirements from API for session ${sessionId}`);
-                
-                let requirementsResponse;
-                
-                try {
-                    // Try authenticated endpoint first - use session-specific unified requirements
-                    requirementsResponse = await this.apiCall(`/unified-requirements/session/${sessionId}?_t=${Date.now()}`);
-                } catch (authError) {
-                    console.warn('🔓 Authenticated API failed, trying test endpoint:', authError.message);
-                    
-                    // Fallback to test endpoint for development/testing
-                    try {
-                        const testResponse = await fetch(`${this.config.apiBaseUrl}/api/requirements/test`);
-                        if (testResponse.ok) {
-                            const testData = await testResponse.json();
-                            // Transform test response to match expected format
-                            requirementsResponse = {
-                                success: true,
-                                data: {
-                                    requirements: testData.data.sample_requirements || []
-                                }
-                            };
-                            console.log('📋 Using test endpoint data');
-                        } else {
-                            throw new Error('Test endpoint also failed');
-                        }
-                    } catch (testError) {
-                        console.error('❌ Test endpoint failed:', testError);
-                        throw authError; // Re-throw original auth error
-                    }
-                }
-                
-                if (requirementsResponse.success && requirementsResponse.data?.requirements) {
-                    requirementsData = requirementsResponse.data.requirements;
-                    console.log(`✅ Successfully loaded ${requirementsData.length} requirements from API`);
-                } else {
-                    console.error('❌ Requirements API returned no data:', requirementsResponse);
-                    throw new Error('No requirements data available from API');
-                }
-                
-            } catch (error) {
-                console.error('❌ Failed to load requirements from API:', error);
-                requirementsData = [];
-                this.showNotification('error', 'Requirements Loading Failed', `Failed to load requirements: ${error.message}. Please check authentication.`);
-                return; // Exit early if we can't load requirements
-            }
-            
-            // Transform data to match expected format (based on test_requirements table structure)
-            const transformedRequirements = requirementsData.map(req => {
-                console.log('🔍 Processing requirement:', req);
-                return {
-                    id: req.requirement_id || req.id,
-                    criterion_number: req.criterion_number || req.requirement_id,
-                    title: req.title,
-                    description: req.description || '',
-                    level: req.level,
-                    test_method: req.test_method || 'manual',
-                    requirement_type: req.requirement_type || 'wcag',
-                    automated_tests: [],
-                    manual_tests: [],
-                    automated_status: req.automated_status !== undefined && req.automated_status !== null ? req.automated_status : 'not_tested',
-                    manual_status: req.manual_status !== undefined && req.manual_status !== null ? req.manual_status : 'not_tested',
-                    overall_status: req.overall_status !== undefined && req.overall_status !== null ? req.overall_status : 'not_tested'
-                };
-            });
-            
-            console.log(`🔄 Transformed ${transformedRequirements.length} requirements:`, transformedRequirements.slice(0, 2));
-            
-            // Enhance requirements with test data
-            this.sessionRequirements = await this.enhanceRequirementsWithTestData(transformedRequirements, sessionId);
-            
-            console.log(`✅ Session requirements loaded: ${this.sessionRequirements.length} requirements`);
-            console.log(`📊 First few requirements:`, this.sessionRequirements.slice(0, 3));
-            console.log(`📊 Filtered requirements:`, this.filteredRequirements?.length || 0);
-            console.log(`📊 Paginated requirements:`, this.paginatedRequirements?.length || 0);
-            
-            // Apply initial filtering and pagination
-            this.filterRequirements();
-            this.calculateRequirementStats();
-            
-            console.log(`📊 Requirements stats calculated:`, this.requirementStats);
-            console.log(`📄 Paginated requirements: ${this.paginatedRequirements.length} on page ${this.requirementCurrentPage}`);
-            
-        } catch (error) {
-            console.error('❌ Error loading session requirements:', error);
-            this.showNotification('error', 'Loading Failed', 'Failed to load requirements: ' + error.message);
-        } finally {
-            this.loading = false;
-        }
-    };
+    // REMOVED: Duplicate loadSessionRequirements function that was overriding the correct one
+    // This function was loading from the wrong API endpoint and not preserving status data
+    // The correct loadSessionRequirements function is in the main component definition (around line 819)
 
     // Enhance requirements with test data
     componentInstance.enhanceRequirementsWithTestData = async function(requirements, sessionId) {
@@ -17016,9 +14483,10 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                     ...req,
                     automated_tests: automated,
                     manual_tests: manual,
-                    automated_status: this.getAutomatedTestStatus(automated),
-                    manual_status: this.getManualTestStatus(manual),
-                    overall_status: this.getRequirementOverallStatus(automated, manual)
+                    // Preserve existing statuses from API if they exist, otherwise calculate from test instances
+                    automated_status: req.automated_status || this.getAutomatedTestStatus(automated),
+                    manual_status: req.manual_status || this.getManualTestStatus(manual),
+                    overall_status: req.overall_status || this.getRequirementOverallStatus(automated, manual)
                 };
             });
             
@@ -17029,47 +14497,89 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                 ...req,
                 automated_tests: [],
                 manual_tests: [],
-                automated_status: req.automated_status !== undefined && req.automated_status !== null ? req.automated_status : 'not_tested',
-                manual_status: req.manual_status !== undefined && req.manual_status !== null ? req.manual_status : 'not_tested',
-                overall_status: req.overall_status !== undefined && req.overall_status !== null ? req.overall_status : 'not_tested'
+                automated_status: req.automated_status || 'not_tested',
+                manual_status: req.manual_status || 'not_tested',
+                overall_status: req.overall_status || 'not_tested'
             }));
         }
     };
 
     // Filter requirements based on current filters
     componentInstance.filterRequirements = function() {
+        console.log(`🚨 FILTER FUNCTION CALLED! 🚨`);
+        console.log(`🔍 DEBUG: this.requirementFilters:`, this.requirementFilters);
+        
         if (!this.sessionRequirements) {
+            console.log(`❌ No sessionRequirements found`);
             this.filteredRequirements = [];
             this.updateRequirementsPagination();
             return;
         }
 
+        console.log(`🔍 DEBUG: filterRequirements called with status filter:`, this.requirementFilters.testStatus);
+        console.log(`🔍 DEBUG: Full requirementFilters object:`, this.requirementFilters);
+        
+        // Check what statuses actually exist in our data
+        const statusBreakdown = {
+            automated_statuses: [...new Set(this.sessionRequirements.map(r => r.automated_status))],
+            manual_statuses: [...new Set(this.sessionRequirements.map(r => r.manual_status))]
+        };
+        console.log(`🔍 DEBUG: Available statuses in data:`, statusBreakdown);
+
         let filtered = [...this.sessionRequirements];
 
         // Apply filters
         if (this.requirementFilters.testStatus) {
-            const status = this.requirementFilters.testStatus;
-            console.log(`🔍 FILTER DEBUG: Filtering by status "${status}"`);
+            const targetStatus = this.requirementFilters.testStatus;
+            
+            console.log(`🔍 DEBUG: Filtering by status: ${targetStatus}`);
             
             filtered = filtered.filter(req => {
-                // Check automated status for automated/both requirements
-                const hasAutomatedMatch = (req.test_method === 'automated' || req.test_method === 'both') && 
-                                         req.automated_status === status;
-                
-                // Check manual status for manual/both requirements  
-                const hasManualMatch = (req.test_method === 'manual' || req.test_method === 'both') && 
-                                      req.manual_status === status;
-                
-                // Debug first few requirements when filtering by "failed"
-                if (status === 'failed' && (req.criterion_number === '1.3.6' || req.criterion_number === '1.4.6' || req.criterion_number === '2.4.12' || req.criterion_number === '2.4.13')) {
-                    console.log(`🔍 FILTER CHECK: ${req.criterion_number} - test_method="${req.test_method}", automated_status="${req.automated_status}", manual_status="${req.manual_status}" - hasAutomatedMatch=${hasAutomatedMatch}, hasManualMatch=${hasManualMatch}`);
+                // Map filter values to actual status checks
+                let matches = false;
+                switch (targetStatus) {
+                    case 'failed':
+                        matches = req.automated_status === 'failed' || req.manual_status === 'failed';
+                        break;
+                    case 'passed':
+                        matches = req.automated_status === 'passed' || req.manual_status === 'passed';
+                        break;
+                    case 'completed':
+                        matches = req.manual_status === 'completed' || req.manual_status === 'passed';
+                        break;
+                    case 'pending':
+                        matches = req.automated_status === 'pending' || req.manual_status === 'pending';
+                        break;
+                    case 'in_progress':
+                        matches = req.automated_status === 'in_progress' || req.manual_status === 'in_progress';
+                        break;
+                    case 'running':
+                        matches = req.automated_status === 'running';
+                        break;
+                    case 'needs_review':
+                        matches = req.automated_status === 'needs_review' || req.manual_status === 'needs_review';
+                        break;
+                    case 'not_tested':
+                        matches = (req.automated_status === 'not_tested' || !req.automated_status) && 
+                               (req.manual_status === 'not_tested' || !req.manual_status);
+                        break;
+                    case 'manual_pending':
+                        matches = req.manual_status === 'pending';
+                        break;
+                    default:
+                        matches = req.overall_status === targetStatus;
                 }
                 
-                // Return true if either automated or manual status matches
-                return hasAutomatedMatch || hasManualMatch;
+                if (targetStatus === 'passed' && matches) {
+                    console.log(`🔍 DEBUG: Found passed requirement:`, {
+                        id: req.criterion_number,
+                        automated_status: req.automated_status,
+                        manual_status: req.manual_status
+                    });
+                }
+                
+                return matches;
             });
-            
-            console.log(`🔍 FILTER RESULT: Found ${filtered.length} requirements matching "${status}"`);
         }
 
         if (this.requirementFilters.wcagLevel) {
@@ -17090,6 +14600,25 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
         }
 
         this.filteredRequirements = filtered;
+        
+        console.log(`🔍 DEBUG: Filter applied - ${filtered.length} of ${this.sessionRequirements.length} requirements match`);
+        if (this.requirementFilters.testStatus === 'failed') {
+            console.log(`🔍 DEBUG: Failed filter - found requirements:`, filtered.map(r => ({
+                id: r.criterion_number,
+                automated_status: r.automated_status,
+                manual_status: r.manual_status
+            })));
+        }
+        
+        // Debug what's actually being shown in the table
+        console.log(`📋 DEBUG: Currently displaying these requirements:`, filtered.slice(0, 3).map(r => ({
+            id: r.criterion_number,
+            title: r.title?.substring(0, 30) + '...',
+            automated_status: r.automated_status,
+            manual_status: r.manual_status,
+            test_method: r.test_method
+        })));
+        
         this.updateRequirementsPagination();
     };
 
@@ -17109,41 +14638,7 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
         this.paginatedRequirements = this.filteredRequirements.slice(startIndex, endIndex);
     };
 
-    // Calculate requirement statistics
-    componentInstance.calculateRequirementStats = function() {
-        if (!this.sessionRequirements) {
-            this.requirementStats = {
-                total: 0,
-                automated_passed: 0,
-                automated_failed: 0,
-                manual_completed: 0,
-                manual_pending: 0,
-                not_tested: 0
-            };
-            return;
-        }
 
-        const stats = {
-            total: this.sessionRequirements.length,
-            automated_passed: 0,
-            automated_failed: 0,
-            manual_completed: 0,
-            manual_pending: 0,
-            not_tested: 0
-        };
-
-        this.sessionRequirements.forEach(req => {
-            if (req.automated_status === 'passed') stats.automated_passed++;
-            else if (req.automated_status === 'failed') stats.automated_failed++;
-            
-            if (req.manual_status === 'completed') stats.manual_completed++;
-            else if (req.manual_status === 'pending') stats.manual_pending++;
-            
-            if (req.overall_status === 'not_tested') stats.not_tested++;
-        });
-
-        this.requirementStats = stats;
-    };
 
     // View requirement details
     componentInstance.viewRequirementDetails = function(requirement) {
@@ -17611,15 +15106,7 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
     window.viewRequirementDetails = (requirement) => componentInstance.viewRequirementDetails(requirement);
     window.closeRequirementDetailsModal = () => componentInstance.closeRequirementDetailsModal();
     // window.runAutomatedTestForRequirement is set by the robust global wrapper below
-    window.filterRequirements = () => {
-        console.log('🔍 Global filterRequirements called');
-        if (componentInstance && componentInstance.filterRequirements) {
-            console.log('🔍 Calling componentInstance.filterRequirements');
-            return componentInstance.filterRequirements();
-        } else {
-            console.error('❌ componentInstance.filterRequirements not available');
-        }
-    };
+    window.filterRequirements = () => componentInstance.filterRequirements();
     window.updateRequirementsPagination = () => componentInstance.updateRequirementsPagination();
     window.triggerAutomatedTest = (sessionId) => componentInstance.triggerAutomatedTest(sessionId);
     window.loadAutomationRuns = (sessionId) => componentInstance.loadAutomationRuns(sessionId);

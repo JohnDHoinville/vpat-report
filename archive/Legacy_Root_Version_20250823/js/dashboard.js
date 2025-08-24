@@ -41,6 +41,13 @@ window.dashboard = function() {
         showTestConfigurationModal: false,
         showAutomationRunDetailsModal: false,
         showTestGrid: false,
+        showInteractiveAuthModal: false,
+        
+        // ===== INTERACTIVE AUTH STATE =====
+        interactiveAuthInProgress: false,
+        interactiveAuthBrowserOpen: false,
+        interactiveAuthMessage: '',
+        interactiveAuthError: null,
         
         // ===== PROGRESS AND STATE FLAGS =====
         loading: false,
@@ -62,11 +69,6 @@ window.dashboard = function() {
         
         // ===== TEST SELECTION STATE =====
         testSelectionStatus: null,
-        
-        // ===== CHANGE TRACKING =====
-        pendingChanges: {},
-        hasChanges: false,
-        hasUnsavedChanges: false,
         
         // ===== FORM OBJECTS =====
         loginForm: { username: '', password: '' },
@@ -258,6 +260,12 @@ window.dashboard = function() {
         showRequirementDetailsModal: false,
         currentRequirement: null,
         loadingRequirementDetails: false,
+        
+        // ===== REQUIREMENT CHANGE TRACKING =====
+        requirementChanges: {},
+        hasRequirementChanges: false,
+        originalRequirement: null,
+        savingRequirementChanges: false,
         updatingStatus: null, // Track which instance is being updated
         allRequirements: [],
         sessionRequirements: [],
@@ -294,16 +302,16 @@ window.dashboard = function() {
         
         // Navigation Functions
         canNavigateRequirement: function(direction) {
-            console.log('🔍 canNavigateRequirement called with direction:', direction);
-            console.log('🔍 filteredRequirements length:', this.filteredRequirements?.length || 0);
-            console.log('🔍 currentRequirement:', this.currentRequirement?.id);
-            
-            // If requirements aren't loaded yet, try to load them
-            if (!this.filteredRequirements || this.filteredRequirements.length === 0) {
-                console.log('📋 Requirements not loaded, attempting to load...');
+            // If base requirements data isn't loaded yet, try to load them
+            if (!this.sessionRequirements || this.sessionRequirements.length === 0) {
                 if (this.selectedSessionDetails?.id) {
                     this.loadSessionRequirements(this.selectedSessionDetails.id);
                 }
+                return false;
+            }
+            
+            // If filtered requirements is empty but base data exists, it means the filter yielded no results
+            if (!this.filteredRequirements || this.filteredRequirements.length === 0) {
                 return false;
             }
             
@@ -447,7 +455,6 @@ window.dashboard = function() {
                 console.log(`❌ navigateTestInstance: New index ${newIdx} out of bounds`);
             }
         },
-        
         // Update existing test instance modal content
         updateTestInstanceModalContent(testInstance) {
             console.log('🔄 Updating test instance modal content for:', testInstance.id);
@@ -823,8 +830,6 @@ window.dashboard = function() {
         },
         
         loadSessionRequirements: async function(sessionId) {
-            console.log(`🚀 loadSessionRequirements called with sessionId: ${sessionId}`);
-            console.log(`📊 Current state - sessionRequirements length:`, this.sessionRequirements?.length || 0);
             
             if (!sessionId) {
                 console.error('❌ No session ID provided to loadSessionRequirements');
@@ -832,9 +837,44 @@ window.dashboard = function() {
                 return;
             }
             
+            // Debouncing: prevent multiple simultaneous calls for the same session
+            const loadKey = `loadSessionRequirements_${sessionId}`;
+            if (this.loadingStates && this.loadingStates[loadKey]) {
+                // Silently return existing promise to prevent spam
+                return this.loadingStates[loadKey];
+            }
+
+            // Initialize loadingStates if it doesn't exist
+            if (!this.loadingStates) this.loadingStates = {};
+            
+            // Create and store the promise for this loading operation
+            const loadPromise = this._executeLoadSessionRequirements(sessionId);
+            this.loadingStates[loadKey] = loadPromise;
+            
+            // Clean up the loading state when done
+            loadPromise.finally(() => {
+                delete this.loadingStates[loadKey];
+            });
+            
+            return loadPromise;
+        },
+
+        _executeLoadSessionRequirements: async function(sessionId) {
             try {
-                console.log(`🔍 Loading requirements for session ${sessionId}`);
                 this.loading = true;
+                
+                // Check cache to avoid refetching too frequently (5 minutes cache)
+                const cacheKey = `requirements_${sessionId}`;
+                const now = Date.now();
+                if (!this.dataCache) this.dataCache = {};
+                
+                if (this.dataCache[cacheKey] && (now - this.dataCache[cacheKey].timestamp) < 300000) {
+                    // Use cached data silently to prevent console spam
+                    this.sessionRequirements = this.dataCache[cacheKey].data;
+                    this.filterRequirements();
+                    this.loading = false;
+                    return;
+                }
                 
                 // Initialize requirements arrays if they don't exist
                 if (!this.sessionRequirements) this.sessionRequirements = [];
@@ -966,20 +1006,35 @@ window.dashboard = function() {
                 }, []);
                 
                 this.sessionRequirements = uniqueRequirements;
-                this.filteredRequirements = [...uniqueRequirements];
+
+                // Compute and set overall_status using the standalone component (if present)
+                try {
+                    if (window.RequirementsStatus && Array.isArray(this.sessionRequirements)) {
+                        this.sessionRequirements = this.sessionRequirements.map((req) => {
+                            const computed = window.RequirementsStatus.computeOverall(req);
+                            return { ...req, overall_status: computed };
+                        });
+                    }
+                } catch (e) {
+                    console.warn('⚠️ RequirementsStatus.computeOverall failed:', e);
+                }
+                
+                // Apply filtering immediately (don't set filteredRequirements to all requirements)
+                this.filterRequirements();
                 
                 // Calculate statistics
                 this.calculateRequirementStats();
                 
-                // Apply pagination
-                this.updateRequirementsPagination();
+                // Cache the loaded data
+                this.dataCache[cacheKey] = {
+                    data: [...this.sessionRequirements], // Clone the array
+                    timestamp: Date.now()
+                };
                 
-                console.log(`✅ Requirements loaded successfully: ${this.sessionRequirements.length} total, ${this.filteredRequirements.length} filtered`);
-                
-                this.showNotification('success', 'Requirements Loaded', `Successfully loaded ${this.sessionRequirements.length} requirements`);
+                // Only show notification for successful loads, no console spam
                 
             } catch (error) {
-                console.error('❌ Error in loadSessionRequirements:', error);
+                console.error('❌ Error in _executeLoadSessionRequirements:', error);
                 this.showNotification('error', 'Requirements Error', `Failed to load requirements: ${error.message}`);
             } finally {
                 this.loading = false;
@@ -989,116 +1044,37 @@ window.dashboard = function() {
         // ===== REQUIREMENTS HELPER FUNCTIONS =====
         calculateRequirementStats: function() {
             if (!this.sessionRequirements) return;
-            
-            // Count requirements by test method (this is what determines if they can be automated)
+            let counts;
+            try {
+                if (window.RequirementsStatus) counts = window.RequirementsStatus.aggregate(this.sessionRequirements);
+            } catch (e) { console.warn('⚠️ RequirementsStatus.aggregate failed:', e); }
+            if (!counts) {
+                counts = { total: this.sessionRequirements.length, passed: 0, failed: 0, in_progress: 0, pending: 0, running: 0, needs_review: 0, not_tested: 0, completed: 0, manual_pending: 0 };
+                this.sessionRequirements.forEach((req) => {
+                    const st = (req.overall_status || '').toLowerCase();
+                    if (st && counts[st] !== undefined) counts[st] += 1; else counts.not_tested += 1;
+                    if ((req.manual_status || '').toLowerCase() === 'passed') counts.completed += 1;
+                    if ((req.manual_status || '').toLowerCase() === 'pending') counts.manual_pending += 1;
+                });
+            }
             const automatedRequirements = this.sessionRequirements.filter(r => r.test_method === 'automated').length;
-            const hybridRequirements = this.sessionRequirements.filter(r => r.test_method === 'both').length;
+            const hybridRequirements = this.sessionRequirements.filter(r => r.test_method === 'both' || r.test_method === 'hybrid').length;
             const manualRequirements = this.sessionRequirements.filter(r => r.test_method === 'manual').length;
-            
-            // Count requirements by actual test status using the correct field names from API
-            const automatedPassed = this.sessionRequirements.filter(r => r.automated_status === 'passed').length;
-            const automatedFailed = this.sessionRequirements.filter(r => r.automated_status === 'failed').length;
-            const automatedPending = this.sessionRequirements.filter(r => r.automated_status === 'pending').length;
-            const automatedInProgress = this.sessionRequirements.filter(r => r.automated_status === 'in_progress').length;
-            const automatedRunning = this.sessionRequirements.filter(r => r.automated_status === 'running').length;
-            const automatedNeedsReview = this.sessionRequirements.filter(r => r.automated_status === 'needs_review').length;
-            const manualCompleted = this.sessionRequirements.filter(r => r.manual_status === 'passed').length; // Changed from 'completed' to 'passed'
-            const manualPending = this.sessionRequirements.filter(r => r.manual_status === 'pending').length;
-            const manualInProgress = this.sessionRequirements.filter(r => r.manual_status === 'in_progress').length;
-            const notTested = this.sessionRequirements.filter(r => r.overall_status === 'not_tested').length; // Changed from 'status' to 'overall_status'
-            
-            // Alternative approach: Count based on test instance data if available
-            let automatedPassedAlt = 0;
-            let automatedFailedAlt = 0;
-            let manualCompletedAlt = 0;
-            let manualPendingAlt = 0;
-            let notTestedAlt = 0;
-            let inProgressAlt = 0;
-            
-            this.sessionRequirements.forEach(r => {
-                // Count based on test instance data
-                if (r.passed_instances && parseInt(r.passed_instances) > 0) {
-                    if (r.automated_instances && parseInt(r.automated_instances) > 0) {
-                        automatedPassedAlt++;
-                    } else if (r.manual_instances && parseInt(r.manual_instances) > 0) {
-                        manualCompletedAlt++;
-                    }
-                }
-                if (r.failed_instances && parseInt(r.failed_instances) > 0) {
-                    automatedFailedAlt++;
-                }
-                if (r.in_progress_instances && parseInt(r.in_progress_instances) > 0) {
-                    inProgressAlt++;
-                }
-                if (r.pending_instances && parseInt(r.pending_instances) > 0) {
-                    if (r.manual_instances && parseInt(r.manual_instances) > 0) {
-                        manualPendingAlt++;
-                    }
-                }
-                if (r.total_test_instances && parseInt(r.total_test_instances) === 0) {
-                    notTestedAlt++;
-                }
-            });
-            
-            // Use the alternative counts if they provide better data
-            if (automatedPassedAlt > automatedPassed) {
-                console.log(`🔧 Using alternative count for automated passed: ${automatedPassedAlt} vs ${automatedPassed}`);
-            }
-            if (automatedFailedAlt > automatedFailed) {
-                console.log(`🔧 Using alternative count for automated failed: ${automatedFailedAlt} vs ${automatedFailed}`);
-            }
-            if (manualCompletedAlt > manualCompleted) {
-                console.log(`🔧 Using alternative count for manual completed: ${manualCompletedAlt} vs ${manualCompleted}`);
-            }
-            if (notTestedAlt !== notTested) {
-                console.log(`🔧 Using alternative count for not tested: ${notTestedAlt} vs ${notTested}`);
-            }
-            if (inProgressAlt > 0) {
-                console.log(`🔧 Found ${inProgressAlt} requirements with in-progress instances`);
-            }
-            
             this.requirementStats = {
-                total: this.sessionRequirements.length,
+                total: counts.total || this.sessionRequirements.length,
+                passed: counts.passed || 0,
+                failed: counts.failed || 0,
+                in_progress: counts.in_progress || 0,
+                pending: counts.pending || 0,
+                running: counts.running || 0,
+                needs_review: counts.needs_review || 0,
+                manual_pending: counts.manual_pending || 0,
+                completed: counts.completed || 0,
+                not_tested: counts.not_tested || 0,
                 automated_requirements: automatedRequirements,
                 hybrid_requirements: hybridRequirements,
                 manual_requirements: manualRequirements,
-                automated_passed: Math.max(automatedPassed, automatedPassedAlt),
-                automated_failed: Math.max(automatedFailed, automatedFailedAlt),
-                automated_pending: automatedPending,
-                automated_in_progress: Math.max(automatedInProgress, inProgressAlt),
-                automated_running: automatedRunning,
-                automated_needs_review: automatedNeedsReview,
-                manual_completed: Math.max(manualCompleted, manualCompletedAlt),
-                manual_pending: Math.max(manualPending, manualPendingAlt),
-                manual_in_progress: manualInProgress,
-                not_tested: notTestedAlt > 0 ? notTestedAlt : notTested
             };
-            
-            console.log(`📊 Requirements stats calculated:`, {
-                total: this.requirementStats.total,
-                automated: this.requirementStats.automated_requirements,
-                hybrid: this.requirementStats.hybrid_requirements,
-                manual: this.requirementStats.manual_requirements,
-                automated_total: this.requirementStats.automated_requirements + this.requirementStats.hybrid_requirements,
-                automated_passed: this.requirementStats.automated_passed,
-                automated_failed: this.requirementStats.automated_failed,
-                automated_pending: this.requirementStats.automated_pending,
-                automated_in_progress: this.requirementStats.automated_in_progress,
-                automated_running: this.requirementStats.automated_running,
-                automated_needs_review: this.requirementStats.automated_needs_review,
-                manual_completed: this.requirementStats.manual_completed,
-                manual_pending: this.requirementStats.manual_pending,
-                manual_in_progress: this.requirementStats.manual_in_progress,
-                not_tested: this.requirementStats.not_tested
-            });
-            
-            // Debug: Show sample status values from first few requirements
-            if (this.sessionRequirements && this.sessionRequirements.length > 0) {
-                console.log('🔍 Sample requirement statuses:');
-                this.sessionRequirements.slice(0, 3).forEach((req, index) => {
-                    console.log(`  ${index + 1}. ${req.criterion_number}: overall_status="${req.overall_status}", automated_status="${req.automated_status}", manual_status="${req.manual_status}"`);
-                });
-            }
         },
         
         updateRequirementsPagination: function() {
@@ -1114,30 +1090,300 @@ window.dashboard = function() {
         // filterRequirements function moved to the correct location later in the file (line ~14579)
         
         viewRequirementDetails: function(requirement) {
+            console.log('🔍 viewRequirementDetails called with:', {
+                criterion_number: requirement?.criterion_number,
+                title: requirement?.title,
+                id: requirement?.id
+            });
+            
             // First show the modal with basic info
             this.currentRequirement = requirement;
             this.showRequirementDetailsModal = true;
             this.loadingRequirementDetails = true;
             
+            // Initialize change tracking
+            this.requirementChanges = {};
+            this.hasRequirementChanges = false;
+            this.originalRequirement = null;
+            
+            console.log('✅ Modal state updated:', {
+                showModal: this.showRequirementDetailsModal,
+                loading: this.loadingRequirementDetails,
+                currentReq: this.currentRequirement?.criterion_number
+            });
+            
             // Then fetch the full requirement details from the database
             this.fetchFullRequirementDetails(requirement.criterion_number);
         },
         
-        fetchFullRequirementDetails: function(criterionNumber) {
-            if (!criterionNumber) return;
+        // Change tracking for requirement details
+        trackRequirementChange: function(field, value) {
+            // Store original value on first change
+            if (!this.originalRequirement) {
+                this.originalRequirement = JSON.parse(JSON.stringify(this.currentRequirement));
+            }
             
-            this.apiCall('/requirements', {
-                method: 'GET',
-                params: {
-                    search: criterionNumber,
-                    limit: 10
+            // Track the change
+            this.requirementChanges[field] = value;
+            
+            // Check if there are actual changes
+            this.hasRequirementChanges = Object.keys(this.requirementChanges).some(key => {
+                return this.requirementChanges[key] !== this.originalRequirement[key];
+            });
+            
+            console.log('🔍 Requirement change tracked:', {
+                field,
+                value,
+                hasChanges: this.hasRequirementChanges,
+                totalChanges: Object.keys(this.requirementChanges).length
+            });
+        },
+        
+        // Save requirement changes
+        saveRequirementChanges: async function() {
+            if (!this.hasRequirementChanges || !this.currentRequirement?.id) {
+                console.log('⚠️ No changes to save or missing requirement ID');
+                return;
+            }
+            
+            console.log('💾 Saving requirement changes:', this.requirementChanges);
+            
+            try {
+                this.savingRequirementChanges = true;
+                
+                // Handle instance-specific changes (results, recommendations, notes)
+                const instanceChanges = {};
+                const statusOverrideChange = this.requirementChanges.manual_status_override;
+                
+                // Separate instance changes from requirement changes
+                Object.keys(this.requirementChanges).forEach(key => {
+                    if (key.startsWith('instance_results_') || key.startsWith('instance_recommendations_') || key.startsWith('instance_notes_')) {
+                        const instanceId = key.split('_').slice(2).join('_'); // Get ID after 'instance_[field]_'
+                        const field = key.split('_')[1]; // Get field name (results, recommendations, notes)
+                        
+                        if (!instanceChanges[instanceId]) {
+                            instanceChanges[instanceId] = {};
+                        }
+                        instanceChanges[instanceId][field] = this.requirementChanges[key];
+                    }
+                });
+                
+                // Save instance changes first
+                for (const [instanceId, changes] of Object.entries(instanceChanges)) {
+                    try {
+                        const response = await this.apiCall(`/test-instances/${instanceId}`, {
+                            method: 'PUT',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify(changes)
+                        });
+                        
+                        if (!response.success) {
+                            throw new Error(`Failed to save instance ${instanceId}: ${response.error}`);
+                        }
+                        
+                        console.log(`✅ Instance ${instanceId} changes saved successfully`);
+                    } catch (error) {
+                        console.error(`❌ Error saving instance ${instanceId}:`, error);
+                        throw error; // Re-throw to stop the save process
+                    }
                 }
+                
+                // Handle manual_status_override specially
+                if (statusOverrideChange) {
+                    const response = await this.apiCall(`/unified-requirements/${this.currentRequirement.id}/status-override`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ 
+                            manual_status_override: statusOverrideChange 
+                        })
+                    });
+                    
+                    if (response.success) {
+                        console.log('✅ Status override saved successfully');
+                        
+                        // Update the current requirement with saved changes
+                        this.currentRequirement.manual_status_override = statusOverrideChange;
+                        
+                        // Also update in requirements list if present
+                        const requirement = this.sessionRequirements?.find(r => r.id === this.currentRequirement.id);
+                        if (requirement) {
+                            requirement.manual_status_override = statusOverrideChange;
+                        }
+                        
+                        // Reset change tracking
+                        this.requirementChanges = {};
+                        this.hasRequirementChanges = false;
+                        this.originalRequirement = JSON.parse(JSON.stringify(this.currentRequirement));
+                        
+                        // Show success message
+                        this.showNotification('Requirement status saved successfully', 'success');
+                        
+                    } else {
+                        console.error('❌ Failed to save requirement status:', response.error);
+                        this.showNotification('Failed to save status: ' + (response.error || 'Unknown error'), 'error');
+                    }
+                } else {
+                    // Handle other requirement changes (if any)
+                    const response = await this.apiCall(`/requirements/${this.currentRequirement.id}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(this.requirementChanges)
+                    });
+                    
+                    if (response.success) {
+                        console.log('✅ Requirement changes saved successfully');
+                        
+                        // Update the current requirement with saved changes
+                        Object.assign(this.currentRequirement, this.requirementChanges);
+                        
+                        // Reset change tracking
+                        this.requirementChanges = {};
+                        this.hasRequirementChanges = false;
+                        this.originalRequirement = JSON.parse(JSON.stringify(this.currentRequirement));
+                        
+                        // Show success message
+                        this.showNotification('Requirement changes saved successfully', 'success');
+                        
+                    } else {
+                        console.error('❌ Failed to save requirement changes:', response.error);
+                        this.showNotification('Failed to save changes: ' + (response.error || 'Unknown error'), 'error');
+                    }
+                }
+                
+            } catch (error) {
+                console.error('❌ Error saving requirement changes:', error);
+                this.showNotification('Error saving changes: ' + error.message, 'error');
+            } finally {
+                this.savingRequirementChanges = false;
+            }
+        },
+        
+        // Initialize TinyMCE editor
+        initTinyMCE: function(elementId, initialContent, onChangeCallback) {
+            // Wait for element to be available
+            setTimeout(() => {
+                const element = document.getElementById(elementId);
+                if (!element) {
+                    console.warn('TinyMCE element not found:', elementId);
+                    return;
+                }
+                
+                tinymce.init({
+                    target: element,
+                    height: 200,
+                    menubar: false,
+                    plugins: [
+                        'advlist', 'autolink', 'lists', 'link', 'image', 'charmap', 'preview',
+                        'anchor', 'searchreplace', 'visualblocks', 'code', 'fullscreen',
+                        'insertdatetime', 'media', 'table', 'help', 'wordcount'
+                    ],
+                    toolbar: 'undo redo | blocks | bold italic forecolor | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | removeformat | help',
+                    content_style: 'body { font-family: -apple-system, BlinkMacSystemFont, San Francisco, Segoe UI, Roboto, Helvetica Neue, sans-serif; font-size: 14px; }',
+                    setup: function(editor) {
+                        editor.on('init', function() {
+                            editor.setContent(initialContent || '');
+                        });
+                        
+                        editor.on('change keyup', function() {
+                            const content = editor.getContent();
+                            if (onChangeCallback) {
+                                onChangeCallback(content);
+                            }
+                        });
+                    }
+                });
+            }, 100);
+        },
+        
+        // Update instance field (for WYSIWYG editors)
+        updateInstanceField: function(instanceId, field, value) {
+            // Find the instance in sessionTestInstances and update it
+            const instance = this.sessionTestInstances?.find(inst => inst.id === instanceId);
+            if (instance) {
+                instance[field] = value;
+            }
+            
+            // Also update in requirement test instances if present
+            const reqInstances = this.getRequirementTestInstances(this.currentRequirement?.criterion_number);
+            const reqInstance = reqInstances?.find(inst => inst.id === instanceId);
+            if (reqInstance) {
+                reqInstance[field] = value;
+            }
+        },
+        
+        // Discard requirement changes
+        discardRequirementChanges: function() {
+            if (!this.hasRequirementChanges) return;
+            
+            console.log('🔄 Discarding requirement changes');
+            
+            // Restore original values
+            if (this.originalRequirement) {
+                Object.assign(this.currentRequirement, this.originalRequirement);
+            }
+            
+            // Reset change tracking
+            this.requirementChanges = {};
+            this.hasRequirementChanges = false;
+            this.originalRequirement = null;
+            
+            this.showNotification('Changes discarded', 'info');
+        },
+        
+        fetchFullRequirementDetails: function(criterionNumber) {
+            if (!criterionNumber) {
+                console.warn('❌ No criterion number provided to fetchFullRequirementDetails');
+                return;
+            }
+            
+            console.log('🔍 Fetching full requirement details for:', criterionNumber);
+            
+            // First try searching by criterion number, then by title if needed
+            this.apiCall(`/requirements?search=${encodeURIComponent(criterionNumber)}&limit=50`, {
+                method: 'GET'
             }).then(response => {
+                console.log('📋 API response for', criterionNumber, ':', response);
                 if (response.success && response.data && response.data.requirements && response.data.requirements.length > 0) {
+                    console.log('📊 Found', response.data.requirements.length, 'requirements in search results');
+                    
+                    // Log all found requirements for debugging
+                    response.data.requirements.forEach((req, index) => {
+                        console.log(`  ${index + 1}. ${req.criterion_number} - ${req.title}`);
+                    });
+                    
                     // Find the exact match for the criterion number
-                    const fullRequirement = response.data.requirements.find(req => 
+                    let fullRequirement = response.data.requirements.find(req => 
                         req.criterion_number === criterionNumber
                     );
+                    
+                    console.log('🎯 Exact match found:', fullRequirement ? `${fullRequirement.criterion_number} - ${fullRequirement.title}` : 'None');
+                    
+                    // If not found by criterion number, try by title (for WCAG requirements)
+                    if (!fullRequirement && this.currentRequirement?.title) {
+                        return this.apiCall(`/requirements?search=${encodeURIComponent(this.currentRequirement.title)}&limit=10`, {
+                            method: 'GET'
+                        }).then(titleResponse => {
+                            if (titleResponse.success && titleResponse.data?.requirements?.length > 0) {
+                                fullRequirement = titleResponse.data.requirements.find(req => 
+                                    req.criterion_number === criterionNumber
+                                );
+                                if (fullRequirement) {
+                                    this.currentRequirement = {
+                                        ...this.currentRequirement,
+                                        ...fullRequirement
+                                    };
+                                    console.log('✅ Loaded full requirement details via title search:', fullRequirement);
+                                }
+                            }
+                            this.loadingRequirementDetails = false;
+                        });
+                    }
                     
                     if (fullRequirement) {
                         // Merge the full requirement details with the current requirement
@@ -1146,7 +1392,12 @@ window.dashboard = function() {
                             ...fullRequirement
                         };
                         console.log('✅ Loaded full requirement details:', fullRequirement);
+                    } else {
+                        console.log('⚠️ No exact match found, using basic requirement data');
                     }
+                    this.loadingRequirementDetails = false;
+                } else {
+                    console.log('⚠️ No requirements found in API response');
                     this.loadingRequirementDetails = false;
                 }
             }).catch(error => {
@@ -1197,36 +1448,6 @@ window.dashboard = function() {
             const instance = testInstances.find(t => t.id === instanceId);
             if (instance) {
                 instance.notes = notes;
-            }
-        },
-
-        // Update requirement status override
-        updateRequirementStatus: async function(requirementId, status) {
-            try {
-                const response = await this.apiCall(`/unified-requirements/${requirementId}/status`, {
-                    method: 'PUT',
-                    body: JSON.stringify({ status_override: status })
-                });
-
-                if (response.success) {
-                    // Update local requirement data
-                    if (this.currentRequirement && this.currentRequirement.id === requirementId) {
-                        this.currentRequirement.status_override = status;
-                    }
-                    
-                    // Update in requirements list if present
-                    const requirement = this.sessionRequirements?.find(r => r.id === requirementId);
-                    if (requirement) {
-                        requirement.status_override = status;
-                    }
-
-                    this.showNotification('success', 'Status Updated', 'Requirement status override has been saved');
-                } else {
-                    throw new Error(response.error || 'Failed to update requirement status');
-                }
-            } catch (error) {
-                console.error('Error updating requirement status:', error);
-                this.showNotification('error', 'Update Failed', 'Failed to update requirement status: ' + error.message);
             }
         },
 
@@ -1510,9 +1731,11 @@ ${requirement.failure_examples}
         <table class="print-test-table">
             <thead>
                 <tr>
-                    <th style="width: 50%;">Page URL</th>
-                    <th style="width: 15%;">Status</th>
-                    <th style="width: 35%;">Notes</th>
+                    <th style="width: 30%;">Page URL</th>
+                    <th style="width: 10%;">Status</th>
+                    <th style="width: 20%;">Notes</th>
+                    <th style="width: 20%;">Results</th>
+                    <th style="width: 20%;">Recommendations</th>
                 </tr>
             </thead>
             <tbody>
@@ -1526,7 +1749,13 @@ ${requirement.failure_examples}
                         ☐ N/A
                     </td>
                     <td>
-                        <div class="print-test-notes"></div>
+                        <div class="print-test-notes">${instance.notes || ''}</div>
+                    </td>
+                    <td>
+                        <div class="print-test-results">${instance.results ? instance.results.replace(/<[^>]*>/g, '') : ''}</div>
+                    </td>
+                    <td>
+                        <div class="print-test-recommendations">${instance.recommendations ? instance.recommendations.replace(/<[^>]*>/g, '') : ''}</div>
                     </td>
                 </tr>
                 `).join('')}
@@ -1599,16 +1828,6 @@ ${requirement.failure_examples}
             }, 250);
             
             this.showNotification('success', 'Print Ready', 'Testing documentation opened in new window. You can print or save as PDF.');
-        },
-
-        // Helper function to convert HTML to plain text for PDF
-        htmlToPlainText: function(html) {
-            if (!html) return '';
-            // Create a temporary div element to parse HTML
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = html;
-            // Get text content and clean up extra whitespace
-            return tempDiv.textContent || tempDiv.innerText || '';
         },
 
         generatePDFWithPdfLib: async function() {
@@ -2021,7 +2240,7 @@ ${requirement.failure_examples}
                 });
                 yPosition -= 18;
                 
-                const failures = requirement.common_failures || 'Common failure examples not available';
+                const failures = requirement.failure_examples || 'Common failure examples not available';
                 const failureLines = this.splitTextToFitWidth(failures, 500, 10);
                 failureLines.forEach(line => {
                     page.drawText(line, {
@@ -2188,12 +2407,12 @@ ${requirement.failure_examples}
                     size: 14,
                     font: boldFont,
                 });
-                yPosition -= 40; // More space after section header
+                yPosition -= 40;
                 
-                // Create checkboxes for each test instance
+                // Create checkboxes for each test instance (max 3 per page)
                 testInstances.forEach((instance, index) => {
-                    // Check if we need a new page (2 instances per page)
-                    const instancesOnPage = index % 2;
+                    // Check if we need a new page or if we've reached 3 instances per page
+                    const instancesOnPage = index % 3;
                     if (instancesOnPage === 0 && index > 0) {
                         page = pdfDoc.addPage();
                         const { width: pageWidth, height: pageHeight } = page.getSize();
@@ -2202,7 +2421,7 @@ ${requirement.failure_examples}
                         yPosition = pageHeight - 50; // Reset position for new page
                         
                         // Calculate current page number for test instances continuation
-                        const additionalTestPages = Math.floor(index / 2);
+                        const additionalTestPages = Math.floor(index / 4);
                         const currentTestInstancePageNumber = testInstancesPage + additionalTestPages;
                         
                         // Add page header with proper page numbering
@@ -2270,15 +2489,15 @@ ${requirement.failure_examples}
                             height: checkboxSize,
                         });
                         
-                        // Add label below checkbox with more space
+                        // Add label to the right of checkbox
                         page.drawText(option, {
-                            x: xPos,
-                            y: yPosition - 20,
+                            x: xPos + checkboxSize + 5, // Position to the right of checkbox
+                            y: yPosition + 4, // Align with checkbox center
                             size: 9,
                             font: font,
                         });
                     });
-                    yPosition -= 45; // More space after checkboxes and labels
+                    yPosition -= 30; // Less space needed since labels are to the right
                     
                     // Testing Notes
                     page.drawText('Testing Notes:', {
@@ -2287,15 +2506,15 @@ ${requirement.failure_examples}
                         size: 10,
                         font: boldFont,
                     });
-                    yPosition -= 18; // More space before notes box
+                    yPosition -= 8; // Bring comment box closer to title
                     
-                    // Create text field for notes
+                    // Create text field for notes (4px taller)
                     const textField = form.createTextField(`notes_${index}`);
                     textField.addToPage(page, {
                         x: margin,
                         y: yPosition - 40,
                         width: 500,
-                        height: 35,  // Slightly smaller to avoid overlap
+                        height: 39,  // Increased from 35 to 39 (4px taller)
                     });
                     textField.enableMultiline();
                     textField.setFontSize(8);  // Smaller font size for more text
@@ -2305,73 +2524,17 @@ ${requirement.failure_examples}
                         textField.setText(instance.notes);
                     }
                     
-                    yPosition -= 70;
-                    
-                    // Test Results Section
-                    page.drawText('Test Results:', {
-                        x: margin,
-                        y: yPosition,
-                        size: 10,
-                        font: boldFont,
-                    });
-                    yPosition -= 18;
-                    
-                    // Create text field for results
-                    const resultsField = form.createTextField(`results_${index}`);
-                    resultsField.addToPage(page, {
-                        x: margin,
-                        y: yPosition - 40,
-                        width: 500,
-                        height: 35,
-                    });
-                    resultsField.enableMultiline();
-                    resultsField.setFontSize(8);
-                    
-                    // Pre-fill with existing results if any (convert HTML to plain text)
-                    if (instance.results) {
-                        const plainTextResults = this.htmlToPlainText(instance.results);
-                        resultsField.setText(plainTextResults);
-                    }
-                    
-                    yPosition -= 70;
-                    
-                    // Recommendations Section
-                    page.drawText('Recommendations:', {
-                        x: margin,
-                        y: yPosition,
-                        size: 10,
-                        font: boldFont,
-                    });
-                    yPosition -= 18;
-                    
-                    // Create text field for recommendations
-                    const recommendationsField = form.createTextField(`recommendations_${index}`);
-                    recommendationsField.addToPage(page, {
-                        x: margin,
-                        y: yPosition - 40,
-                        width: 500,
-                        height: 35,
-                    });
-                    recommendationsField.enableMultiline();
-                    recommendationsField.setFontSize(8);
-                    
-                    // Pre-fill with existing recommendations if any (convert HTML to plain text)
-                    if (instance.recommendations) {
-                        const plainTextRecommendations = this.htmlToPlainText(instance.recommendations);
-                        recommendationsField.setText(plainTextRecommendations);
-                    }
-                    
-                    yPosition -= 70;
+                    yPosition -= 60; // Increased spacing for 3 instances per page
                     
                     // Separator line (only if not the last instance on page)
-                    if ((index + 1) % 2 !== 0 && index < testInstances.length - 1) {
-                    page.drawLine({
-                        start: { x: margin, y: yPosition },
-                        end: { x: width - margin, y: yPosition },
-                        thickness: 1,
-                        color: PDFLib.rgb(0.8, 0.8, 0.8),
-                    });
-                    yPosition -= 15;
+                    if ((index + 1) % 3 !== 0 && index < testInstances.length - 1) {
+                        page.drawLine({
+                            start: { x: margin, y: yPosition },
+                            end: { x: width - margin, y: yPosition },
+                            thickness: 1,
+                            color: PDFLib.rgb(0.8, 0.8, 0.8),
+                        });
+                        yPosition -= 15;
                     }
                 });
                 
@@ -2962,54 +3125,6 @@ MANUAL PHASE:
                         
                         yPosition += notesHeight + 8;
                         
-                        // Results section
-                        doc.setFont('helvetica', 'bold');
-                        doc.setFontSize(9);
-                        doc.text('Test Results:', margin, yPosition);
-                        yPosition += 5;
-                        
-                        const resultsHeight = 30;
-                        doc.setDrawColor(0, 0, 0);
-                        doc.setLineWidth(0.5);
-                        doc.rect(margin, yPosition, contentWidth, resultsHeight, 'S');
-                        
-                        // Add existing results if available (strip HTML)
-                        if (instance.results) {
-                            doc.setFont('helvetica', 'normal');
-                            doc.setFontSize(8);
-                            const cleanResults = instance.results.replace(/<[^>]*>/g, ''); // Strip HTML
-                            const resultsLines = doc.splitTextToSize(cleanResults, contentWidth - 4);
-                            resultsLines.slice(0, 5).forEach((line, lineIndex) => {
-                                doc.text(line, margin + 2, yPosition + 4 + (lineIndex * 4));
-                            });
-                        }
-                        
-                        yPosition += resultsHeight + 8;
-                        
-                        // Recommendations section
-                        doc.setFont('helvetica', 'bold');
-                        doc.setFontSize(9);
-                        doc.text('Recommendations:', margin, yPosition);
-                        yPosition += 5;
-                        
-                        const recommendationsHeight = 30;
-                        doc.setDrawColor(0, 0, 0);
-                        doc.setLineWidth(0.5);
-                        doc.rect(margin, yPosition, contentWidth, recommendationsHeight, 'S');
-                        
-                        // Add existing recommendations if available (strip HTML)
-                        if (instance.recommendations) {
-                            doc.setFont('helvetica', 'normal');
-                            doc.setFontSize(8);
-                            const cleanRecommendations = instance.recommendations.replace(/<[^>]*>/g, ''); // Strip HTML
-                            const recommendationsLines = doc.splitTextToSize(cleanRecommendations, contentWidth - 4);
-                            recommendationsLines.slice(0, 5).forEach((line, lineIndex) => {
-                                doc.text(line, margin + 2, yPosition + 4 + (lineIndex * 4));
-                            });
-                        }
-                        
-                        yPosition += recommendationsHeight + 8;
-                        
                         // Add a clean separator line
                         doc.setDrawColor(150, 150, 150);
                         doc.setLineWidth(0.5);
@@ -3174,25 +3289,18 @@ MANUAL PHASE:
 
         // Save requirement status override to database
         saveRequirementStatusOverride: async function(status) {
-            console.log('🔧 saveRequirementStatusOverride called with status:', status);
-            console.log('🔧 currentRequirement:', this.currentRequirement?.id);
-            
             if (!this.currentRequirement) {
-                console.error('❌ No currentRequirement available');
                 this.showNotification('error', 'Save Failed', 'No requirement selected');
                 return;
             }
 
             try {
-                console.log('🔧 Making API call to save status override...');
                 const response = await this.apiCall(`/unified-requirements/${this.currentRequirement.id}/status-override`, {
                     method: 'PUT',
                     body: JSON.stringify({ 
                         manual_status_override: status 
                     })
                 });
-
-                console.log('🔧 API response:', response);
 
                 if (response.success) {
                     // Update local requirement data
@@ -3204,20 +3312,16 @@ MANUAL PHASE:
                         requirement.manual_status_override = status;
                     }
 
-                    console.log('✅ Status override saved successfully');
-                    console.log('🔧 Updated currentRequirement.manual_status_override:', this.currentRequirement.manual_status_override);
-                    console.log('🔧 Overall status should now be:', this.getRequirementOverallStatus(this.currentRequirement));
-                    
                     this.showNotification('success', 'Status Saved', `Requirement status set to: ${status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' ')}`);
                 } else {
                     throw new Error(response.error || 'Failed to save requirement status');
                 }
             } catch (error) {
-                console.error('❌ Error saving requirement status override:', error);
+                console.error('Error saving requirement status override:', error);
                 this.showNotification('error', 'Save Failed', 'Failed to save requirement status: ' + error.message);
                 
-                // Don't revert UI change immediately - let user see what they selected
-                console.log('⚠️ Not reverting UI change to show user selection');
+                // Revert the UI change
+                this.currentRequirement.manual_status_override = null;
             }
         },
 
@@ -3535,6 +3639,7 @@ MANUAL PHASE:
         urlSourceFilter: 'all',
         crawlerPageSearch: '',
         crawlerPageFilter: '',
+        crawlerPagesPagination: { limit: 1000, offset: 0, total: 0, currentPage: 1, totalPages: 1 },
         
         // ===== ERROR HANDLING =====
         loginError: '',
@@ -3600,200 +3705,13 @@ MANUAL PHASE:
 
     // ===== EARLY GLOBAL FUNCTION DEFINITIONS FOR ALPINE.JS =====
     window.filterRequirements = window.filterRequirements || function() {
-        console.log('🔍 Early filterRequirements called - component not ready yet');
+        // Component not ready yet - will be replaced when component loads
     };
 
     // Declare componentInstance variable
     let componentInstance;
-
     // ===== MERGE WITH ORGANIZED STATE STRUCTURE =====
     return {
-        
-        // ===== TINYMCE WYSIWYG FUNCTIONS =====
-        // Initialize TinyMCE editor
-        initTinyMCE: function(elementId, initialContent, onChangeCallback) {
-            // Wait for element to be available
-            setTimeout(() => {
-                const element = document.getElementById(elementId);
-                if (!element) {
-                    console.warn('TinyMCE element not found:', elementId);
-                    return;
-                }
-                
-                tinymce.init({
-                    target: element,
-                    height: 200,
-                    menubar: false,
-                    plugins: [
-                        // Core editing features
-                        'anchor', 'autolink', 'charmap', 'codesample', 'emoticons', 'link', 'lists', 'media', 'searchreplace', 'table', 'visualblocks', 'wordcount',
-                        // Premium features (available with your API key)
-                        'checklist', 'mediaembed', 'casechange', 'formatpainter', 'pageembed', 'a11ychecker', 'tinymcespellchecker', 'permanentpen', 'powerpaste', 'advtable', 'advcode', 'advtemplate'
-                    ],
-                    toolbar: 'undo redo | blocks fontfamily fontsize | bold italic underline strikethrough | link media table | spellcheckdialog a11ycheck | align lineheight | checklist numlist bullist indent outdent | emoticons charmap | removeformat',
-                    content_style: 'body { font-family: -apple-system, BlinkMacSystemFont, San Francisco, Segoe UI, Roboto, Helvetica Neue, sans-serif; font-size: 14px; }',
-                    branding: false,
-                    promotion: false,
-                    setup: function(editor) {
-                        editor.on('init', function() {
-                            editor.setContent(initialContent || '');
-                        });
-                        
-                        editor.on('change keyup paste', function() {
-                            const content = editor.getContent();
-                            if (onChangeCallback) {
-                                onChangeCallback(content);
-                            }
-                        });
-                    }
-                });
-            }, 100);
-        },
-        
-        // Update instance field (for WYSIWYG editors)
-        updateInstanceField: function(instanceId, field, value) {
-            // Find the instance in sessionTestInstances and update it
-            const instance = this.sessionTestInstances?.find(inst => inst.id === instanceId);
-            if (instance) {
-                instance[field] = value;
-            }
-            
-            // Also update in requirement test instances if present
-            const reqInstances = this.getRequirementTestInstances && this.getRequirementTestInstances(this.currentRequirement?.criterion_number);
-            const reqInstance = reqInstances?.find(inst => inst.id === instanceId);
-            if (reqInstance) {
-                reqInstance[field] = value;
-            }
-            
-            // Mark as having unsaved changes
-            this.hasUnsavedChanges = true;
-        },
-        
-        // Track requirement changes (for WYSIWYG editors and other fields)
-        trackRequirementChange: function(field, value) {
-            console.log('🔍 Requirement change tracked:', { field, value, hasChanges: true, totalChanges: Object.keys(this.pendingChanges).length + 1 });
-            
-            // Store the change
-            this.pendingChanges[field] = value;
-            this.hasChanges = true;
-            this.hasUnsavedChanges = true;
-            
-            // Auto-save for WYSIWYG fields after a delay
-            if (field.startsWith('instance_results_') || field.startsWith('instance_recommendations_') || field.startsWith('instance_notes_')) {
-                this.scheduleAutoSave();
-            }
-        },
-        
-        // Schedule auto-save with debouncing
-        scheduleAutoSave: function() {
-            // Clear existing timeout
-            if (this.autoSaveTimeout) {
-                clearTimeout(this.autoSaveTimeout);
-            }
-            
-            // Set new timeout for 3 seconds
-            this.autoSaveTimeout = setTimeout(() => {
-                this.autoSaveInstanceChanges();
-            }, 3000);
-        },
-        
-        // Auto-save instance changes (debounced)
-        autoSaveInstanceChanges: async function() {
-            if (!this.pendingChanges || Object.keys(this.pendingChanges).length === 0) {
-                return;
-            }
-            
-            console.log('🔧 Auto-saving instance changes:', this.pendingChanges);
-            
-            try {
-                const savePromises = [];
-                
-                // Process each change
-                for (const [changeKey, value] of Object.entries(this.pendingChanges)) {
-                    if (changeKey.startsWith('instance_results_') || changeKey.startsWith('instance_recommendations_') || changeKey.startsWith('instance_notes_')) {
-                        const parts = changeKey.split('_');
-                        const field = parts[1]; // 'results', 'recommendations', or 'notes'
-                        const instanceId = parts[2]; // instance ID
-                        
-                        // Create save promise for this instance
-                        const updateData = { [field]: value };
-                        savePromises.push(
-                            this.apiCall(`/test-instances/${instanceId}`, {
-                                method: 'PUT',
-                                body: JSON.stringify(updateData)
-                            })
-                        );
-                    }
-                }
-                
-                // Execute all saves in parallel
-                const results = await Promise.all(savePromises);
-                
-                // Check if all saves were successful
-                const allSuccessful = results.every(result => result.success);
-                
-                if (allSuccessful) {
-                    console.log('✅ Auto-saved all instance changes successfully');
-                    this.pendingChanges = {}; // Clear pending changes
-                    this.hasUnsavedChanges = false;
-                } else {
-                    console.error('❌ Some auto-save operations failed');
-                }
-                
-            } catch (error) {
-                console.error('Error auto-saving instance changes:', error);
-            }
-        },
-        
-        // Save all pending instance changes
-        saveAllInstanceChanges: async function() {
-            if (!this.pendingChanges || Object.keys(this.pendingChanges).length === 0) {
-                this.showNotification('info', 'No Changes', 'No changes to save');
-                return;
-            }
-            
-            console.log('🔧 Saving all instance changes:', this.pendingChanges);
-            
-            try {
-                const savePromises = [];
-                
-                // Process each change
-                for (const [changeKey, value] of Object.entries(this.pendingChanges)) {
-                    if (changeKey.startsWith('instance_results_') || changeKey.startsWith('instance_recommendations_') || changeKey.startsWith('instance_notes_')) {
-                        const parts = changeKey.split('_');
-                        const field = parts[1]; // 'results', 'recommendations', or 'notes'
-                        const instanceId = parts[2]; // instance ID
-                        
-                        // Create save promise for this instance
-                        const updateData = { [field]: value };
-                        savePromises.push(
-                            this.apiCall(`/test-instances/${instanceId}`, {
-                                method: 'PUT',
-                                body: JSON.stringify(updateData)
-                            })
-                        );
-                    }
-                }
-                
-                // Execute all saves in parallel
-                const results = await Promise.all(savePromises);
-                
-                // Check if all saves were successful
-                const allSuccessful = results.every(result => result.success);
-                
-                if (allSuccessful) {
-                    this.showNotification('success', 'Changes Saved', 'All test instance changes have been saved successfully');
-                    this.pendingChanges = {}; // Clear pending changes
-                    this.hasUnsavedChanges = false;
-                } else {
-                    throw new Error('Some changes failed to save');
-                }
-                
-            } catch (error) {
-                console.error('Error saving instance changes:', error);
-                this.showNotification('error', 'Save Failed', error.message || 'Failed to save changes');
-            }
-        },
         // Apply all defaults first
         ...defaults,
         
@@ -3807,6 +3725,7 @@ MANUAL PHASE:
                 showSessionUrl: false,
                 showCreateCrawler: false,
                 showCrawlerPagesModal: false,
+                showExclusionsModal: false,
                 showAddAuthConfigModal: false,
                 showEditAuthConfigModal: false,
                 showSessions: false,
@@ -3887,6 +3806,14 @@ MANUAL PHASE:
                 pagesCount: 0
             }
         },
+
+        // ===== CRAWLER EXCLUSION EDITOR STATE =====
+        selectedCrawlerForExclusions: null,
+        exclusionPatterns: [],
+        newExclusionUrl: '',
+        newExclusionRegex: '',
+        exclusionTestUrl: '',
+        exclusionTestResult: null,
         
         ws: {
             socket: null,
@@ -3963,6 +3890,10 @@ MANUAL PHASE:
             window._dashboardInstance = this;
             console.log('✅ Dashboard instance stored globally');
             
+            // Also ensure it's accessible via multiple paths for reliability
+            window.dashboard = this;
+            window.dashboardComponent = this;
+            
             // Register global functions immediately
             window.toggleAutomationResults = (instanceId) => this.toggleAutomationResults(instanceId);
             window.toggleTestHistory = (instanceId) => this.toggleTestHistory(instanceId);
@@ -3974,7 +3905,7 @@ MANUAL PHASE:
             // Protect against timing issues by periodically checking nested objects
             setInterval(() => {
                 this.ensureNestedObjects();
-            }, 1000); // Check every second
+            }, 5000); // Check every 5 seconds (reasonable compromise)
             
             // Also protect against component loading that might reset objects
             const observer = new MutationObserver(() => {
@@ -3996,39 +3927,195 @@ MANUAL PHASE:
             
             // Delay the global function setup to ensure all methods are available
             setTimeout(() => {
-                console.log('🔍 Testing componentInstance.filterRequirements after delay:', typeof componentInstance.filterRequirements);
-                
                 // Update the global function after methods are available
                 window.filterRequirements = () => {
-                    console.log('🔍 Updated Global filterRequirements called');
-                    console.log('🔍 componentInstance type:', typeof componentInstance);
-                    console.log('🔍 componentInstance.filterRequirements type:', typeof componentInstance?.filterRequirements);
-                    
                     // Try to find the Alpine component instance with filterRequirements
                     const alpineInstance = componentInstance || window._dashboardInstance;
                     
                     if (alpineInstance && alpineInstance.filterRequirements) {
-                        console.log('🔍 Calling alpineInstance.filterRequirements');
                         return alpineInstance.filterRequirements();
                     } else {
-                        console.log('🔍 Searching for filterRequirements in DOM elements...');
                         // Fallback: search for Alpine component in DOM
                         const elements = document.querySelectorAll('[x-data]');
                         for (const element of elements) {
                             const data = element._x_dataStack?.[0];
                             if (data && data.filterRequirements) {
-                                console.log('🔍 Found filterRequirements in DOM element');
                                 return data.filterRequirements();
                             }
                         }
                         console.error('❌ filterRequirements not found anywhere');
                     }
                 };
-                console.log('✅ Global filterRequirements function updated with delay');
             }, 100);
             
-            // Call async initialization
-            this.initAsync();
+            // Removed initAsync() call to prevent duplicate loadInitialData() calls
+            // loadInitialData() will be called by checkAuthentication() if authenticated
+        },
+
+        // ===== INTERACTIVE AUTHENTICATION METHODS =====
+        async openBrowserForAuth(session) {
+            try {
+                this.interactiveAuthError = null;
+                this.interactiveAuthInProgress = true;
+                this.interactiveAuthMessage = 'Opening browser for authentication...';
+
+                // Prefer explicit param, then pending id, then selected session
+                const targetSessionId = session?.id || this.pendingAuthSessionId || this.selectedTestingSession?.id || null;
+                if (!targetSessionId) {
+                    throw new Error('No testing session selected. Please select a session first.');
+                }
+
+                console.log('🔐 Opening browser for interactive authentication for testing session:', targetSessionId);
+
+                const requestData = {
+                    target_mode: 'session',
+                    target_ids: [],
+                    tools: ['axe-core', 'pa11y', 'lighthouse', 'contrast-analyzer'],
+                    run_async: false,
+                    options: {
+                        use_interactive_auth: true,
+                        preview_mode: false
+                    }
+                };
+
+                const response = await fetch(`${this.config.apiBaseUrl}/api/automated-testing/unified-run/${targetSessionId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...this.getAuthHeaders()
+                    },
+                    body: JSON.stringify(requestData)
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    // Browser is now open, transition to phase 2
+                    this.interactiveAuthInProgress = false;
+                    this.interactiveAuthBrowserOpen = true;
+                    this.interactiveAuthMessage = 'Browser opened successfully. Please complete your login.';
+                    
+                    console.log('✅ Browser opened for interactive authentication:', result);
+                } else {
+                    throw new Error(result.error || 'Failed to open browser for authentication');
+                }
+
+            } catch (error) {
+                console.error('❌ Error opening browser for auth:', error);
+                this.interactiveAuthError = error.message;
+                this.interactiveAuthInProgress = false;
+                this.interactiveAuthBrowserOpen = false;
+                this.interactiveAuthMessage = '';
+                
+                this.showNotification('error', 'Browser Open Failed', error.message);
+            }
+        },
+
+        async completeInteractiveAuth(session) {
+            try {
+                this.interactiveAuthError = null;
+                this.interactiveAuthInProgress = true;
+                this.interactiveAuthMessage = 'Capturing authentication state...';
+
+                const targetSessionId = session?.id || this.pendingAuthSessionId || this.selectedTestingSession?.id || null;
+                if (!targetSessionId) {
+                    throw new Error('No testing session selected.');
+                }
+
+                console.log('🔐 Completing interactive authentication for testing session:', targetSessionId);
+
+                const response = await fetch(`${this.config.apiBaseUrl}/api/automated-testing/complete-interactive-auth/${targetSessionId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...this.getAuthHeaders()
+                    },
+                    body: JSON.stringify({})
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    this.interactiveAuthMessage = 'Authentication captured! Starting tests...';
+                    
+                    // Show success notification
+                    this.showNotification('success', 'Authentication Successful', 
+                        `Authentication captured with ${result.cookieCount} cookies. Starting tests now...`);
+                    
+                    // Now start the actual automation with the captured authentication
+                    const requestData = {
+                        target_mode: 'session',
+                        target_ids: [],
+                        tools: ['axe-core', 'pa11y', 'lighthouse', 'contrast-analyzer'],
+                        run_async: false,
+                        options: {
+                            use_interactive_auth: false, // Auth is now captured, use normal flow
+                            preview_mode: false
+                        }
+                    };
+
+                    fetch(`${this.config.apiBaseUrl}/api/automated-testing/unified-run/${targetSessionId}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            ...this.getAuthHeaders()
+                        },
+                        body: JSON.stringify(requestData)
+                    }).then(response => {
+                        if (response.ok) {
+                            console.log('✅ Automation started with captured authentication');
+                        } else {
+                            console.error('❌ Failed to start automation after auth capture');
+                        }
+                    }).catch(error => {
+                        console.error('❌ Error starting automation after auth capture:', error);
+                    });
+                    
+                    // Close modal and reset state after a delay
+                    setTimeout(() => {
+                        this.showInteractiveAuthModal = false;
+                        this.interactiveAuthInProgress = false;
+                        this.interactiveAuthBrowserOpen = false;
+                        this.interactiveAuthMessage = '';
+                    }, 2000);
+
+                    console.log('✅ Interactive authentication completed:', result);
+                } else {
+                    throw new Error(result.error || 'Failed to complete authentication');
+                }
+
+            } catch (error) {
+                console.error('❌ Error completing interactive auth:', error);
+                this.interactiveAuthError = error.message;
+                this.interactiveAuthInProgress = false;
+                
+                this.showNotification('error', 'Authentication Completion Failed', error.message);
+            }
+        },
+
+        openInteractiveAuthModal() {
+            this.showInteractiveAuthModal = true;
+            this.interactiveAuthError = null;
+            this.interactiveAuthInProgress = false;
+            this.interactiveAuthBrowserOpen = false;
+            this.interactiveAuthMessage = '';
+        },
+
+        async runInteractiveAuthForSession(session) {
+            try {
+                // Remember the selected testing session
+                this.selectedTestingSession = session;
+                this.pendingAuthSessionId = session?.id || null;
+                
+                console.log('🔐 Opening interactive authentication modal for session:', session.id, session.name);
+
+                // Open the interactive authentication modal for two-phase auth
+                this.openInteractiveAuthModal();
+                
+            } catch (error) {
+                console.error('❌ Error opening interactive auth modal for session:', session.name, error);
+                this.showNotification('error', 'Modal Error', `Failed to open interactive authentication modal for "${session.name}": ${error.message}`);
+            }
         },
 
         async initAsync() {
@@ -4037,7 +4124,9 @@ MANUAL PHASE:
 
         // Add filterRequirements method directly to Alpine component
         filterRequirements() {
-            console.log('🔍 ALPINE filterRequirements called');
+            // Simple, direct filtering without excessive debouncing or logging
+            window.dashboardFilterRequirements = this.filterRequirements.bind(this);
+            window.dashboardRequirementFilters = this.requirementFilters;
             if (!this.sessionRequirements) {
                 this.filteredRequirements = [];
                 this.updateRequirementsPagination();
@@ -4049,33 +4138,58 @@ MANUAL PHASE:
             // Apply filters
             if (this.requirementFilters.testStatus) {
                 const status = this.requirementFilters.testStatus;
-                console.log(`🔍 FILTER DEBUG: Filtering by status "${status}"`);
-                
-                // Debug status distribution before filtering
-                const statusDistribution = {};
-                this.sessionRequirements.forEach(req => {
-                    const key = `${req.test_method}:auto=${req.automated_status},manual=${req.manual_status}`;
-                    statusDistribution[key] = (statusDistribution[key] || 0) + 1;
-                });
-                console.log(`🔍 STATUS DISTRIBUTION:`, statusDistribution);
+
                 
                 filtered = filtered.filter(req => {
-                    // Check automated status for automated/both requirements
-                    const hasAutomatedMatch = (req.test_method === 'automated' || req.test_method === 'both') && 
-                                             req.automated_status === status;
-                    
-                    // Check manual status for manual/both requirements  
-                    const hasManualMatch = (req.test_method === 'manual' || req.test_method === 'both') && 
-                                          req.manual_status === status;
-                    
-                    // Debug first few requirements when filtering by "failed" or when filtering by passed and we get unexpected results
-                    if ((status === 'failed' && (req.criterion_number === '1.3.6' || req.criterion_number === '1.4.6' || req.criterion_number === '2.4.12' || req.criterion_number === '2.4.13')) ||
-                        (status === 'passed' && hasAutomatedMatch)) {
-                        console.log(`🔍 FILTER CHECK: ${req.criterion_number} - test_method="${req.test_method}", automated_status="${req.automated_status}", manual_status="${req.manual_status}" - hasAutomatedMatch=${hasAutomatedMatch}, hasManualMatch=${hasManualMatch}`);
+                    // Simple and straightforward filtering logic
+                    switch (status) {
+                        case 'not_tested':
+                            // Show requirements that are truly not tested (both statuses are not_tested or null)
+                            const autoNotTested = !req.automated_status || req.automated_status === 'not_tested';
+                            const manualNotTested = !req.manual_status || req.manual_status === 'not_tested';
+                            return autoNotTested && manualNotTested;
+                        
+                        case 'failed':
+                            // Show requirements where ANY test has failed
+                            return req.automated_status === 'failed' || req.manual_status === 'failed';
+                        
+                        case 'passed':
+                            // Show requirements where at least one test has passed and none have failed
+                            const hasPassedTest = req.automated_status === 'passed' || req.manual_status === 'passed';
+                            const hasFailedTest = req.automated_status === 'failed' || req.manual_status === 'failed';
+                            
+                            return hasPassedTest && !hasFailedTest;
+                        
+                        case 'in_progress':
+                            // Show requirements with in_progress or pending status
+                            return req.automated_status === 'in_progress' || req.manual_status === 'in_progress' ||
+                                   req.automated_status === 'pending' || req.manual_status === 'pending' ||
+                                   req.automated_status === 'human_review' || req.manual_status === 'human_review';
+                        
+                        case 'manual_pending':
+                            // Explicit manual pending filter maps to manual_status === 'pending'
+                            return req.manual_status === 'pending';
+
+                        case 'pending':
+                            // Generic pending across either method
+                            return req.automated_status === 'pending' || req.manual_status === 'pending';
+
+                        case 'running':
+                            return req.automated_status === 'running' || req.manual_status === 'running';
+
+                        case 'needs_review':
+                            // API uses 'human_review' in some places, normalize here
+                            return req.automated_status === 'human_review' || req.manual_status === 'human_review' ||
+                                   req.automated_status === 'needs_review' || req.manual_status === 'needs_review';
+
+                        case 'completed':
+                            // Treat manual 'passed' or explicit 'completed' as completed
+                            return req.manual_status === 'completed' || req.manual_status === 'passed';
+                        
+                        default:
+                            // For any other status, exact match
+                            return req.automated_status === status || req.manual_status === status;
                     }
-                    
-                    // Return true if either automated or manual status matches
-                    return hasAutomatedMatch || hasManualMatch;
                 });
                 
                 console.log(`🔍 FILTER RESULT: Found ${filtered.length} requirements matching "${status}"`);
@@ -4100,7 +4214,6 @@ MANUAL PHASE:
 
             this.filteredRequirements = filtered;
             this.updateRequirementsPagination();
-            console.log(`🔍 Filtered requirements: ${filtered.length}/${this.sessionRequirements.length}`);
         },
 
         // Add updateRequirementsPagination method directly to Alpine component
@@ -4164,13 +4277,21 @@ MANUAL PHASE:
                 this.wsConnected = true; // For header compatibility
                 
                 // Join current project room if we have one
-                if (this.selectedProject?.id) {
-                    this.socket.emit('join_project', this.selectedProject.id);
+                {
+                    const projectId = typeof this.selectedProject === 'string'
+                        ? this.selectedProject
+                        : (this.selectedProject?.id || null);
+                    if (projectId) {
+                        this.socket.emit('join_project', projectId);
+                    }
                 }
                 
                 // Join current session room if we have one
-                if (this.selectedTestSession?.id) {
-                    this.socket.emit('join_session', this.selectedTestSession.id);
+                {
+                    const sessionId = this.selectedTestSession?.id || this.selectedTestingSession?.id || null;
+                    if (sessionId) {
+                        this.socket.emit('join_session', sessionId);
+                    }
                 }
             });
             
@@ -4347,7 +4468,6 @@ MANUAL PHASE:
                 console.error('Error refreshing requirement details:', error);
             }
         },
-        
         // Handle automation progress updates
         handleAutomationProgress(data) {
             console.log('🔍 DEBUG: handleAutomationProgress received:', data);
@@ -4763,6 +4883,16 @@ MANUAL PHASE:
         // REMOVED: Duplicate method - using complete version at line 1887
         
         // ===== SESSION AND CAPTURE METHODS =====
+
+        // Ensure currentSession is always defined and normalized (id may be sessionId)
+        get currentSession() {
+            if (!this.sessionInfo) return { isValid: false };
+            const info = this.sessionInfo;
+            return {
+                ...info,
+                id: info.id || info.sessionId || info.session_id || null
+            };
+        },
         
         captureNewSession() {
             console.log('🔍 DEBUG: captureNewSession called');
@@ -4857,6 +4987,7 @@ MANUAL PHASE:
         // ===== AUTHENTICATION METHODS =====
         
         async checkAuthentication() {
+            
             const token = localStorage.getItem('auth_token');
             const refreshToken = localStorage.getItem('refresh_token');
             
@@ -4936,7 +5067,7 @@ MANUAL PHASE:
                     this.auth.token = data.token || data.access_token;
                     this.auth.refreshToken = data.refresh_token;
                     
-                    localStorage.setItem('auth_token', data.token || data.access_token);
+                    localStorage.setItem('authToken', data.token || data.access_token);
                     localStorage.setItem('refresh_token', data.refresh_token);
                     
                     this.auth.isAuthenticated = true;
@@ -5037,12 +5168,14 @@ MANUAL PHASE:
                     // ALWAYS GO TO PROJECTS TAB AFTER LOGIN
                     this.activeTab = 'projects';
                     
-                    // Initialize WebSocket and load data
+                    // Initialize WebSocket and load initial data
                     this.initializeWebSocket();
-                    await this.loadInitialData();
                     
                     // Load automation tools now that we're authenticated
                     await this.loadAvailableTools();
+                    
+                    // Load initial data now that we're authenticated
+                    await this.loadInitialData();
                     
                     // REMOVED: Auto-protection disabling to prevent unwanted modal popups
                     // this.preventAutoUserManagement remains true to block all auto-opens
@@ -5105,7 +5238,6 @@ MANUAL PHASE:
             }
             return headers;
         },
-
         // API Helper Function (from stable backup)
         async apiCall(endpoint, options = {}) {
             try {
@@ -5276,11 +5408,9 @@ MANUAL PHASE:
                 this.syncLegacyState(); // Sync WebSocket state to templates
                 
                 if (this.data.selectedProject) {
-                    // Ensure we pass only the project ID (string) not the object
                     const projectId = typeof this.data.selectedProject === 'string' 
                         ? this.data.selectedProject 
-                        : this.data.selectedProject.id || this.data.selectedProject;
-                        
+                        : (this.data.selectedProject.id || this.data.selectedProject);
                     console.log('🔗 Joining WebSocket room for project:', projectId);
                     this.ws.socket.emit('join_project', projectId);
                 }
@@ -5380,6 +5510,12 @@ MANUAL PHASE:
             } else {
                 console.warn('❌ Could not find crawler with ID:', crawlerId);
                 console.log('Available crawler IDs:', this.data.webCrawlers.map(c => c.id));
+            }
+            
+            // If backend signals completed via status inside progress, treat it as completion
+            if ((crawlerRun.status || '').toLowerCase() === 'completed') {
+                this.handleCrawlerCompleted(data);
+                return;
             }
             
             // Update progress indicator
@@ -5550,6 +5686,18 @@ MANUAL PHASE:
         // ===== DATA LOADING =====
         
         async loadInitialData() {
+            // Prevent multiple simultaneous calls
+            if (this._loadingInitialData) {
+                console.log('📊 loadInitialData already in progress, skipping');
+                return;
+            }
+            this._loadingInitialData = true;
+            
+            try {
+            // Set up global references for dynamically loaded components
+            window.dashboardFilterRequirements = this.filterRequirements.bind(this);
+            window.dashboardRequirementFilters = this.requirementFilters;
+            
             await Promise.all([
                 this.loadProjects(),
                 this.loadAuthConfigs(),
@@ -5559,6 +5707,9 @@ MANUAL PHASE:
             
             // Restore previously selected project from localStorage
             this.restoreSelectedProject();
+            } finally {
+                this._loadingInitialData = false;
+            }
         },
         
         restoreSelectedProject() {
@@ -5607,6 +5758,17 @@ MANUAL PHASE:
                 if (response.ok) {
                     const result = await response.json();
                     this.data.webCrawlers = result.success ? result.data : [];
+                    // Ensure runOptions exists with safe defaults to avoid Alpine binding errors
+                    const defaultRunOptions = {
+                        deep_click: false,
+                        max_views_per_page: 20,
+                        deep_click_selectors_text: "[role=tab], .nav-tabs a, .pagination a, a[href^='#']",
+                        include_fragments: false
+                    };
+                    this.data.webCrawlers = (this.data.webCrawlers || []).map((crawler) => ({
+                        ...crawler,
+                        runOptions: { ...defaultRunOptions, ...(crawler?.runOptions || {}) }
+                    }));
                     this.webCrawlers = this.data.webCrawlers; // Legacy sync
                     
                     // Force refresh page counts to get accurate data from database
@@ -5724,9 +5886,9 @@ MANUAL PHASE:
             
             console.log(`📂 Selected project: ${projectObj.name} (${projectId})`);
             
-            // Join WebSocket room for this project
+            // Join WebSocket room for this project (send plain id)
             if (this.ws.socket && this.ws.connected) {
-                this.ws.socket.emit('join_project', { projectId });
+                this.ws.socket.emit('join_project', projectId);
             }
             
             // Load project-specific data for all tabs
@@ -5819,7 +5981,8 @@ MANUAL PHASE:
                     this.loadWebCrawlers(),           // For Web Crawler tab
                     this.loadProjectDiscoveries(),    // For Discovery tab
                     this.loadProjectTestSessions(),   // For Testing Sessions tab
-                    this.loadProjectAuthConfigs()     // For Authentication tab
+                    this.loadProjectAuthConfigs(),    // For Authentication tab
+                    this.loadSessionInfo()            // Ensure Browser Session Management reflects current project
                 ]);
                 
                 // Load additional data that might depend on the above
@@ -5846,9 +6009,18 @@ MANUAL PHASE:
             
             try {
                 this.loading = true;
-                await this.apiCall(`/projects/${this.projectToDelete.id}`, {
-                    method: 'DELETE'
+                // Some backends require explicit confirmation tokens/flags
+                const token = this.getAuthToken && this.getAuthToken();
+                // Backend requires confirm_permanent=true (query param). Also send Authorization header.
+                const response = await this.apiCall(`/projects/${this.projectToDelete.id}?confirm_permanent=true`, {
+                    method: 'DELETE',
+                    headers: {
+                        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                    }
                 });
+                if (!response || response.success === false) {
+                    throw new Error(response?.error || 'Project deletion requires explicit confirmation');
+                }
                 
                 // Remove from projects list
                 this.data.projects = this.data.projects.filter(p => p.id !== this.projectToDelete.id);
@@ -5865,7 +6037,7 @@ MANUAL PHASE:
                 
             } catch (error) {
                 console.error('Failed to delete project:', error);
-                this.showNotification('error', 'Error', 'Failed to delete project. Please try again.');
+                this.showNotification('error', 'Error', error?.message || 'Failed to delete project. Please try again.');
             } finally {
                 this.loading = false;
             }
@@ -5939,9 +6111,17 @@ MANUAL PHASE:
 
         async startCrawler(crawler) {
             try {
+                const runOptions = crawler && crawler.runOptions ? { ...crawler.runOptions } : {};
+                if (runOptions.deep_click_selectors_text) {
+                    const parts = runOptions.deep_click_selectors_text.split(',').map(s => s.trim()).filter(Boolean);
+                    if (parts.length > 0) runOptions.deep_click_selectors = parts;
+                    delete runOptions.deep_click_selectors_text;
+                }
+
                 const response = await fetch(`${this.config.apiBaseUrl}/api/web-crawlers/crawlers/${crawler.id}/start`, {
                     method: 'POST',
-                    headers: this.getAuthHeaders()
+                    headers: this.getAuthHeaders(),
+                    body: JSON.stringify(runOptions)
                 });
                 
                 if (response.ok) {
@@ -6532,7 +6712,6 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
   {"type": "exclude", "regex": "/ra/users/\\d+"},
   {"type": "exclude", "regex": "\\.pdf$"}
 ]</pre>
-
 <strong>Benefits:</strong>
 ✅ Faster crawling (fewer pages to process)
 ✅ More relevant results (focus on important pages)
@@ -7285,41 +7464,156 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
         async viewCrawlerPages(crawler) {
             try {
                 this.loading = true;
-                const response = await fetch(`${this.config.apiBaseUrl}/api/web-crawlers/crawlers/${crawler.id}/pages`, {
-                    headers: this.getAuthHeaders()
-                });
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    this.crawlerPages = data.pages || data.data || [];
-                    this.selectedCrawlerForPages = crawler;
-                    
-                    console.log(`📄 Loaded ${this.crawlerPages.length} pages for crawler ${crawler.name}`);
-                    console.log('🔍 DEBUG: Raw crawler pages data:', this.crawlerPages.slice(0, 2)); // Show first 2 pages
-                    
-                    // Load saved page selections for UI checkboxes
-                    await this.loadCrawlerPageSelections(crawler.id);
-                    
-                    this.updateFilteredCrawlerPages();
-                    
-                    // Refresh crawler page counts to reflect actual selections
-                    this.loadCrawlerPageCounts(true);
-                    
-                    console.log('🔍 DEBUG: Filtered pages count:', this.filteredCrawlerPages.length);
-                    console.log('🔍 DEBUG: Opening modal with showCrawlerPagesModal =', true);
-                    
-                    this.ui.modals.showCrawlerPagesModal = true;
-                    // Also flip the legacy top-level flag in case initialization guard blocks sync
-                    this.showCrawlerPagesModal = true;
-                    this.syncLegacyState();
-                } else {
-                    this.showNotification('error', 'Load Failed', 'Failed to load crawler pages');
-                }
+                this.selectedCrawlerForPages = crawler;
+                await this.fetchCrawlerPages(crawler.id, 1);
+                console.log('🔍 DEBUG: Opening modal with showCrawlerPagesModal =', true);
+                this.ui.modals.showCrawlerPagesModal = true;
+                this.showCrawlerPagesModal = true;
+                this.syncLegacyState();
             } catch (error) {
                 console.error('Error loading crawler pages:', error);
                 this.showNotification('error', 'Network Error', 'Failed to load crawler pages');
             } finally {
                 this.loading = false;
+            }
+        },
+
+        async fetchCrawlerPages(crawlerId, page = 1) {
+            const limit = this.crawlerPagesPagination.limit || 1000;
+            const offset = (page - 1) * limit;
+            const url = `${this.config.apiBaseUrl}/api/web-crawlers/crawlers/${crawlerId}/pages?limit=${limit}&offset=${offset}`;
+            const response = await fetch(url, { headers: this.getAuthHeaders() });
+            if (!response.ok) {
+                this.showNotification('error', 'Load Failed', 'Failed to load crawler pages');
+                return;
+            }
+                    const data = await response.json();
+            const rawPages = (data.pages || data.data || []);
+            // Normalize selection flag; only hide if explicitly marked excluded in a dedicated flag
+            const normalized = rawPages.map(p => ({
+                ...p,
+                selected_for_testing: typeof p.selected_for_testing === 'boolean'
+                    ? p.selected_for_testing
+                    : !!(p.selected_for_manual_testing || p.selected_for_automated_testing)
+            }));
+            const filtered = normalized.filter(p => (
+                p.excluded_from_testing === true || (p.metadata && p.metadata.excluded_from_testing === true)
+            ) ? false : true);
+
+            this.crawlerPages = filtered;
+                    this.updateFilteredCrawlerPages();
+                    
+            const pg = data.pagination || { total: normalized.length, limit, offset };
+            const totalPages = Math.max(1, Math.ceil((pg.total || 0) / limit));
+            this.crawlerPagesPagination = {
+                limit,
+                offset,
+                total: pg.total || 0,
+                currentPage: page,
+                totalPages
+            };
+            console.log(`📄 Loaded page ${page}/${totalPages} – ${this.crawlerPages.length} rows (total ${pg.total || 0})`);
+        },
+
+        async nextCrawlerPagesPage() {
+            if (!this.selectedCrawlerForPages) return;
+            const { currentPage, totalPages } = this.crawlerPagesPagination;
+            if (currentPage >= totalPages) return;
+            await this.fetchCrawlerPages(this.selectedCrawlerForPages.id, currentPage + 1);
+        },
+
+        async prevCrawlerPagesPage() {
+            if (!this.selectedCrawlerForPages) return;
+            const { currentPage } = this.crawlerPagesPagination;
+            if (currentPage <= 1) return;
+            await this.fetchCrawlerPages(this.selectedCrawlerForPages.id, currentPage - 1);
+        },
+
+        // ===== EXCLUSION EDITOR =====
+        openExclusionsModal(crawler) {
+            this.selectedCrawlerForExclusions = crawler;
+            const patterns = Array.isArray(crawler.url_patterns) ? crawler.url_patterns : [];
+            // Only show exclude rules here; include rules remain untouched
+            this.exclusionPatterns = patterns.filter(p => p && p.type === 'exclude');
+            this.ui.modals.showExclusionsModal = true;
+                    this.syncLegacyState();
+        },
+        closeExclusionsModal() {
+            this.ui.modals.showExclusionsModal = false;
+            this.selectedCrawlerForExclusions = null;
+            this.exclusionPatterns = [];
+            this.newExclusionUrl = '';
+            this.newExclusionRegex = '';
+            this.exclusionTestUrl = '';
+            this.exclusionTestResult = null;
+            this.syncLegacyState();
+        },
+        addExclusionFromUrl() {
+            const url = (this.newExclusionUrl || '').trim();
+            if (!url) return;
+            try {
+                const u = new URL(url);
+                // Build a simple path-based regex, escaping dots
+                const path = u.pathname.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const regex = `^${path}(/.*)?$`;
+                this.exclusionPatterns.push({ type: 'exclude', regex });
+                this.newExclusionUrl = '';
+            } catch (e) {
+                this.showNotification('warning', 'Invalid URL', 'Please enter a valid URL');
+            }
+        },
+        addExclusionRegex() {
+            const rx = (this.newExclusionRegex || '').trim();
+            if (!rx) return;
+            try { new RegExp(rx); } catch { 
+                this.showNotification('warning', 'Invalid Regex', 'Please enter a valid regex');
+                return;
+            }
+            this.exclusionPatterns.push({ type: 'exclude', regex: rx });
+            this.newExclusionRegex = '';
+        },
+        removeExclusion(index) {
+            if (index >= 0 && index < this.exclusionPatterns.length) {
+                this.exclusionPatterns.splice(index, 1);
+            }
+        },
+        testExclusionAgainstUrl() {
+            const testUrl = (this.exclusionTestUrl || '').trim();
+            if (!testUrl) { this.exclusionTestResult = null; return; }
+            let matched = false, matchIndex = -1;
+            try {
+                for (let i = 0; i < this.exclusionPatterns.length; i++) {
+                    const p = this.exclusionPatterns[i];
+                    if (!p || p.type !== 'exclude') continue;
+                    const re = new RegExp(p.regex);
+                    if (re.test(testUrl)) { matched = true; matchIndex = i; break; }
+                }
+                this.exclusionTestResult = { matched, matchIndex };
+            } catch (e) {
+                this.exclusionTestResult = { error: e.message };
+            }
+        },
+        async saveExclusions() {
+            if (!this.selectedCrawlerForExclusions) return;
+            const crawler = this.selectedCrawlerForExclusions;
+            // Merge back with any existing include rules to avoid losing them
+            const existing = Array.isArray(crawler.url_patterns) ? crawler.url_patterns : [];
+            const includeRules = existing.filter(p => p && p.type === 'include');
+            const newUrlPatterns = [...includeRules, ...this.exclusionPatterns];
+            try {
+                await this.apiCall(`/web-crawlers/crawlers/${crawler.id}`, {
+                    method: 'PUT',
+                    body: JSON.stringify({ url_patterns: newUrlPatterns })
+                });
+                // Update local cache
+                crawler.url_patterns = newUrlPatterns;
+                this.showNotification('success', 'Exclusions Saved', 'Crawler exclusions updated');
+                this.closeExclusionsModal();
+                // Refresh counts so Excluded/For Testing metrics stay accurate
+                this.loadCrawlerPageCounts(true);
+            } catch (error) {
+                console.error('Failed to save exclusions:', error);
+                this.showNotification('error', 'Save Failed', 'Could not update exclusions');
             }
         },
 
@@ -7333,7 +7627,6 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
             this.crawlerPageFilter = '';
             this.syncLegacyState();
         },
-
         // Edit an existing crawler
         async editCrawler(crawler) {
             // Populate the form with existing crawler data
@@ -8873,7 +9166,6 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
             this.newManualUrlHasForms = false;
             this.newManualUrlForTesting = true;
         },
-
         // Save UI page selections to persist them across modal reopens
         async saveCrawlerPageSelections() {
             if (!this.selectedCrawlerForPages) {
@@ -9537,6 +9829,10 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                 if (response.success) {
                     this.testingSessions = response.sessions || [];
                     this.applySessionFilters();
+                    if (this.testingSessions.length === 1) {
+                        this.selectedTestingSession = this.testingSessions[0];
+                        console.log('✅ Auto-selected single testing session:', this.selectedTestingSession.id);
+                    }
                     console.log(`📋 Loaded ${this.testingSessions.length} testing sessions`);
                 } else {
                     throw new Error(response.error || 'Failed to load testing sessions');
@@ -9633,7 +9929,6 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                 this.availableTesters = [];
             }
         },
-        
         // Create a new unified testing session
         async createTestingSession() {
             if (!this.selectedProject || !this.newTestingSession.name.trim() || !this.newTestingSession.conformance_level) {
@@ -10115,7 +10410,7 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
         },
 
         // Global function alias for Alpine.js calls
-        showUserManagement() {
+        openUserManagementModal() {
             console.log('🔍 DEBUG: showUserManagement alias called', {
                 stackTrace: new Error().stack
             });
@@ -10135,6 +10430,20 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
             }
             
             return this.openUserManagement(true); // Manual open
+        },
+
+        // Admin: Open Requirements Mapping view
+        openRequirementsMapping() {
+            if (!this.auth.isAuthenticated) {
+                this.showNotification('error', 'Authentication Required', 'Please log in to access admin tools');
+                return;
+            }
+            if (this.auth.user && this.auth.user.role !== 'admin') {
+                this.showNotification('error', 'Access Denied', 'Admin privileges required');
+                return;
+            }
+            this.activeTab = 'admin-requirements-mapping';
+            console.log('🔧 Admin Requirements Mapping requested');
         },
         
         // Load users from API
@@ -10433,7 +10742,6 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                 this.userPagination.currentPage++;
             }
         },
-        
         // Get user role display
         getUserRoleDisplay(role) {
             const roles = {
@@ -11230,7 +11538,6 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
             this.bulkStatusUpdate = '';
             this.bulkTesterAssignment = '';
         },
-        
         // Clear selection
         clearSelection() {
             this.selectedTestInstances = [];
@@ -11941,7 +12248,6 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                 console.error('Error loading session stats:', error);
             }
         },
-        
         // Load session results for the Results tab
         async loadSessionResults(sessionId) {
             try {
@@ -12681,7 +12987,6 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
             };
             return classes[status] || 'bg-purple-100 text-purple-800';
         },
-        
         // Test instance action methods
         viewTestInstanceDetails(testInstance) {
             // Determine the correct ID field for this test instance
@@ -13388,7 +13693,6 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                 }
             }
         },
-
         // Load test instance history with enhanced audit information
         async loadTestInstanceHistory(instanceId) {
             try {
@@ -13880,15 +14184,15 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                             // axe-core and pa11y format: details is an array of violations
                             const violations = pageData.details;
                             if (violations.length > 0) {
-                        totalViolations += violations.length;
+                                totalViolations += violations.length;
                                 html += `<div class="text-red-600 font-medium mb-1">❌ ${violations.length} Violation${violations.length > 1 ? 's' : ''}</div>
                                     <ul class="list-disc list-inside space-y-1 ml-2">`;
-                        
+                                
                                 violations.slice(0, 3).forEach(violation => {
-                            const description = violation.description || violation.help || violation.message || violation.title || 'Accessibility violation';
-                            html += `<li class="text-red-600 text-sm">${description}</li>`;
-                        });
-                        
+                                    const description = violation.description || violation.help || violation.message || violation.title || 'Accessibility violation';
+                                    html += `<li class="text-red-600 text-sm">${description}</li>`;
+                                });
+                                
                                 if (violations.length > 3) {
                                     html += `<li class="text-gray-500 italic text-sm">... and ${violations.length - 3} more</li>`;
                                 }
@@ -14157,7 +14461,6 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                 console.error('Error running automated test for instance:', error);
             }
         },
-        
         // Group requirements with their associated pages
         getRequirementsWithPages() {
             if (!this.sessionDetailsTestInstances?.length) return [];
@@ -14944,7 +15247,6 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                 console.error('Error toggling test history:', error);
             }
         },
-
         // Run tests for a specific requirement - UNIFIED AUTOMATION
         async runTestsForRequirement(criterionNumber) {
             try {
@@ -15747,18 +16049,6 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
         getRequirementOverallStatusClass(requirement) {
             if (!requirement) return 'bg-gray-100 text-gray-600';
             
-            // Check for manual status override first
-            if (requirement.manual_status_override) {
-                const statusClassMap = {
-                    'passed': 'bg-green-100 text-green-800',
-                    'failed': 'bg-red-100 text-red-800',
-                    'in_process': 'bg-blue-100 text-blue-800',
-                    'needs_review': 'bg-yellow-100 text-yellow-800',
-                    'not_applicable': 'bg-gray-100 text-gray-600'
-                };
-                return statusClassMap[requirement.manual_status_override] || 'bg-gray-100 text-gray-600';
-            }
-            
             // Check if requirement has test instances
             const testInstances = this.getTestInstancesForRequirement(requirement.requirement_id);
             
@@ -15786,19 +16076,6 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
         // Get requirement overall status text
         getRequirementOverallStatus(requirement) {
             if (!requirement) return 'Not Tested';
-            
-            // Check for manual status override first
-            if (requirement.manual_status_override) {
-                // Convert status to display format
-                const statusMap = {
-                    'passed': 'Passed',
-                    'failed': 'Failed', 
-                    'in_process': 'In Process',
-                    'needs_review': 'Needs Review',
-                    'not_applicable': 'Not Applicable'
-                };
-                return statusMap[requirement.manual_status_override] || requirement.manual_status_override;
-            }
             
             // Check if requirement has test instances
             const testInstances = this.getTestInstancesForRequirement(requirement.requirement_id);
@@ -16336,7 +16613,6 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
         this.auditTimeline.expandedItems.clear();
         document.getElementById('auditTimelineModal').classList.add('hidden');
     };
-
     componentInstance.loadAuditTimeline = async function() {
         if (!this.auditTimeline.sessionId) return;
 
@@ -17049,26 +17325,58 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
         // Apply filters
         if (this.requirementFilters.testStatus) {
             const status = this.requirementFilters.testStatus;
-            console.log(`🔍 FILTER DEBUG: Filtering by status "${status}"`);
+            
+            // Debug: Show total counts before filtering
+            console.log(`🔍 FILTER START: Filtering ${filtered.length} requirements by status "${status}"`);
+            
+            // Debug: Show first few requirements and their status values
+            if (status === 'passed') {
+                console.log('🔍 FIRST 5 REQUIREMENTS STATUS:', filtered.slice(0, 5).map(r => ({
+                    id: r.requirement_id,
+                    auto: r.automated_status,
+                    manual: r.manual_status,
+                    method: r.test_method
+                })));
+            }
             
             filtered = filtered.filter(req => {
-                // Check automated status for automated/both requirements
-                const hasAutomatedMatch = (req.test_method === 'automated' || req.test_method === 'both') && 
-                                         req.automated_status === status;
-                
-                // Check manual status for manual/both requirements  
-                const hasManualMatch = (req.test_method === 'manual' || req.test_method === 'both') && 
-                                      req.manual_status === status;
-                
-                // Debug first few requirements when filtering by "failed"
-                if (status === 'failed' && (req.criterion_number === '1.3.6' || req.criterion_number === '1.4.6' || req.criterion_number === '2.4.12' || req.criterion_number === '2.4.13')) {
-                    console.log(`🔍 FILTER CHECK: ${req.criterion_number} - test_method="${req.test_method}", automated_status="${req.automated_status}", manual_status="${req.manual_status}" - hasAutomatedMatch=${hasAutomatedMatch}, hasManualMatch=${hasManualMatch}`);
+                // Use the same logic as the working filter implementation
+                switch (status) {
+                    case 'not_tested':
+                        // Show requirements that are truly not tested (both statuses are not_tested or null)
+                        const autoNotTested = !req.automated_status || req.automated_status === 'not_tested';
+                        const manualNotTested = !req.manual_status || req.manual_status === 'not_tested';
+                        return autoNotTested && manualNotTested;
+                    
+                    case 'failed':
+                        // Show requirements where ANY test has failed
+                        return req.automated_status === 'failed' || req.manual_status === 'failed';
+                    
+                    case 'passed':
+                        // Show requirements where at least one applicable test has passed and none have failed
+                        const hasPassedTest = req.automated_status === 'passed' || req.manual_status === 'passed';
+                        const hasFailedTest = req.automated_status === 'failed' || req.manual_status === 'failed';
+                        
+                        // Debug logging for first few passed requirements
+                        if (hasPassedTest && !hasFailedTest && req.requirement_id <= '1.3.5') {
+                            console.log(`🔍 PASSED DEBUG: ${req.requirement_id} - auto:${req.automated_status}, manual:${req.manual_status}, method:${req.test_method} -> SHOULD SHOW`);
+                        }
+                        
+                        return hasPassedTest && !hasFailedTest;
+                    
+                    case 'in_progress':
+                        // Show requirements with in_progress or pending status
+                        return req.automated_status === 'in_progress' || req.manual_status === 'in_progress' ||
+                               req.automated_status === 'pending' || req.manual_status === 'pending' ||
+                               req.automated_status === 'human_review' || req.manual_status === 'human_review';
+                    
+                    default:
+                        // For any other status, check if either automated or manual matches
+                        return req.automated_status === status || req.manual_status === status;
                 }
-                
-                // Return true if either automated or manual status matches
-                return hasAutomatedMatch || hasManualMatch;
             });
             
+            // Debug: Show count after filtering
             console.log(`🔍 FILTER RESULT: Found ${filtered.length} requirements matching "${status}"`);
         }
 
@@ -17092,7 +17400,6 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
         this.filteredRequirements = filtered;
         this.updateRequirementsPagination();
     };
-
     // Update requirements pagination
     componentInstance.updateRequirementsPagination = function() {
         const totalItems = this.filteredRequirements.length;
@@ -17107,42 +17414,6 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
         const startIndex = (this.requirementCurrentPage - 1) * this.requirementPageSize;
         const endIndex = startIndex + this.requirementPageSize;
         this.paginatedRequirements = this.filteredRequirements.slice(startIndex, endIndex);
-    };
-
-    // Calculate requirement statistics
-    componentInstance.calculateRequirementStats = function() {
-        if (!this.sessionRequirements) {
-            this.requirementStats = {
-                total: 0,
-                automated_passed: 0,
-                automated_failed: 0,
-                manual_completed: 0,
-                manual_pending: 0,
-                not_tested: 0
-            };
-            return;
-        }
-
-        const stats = {
-            total: this.sessionRequirements.length,
-            automated_passed: 0,
-            automated_failed: 0,
-            manual_completed: 0,
-            manual_pending: 0,
-            not_tested: 0
-        };
-
-        this.sessionRequirements.forEach(req => {
-            if (req.automated_status === 'passed') stats.automated_passed++;
-            else if (req.automated_status === 'failed') stats.automated_failed++;
-            
-            if (req.manual_status === 'completed') stats.manual_completed++;
-            else if (req.manual_status === 'pending') stats.manual_pending++;
-            
-            if (req.overall_status === 'not_tested') stats.not_tested++;
-        });
-
-        this.requirementStats = stats;
     };
 
     // View requirement details
@@ -17513,6 +17784,10 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
     window._dashboardInitialized = true;
     window._dashboardInstance = componentInstance;
     
+    // Ensure multiple access paths for reliability
+    window.dashboard = componentInstance;
+    window.dashboardComponent = componentInstance;
+    
     // Also store in Alpine's global store for better accessibility
     if (window.Alpine && window.Alpine.store) {
         try {
@@ -17612,9 +17887,7 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
     window.closeRequirementDetailsModal = () => componentInstance.closeRequirementDetailsModal();
     // window.runAutomatedTestForRequirement is set by the robust global wrapper below
     window.filterRequirements = () => {
-        console.log('🔍 Global filterRequirements called');
         if (componentInstance && componentInstance.filterRequirements) {
-            console.log('🔍 Calling componentInstance.filterRequirements');
             return componentInstance.filterRequirements();
         } else {
             console.error('❌ componentInstance.filterRequirements not available');
@@ -17626,6 +17899,63 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
     window.viewAutomationRunDetails = (run) => componentInstance.viewAutomationRunDetails(run);
     window.downloadAutomationRunReport = (runId) => componentInstance.downloadAutomationRunReport(runId);
     window.updateAutomationChart = (period) => componentInstance.updateAutomationChart(period);
+
+    // ===== Global fallbacks for User Management Alpine bindings =====
+    // Some templates reference these directly; expose safe proxies to the main component state
+    if (typeof window.getPaginatedUsers !== 'function') {
+        window.getPaginatedUsers = () => {
+            if (componentInstance && typeof componentInstance.getPaginatedUsers === 'function') {
+                return componentInstance.getPaginatedUsers();
+            }
+            return [];
+        };
+    }
+
+    // userPagination proxy (getter/setter to keep in sync with component)
+    if (!Object.getOwnPropertyDescriptor(window, 'userPagination')) {
+        Object.defineProperty(window, 'userPagination', {
+            configurable: true,
+            enumerable: true,
+            get() { return (componentInstance && componentInstance.userPagination) ? componentInstance.userPagination : { currentPage: 1, itemsPerPage: 10, totalItems: 0, totalPages: 1 }; },
+            set(value) { if (componentInstance) componentInstance.userPagination = value; }
+        });
+    }
+
+    // loading proxy
+    if (!Object.getOwnPropertyDescriptor(window, 'loading')) {
+        Object.defineProperty(window, 'loading', {
+            configurable: true,
+            enumerable: true,
+            get() { return componentInstance ? !!componentInstance.loading : false; },
+            set(value) { if (componentInstance) componentInstance.loading = !!value; }
+        });
+    }
+
+    // showUserForm, userForm, userFormErrors proxies
+    if (!Object.getOwnPropertyDescriptor(window, 'showUserForm')) {
+        Object.defineProperty(window, 'showUserForm', {
+            configurable: true,
+            enumerable: true,
+            get() { return componentInstance ? !!componentInstance.showUserForm : false; },
+            set(value) { if (componentInstance) componentInstance.showUserForm = !!value; }
+        });
+    }
+    if (!Object.getOwnPropertyDescriptor(window, 'userForm')) {
+        Object.defineProperty(window, 'userForm', {
+            configurable: true,
+            enumerable: true,
+            get() { return componentInstance && componentInstance.userForm ? componentInstance.userForm : { id: null, username: '', email: '', full_name: '', role: 'tester', is_active: true, password: '', confirm_password: '' }; },
+            set(value) { if (componentInstance) componentInstance.userForm = value; }
+        });
+    }
+    if (!Object.getOwnPropertyDescriptor(window, 'userFormErrors')) {
+        Object.defineProperty(window, 'userFormErrors', {
+            configurable: true,
+            enumerable: true,
+            get() { return componentInstance && componentInstance.userFormErrors ? componentInstance.userFormErrors : {}; },
+            set(value) { if (componentInstance) componentInstance.userFormErrors = value; }
+        });
+    }
     window.initAutomationChart = () => componentInstance.initAutomationChart();
     
     // Add missing functions for requirements modal
@@ -18125,4 +18455,4 @@ window.handleAuthError = function() {
     }
 };
 
-console.log('📦 Dashboard module loaded successfully');
+// Deduplicated accidental duplicate blocks during recent merges

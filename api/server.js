@@ -101,7 +101,7 @@ app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Serve dashboard and static files from project root
 app.use(express.static(path.join(__dirname, '..'), { 
-    index: 'dashboard.html',
+    index: ['dashboard/index.html', 'index.html'],
     dotfiles: 'ignore',
     setHeaders: (res, path) => {
         if (path.endsWith('.html')) {
