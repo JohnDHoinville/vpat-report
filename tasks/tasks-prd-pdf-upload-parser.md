@@ -12,6 +12,7 @@ Based on: `prd-pdf-upload-parser.md`
 - `dashboard/js/dashboard.js` - Integrate PDF upload functionality and data population logic
 - `dashboard/js/pdf-upload-handler.js` - Frontend PDF upload handling and progress management
 - `api/middleware/file-upload.js` - Multer middleware for handling PDF file uploads (✅ Created)
+- `api/middleware/pdf-auth.js` - Enhanced authentication middleware for PDF uploads (✅ Created)
 - `api/server.js` - Server configuration with PDF upload route registration (✅ Updated)
 - `tests/api/pdf-upload.test.js` - Backend API tests for PDF upload and parsing
 - `tests/frontend/pdf-upload.test.js` - Frontend integration tests for upload functionality
@@ -29,7 +30,7 @@ Based on: `prd-pdf-upload-parser.md`
   - [x] 1.1 Create new API route `/api/pdf-upload` with file upload middleware (multer)
   - [x] 1.2 Implement PDF file validation (size limits, format verification)
   - [x] 1.3 Set up temporary file storage for processing uploaded PDFs
-  - [ ] 1.4 Add authentication middleware to secure the upload endpoint
+  - [x] 1.4 Add authentication middleware to secure the upload endpoint
   - [ ] 1.5 Create response structure for parsed data and error handling
   - [ ] 1.6 Add API documentation and logging for the new endpoint
 

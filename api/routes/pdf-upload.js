@@ -3,6 +3,13 @@ const fs = require('fs').promises;
 const path = require('path');
 const { handlePDFUpload } = require('../middleware/file-upload');
 const { authenticateToken } = require('../middleware/auth');
+const { 
+    authenticatePDFUpload, 
+    addUploadRateLimitHeaders,
+    validateUploadContext,
+    auditPDFUpload,
+    getUploadRateLimitStats 
+} = require('../middleware/pdf-auth');
 const { logger } = require('../utils/logger');
 const { tempStorage } = require('../utils/temp-storage');
 const router = express.Router();
@@ -14,7 +21,13 @@ const router = express.Router();
  * @body {File} pdf - PDF file to upload and parse
  * @query {string} requirementId - ID of the requirement context (optional)
  */
-router.post('/', authenticateToken, handlePDFUpload, async (req, res) => {
+router.post('/', 
+    authenticatePDFUpload, 
+    validateUploadContext,
+    addUploadRateLimitHeaders,
+    auditPDFUpload,
+    handlePDFUpload, 
+    async (req, res) => {
     let tempFilePath = null;
     
     try {
@@ -43,6 +56,16 @@ router.post('/', authenticateToken, handlePDFUpload, async (req, res) => {
         
         // Get storage statistics
         const storageStats = await req.tempStorage.getStats();
+        
+        // Include authentication and context information
+        const authContext = {
+            userId: req.user.id,
+            username: req.user.username,
+            role: req.user.role,
+            sessionId: req.user.sessionId,
+            uploadContext: req.uploadContext,
+            rateLimitRemaining: req.uploadRateLimit?.remaining || 0
+        };
 
         // TODO: Implement PDF parsing logic here
         // For now, return a placeholder response with validation info
@@ -54,6 +77,7 @@ router.post('/', authenticateToken, handlePDFUpload, async (req, res) => {
                 uploadedBy: req.user.id,
                 tempPath: tempFilePath
             },
+            authentication: authContext,
             validation: {
                 isValid: true,
                 pdfVersion: validationDetails.version,
@@ -144,6 +168,14 @@ router.get('/status', authenticateToken, async (req, res) => {
                     storageMonitoring: true,
                     fileArchiving: true
                 },
+                authentication: {
+                    jwtTokenRequired: true,
+                    sessionValidation: true,
+                    roleBasedAccess: true,
+                    uploadRateLimiting: true,
+                    contextValidation: true,
+                    auditLogging: true
+                },
                 features: {
                     formFieldExtraction: false, // Will be true when implemented
                     urlMatching: false, // Will be true when implemented
@@ -156,6 +188,20 @@ router.get('/status', authenticateToken, async (req, res) => {
                 allowedExtensions: ['.pdf'],
                 filenamePattern: 'alphanumeric, spaces, hyphens, underscores, periods',
                 maxFilenameLength: 255
+            },
+            authentication: {
+                required: true,
+                allowedRoles: ['admin', 'tester', 'manager'],
+                rateLimits: {
+                    maxUploads: 10,
+                    windowMs: 3600000,
+                    windowDescription: '1 hour'
+                },
+                currentUser: {
+                    id: req.user.id,
+                    username: req.user.username,
+                    role: req.user.role
+                }
             },
             storage: storageHealth,
             version: '1.0.0'
@@ -225,6 +271,56 @@ router.post('/cleanup', authenticateToken, async (req, res) => {
             error: 'Storage cleanup failed',
             code: 'CLEANUP_ERROR',
             message: error.message
+        });
+    }
+});
+
+/**
+ * @route GET /api/pdf-upload/auth-stats
+ * @desc Get authentication and rate limiting statistics
+ * @access Private (requires admin role)
+ */
+router.get('/auth-stats', authenticateToken, async (req, res) => {
+    try {
+        // Check if user has admin role for viewing stats
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({
+                success: false,
+                error: 'Admin role required to view authentication statistics',
+                code: 'INSUFFICIENT_PERMISSIONS'
+            });
+        }
+        
+        const rateLimitStats = getUploadRateLimitStats();
+        
+        res.json({
+            success: true,
+            authentication: {
+                currentUser: {
+                    id: req.user.id,
+                    username: req.user.username,
+                    role: req.user.role
+                },
+                rateLimiting: rateLimitStats,
+                security: {
+                    requiresAuthentication: true,
+                    allowedRoles: ['admin', 'tester', 'manager'],
+                    uploadRateLimit: {
+                        maxUploads: 10,
+                        windowMs: 3600000, // 1 hour
+                        enabled: true
+                    }
+                }
+            },
+            timestamp: new Date().toISOString()
+        });
+
+    } catch (error) {
+        logger.error('Failed to get auth stats:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to retrieve authentication statistics',
+            code: 'AUTH_STATS_ERROR'
         });
     }
 });
