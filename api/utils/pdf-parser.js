@@ -9,6 +9,7 @@
 const { PDFDocument, PDFForm, PDFTextField, PDFCheckBox, PDFDropdown } = require('pdf-lib');
 const fs = require('fs').promises;
 const path = require('path');
+const pdfParse = require('pdf-parse');
 const { createUploadLogger } = require('./pdf-logger');
 
 const logger = createUploadLogger('PDFParser');
@@ -24,6 +25,7 @@ class PDFParser {
         this.pages = [];
         this.textContent = '';
         this.formFields = new Map();
+        this.pdfBytes = null;
         
         // Field name patterns for form extraction
         this.patterns = {
@@ -63,6 +65,9 @@ class PDFParser {
             } else {
                 throw new Error('Source must be a file path (string) or Buffer');
             }
+            
+            // Store PDF bytes for text extraction
+            this.pdfBytes = pdfBytes;
             
             // Load the PDF document
             this.pdfDoc = await PDFDocument.load(pdfBytes);
@@ -161,49 +166,44 @@ class PDFParser {
     }
     
     /**
-     * Extract text content from all pages in the PDF
+     * Extract text content from all pages in the PDF using pdf-parse
      * @private
      */
     async extractTextContent() {
         try {
-            logger.info('📝 Extracting text content from PDF pages', { 
+            logger.info('📝 Extracting text content from PDF pages using pdf-parse', { 
                 pageCount: this.pages.length 
             });
             
-            let combinedText = '';
-            
-            for (let i = 0; i < this.pages.length; i++) {
-                const page = this.pages[i];
-                
-                try {
-                    // Note: pdf-lib doesn't have built-in text extraction
-                    // We'll focus on form fields for now, but this method
-                    // can be extended with additional text extraction libraries
-                    logger.debug('📄 Processing page for text extraction', { pageIndex: i });
-                    
-                    // For now, we'll rely on form field extraction
-                    // and URL extraction from field values
-                    
-                } catch (pageError) {
-                    logger.warn('⚠️ Failed to extract text from page', {
-                        pageIndex: i,
-                        error: pageError.message
-                    });
-                }
+            // Use the same PDF bytes that were loaded for pdf-lib
+            if (!this.pdfBytes) {
+                logger.warn('⚠️ PDF bytes not available for text extraction');
+                this.textContent = '';
+                return;
             }
             
-            this.textContent = combinedText;
+            // Extract text using pdf-parse
+            const data = await pdfParse(this.pdfBytes);
+            this.textContent = data.text || '';
             
             logger.info('✅ Text content extraction completed', {
-                textLength: this.textContent.length
+                textLength: this.textContent.length,
+                pageCount: data.numpages || 0
             });
+            
+            // Log a sample of the extracted text for debugging
+            if (this.textContent.length > 0) {
+                const sample = this.textContent.substring(0, 200).replace(/\s+/g, ' ');
+                logger.debug('📝 Text sample extracted', { 
+                    sample: sample + (this.textContent.length > 200 ? '...' : '')
+                });
+            }
             
         } catch (error) {
             logger.error('❌ Failed to extract text content', {
                 error: error.message,
                 stack: error.stack
             });
-            // Don't throw here - text extraction is not critical
             this.textContent = '';
         }
     }
@@ -393,28 +393,29 @@ class PDFParser {
     }
     
     /**
-     * Extract URLs from form field values
+     * Extract URLs from form field values and text content
      * @returns {Array<string>} Array of extracted URLs
      */
     getURLs() {
         try {
-            logger.debug('🔍 Extracting URLs from form fields');
+            logger.debug('🔍 Extracting URLs from form fields and text content');
             
             const urls = new Set(); // Use Set to avoid duplicates
             
             // Pattern to match URLs (basic URL detection)
-            const urlPattern = /https?:\/\/[^\s]+/gi;
+            const urlPattern = /https?:\/\/[^\s\)]+/gi;
             
             // Also look for "URL: " prefix pattern as mentioned in PRD
-            const urlPrefixPattern = /URL:\s*(https?:\/\/[^\s]+)/gi;
+            const urlPrefixPattern = /URL:\s*(https?:\/\/[^\s\)]+)/gi;
             
+            // Extract URLs from form fields
             for (const [fieldName, field] of this.formFields) {
                 if (field.value && typeof field.value === 'string') {
                     // Check for URL prefix pattern first
                     let match;
                     while ((match = urlPrefixPattern.exec(field.value)) !== null) {
                         urls.add(match[1].trim());
-                        logger.debug('📝 URL found with prefix', { 
+                        logger.debug('📝 URL found with prefix in form field', { 
                             url: match[1].trim(), 
                             fieldName 
                         });
@@ -424,7 +425,7 @@ class PDFParser {
                     urlPrefixPattern.lastIndex = 0; // Reset regex
                     while ((match = urlPattern.exec(field.value)) !== null) {
                         urls.add(match[0].trim());
-                        logger.debug('📝 URL found', { 
+                        logger.debug('📝 URL found in form field', { 
                             url: match[0].trim(), 
                             fieldName 
                         });
@@ -432,9 +433,46 @@ class PDFParser {
                 }
             }
             
+            // Extract URLs from text content (this is where the blue links will be)
+            if (this.textContent && this.textContent.length > 0) {
+                logger.debug('🔍 Searching for URLs in extracted text content', {
+                    textLength: this.textContent.length
+                });
+                
+                // Reset regex lastIndex
+                urlPattern.lastIndex = 0;
+                urlPrefixPattern.lastIndex = 0;
+                
+                // Check for URL prefix pattern in text
+                let match;
+                while ((match = urlPrefixPattern.exec(this.textContent)) !== null) {
+                    urls.add(match[1].trim());
+                    logger.debug('📝 URL found with prefix in text content', { 
+                        url: match[1].trim()
+                    });
+                }
+                
+                // Check for general URL pattern in text
+                urlPrefixPattern.lastIndex = 0;
+                while ((match = urlPattern.exec(this.textContent)) !== null) {
+                    const url = match[0].trim();
+                    // Clean up common PDF text extraction artifacts
+                    const cleanUrl = url.replace(/[,\.\)]$/, ''); // Remove trailing punctuation
+                    if (cleanUrl.length > 10) { // Minimum URL length check
+                        urls.add(cleanUrl);
+                        logger.debug('📝 URL found in text content', { 
+                            url: cleanUrl,
+                            original: url
+                        });
+                    }
+                }
+            } else {
+                logger.debug('📝 No text content available for URL extraction');
+            }
+            
             const urlArray = Array.from(urls);
             
-            logger.info('✅ URLs extracted', { 
+            logger.info('✅ URLs extracted from both form fields and text content', { 
                 urlCount: urlArray.length,
                 urls: urlArray 
             });
@@ -529,6 +567,7 @@ class PDFParser {
         this.pages = [];
         this.textContent = '';
         this.formFields.clear();
+        this.pdfBytes = null;
         
         try {
             logger.debug('🧹 PDF parser resources cleaned up');
