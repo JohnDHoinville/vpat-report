@@ -12,6 +12,12 @@ const {
 } = require('../middleware/pdf-auth');
 const { logger } = require('../utils/logger');
 const { tempStorage } = require('../utils/temp-storage');
+const { 
+    PDFResponseFactory,
+    ParsedPDFData,
+    PDFErrorHandler,
+    PDF_RESPONSE_CODES 
+} = require('../utils/pdf-response-handler');
 const router = express.Router();
 
 /**
@@ -29,14 +35,17 @@ router.post('/',
     handlePDFUpload, 
     async (req, res) => {
     let tempFilePath = null;
+    const startTime = Date.now();
     
     try {
+        // Check if file was uploaded
         if (!req.file) {
-            return res.status(400).json({
-                success: false,
-                error: 'No PDF file uploaded',
-                code: 'NO_FILE'
-            });
+            const response = PDFResponseFactory.fileValidationError(
+                PDF_RESPONSE_CODES.NO_FILE,
+                'No PDF file uploaded',
+                { expectedField: 'pdf' }
+            );
+            return res.status(400).json(response.toJSON());
         }
 
         tempFilePath = req.file.path;
@@ -51,14 +60,22 @@ router.post('/',
             tempPath: tempFilePath
         });
 
-        // Include PDF validation details in the response
-        const validationDetails = req.pdfValidation || {};
-        
-        // Get storage statistics
-        const storageStats = await req.tempStorage.getStats();
-        
-        // Include authentication and context information
-        const authContext = {
+        // Initialize parsed data structure
+        const parsedData = new ParsedPDFData({
+            filename: originalFilename,
+            fileSize: req.file.size,
+            uploadedBy: req.user.id,
+            tempPath: tempFilePath
+        });
+
+        // Add processing step
+        parsedData.addProcessingStep('file_upload', 'completed', {
+            filename: originalFilename,
+            size: req.file.size
+        });
+
+        // Set authentication context
+        parsedData.authentication = {
             userId: req.user.id,
             username: req.user.username,
             role: req.user.role,
@@ -67,59 +84,97 @@ router.post('/',
             rateLimitRemaining: req.uploadRateLimit?.remaining || 0
         };
 
-        // TODO: Implement PDF parsing logic here
-        // For now, return a placeholder response with validation info
-        const parsedData = {
-            metadata: {
-                filename: originalFilename,
-                fileSize: req.file.size,
-                uploadedAt: new Date().toISOString(),
-                uploadedBy: req.user.id,
-                tempPath: tempFilePath
-            },
-            authentication: authContext,
-            validation: {
-                isValid: true,
-                pdfVersion: validationDetails.version,
-                fileSize: validationDetails.fileSize,
-                structureScore: validationDetails.structureScore,
-                hasProperTrailer: validationDetails.hasProperTrailer,
-                hasXrefTable: validationDetails.hasXrefTable
-            },
-            storage: {
-                tempFiles: storageStats?.temp?.count || 0,
-                totalStorageUsed: storageStats?.totalSize || 0,
-                tempStorageSize: storageStats?.temp?.size || 0
-            },
-            requirement: {
-                number: null, // Will be extracted from PDF
-                overallStatus: null // Will be extracted from PDF
-            },
-            testInstances: [], // Will be populated from PDF form fields
-            urls: [], // Will be extracted from PDF content
-            parsing: {
-                success: false,
-                message: 'PDF parsing not yet implemented',
-                fieldsFound: 0,
-                fieldsProcessed: 0
-            }
+        // Set validation details
+        const validationDetails = req.pdfValidation || {};
+        parsedData.validation = {
+            isValid: true,
+            pdfVersion: validationDetails.version,
+            fileSize: validationDetails.fileSize,
+            structureScore: validationDetails.structureScore,
+            hasProperTrailer: validationDetails.hasProperTrailer,
+            hasXrefTable: validationDetails.hasXrefTable
         };
+        
+        parsedData.addProcessingStep('pdf_validation', 'completed', validationDetails);
+
+        // Set storage statistics
+        const storageStats = await req.tempStorage.getStats();
+        parsedData.storage = {
+            tempFiles: storageStats?.temp?.count || 0,
+            totalStorageUsed: storageStats?.totalSize || 0,
+            tempStorageSize: storageStats?.temp?.size || 0
+        };
+
+        // Add storage step
+        parsedData.addProcessingStep('storage_stats', 'completed', {
+            tempFiles: parsedData.storage.tempFiles,
+            totalSize: parsedData.storage.totalStorageUsed
+        });
+
+        // TODO: Implement actual PDF parsing logic here
+        // For now, simulate parsing with placeholder data
+        parsedData.addProcessingStep('pdf_parsing', 'skipped', {
+            reason: 'PDF parsing implementation pending'
+        });
+
+        parsedData.updateParsingStatus({
+            success: false,
+            message: 'PDF parsing not yet implemented - placeholder response',
+            fieldsFound: 0,
+            fieldsProcessed: 0,
+            fieldsWithErrors: 0,
+            parsingDuration: 0,
+            warnings: ['PDF parsing implementation is pending']
+        });
+
+        // Set placeholder requirement data
+        parsedData.setRequirement({
+            number: null,
+            title: null,
+            overallStatus: null,
+            extracted: false,
+            matched: false
+        });
+
+        // Complete processing
+        parsedData.completeProcessing();
+        
+        parsedData.addProcessingStep('response_generation', 'completed', {
+            duration: parsedData.processing.duration
+        });
 
         // Clean up temp file
         try {
             await fs.unlink(tempFilePath);
+            parsedData.addProcessingStep('file_cleanup', 'completed');
         } catch (unlinkError) {
             logger.warn(`Failed to clean up temp file: ${tempFilePath}`, unlinkError);
+            parsedData.addProcessingStep('file_cleanup', 'failed', {
+                error: unlinkError.message
+            });
         }
 
-        res.json({
-            success: true,
-            message: 'PDF uploaded successfully (parsing placeholder)',
-            data: parsedData
+        // Create success response
+        const response = PDFResponseFactory.uploadSuccess(parsedData, {
+            processingTime: Date.now() - startTime,
+            requirementId: requirementId
         });
 
+        // Add warnings for placeholder implementation
+        response.addWarnings([
+            'PDF parsing is not yet implemented - this is a placeholder response',
+            'Form field extraction will be available in future implementation',
+            'URL matching and requirement validation pending'
+        ]);
+
+        res.json(response.toJSON());
+
     } catch (error) {
-        logger.error('PDF upload processing failed:', error);
+        PDFErrorHandler.logError(error, {
+            userId: req.user?.id,
+            filename: req.file?.originalname,
+            tempPath: tempFilePath
+        });
 
         // Clean up temp file on error
         if (tempFilePath) {
@@ -130,12 +185,29 @@ router.post('/',
             }
         }
 
-        res.status(500).json({
-            success: false,
-            error: 'Failed to process PDF upload',
-            message: error.message,
-            code: 'PROCESSING_ERROR'
+        // Create standardized error response
+        const errorResponse = PDFErrorHandler.categorizeError(error, {
+            operation: 'pdf_upload',
+            userId: req.user?.id,
+            filename: req.file?.originalname,
+            processingTime: Date.now() - startTime
         });
+
+        // Determine appropriate HTTP status code
+        let statusCode = 500;
+        if (errorResponse.code === PDF_RESPONSE_CODES.INVALID_FILE_TYPE ||
+            errorResponse.code === PDF_RESPONSE_CODES.FILE_TOO_LARGE ||
+            errorResponse.code === PDF_RESPONSE_CODES.INVALID_PDF_FORMAT) {
+            statusCode = 400;
+        } else if (errorResponse.code === PDF_RESPONSE_CODES.INSUFFICIENT_PERMISSIONS ||
+                   errorResponse.code === PDF_RESPONSE_CODES.RATE_LIMIT_EXCEEDED) {
+            statusCode = 403;
+        } else if (errorResponse.code === PDF_RESPONSE_CODES.NO_TOKEN ||
+                   errorResponse.code === PDF_RESPONSE_CODES.INVALID_TOKEN) {
+            statusCode = 401;
+        }
+
+        res.status(statusCode).json(errorResponse.toJSON());
     }
 });
 
@@ -148,8 +220,7 @@ router.get('/status', authenticateToken, async (req, res) => {
     try {
         const storageHealth = await tempStorage.getHealthStatus();
         
-        res.json({
-            success: true,
+        const statusData = {
             status: 'available',
             capabilities: {
                 maxFileSize: '10MB',
@@ -205,14 +276,28 @@ router.get('/status', authenticateToken, async (req, res) => {
             },
             storage: storageHealth,
             version: '1.0.0'
+        };
+
+        const response = PDFResponseFactory.uploadSuccess(statusData, {
+            operation: 'status_check',
+            userId: req.user.id
         });
+
+        res.json(response.toJSON());
+        
     } catch (error) {
-        logger.error('Failed to get storage status:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Failed to retrieve storage status',
-            code: 'STORAGE_STATUS_ERROR'
+        PDFErrorHandler.logError(error, {
+            operation: 'status_check',
+            userId: req.user.id
         });
+
+        const errorResponse = PDFResponseFactory.serverError(
+            PDF_RESPONSE_CODES.PROCESSING_ERROR,
+            'Failed to retrieve service status',
+            { operation: 'status_check' }
+        );
+
+        res.status(500).json(errorResponse.toJSON());
     }
 });
 
@@ -228,20 +313,36 @@ router.get('/storage', authenticateToken, async (req, res) => {
             tempStorage.getHealthStatus()
         ]);
 
-        res.json({
-            success: true,
+        const storageData = {
             statistics: stats,
             health: health,
-            timestamp: new Date().toISOString()
+            requestedBy: {
+                userId: req.user.id,
+                username: req.user.username,
+                role: req.user.role
+            }
+        };
+
+        const response = PDFResponseFactory.uploadSuccess(storageData, {
+            operation: 'storage_stats',
+            userId: req.user.id
         });
 
+        res.json(response.toJSON());
+
     } catch (error) {
-        logger.error('Failed to get storage details:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Failed to retrieve storage details',
-            code: 'STORAGE_DETAILS_ERROR'
+        PDFErrorHandler.logError(error, {
+            operation: 'storage_stats',
+            userId: req.user.id
         });
+
+        const errorResponse = PDFResponseFactory.serverError(
+            PDF_RESPONSE_CODES.STORAGE_ERROR,
+            'Failed to retrieve storage statistics',
+            { operation: 'storage_stats' }
+        );
+
+        res.status(500).json(errorResponse.toJSON());
     }
 });
 
