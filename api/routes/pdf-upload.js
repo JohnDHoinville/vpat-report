@@ -26,6 +26,7 @@ const {
 } = require('../utils/pdf-logger');
 const { createPDFParser } = require('../utils/pdf-parser');
 const { createURLMatcher } = require('../utils/url-matcher');
+const PDFImport = require('../models/PDFImport');
 const router = express.Router();
 
 /**
@@ -187,6 +188,7 @@ router.post('/',
         });
 
         // Parse PDF using pdf-lib
+        const processingStartTime = Date.now();
         pdfLogger.logProcessingStep('pdf_parsing', 'started', {
             filePath: req.file.path,
             fileSize: req.file.size
@@ -287,12 +289,19 @@ router.post('/',
 
         // Add parsed test instances to response data
         if (parsingResult.testInstances && parsingResult.testInstances.length > 0) {
-            parsedData.setTestInstances(parsingResult.testInstances);
+            parsingResult.testInstances.forEach(instance => {
+                parsedData.addTestInstance(instance);
+            });
         }
         
         // Add extracted URLs to response data
         if (parsingResult.urls && parsingResult.urls.length > 0) {
-            parsedData.setURLs(parsingResult.urls);
+            parsedData.addURLs({
+                extracted: parsingResult.urls,
+                total: parsingResult.urls.length,
+                matched: 0, // Will be updated during URL matching
+                unmatched: parsingResult.urls.length
+            });
         }
 
         // Perform URL matching with test instances if requirement number is available
@@ -368,13 +377,34 @@ router.post('/',
             });
         }
 
-        // Create success response
-        const response = PDFResponseFactory.uploadSuccess(parsedData, {
-            processingTime: Date.now() - startTime,
-            requirementId: requirementId
-        });
+        // Save parsed data to database for review and approval
+        const pdfImportData = {
+            filename: originalFilename,
+            file_size: req.file.size,
+            requirement_id: requirementId,
+            uploaded_by: req.user.id,
+            parsed_data: {
+                requirementNumber: parsingResult.requirement.number,
+                overallStatus: parsingResult.requirement.overallStatus,
+                testInstances: parsingResult.testInstances,
+                urls: parsingResult.urls,
+                metadata: {
+                    pageCount: parsingResult.metadata.pageCount,
+                    formFieldCount: parsingResult.metadata.formFieldCount,
+                    hasWYSIWYGFields: parsingResult.metadata.hasWYSIWYGFields,
+                    parsingDuration: parsingResult.metadata.parsingDuration,
+                    extractedAt: new Date().toISOString()
+                },
+                urlMatching: urlMatchingResult,
+                processingTime: Date.now() - startTime
+            },
+            status: 'pending'
+        };
 
-        // Add warnings if parsing had issues
+        // Create PDF import record in database
+        const pdfImport = await PDFImport.create(pdfImportData);
+
+        // Collect warnings for the response
         const warnings = [];
         if (parsingResult.metadata.parsingError) {
             warnings.push(`PDF parsing encountered an error: ${parsingResult.metadata.parsingError}`);
@@ -400,22 +430,36 @@ router.post('/',
                 warnings.push('No URLs from PDF could be matched with existing test instances');
             }
         }
-        
-        if (warnings.length > 0) {
-            response.addWarnings(warnings);
-        }
+
+        // Create success response with import reference
+        const response = {
+            success: true,
+            message: 'PDF uploaded and parsed successfully. Data saved for review.',
+            data: {
+                importId: pdfImport.id,
+                filename: originalFilename,
+                requirementNumber: parsingResult.requirement.number,
+                testInstanceCount: parsingResult.testInstances.length,
+                urlCount: parsingResult.urls.length,
+                status: 'pending',
+                uploadedAt: pdfImport.uploaded_at
+            },
+            warnings: warnings,
+            processingTime: Date.now() - startTime
+        };
 
         // Log successful completion
         const duration = Date.now() - startTime;
         pdfLogger.logCompletion(true, {
             filename: originalFilename,
             fileSize: req.file.size,
-            processingTime: duration
+            processingTime: duration,
+            importId: pdfImport.id
         });
         
         logAPIRequest('POST', req.originalUrl, 200, duration, req.user.id);
         
-        res.json(response.toJSON());
+        res.json(response);
 
     } catch (error) {
         const duration = Date.now() - startTime;

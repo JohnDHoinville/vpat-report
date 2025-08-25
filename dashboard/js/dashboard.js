@@ -3638,10 +3638,14 @@ MANUAL PHASE:
                 tinymce.init({
                     target: element,
                     height: 200,
+                    min_height: 150,
+                    max_height: 500,
                     menubar: false,
+                    resize: 'both',
+                    statusbar: true,
                     plugins: [
                         // Core editing features
-                        'anchor', 'autolink', 'charmap', 'codesample', 'emoticons', 'link', 'lists', 'media', 'searchreplace', 'table', 'visualblocks', 'wordcount',
+                        'anchor', 'autolink', 'charmap', 'codesample', 'emoticons', 'link', 'lists', 'media', 'searchreplace', 'table', 'visualblocks', 'wordcount', 'autoresize',
                         // Premium features (available with your API key)
                         'checklist', 'mediaembed', 'casechange', 'formatpainter', 'pageembed', 'a11ychecker', 'tinymcespellchecker', 'permanentpen', 'powerpaste', 'advtable', 'advcode', 'advtemplate'
                     ],
@@ -3654,7 +3658,16 @@ MANUAL PHASE:
                             editor.setContent(initialContent || '');
                         });
                         
-                        editor.on('change keyup paste', function() {
+                        // Enhanced change detection for better save tracking
+                        editor.on('change keyup paste input blur focusout', function() {
+                            const content = editor.getContent();
+                            if (onChangeCallback) {
+                                onChangeCallback(content);
+                            }
+                        });
+                        
+                        // Additional change detection for user actions
+                        editor.on('SetContent', function() {
                             const content = editor.getContent();
                             if (onChangeCallback) {
                                 onChangeCallback(content);
@@ -12546,6 +12559,110 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
             } catch (error) {
                 console.error('Error exporting session report:', error);
                 this.showNotification('error', 'Export Failed', error.message);
+            }
+        },
+        
+        // Export session data as CSV
+        async exportSessionCSV(sessionId) {
+            try {
+                console.log('📊 Exporting session CSV for:', sessionId);
+                
+                this.showNotification('info', 'CSV Export', 'Preparing CSV export...');
+                
+                // Get export summary first
+                const summaryResponse = await this.apiCall(`/testing-sessions/${sessionId}/export-summary`);
+                
+                if (summaryResponse.success) {
+                    const summary = summaryResponse.summary;
+                    console.log('📊 Export summary:', summary);
+                    
+                    // Show summary to user
+                    this.showNotification('info', 'CSV Export', 
+                        `Exporting ${summary.totalRequirements} requirements across ${summary.totalUrls} URLs (estimated ${summary.estimatedRows} rows)`);
+                }
+                
+                // Create a download link that triggers the CSV export
+                const token = localStorage.getItem('auth_token') || localStorage.getItem('token');
+                if (!token) {
+                    throw new Error('Authentication token not found. Please log in again.');
+                }
+                
+                // Direct download approach - let browser handle the CSV download
+                const downloadUrl = `${this.config.apiBaseUrl}/api/testing-sessions/${sessionId}/export-csv`;
+                
+                // Create a temporary link element
+                const link = document.createElement('a');
+                link.href = downloadUrl;
+                link.style.display = 'none';
+                
+                // Add authorization header via a fetch request instead
+                console.log('📊 Making CSV export request to:', downloadUrl);
+                const response = await fetch(downloadUrl, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                console.log('📊 CSV export response status:', response.status);
+                console.log('📊 CSV export response headers:', [...response.headers.entries()]);
+                
+                if (!response.ok) {
+                    console.error('📊 CSV export failed with status:', response.status);
+                    let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+                    try {
+                        const errorData = await response.json();
+                        console.error('📊 CSV export error data:', errorData);
+                        errorMessage = errorData.error || errorData.message || errorMessage;
+                    } catch (parseError) {
+                        console.error('📊 Failed to parse error response:', parseError);
+                        // Try to get response as text
+                        try {
+                            const errorText = await response.text();
+                            console.error('📊 Error response text:', errorText);
+                            if (errorText) errorMessage = errorText;
+                        } catch (textError) {
+                            console.error('📊 Failed to get response text:', textError);
+                        }
+                    }
+                    throw new Error(errorMessage);
+                }
+                
+                // Get the CSV content
+                const csvContent = await response.text();
+                
+                // Create a blob and download it
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                
+                // Create download link
+                const downloadLink = document.createElement('a');
+                downloadLink.href = url;
+                
+                // Generate filename from response headers or use default
+                let filename = 'session-export.csv';
+                const contentDisposition = response.headers.get('content-disposition');
+                if (contentDisposition) {
+                    const filenameMatch = contentDisposition.match(/filename="(.+)"/);
+                    if (filenameMatch) {
+                        filename = filenameMatch[1];
+                    }
+                }
+                
+                downloadLink.download = filename;
+                document.body.appendChild(downloadLink);
+                downloadLink.click();
+                document.body.removeChild(downloadLink);
+                
+                // Clean up
+                URL.revokeObjectURL(url);
+                
+                this.showNotification('success', 'CSV Exported', 'Session data exported to CSV successfully');
+                
+            } catch (error) {
+                console.error('Error exporting session CSV:', error);
+                this.showNotification('error', 'CSV Export Failed', error.message || 'Failed to export session CSV');
             }
         },
         

@@ -1,3 +1,39 @@
+## System Design: Accessibility Testing Platform
+
+### Latest Update: 2025-08-25
+### Status: Session CSV Export Implementation Complete
+
+---
+
+## 🎉 **Major Feature Addition: Session CSV Export**
+
+### **CSV Export Capabilities**
+- ✅ **Export Button**: Added CSV export button to session details modal
+- ✅ **Comprehensive Data**: Exports session name, requirements, URLs, test details
+- ✅ **Data Structure**: 24 columns including status, notes, results, recommendations
+- ✅ **Authentication**: Secure JWT-based access with user authorization
+- ✅ **File Handling**: Automatic filename generation with session name and date
+
+### **Technical Implementation**
+- **Backend Endpoints**: 
+  - `GET /api/testing-sessions/:id/export-csv` - Main CSV export
+  - `GET /api/testing-sessions/:id/export-summary` - Export statistics
+- **Frontend Integration**: Alpine.js function with progress notifications
+- **Data Processing**: HTML content cleaning, CSV escaping, proper encoding
+- **Database Queries**: Unified JOINs across sessions, requirements, test instances, and URLs
+
+### **CSV Export Structure**
+```
+Session Name, Project Name, Session Status, Conformance Level,
+Requirement Number, Requirement Title, Requirement Description, 
+Requirement Level, Test Method, Page URL, Page Title, Page Type,
+Test Status, Test Method Used, Tool Used, Confidence Level,
+Assigned Tester, Reviewer, Notes, Results, Recommendations,
+Test Created, Test Updated, Test Completed
+```
+
+---
+
 ## System Design: Backup and Restore
 
 ### Database

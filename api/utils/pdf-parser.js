@@ -10,9 +10,7 @@ const { PDFDocument, PDFForm, PDFTextField, PDFCheckBox, PDFDropdown } = require
 const fs = require('fs').promises;
 const path = require('path');
 const pdfParse = require('pdf-parse');
-const { createUploadLogger } = require('./pdf-logger');
-
-const logger = createUploadLogger('PDFParser');
+const { logger } = require('./logger');
 
 /**
  * PDF Parser Class
@@ -41,8 +39,17 @@ class PDFParser {
             instanceRecommendations: /^recommendations_(\d+)$/,
         };
         
-        // Valid status values
-        this.validStatuses = ['passed', 'failed', 'in_process', 'needs_review', 'not_applicable'];
+        // Valid status values - mapping from PDF form field names to internal status
+        this.statusMappings = {
+            'pass': 'pass',
+            'fail': 'fail',
+            'passed': 'pass', 
+            'failed': 'fail',
+            'in_process': 'in_process',
+            'needs_review': 'needs_review',
+            'not_applicable': 'not_applicable'
+        };
+        this.validStatuses = ['pass', 'fail', 'in_process', 'needs_review', 'not_applicable'];
     }
     
     /**
@@ -89,11 +96,15 @@ class PDFParser {
             return this.pdfDoc;
             
         } catch (error) {
-            logger.error('❌ Failed to load PDF document', {
-                error: error.message,
-                stack: error.stack,
-                sourceType: typeof source
-            });
+            try {
+                logger.error('❌ Failed to load PDF document', {
+                    error: error.message,
+                    stack: error.stack,
+                    sourceType: typeof source
+                });
+            } catch (logError) {
+                console.error('❌ Failed to load PDF:', error.message);
+            }
             throw new Error(`PDF loading failed: ${error.message}`);
         }
     }
@@ -216,19 +227,36 @@ class PDFParser {
         try {
             logger.debug('🔍 Extracting overall status from form fields');
             
+            // Debug: Log all field names that might be status-related
+            const statusFields = [];
+            for (const [fieldName, field] of this.formFields) {
+                if (fieldName.toLowerCase().includes('status') || fieldName.toLowerCase().includes('overall')) {
+                    statusFields.push({ fieldName, value: field.value, type: typeof field.value });
+                }
+            }
+            logger.info('🔍 All status-related fields found:', { statusFields });
+            
             for (const [fieldName, field] of this.formFields) {
                 const match = fieldName.match(this.patterns.overallStatus);
                 if (match && field.value === true) {
-                    const status = match[1];
+                    const rawStatus = match[1];
                     
-                    // Validate status value
-                    if (this.validStatuses.includes(status)) {
-                        logger.info('✅ Overall status extracted', { status });
-                        return status;
+                    // Map the status value to our internal format
+                    const mappedStatus = this.statusMappings[rawStatus] || rawStatus;
+                    
+                    // Validate mapped status value
+                    if (this.validStatuses.includes(mappedStatus)) {
+                        logger.info('✅ Overall status extracted', { 
+                            fieldName,
+                            rawStatus, 
+                            mappedStatus 
+                        });
+                        return mappedStatus;
                     } else {
                         logger.warn('⚠️ Invalid status value found', { 
                             fieldName, 
-                            status 
+                            rawStatus,
+                            mappedStatus
                         });
                     }
                 }
@@ -262,17 +290,27 @@ class PDFParser {
                 const statusMatch = fieldName.match(this.patterns.instanceStatus);
                 if (statusMatch && field.value === true) {
                     const index = parseInt(statusMatch[1], 10);
-                    const status = statusMatch[2];
+                    const rawStatus = statusMatch[2];
                     
-                    if (this.validStatuses.includes(status)) {
+                    // Map the status value to our internal format
+                    const mappedStatus = this.statusMappings[rawStatus] || rawStatus;
+                    
+                    if (this.validStatuses.includes(mappedStatus)) {
                         if (!instances.has(index)) {
                             instances.set(index, { index });
                         }
-                        instances.get(index).status = status;
+                        instances.get(index).status = mappedStatus;
                         
                         logger.debug('📝 Test instance status extracted', { 
                             index, 
-                            status 
+                            rawStatus,
+                            mappedStatus 
+                        });
+                    } else {
+                        logger.warn('⚠️ Invalid test instance status found', { 
+                            fieldName, 
+                            rawStatus,
+                            mappedStatus
                         });
                     }
                 }

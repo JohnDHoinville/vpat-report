@@ -255,6 +255,353 @@ router.get('/', authenticateToken, async (req, res) => {
 });
 
 /**
+ * GET /api/testing-sessions/:id/export-csv
+ * Export session data as CSV with all requirements and their associated URLs
+ */
+router.get('/:id/export-csv', authenticateToken, async (req, res) => {
+    try {
+        const sessionId = req.params.id;
+        
+        console.log(`📊 Exporting CSV for session: ${sessionId}`);
+        
+        // Validate session exists and user has access
+        const sessionQuery = `
+            SELECT ts.*, p.name as project_name
+            FROM test_sessions ts
+            JOIN projects p ON ts.project_id = p.id
+            WHERE ts.id = $1
+        `;
+        
+        const sessionResult = await pool.query(sessionQuery, [sessionId]);
+        
+        if (sessionResult.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Session not found'
+            });
+        }
+        
+        const session = sessionResult.rows[0];
+        
+        // Step 1: Get all unified requirements (following dashboard pattern)
+        const requirementsQuery = `
+            SELECT 
+                id,
+                requirement_id as criterion_number,
+                title,
+                description,
+                level,
+                test_method,
+                standard_type as requirement_type
+            FROM unified_requirements
+            WHERE standard_type IN ('wcag', 'section_508')
+            ORDER BY requirement_id
+        `;
+        
+        const requirementsResult = await pool.query(requirementsQuery);
+        const allRequirements = requirementsResult.rows;
+        
+        // Step 2: Get test instances for this session 
+        const testInstancesQuery = `
+            SELECT 
+                ti.*,
+                dp.url as page_url,
+                dp.title as page_title,
+                cdp.url as crawler_page_url,
+                cdp.title as crawler_page_title,
+                tester.username as assigned_tester,
+                reviewer.username as reviewer
+            FROM test_instances ti
+            LEFT JOIN discovered_pages dp ON ti.page_id = dp.id
+            LEFT JOIN crawler_discovered_pages cdp ON ti.page_id = cdp.id
+            LEFT JOIN users tester ON ti.assigned_tester = tester.id
+            LEFT JOIN users reviewer ON ti.reviewer = reviewer.id
+            WHERE ti.session_id = $1
+            ORDER BY ti.requirement_id
+        `;
+        
+        const testInstancesResult = await pool.query(testInstancesQuery, [sessionId]);
+        const testInstances = testInstancesResult.rows;
+        
+        // Step 3: Create export data by combining requirements with test instances
+        const exportData = [];
+        
+        // Group test instances by requirement_id for easier lookup
+        const testsByRequirement = {};
+        testInstances.forEach(test => {
+            if (!testsByRequirement[test.requirement_id]) {
+                testsByRequirement[test.requirement_id] = [];
+            }
+            testsByRequirement[test.requirement_id].push(test);
+        });
+        
+        // Create export rows: one row per requirement/URL combination
+        for (const requirement of allRequirements) {
+            const relatedTests = testsByRequirement[requirement.id] || [];
+            
+            if (relatedTests.length > 0) {
+                // Add a row for each test instance (requirement + URL)
+                for (const test of relatedTests) {
+                    exportData.push({
+                        session_name: session.name,
+                        session_id: session.id,
+                        session_description: session.description,
+                        session_status: session.status,
+                        conformance_level: session.conformance_level,
+                        session_created_at: session.created_at,
+                        project_name: session.project_name,
+                        requirement_number: requirement.criterion_number,
+                        requirement_title: requirement.title,
+                        requirement_description: requirement.description,
+                        requirement_level: requirement.level,
+                        test_method: requirement.test_method,
+                        test_instance_id: test.id,
+                        test_status: test.status,
+                        notes: test.notes,
+                        results: test.results,
+                        recommendations: test.recommendations,
+                        confidence_level: test.confidence_level,
+                        test_method_used: test.test_method_used,
+                        tool_used: test.tool_used,
+                        test_created_at: test.created_at,
+                        test_updated_at: test.updated_at,
+                        test_completed_at: test.completed_at,
+                        page_url: test.page_url || test.crawler_page_url || '',
+                        page_title: test.page_title || test.crawler_page_title || '',
+                        page_type: 'content',
+                        assigned_tester: test.assigned_tester,
+                        reviewer: test.reviewer
+                    });
+                }
+            } else {
+                // No test instances for this requirement - add a row with empty test data
+                exportData.push({
+                    session_name: session.name,
+                    session_id: session.id,
+                    session_description: session.description,
+                    session_status: session.status,
+                    conformance_level: session.conformance_level,
+                    session_created_at: session.created_at,
+                    project_name: session.project_name,
+                    requirement_number: requirement.criterion_number,
+                    requirement_title: requirement.title,
+                    requirement_description: requirement.description,
+                    requirement_level: requirement.level,
+                    test_method: requirement.test_method,
+                    test_instance_id: '',
+                    test_status: 'pending',
+                    notes: '',
+                    results: '',
+                    recommendations: '',
+                    confidence_level: '',
+                    test_method_used: '',
+                    tool_used: '',
+                    test_created_at: null,
+                    test_updated_at: null,
+                    test_completed_at: null,
+                    page_url: '',
+                    page_title: '',
+                    page_type: '',
+                    assigned_tester: '',
+                    reviewer: ''
+                });
+            }
+        }
+        
+        // Generate CSV headers
+        const csvHeaders = [
+            'Session Name',
+            'Project Name',
+            'Session Status',
+            'Conformance Level',
+            'Requirement Number',
+            'Requirement Title',
+            'Requirement Description',
+            'Requirement Level',
+            'Test Method',
+            'Page URL',
+            'Page Title',
+            'Page Type',
+            'Test Status',
+            'Test Method Used',
+            'Tool Used',
+            'Confidence Level',
+            'Assigned Tester',
+            'Reviewer',
+            'Notes',
+            'Results',
+            'Recommendations',
+            'Test Created',
+            'Test Updated',
+            'Test Completed'
+        ];
+        
+        // Helper function to escape CSV values
+        const escapeCsvValue = (value) => {
+            if (value === null || value === undefined) return '';
+            const stringValue = String(value);
+            if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+                return '"' + stringValue.replace(/"/g, '""') + '"';
+            }
+            return stringValue;
+        };
+        
+        // Helper function to clean HTML content for CSV
+        const cleanHtmlForCsv = (htmlContent) => {
+            if (!htmlContent) return '';
+            return htmlContent
+                .replace(/<[^>]*>/g, ' ')
+                .replace(/&nbsp;/g, ' ')
+                .replace(/&amp;/g, '&')
+                .replace(/&lt;/g, '<')
+                .replace(/&gt;/g, '>')
+                .replace(/&quot;/g, '"')
+                .replace(/\s+/g, ' ')
+                .trim();
+        };
+        
+        // Build CSV content
+        let csvContent = csvHeaders.join(',') + '\n';
+        
+        for (const row of exportData) {
+            const csvRow = [
+                escapeCsvValue(row.session_name),
+                escapeCsvValue(row.project_name),
+                escapeCsvValue(row.session_status),
+                escapeCsvValue(row.conformance_level),
+                escapeCsvValue(row.requirement_number),
+                escapeCsvValue(row.requirement_title),
+                escapeCsvValue(cleanHtmlForCsv(row.requirement_description)),
+                escapeCsvValue(row.requirement_level),
+                escapeCsvValue(row.test_method),
+                escapeCsvValue(row.page_url),
+                escapeCsvValue(row.page_title),
+                escapeCsvValue(row.page_type),
+                escapeCsvValue(row.test_status),
+                escapeCsvValue(row.test_method_used),
+                escapeCsvValue(row.tool_used),
+                escapeCsvValue(row.confidence_level),
+                escapeCsvValue(row.assigned_tester),
+                escapeCsvValue(row.reviewer),
+                escapeCsvValue(cleanHtmlForCsv(row.notes)),
+                escapeCsvValue(cleanHtmlForCsv(row.results)),
+                escapeCsvValue(cleanHtmlForCsv(row.recommendations)),
+                escapeCsvValue(row.test_created_at ? new Date(row.test_created_at).toISOString() : ''),
+                escapeCsvValue(row.test_updated_at ? new Date(row.test_updated_at).toISOString() : ''),
+                escapeCsvValue(row.test_completed_at ? new Date(row.test_completed_at).toISOString() : '')
+            ];
+            
+            csvContent += csvRow.join(',') + '\n';
+        }
+        
+        // Generate filename with session name and timestamp
+        const timestamp = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+        const sanitizedSessionName = session.name.replace(/[^a-zA-Z0-9]/g, '_');
+        const filename = `session_export_${sanitizedSessionName}_${timestamp}.csv`;
+        
+        // Set response headers for CSV download
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.setHeader('Cache-Control', 'no-cache');
+        
+        console.log(`✅ CSV export completed: ${exportData.length} rows exported`);
+        
+        // Send CSV content
+        res.send(csvContent);
+        
+    } catch (error) {
+        console.error('Error exporting session CSV:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to export session CSV',
+            details: error.message
+        });
+    }
+});
+
+/**
+ * GET /api/testing-sessions/:id/export-summary
+ * Get export summary data (number of requirements, URLs, etc.) without generating the full CSV
+ */
+router.get('/:id/export-summary', authenticateToken, async (req, res) => {
+    try {
+        const sessionId = req.params.id;
+        
+        // Get export summary statistics
+        const summaryQuery = `
+            WITH session_data AS (
+                SELECT ts.name, ts.status, ts.conformance_level, p.name as project_name
+                FROM test_sessions ts
+                JOIN projects p ON ts.project_id = p.id
+                WHERE ts.id = $1
+            ),
+            requirements_count AS (
+                SELECT COUNT(DISTINCT COALESCE(wr.criterion_number, tr.criterion_number)) as total_requirements
+                FROM test_instances ti
+                LEFT JOIN test_requirements tr ON ti.requirement_id = tr.id
+                LEFT JOIN wcag_requirements wr ON tr.criterion_number = wr.criterion_number
+                WHERE ti.session_id = $1
+            ),
+            urls_count AS (
+                SELECT COUNT(DISTINCT COALESCE(dp.url, cdp.url)) as total_urls
+                FROM test_instances ti
+                LEFT JOIN discovered_pages dp ON ti.page_id = dp.id
+                LEFT JOIN crawler_discovered_pages cdp ON ti.page_id = cdp.id
+                WHERE ti.session_id = $1
+                AND COALESCE(dp.url, cdp.url) IS NOT NULL
+            ),
+            test_instances_count AS (
+                SELECT COUNT(*) as total_test_instances
+                FROM test_instances
+                WHERE session_id = $1
+            )
+            SELECT 
+                sd.*,
+                COALESCE(rc.total_requirements, 0) as total_requirements,
+                COALESCE(uc.total_urls, 0) as total_urls,
+                COALESCE(tic.total_test_instances, 0) as total_test_instances
+            FROM session_data sd
+            CROSS JOIN requirements_count rc
+            CROSS JOIN urls_count uc
+            CROSS JOIN test_instances_count tic
+        `;
+        
+        const summaryResult = await pool.query(summaryQuery, [sessionId]);
+        
+        if (summaryResult.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Session not found'
+            });
+        }
+        
+        const summary = summaryResult.rows[0];
+        
+        res.json({
+            success: true,
+            summary: {
+                sessionName: summary.name,
+                projectName: summary.project_name,
+                sessionStatus: summary.status,
+                conformanceLevel: summary.conformance_level,
+                totalRequirements: parseInt(summary.total_requirements),
+                totalUrls: parseInt(summary.total_urls),
+                totalTestInstances: parseInt(summary.total_test_instances),
+                estimatedRows: parseInt(summary.total_requirements) * Math.max(1, parseInt(summary.total_urls))
+            }
+        });
+        
+    } catch (error) {
+        console.error('Error getting export summary:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to get export summary',
+            details: error.message
+        });
+    }
+});
+
+/**
  * GET /api/testing-sessions/:id
  * Get detailed information about a specific testing session
  */

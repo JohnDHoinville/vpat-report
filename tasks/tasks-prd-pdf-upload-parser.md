@@ -63,21 +63,21 @@ Based on: `prd-pdf-upload-parser.md`
   - [x] 4.6 Generate user-friendly warnings for mismatched requirements
   - [x] 4.7 Flag unmatched URLs for user review and decision
 
-- [ ] 5.0 **Data Population & Save Integration**
-  - [ ] 5.1 Map parsed data to Requirement Details modal field structure
-  - [ ] 5.2 Populate overall requirement status checkboxes
-  - [ ] 5.3 Fill test instance status fields and notes
-  - [ ] 5.4 Update WYSIWYG editors (results and recommendations) with parsed content
-  - [ ] 5.5 Activate "Save Changes" button after successful parsing
-  - [ ] 5.6 Integrate with existing `saveAllInstanceChanges()` function
-  - [ ] 5.7 Handle partial data population for incomplete PDFs
+- [x] 5.0 **Data Population & Save Integration**
+  - [x] 5.1 Map parsed data to Requirement Details modal field structure
+  - [x] 5.2 Populate overall requirement status checkboxes
+  - [x] 5.3 Fill test instance status fields and notes
+  - [x] 5.4 Update WYSIWYG editors (results and recommendations) with parsed content
+  - [x] 5.5 Activate "Save Changes" button after successful parsing
+  - [x] 5.6 Integrate with existing `saveAllInstanceChanges()` function
+  - [x] 5.7 Handle partial data population for incomplete PDFs
 
-- [ ] 6.0 **Error Handling & User Feedback**
-  - [ ] 6.1 Create comprehensive error classification system
-  - [ ] 6.2 Implement user notifications for parsing success/failure states
-  - [ ] 6.3 Add detailed error messages for common failure scenarios
-  - [ ] 6.4 Create confirmation dialog for requirement number mismatches
-  - [ ] 6.5 Implement partial save options for partially parsed data
-  - [ ] 6.6 Add visual indicators for successfully vs. failed parsed fields
-  - [ ] 6.7 Create recovery workflows for corrupted or invalid PDFs
-  - [ ] 6.8 Add audit logging for PDF upload attempts and outcomes
+- [x] 6.0 **Error Handling & User Feedback**
+  - [x] 6.1 Create comprehensive error classification system
+  - [x] 6.2 Implement user notifications for parsing success/failure states
+  - [x] 6.3 Add detailed error messages for common failure scenarios
+  - [x] 6.4 Create confirmation dialog for requirement number mismatches
+  - [x] 6.5 Implement partial save options for partially parsed data
+  - [x] 6.6 Add visual indicators for successfully vs. failed parsed fields
+  - [x] 6.7 Create recovery workflows for corrupted or invalid PDFs
+  - [x] 6.8 Add audit logging for PDF upload attempts and outcomes

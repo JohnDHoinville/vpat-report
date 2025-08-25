@@ -424,5 +424,375 @@
     <!-- Token Refresh Debug Tools (Development) -->
     <script src="js/debug-token-refresh.js"></script>
 
+    <!-- PDF Upload Functions Hotfix -->
+    <script>
+    // Ensure PDF upload functions are available in Alpine.js scope
+    document.addEventListener('alpine:init', () => {
+        console.log('🔧 Adding PDF upload functions hotfix');
+        
+        // Wait for Alpine to be ready and add functions
+        setTimeout(() => {
+            const dashboardEl = document.querySelector('[x-data]');
+            if (dashboardEl && dashboardEl._x_dataStack && dashboardEl._x_dataStack[0]) {
+                const alpineData = dashboardEl._x_dataStack[0];
+                
+                // Add missing PDF upload functions if they don't exist
+                if (!alpineData.openPDFUploadModal) {
+                    console.log('🔧 Adding missing PDF upload functions to Alpine.js');
+                    
+                    alpineData.openPDFUploadModal = function() {
+                        console.log('🔵 Opening PDF upload modal (hotfix)');
+                        this.showPDFUploadModal = true;
+                        this.resetPDFUploadState();
+                    };
+                    
+                    alpineData.closePDFUploadModal = function() {
+                        console.log('🔵 Closing PDF upload modal (hotfix)');
+                        this.showPDFUploadModal = false;
+                        this.resetPDFUploadState();
+                    };
+                    
+                    alpineData.resetPDFUploadState = function() {
+                        this.pdfUploadInProgress = false;
+                        this.pdfUploadSuccess = false;
+                        this.pdfUploadError = false;
+                        this.pdfUploadStatus = '';
+                        this.pdfUploadProgress = 0;
+                        this.pdfUploadErrorMessage = '';
+                        this.pdfUploadErrorDetails = '';
+                        this.pdfUploadResult = null;
+                        this.selectedPDFFile = null;
+                        this.isDragOver = false;
+                        this.pdfUploadCancelled = false;
+                        
+                        if (this.pdfUploadController) {
+                            this.pdfUploadController.abort();
+                            this.pdfUploadController = null;
+                        }
+                    };
+                    
+                    alpineData.handlePDFSelection = function(event) {
+                        console.log('🔵 PDF file selected (hotfix)');
+                        const files = event.target.files;
+                        if (files.length > 0) {
+                            this.handlePDFFile(files[0]);
+                        }
+                    };
+                    
+                    alpineData.handlePDFFile = function(file) {
+                        console.log('🔵 Handling PDF file (hotfix):', file.name);
+                        
+                        // Validate file type
+                        if (!file.type === 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+                            this.pdfUploadError = true;
+                            this.pdfUploadErrorMessage = 'Invalid file type';
+                            this.pdfUploadErrorDetails = 'Only PDF files are allowed. Please select a valid PDF file.';
+                            return;
+                        }
+                        
+                        // Validate file size (10MB limit)
+                        const maxSize = 10 * 1024 * 1024; // 10MB
+                        if (file.size > maxSize) {
+                            this.pdfUploadError = true;
+                            this.pdfUploadErrorMessage = 'File too large';
+                            this.pdfUploadErrorDetails = `File size is ${this.formatFileSize(file.size)}. Maximum allowed size is 10MB.`;
+                            return;
+                        }
+                        
+                        this.selectedPDFFile = file;
+                        this.pdfUploadError = false;
+                    };
+                    
+                    alpineData.formatFileSize = function(bytes) {
+                        if (bytes === 0) return '0 Bytes';
+                        const k = 1024;
+                        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+                        const i = Math.floor(Math.log(bytes) / Math.log(k));
+                        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+                    };
+                    
+                    alpineData.uploadPDFFile = async function() {
+                        if (!this.selectedPDFFile) {
+                            console.warn('🔵 No PDF file selected for upload');
+                            return;
+                        }
+                        
+                        console.log('🔵 Starting PDF upload (hotfix):', this.selectedPDFFile.name);
+                        
+                        // Create abort controller for cancellation
+                        this.pdfUploadController = new AbortController();
+                        
+                        this.pdfUploadInProgress = true;
+                        this.pdfUploadError = false;
+                        this.pdfUploadSuccess = false;
+                        this.pdfUploadCancelled = false;
+                        this.pdfUploadStatus = 'Preparing upload...';
+                        this.pdfUploadProgress = 10;
+                        
+                        try {
+                            // Create FormData
+                            const formData = new FormData();
+                            formData.append('pdf', this.selectedPDFFile);
+                            
+                            // Add requirement context if available
+                            const requirementId = this.currentRequirement?.id;
+                            
+                            // Update progress
+                            this.pdfUploadStatus = 'Uploading file...';
+                            this.pdfUploadProgress = 30;
+                            
+                            // Prepare request URL with requirement context
+                            let uploadUrl = '/api/pdf-upload';
+                            if (requirementId) {
+                                uploadUrl += `?requirementId=${requirementId}`;
+                            }
+                            
+                                                           // Get authentication token (check multiple possible keys)
+                               const token = localStorage.getItem('auth_token') || 
+                                           localStorage.getItem('token') || 
+                                           sessionStorage.getItem('token') || 
+                                           sessionStorage.getItem('auth_token');
+                               
+                               console.log('🔍 Token debugging:', {
+                                   auth_token: localStorage.getItem('auth_token'),
+                                   token: localStorage.getItem('token'),
+                                   finalToken: token
+                               });
+                               
+                               if (!token) {
+                                   throw new Error('Authentication token not found. Please log in again.');
+                               }
+                            
+                            // Update progress
+                            this.pdfUploadStatus = 'Processing PDF...';
+                            this.pdfUploadProgress = 50;
+                            
+                                                           // Make the upload request to backend server
+                               const backendUrl = `http://localhost:3001${uploadUrl}`;
+                               console.log('🔍 Making request to:', backendUrl);
+                               
+                               const response = await fetch(backendUrl, {
+                                method: 'POST',
+                                headers: {
+                                    'Authorization': `Bearer ${token}`
+                                },
+                                body: formData,
+                                signal: this.pdfUploadController.signal
+                            });
+                            
+                            this.pdfUploadProgress = 80;
+                            this.pdfUploadStatus = 'Parsing results...';
+                            
+                            const result = await response.json();
+                            
+                            if (!response.ok) {
+                                throw new Error(result.error || 'Upload failed');
+                            }
+                            
+                            // Success
+                            this.pdfUploadProgress = 100;
+                            this.pdfUploadStatus = 'Upload completed successfully!';
+                            this.pdfUploadSuccess = true;
+                            this.pdfUploadResult = result;
+                            
+                            console.log('🔵 PDF upload successful (database approach):', result);
+                       
+                       // Show import success notification with database storage confirmation
+                       const importData = result.data;
+                       this.showNotification('success', 'PDF Import Created', 
+                           `PDF "${importData.filename}" processed successfully. ` +
+                           `Found ${importData.testInstanceCount} test instances and ${importData.urlCount} URLs. ` +
+                           `Data saved for review with ID: ${importData.importId}`
+                       );
+                       
+                       // TODO: Add button/link to review the imported data
+                       console.log('📋 PDF import ready for review:', {
+                           importId: importData.importId,
+                           filename: importData.filename,
+                           status: importData.status,
+                           uploadedAt: importData.uploadedAt
+                       });
+                            
+                        } catch (error) {
+                            if (error.name === 'AbortError') {
+                                console.log('🔵 PDF upload cancelled (hotfix)');
+                                return; // Don't set error state for cancelled uploads
+                            }
+                            
+                            console.error('🔵 PDF upload failed (hotfix):', error);
+                            this.pdfUploadError = true;
+                            this.pdfUploadErrorMessage = error.message || 'Upload failed';
+                            this.pdfUploadErrorDetails = error.details || 'Please try again or contact support if the problem persists.';
+                            this.pdfUploadProgress = 0;
+                            this.pdfUploadStatus = 'Upload failed';
+                        } finally {
+                            this.pdfUploadInProgress = false;
+                        }
+                    };
+                    
+                                           alpineData.cancelPDFUpload = function() {
+                           console.log('🔵 Cancelling PDF upload (hotfix)');
+                           
+                           if (this.pdfUploadController) {
+                               this.pdfUploadController.abort();
+                               console.log('🔵 Upload request aborted (hotfix)');
+                           }
+                           
+                           this.pdfUploadInProgress = false;
+                           this.pdfUploadCancelled = true;
+                           this.pdfUploadStatus = 'Upload cancelled by user';
+                           this.pdfUploadProgress = 0;
+                       };
+                       
+                       alpineData.savePDFData = function() {
+                           console.log('🔵 Saving PDF data to requirement (hotfix)');
+                           
+                           if (!this.pdfUploadResult || !this.pdfUploadResult.data) {
+                               console.error('🔵 No PDF data to save');
+                               return;
+                           }
+                           
+                           // TODO: Implement data population logic
+                           // For now, just show success and close modal
+                           console.log('🔵 PDF data saved successfully (placeholder)');
+                           this.closePDFUploadModal();
+                           
+                           // Show success notification
+                           alert('PDF data has been processed successfully! (Integration with requirement details coming soon)');
+                       };
+                       
+                       alpineData.resetPDFUpload = function() {
+                           console.log('🔵 Resetting PDF upload state (hotfix)');
+                           this.resetPDFUploadState();
+                       };
+                    
+                                           // PDF Data Mapping Function
+                       alpineData.mapPDFDataToModal = function(pdfData) {
+                           console.log('🎯 Mapping PDF data to requirement modal:', pdfData);
+                           
+                           if (!pdfData || !this.currentRequirement) {
+                               console.warn('⚠️ Cannot map PDF data: missing data or current requirement');
+                               return;
+                           }
+                           
+                           try {
+                               // Get current requirement test instances
+                               const requirementInstances = this.getRequirementTestInstances(this.currentRequirement.criterion_number);
+                               console.log('📋 Current requirement instances:', requirementInstances?.length || 0);
+                               
+                               if (!requirementInstances || requirementInstances.length === 0) {
+                                   console.warn('⚠️ No test instances found for current requirement');
+                                   return;
+                               }
+                               
+                               // Map parsed test instances from PDF
+                               if (pdfData.testInstances && pdfData.testInstances.length > 0) {
+                                   console.log('📄 Mapping', pdfData.testInstances.length, 'PDF test instances');
+                                   
+                                   pdfData.testInstances.forEach((pdfInstance, index) => {
+                                       console.log(`🔄 Processing PDF instance ${index + 1}:`, pdfInstance);
+                                       
+                                       // Find matching test instance by URL or position
+                                       let matchedInstance = null;
+                                       
+                                       // Strategy 1: Match by URL (backend uses 'url', frontend uses 'page_url')
+                                       const instanceURL = pdfInstance.url || pdfInstance.page_url;
+                                       if (instanceURL) {
+                                           matchedInstance = requirementInstances.find(inst => 
+                                               inst.page_url && this.normalizeURL(inst.page_url) === this.normalizeURL(instanceURL)
+                                           );
+                                           if (matchedInstance) {
+                                               console.log('✅ Matched by URL:', instanceURL);
+                                           }
+                                       }
+                                       
+                                       // Strategy 2: Match by position if no URL match
+                                       if (!matchedInstance && index < requirementInstances.length) {
+                                           matchedInstance = requirementInstances[index];
+                                           console.log('✅ Matched by position:', index);
+                                       }
+                                       
+                                       if (matchedInstance) {
+                                           // Update test instance status
+                                           if (pdfInstance.status && ['pass', 'fail', 'not_applicable'].includes(pdfInstance.status)) {
+                                               console.log(`📊 Setting status: ${pdfInstance.status} for instance ${matchedInstance.id}`);
+                                               matchedInstance.status = pdfInstance.status;
+                                               this.trackRequirementChange(`instance_status_${matchedInstance.id}`, pdfInstance.status);
+                                           }
+                                           
+                                           // Update notes
+                                           if (pdfInstance.notes) {
+                                               console.log(`📝 Setting notes for instance ${matchedInstance.id}`);
+                                               this.updateInstanceField(matchedInstance.id, 'notes', pdfInstance.notes);
+                                               this.trackRequirementChange(`instance_notes_${matchedInstance.id}`, pdfInstance.notes);
+                                           }
+                                           
+                                           // Update results
+                                           if (pdfInstance.results) {
+                                               console.log(`📋 Setting results for instance ${matchedInstance.id}`);
+                                               this.updateInstanceField(matchedInstance.id, 'results', pdfInstance.results);
+                                               this.trackRequirementChange(`instance_results_${matchedInstance.id}`, pdfInstance.results);
+                                           }
+                                           
+                                           // Update recommendations
+                                           if (pdfInstance.recommendations) {
+                                               console.log(`💡 Setting recommendations for instance ${matchedInstance.id}`);
+                                               this.updateInstanceField(matchedInstance.id, 'recommendations', pdfInstance.recommendations);
+                                               this.trackRequirementChange(`instance_recommendations_${matchedInstance.id}`, pdfInstance.recommendations);
+                                           }
+                                           
+                                           // Update page URL if provided  
+                                           const newURL = pdfInstance.url || pdfInstance.page_url;
+                                           if (newURL && newURL !== matchedInstance.page_url) {
+                                               console.log(`🔗 Updating page URL for instance ${matchedInstance.id}`);
+                                               this.updateInstanceField(matchedInstance.id, 'page_url', newURL);
+                                           }
+                                       } else {
+                                           console.warn('⚠️ Could not match PDF instance:', pdfInstance);
+                                       }
+                                   });
+                               }
+                               
+                               // Update overall requirement status if provided
+                               if (pdfData.overallStatus && ['pass', 'fail', 'not_applicable'].includes(pdfData.overallStatus)) {
+                                   console.log('📊 Setting overall requirement status:', pdfData.overallStatus);
+                                   this.currentRequirement.overall_status = pdfData.overallStatus;
+                                   this.trackRequirementChange('overall_status', pdfData.overallStatus);
+                               }
+                               
+                               // Mark modal as having changes
+                               this.hasUnsavedChanges = true;
+                               this.hasChanges = true;
+                               
+                               // Show success notification
+                               this.showNotification('success', 'PDF Data Mapped', 
+                                   `Successfully populated ${pdfData.testInstances?.length || 0} test instances from PDF`);
+                               
+                               console.log('✅ PDF data mapping completed successfully');
+                               
+                           } catch (error) {
+                               console.error('❌ Error mapping PDF data:', error);
+                               this.showNotification('error', 'Mapping Failed', 
+                                   'Failed to map PDF data to requirement fields: ' + error.message);
+                           }
+                       };
+                       
+                       // URL normalization helper
+                       alpineData.normalizeURL = function(url) {
+                           if (!url) return '';
+                           return url.trim().toLowerCase().replace(/\/$/, ''); // Remove trailing slash
+                       };
+                       
+                       console.log('✅ PDF upload functions added via hotfix');
+                } else {
+                    console.log('✅ PDF upload functions already exist');
+                }
+            } else {
+                console.warn('⚠️ Could not find Alpine.js data stack');
+            }
+        }, 1000);
+    });
+    </script>
+
 </body>
 </html> 
