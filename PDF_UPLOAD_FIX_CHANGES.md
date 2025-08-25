@@ -166,3 +166,4 @@ Database Storage (PostgreSQL)
 - ✅ File processing: PDF parsing and URL extraction working
 
 The PDF upload functionality is now stable and ready for user testing and further development.
+

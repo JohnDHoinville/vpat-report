@@ -266,6 +266,7 @@ window.dashboard = function() {
         hasRequirementChanges: false,
         originalRequirement: null,
         savingRequirementChanges: false,
+        generatingPDF: false, // Flag to prevent change tracking during PDF generation
         updatingStatus: null, // Track which instance is being updated
         allRequirements: [],
         sessionRequirements: [],
@@ -1118,6 +1119,17 @@ window.dashboard = function() {
         
         // Change tracking for requirement details
         trackRequirementChange: function(field, value) {
+            // PERFORMANCE FIX: Skip change tracking during PDF generation
+            if (this.generatingPDF) {
+                return;
+            }
+            
+            // PERFORMANCE FIX: Skip tracking empty/initial values from TinyMCE initialization
+            if (!value || value === '' || value === null || value === undefined || 
+                (typeof value === 'string' && value.trim() === '')) {
+                return; // Skip empty values silently for performance
+            }
+            
             // Store original value on first change
             if (!this.originalRequirement) {
                 this.originalRequirement = JSON.parse(JSON.stringify(this.currentRequirement));
@@ -1264,8 +1276,16 @@ window.dashboard = function() {
             }
         },
         
-        // Initialize TinyMCE editor
+        // Initialize TinyMCE editor with lazy loading
         initTinyMCE: function(elementId, initialContent, onChangeCallback) {
+            // PERFORMANCE FIX: Prevent duplicate initialization
+            if (tinymce.get(elementId)) {
+                console.log('📝 TinyMCE already initialized for:', elementId);
+                const editor = tinymce.get(elementId);
+                editor.focus();
+                return;
+            }
+            
             // Wait for element to be available
             setTimeout(() => {
                 const element = document.getElementById(elementId);
@@ -1273,6 +1293,8 @@ window.dashboard = function() {
                     console.warn('TinyMCE element not found:', elementId);
                     return;
                 }
+                
+                console.log('🚀 Lazy-loading TinyMCE for:', elementId);
                 
                 tinymce.init({
                     target: element,
@@ -1836,6 +1858,9 @@ ${requirement.failure_examples}
                 return;
             }
             
+            // PERFORMANCE FIX: Set flag to prevent change tracking during PDF generation
+            this.generatingPDF = true;
+            
             console.log('🔍 DEBUG PDF: Full currentRequirement object =', this.currentRequirement);
             console.log('🔍 DEBUG PDF: understanding_url field =', this.currentRequirement.understanding_url);
             console.log('🔍 DEBUG PDF: wcag_url field =', this.currentRequirement.wcag_url);
@@ -1843,6 +1868,8 @@ ${requirement.failure_examples}
 
             const requirement = this.currentRequirement;
             const testInstances = this.getRequirementTestInstances(requirement.criterion_number);
+
+
 
             try {
                 // Create a new PDF document using pdf-lib
@@ -2340,7 +2367,15 @@ ${requirement.failure_examples}
                 
                 console.log('🔍 DEBUG PDF: requirement.understanding_url || requirement.wcag_url =', requirement.understanding_url || requirement.wcag_url);
                 console.log('🔍 DEBUG PDF: requirement.wcag_url =', requirement.wcag_url);
-                const wcagUrl = requirement.understanding_url || requirement.wcag_url || requirement.wcag_url;
+                let wcagUrl = requirement.understanding_url || requirement.wcag_url;
+                
+                // PERFORMANCE FIX: Generate fallback URL instead of API call
+                if (!wcagUrl && requirement.criterion_number) {
+                    const cleanCriterion = requirement.criterion_number.toLowerCase().replace(/\./g, '-');
+                    wcagUrl = `https://www.w3.org/WAI/WCAG22/Understanding/${cleanCriterion}`;
+                    console.log('🔧 Generated fallback WCAG URL:', wcagUrl);
+                }
+                
                 console.log('🔍 DEBUG PDF: Final wcagUrl =', wcagUrl);
                 
                 if (wcagUrl) {
@@ -2353,7 +2388,7 @@ ${requirement.failure_examples}
                 });
                 } else {
                     console.warn('⚠️ No understanding_url available for requirement:', requirement.criterion_number);
-                    page.drawText('No WCAG documentation URL available', {
+                    page.drawText('WCAG URL not available', {
                         x: margin,
                         y: yPosition,
                         size: 10,
@@ -2409,8 +2444,18 @@ ${requirement.failure_examples}
                 });
                 yPosition -= 40;
                 
+                // PERFORMANCE FIX: Limit test instances to prevent 45+ second generation times
+                // For large datasets (>20 instances), only include first 20 for performance
+                const maxInstances = 20;
+                const instancesToProcess = testInstances.length > maxInstances ? 
+                    testInstances.slice(0, maxInstances) : testInstances;
+                
+                if (testInstances.length > maxInstances) {
+                    console.log(`⚡ PDF Performance: Processing ${maxInstances} of ${testInstances.length} test instances for speed`);
+                }
+                
                 // Create checkboxes for each test instance (max 3 per page)
-                testInstances.forEach((instance, index) => {
+                instancesToProcess.forEach((instance, index) => {
                     // Check if we need a new page or if we've reached 3 instances per page
                     const instancesOnPage = index % 3;
                     if (instancesOnPage === 0 && index > 0) {
@@ -2763,11 +2808,20 @@ ${requirement.failure_examples}
                 document.body.removeChild(link);
                 URL.revokeObjectURL(url);
                 
-                this.showNotification('PDF generated successfully with pdf-lib!', 'success');
+                // Show performance-aware notification
+                const processedCount = Math.min(testInstances.length, 20);
+                const notificationMessage = testInstances.length > 20 ? 
+                    `PDF generated with ${processedCount} of ${testInstances.length} test instances (optimized for speed)` :
+                    `PDF generated successfully for ${requirement.criterion_number}: ${requirement.title}`;
+                
+                this.showNotification(notificationMessage, 'success');
                 
             } catch (error) {
                 console.error('Error generating PDF with pdf-lib:', error);
                 this.showNotification('Error generating PDF: ' + error.message, 'error');
+            } finally {
+                // PERFORMANCE FIX: Clear flag after PDF generation
+                this.generatingPDF = false;
             }
         },
 

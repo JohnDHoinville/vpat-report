@@ -2257,11 +2257,12 @@
                                                 <div class="mt-4">
                                                     <label class="block text-xs font-medium text-gray-600 mb-1">Test Results:</label>
                                                     <div :id="'results-editor-' + instance.id" 
-                                                         class="border border-gray-300 rounded min-h-[100px]"
-                                                         x-init="initTinyMCE('results-editor-' + instance.id, instance.results || '', (content) => { 
+                                                         class="border border-gray-300 rounded min-h-[100px] cursor-text"
+                                                         @click="initTinyMCE('results-editor-' + instance.id, instance.results || '', (content) => { 
                                                              trackRequirementChange('instance_results_' + instance.id, content);
                                                              updateInstanceField(instance.id, 'results', content);
-                                                         })">
+                                                         })"
+                                                         x-text="instance.results || 'Click to add test results...'">
                                                     </div>
                                                 </div>
                                                 
@@ -2269,11 +2270,12 @@
                                                 <div class="mt-4">
                                                     <label class="block text-xs font-medium text-gray-600 mb-1">Recommendations:</label>
                                                     <div :id="'recommendations-editor-' + instance.id" 
-                                                         class="border border-gray-300 rounded min-h-[100px]"
-                                                         x-init="initTinyMCE('recommendations-editor-' + instance.id, instance.recommendations || '', (content) => { 
+                                                         class="border border-gray-300 rounded min-h-[100px] cursor-text"
+                                                         @click="initTinyMCE('recommendations-editor-' + instance.id, instance.recommendations || '', (content) => { 
                                                              trackRequirementChange('instance_recommendations_' + instance.id, content);
                                                              updateInstanceField(instance.id, 'recommendations', content);
-                                                         })">
+                                                         })"
+                                                         x-text="instance.recommendations || 'Click to add recommendations...'">
                                                     </div>
                                                 </div>
                                             </div>

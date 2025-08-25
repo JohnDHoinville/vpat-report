@@ -240,7 +240,7 @@ app.use('/api/automated-testing', automatedTestingRoutes);
 app.use('/api/automated-testing', unifiedAutomatedTestingRoutes);
 app.use('/api/test-auth', testAuthRoutes);
 app.use('/api/pdf-upload', pdfUploadRoutes);
-app.use('/api/pdf-imports', require('./routes/pdf-imports'));
+app.use('/api/pdf-imports', require('./routes/pdf-upload'));
 
 // Add API health check endpoint
 app.get('/api/health', asyncHandler(async (req, res) => {
