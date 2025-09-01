@@ -803,7 +803,7 @@ router.post('/', authenticateToken, async (req, res) => {
         
         // Get selected pages from crawler data (cross-crawler deduplication)
         console.log('🔍 DEBUG: About to call getSelectedPagesFromCrawlers');
-        const pages = await getSelectedPagesFromCrawlers(selected_page_ids, selected_crawler_ids);
+        const pages = await getSelectedPagesFromCrawlers(client, selected_page_ids, selected_crawler_ids);
         console.log('🔍 DEBUG: getSelectedPagesFromCrawlers completed');
         
         if (pages.length === 0) {
@@ -1306,11 +1306,11 @@ async function getRequirementsForWizardLevels(conformanceLevels, smartFiltering 
 /**
  * Get selected pages from multiple crawlers with deduplication
  */
-async function getSelectedPagesFromCrawlers(selectedPageIds, selectedCrawlerIds) {
+async function getSelectedPagesFromCrawlers(client, selectedPageIds, selectedCrawlerIds) {
     console.log('🚀 FUNCTION CALLED: getSelectedPagesFromCrawlers');
     try {
         console.log('🗂️ Getting pages from crawlers:', { selectedPageIds: selectedPageIds.length, selectedCrawlerIds });
-        console.log('🔍 DEBUG: Pool connection status:', pool.totalCount, 'total,', pool.idleCount, 'idle,', pool.waitingCount, 'waiting');
+        console.log('🔍 DEBUG: Using transaction client instead of pool');
         
         if (selectedPageIds.length === 0) {
             return [];
@@ -1335,7 +1335,7 @@ async function getSelectedPagesFromCrawlers(selectedPageIds, selectedCrawlerIds)
         console.log(`🔍 DEBUG: Querying with page IDs:`, selectedPageIds);
         let result, crawlerPages;
         try {
-            result = await pool.query(query, [selectedPageIds]);
+            result = await client.query(query, [selectedPageIds]);
             crawlerPages = result.rows;
         } catch (error) {
             console.error('🔍 DEBUG: Database query error:', error);
@@ -1382,7 +1382,7 @@ async function getSelectedPagesFromCrawlers(selectedPageIds, selectedCrawlerIds)
                 LIMIT 1
             `;
             
-            const existingPageResult = await pool.query(existingPageQuery, [crawlerPage.url, crawlerPage.crawler_id]);
+            const existingPageResult = await client.query(existingPageQuery, [crawlerPage.url, crawlerPage.crawler_id]);
             
             if (existingPageResult.rows.length > 0) {
                 // Page already exists, use it
@@ -1416,7 +1416,7 @@ async function getSelectedPagesFromCrawlers(selectedPageIds, selectedCrawlerIds)
                     RETURNING id, url, title, page_type
                 `;
                 
-                const insertResult = await pool.query(insertPageQuery, [
+                const insertResult = await client.query(insertPageQuery, [
                     crawlerPage.url,
                     crawlerPage.title,
                     crawlerPage.crawler_id

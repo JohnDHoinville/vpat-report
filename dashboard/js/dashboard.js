@@ -16434,6 +16434,10 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                 console.log('🔍 DEBUG: Final conformance levels for DB:', sessionData.conformance_levels);
 
                 console.log('🔍 DEBUG: Session data being sent:', sessionData);
+                console.log('🔍 DEBUG: Selected pages array length:', sessionData.selected_page_ids.length);
+                console.log('🔍 DEBUG: First few page IDs:', sessionData.selected_page_ids.slice(0, 3));
+                console.log('🔍 DEBUG: sessionWizard.selected_pages:', this.sessionWizard.selected_pages);
+                console.log('🔍 DEBUG: deduplicatedPages length:', this.deduplicatedPages?.length || 0);
                 
                 const response = await this.apiCall('/testing-sessions', {
                     method: 'POST',
