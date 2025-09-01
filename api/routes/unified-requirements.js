@@ -517,7 +517,7 @@ router.get('/session/:sessionId', async (req, res) => {
         } else if (conformanceLevel === 'wcag_aaa' || conformanceLevel === 'AAA') {
             whereCondition = `WHERE ur.standard_type = 'wcag' AND ur.level IN ('A', 'AA', 'AAA')`;
         } else if (conformanceLevel === 'section_508') {
-            whereCondition = `WHERE ur.standard_type = 'section508'`;where 
+            whereCondition = `WHERE ur.standard_type = 'section508'`; 
         } else if (conformanceLevel === 'combined') {
             // Combined includes all WCAG and Section 508 requirements
             whereCondition = `WHERE ur.standard_type IN ('wcag', 'section508')`;

@@ -909,34 +909,12 @@ window.dashboard = function() {
                                 manual_status: r.manual_status
                             })));
                         } else {
-                            // Fallback to conformance level endpoint
-                            console.log(`📋 Trying conformance level endpoint for ${conformanceLevel}`);
-                            requirementsResponse = await this.apiCall(`/api/unified-requirements/conformance/${conformanceLevel}`);
-                            
-                            if (requirementsResponse.success && requirementsResponse.data?.requirements) {
-                                requirementsData = requirementsResponse.data.requirements;
-                                console.log(`✅ Successfully loaded ${requirementsData.length} requirements by conformance level`);
-                            } else {
-                                throw new Error('No requirements data available from API');
-                            }
+                            throw new Error('Session requirements API returned no data - no fallbacks allowed!');
                         }
                         
                     } catch (apiError) {
-                        console.warn('🔓 API failed, trying fallback endpoints:', apiError.message);
-                        
-                        // Fallback to basic requirements endpoint
-                        try {
-                            requirementsResponse = await this.apiCall(`/requirements?limit=100`);
-                            if (requirementsResponse.success && requirementsResponse.data?.requirements) {
-                                requirementsData = requirementsResponse.data.requirements;
-                                console.log(`✅ Successfully loaded ${requirementsData.length} requirements from fallback API`);
-                            } else {
-                                throw new Error('Fallback API also failed');
-                            }
-                        } catch (fallbackError) {
-                            console.error('❌ All API endpoints failed:', fallbackError);
-                            throw apiError; // Re-throw original error
-                        }
+                        console.error('❌ API call failed:', apiError.message);
+                        throw apiError; // Re-throw original error - no fallbacks!
                     }
                     
                 } catch (error) {
@@ -1141,33 +1119,29 @@ window.dashboard = function() {
         fetchFullRequirementDetails: function(criterionNumber) {
             if (!criterionNumber) return;
             
-            this.apiCall('/requirements', {
-                method: 'GET',
-                params: {
-                    search: criterionNumber,
-                    limit: 10
-                }
-            }).then(response => {
-                if (response.success && response.data && response.data.requirements && response.data.requirements.length > 0) {
-                    // Find the exact match for the criterion number
-                    const fullRequirement = response.data.requirements.find(req => 
-                        req.criterion_number === criterionNumber
-                    );
+            // Don't fetch from API - use the session requirements we already have!
+            // This ensures we stay within the 6 requirements selected for this session
+            if (this.sessionRequirements && this.sessionRequirements.length > 0) {
+                console.log('🎯 Using session requirements instead of fetching from API');
+                const fullRequirement = this.sessionRequirements.find(req => 
+                    req.criterion_number === criterionNumber || req.id === criterionNumber
+                );
                     
-                    if (fullRequirement) {
-                        // Merge the full requirement details with the current requirement
-                        this.currentRequirement = {
-                            ...this.currentRequirement,
-                            ...fullRequirement
-                        };
-                        console.log('✅ Loaded full requirement details:', fullRequirement);
-                    }
-                    this.loadingRequirementDetails = false;
+                if (fullRequirement) {
+                    // Merge the full requirement details with the current requirement
+                    this.currentRequirement = {
+                        ...this.currentRequirement,
+                        ...fullRequirement
+                    };
+                    console.log('✅ Using session requirement details:', fullRequirement);
+                } else {
+                    console.warn('⚠️ Requirement not found in session requirements:', criterionNumber);
                 }
-            }).catch(error => {
-                console.error('Error fetching full requirement details:', error);
                 this.loadingRequirementDetails = false;
-            });
+            } else {
+                console.warn('⚠️ No session requirements loaded yet');
+                this.loadingRequirementDetails = false;
+            }
         },
         
         closeRequirementDetailsModal: function() {
@@ -17020,28 +16994,8 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                     // Try authenticated endpoint first - use session-specific unified requirements
                     requirementsResponse = await this.apiCall(`/api/unified-requirements/session/${sessionId}?_t=${Date.now()}`);
                 } catch (authError) {
-                    console.warn('🔓 Authenticated API failed, trying test endpoint:', authError.message);
-                    
-                    // Fallback to test endpoint for development/testing
-                    try {
-                        const testResponse = await fetch(`${this.config.apiBaseUrl}/api/requirements/test`);
-                        if (testResponse.ok) {
-                            const testData = await testResponse.json();
-                            // Transform test response to match expected format
-                            requirementsResponse = {
-                                success: true,
-                                data: {
-                                    requirements: testData.data.sample_requirements || []
-                                }
-                            };
-                            console.log('📋 Using test endpoint data');
-                        } else {
-                            throw new Error('Test endpoint also failed');
-                        }
-                    } catch (testError) {
-                        console.error('❌ Test endpoint failed:', testError);
-                        throw authError; // Re-throw original auth error
-                    }
+                    console.error('❌ Session requirements API failed:', authError.message);
+                    throw authError; // Re-throw original error - no fallbacks!
                 }
                 
                 if (requirementsResponse.success && requirementsResponse.data?.requirements) {

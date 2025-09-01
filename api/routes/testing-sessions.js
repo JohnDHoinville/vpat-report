@@ -144,8 +144,8 @@ async function calculateSessionProgress(sessionId) {
             COUNT(DISTINCT ar.id) as automation_runs_count,
             COUNT(DISTINCT ar.id) as total_violations_found,
             COUNT(DISTINCT ar.id) as total_instances_updated
-        FROM automation_runs_v2 ar
-        WHERE ar.session_id = $1 AND ar.status = 'completed'
+        FROM automated_test_runs ar
+        WHERE ar.test_session_id = $1 AND ar.status = 'completed'
     `;
     
     const result = await pool.query(query, [sessionId]);
@@ -1381,18 +1381,85 @@ async function getSelectedPagesFromCrawlers(client, selectedPageIds, selectedCra
             console.log(`🔄 Deduplicated ${crawlerPages.length} pages to ${deduplicatedCrawlerPages.length} unique URLs`);
         }
         
-        // Convert crawler pages to the format expected by createTestInstances
-        console.log(`✅ BYPASSING SYNCHRONIZATION: Using crawler pages directly for session creation`);
-        const pages = deduplicatedCrawlerPages.map(crawlerPage => ({
-            id: crawlerPage.crawler_page_id,
-            url: crawlerPage.url,
-            title: crawlerPage.title || crawlerPage.url,
-            page_type: 'content', // Default page type
-            created_at: crawlerPage.first_discovered_at
-        }));
+        // Synchronize pages to discovered_pages table
+        console.log(`🔄 RESTORING SYNCHRONIZATION: Syncing ${deduplicatedCrawlerPages.length} pages to discovered_pages`);
+        const synchronizedPages = [];
         
-        console.log(`✅ Converted ${pages.length} crawler pages for session creation`);
-        return pages;
+        for (const crawlerPage of deduplicatedCrawlerPages) {
+            // Check if page already exists in discovered_pages
+            const existingPageQuery = `
+                SELECT dp.id, dp.url, dp.title, dp.page_type
+                FROM discovered_pages dp
+                JOIN site_discovery sd ON dp.discovery_id = sd.id
+                WHERE dp.url = $1
+                AND sd.project_id = (
+                    SELECT project_id FROM web_crawlers wc WHERE wc.id = $2
+                )
+                LIMIT 1
+            `;
+            
+            const existingPageResult = await client.query(existingPageQuery, [crawlerPage.url, crawlerPage.crawler_id]);
+            
+            if (existingPageResult.rows.length > 0) {
+                // Page already exists, use it
+                const existingPage = existingPageResult.rows[0];
+                synchronizedPages.push({
+                    id: existingPage.id,
+                    url: existingPage.url,
+                    title: existingPage.title || crawlerPage.title,
+                    page_type: existingPage.page_type,
+                    created_at: crawlerPage.first_discovered_at
+                });
+                console.log(`✅ Using existing discovered page: ${crawlerPage.url}`);
+            } else {
+                // Page doesn't exist, create it
+                const insertPageQuery = `
+                    INSERT INTO discovered_pages (discovery_id, url, title, page_type)
+                    SELECT 
+                        sd.id,
+                        $1,
+                        $2,
+                        CASE
+                            WHEN $1 LIKE '%form%' OR $1 LIKE '%login%' OR $1 LIKE '%register%' THEN 'form'
+                            WHEN $1 LIKE '%app%' OR $1 LIKE '%dashboard%' OR $1 LIKE '%admin%' THEN 'application'
+                            WHEN $1 = sd.primary_url THEN 'homepage'
+                            ELSE 'content'
+                        END
+                    FROM site_discovery sd
+                    JOIN web_crawlers wc ON sd.project_id = wc.project_id
+                    WHERE wc.id = $3
+                    LIMIT 1
+                    RETURNING id, url, title, page_type
+                `;
+                
+                try {
+                    const insertResult = await client.query(insertPageQuery, [
+                        crawlerPage.url,
+                        crawlerPage.title,
+                        crawlerPage.crawler_id
+                    ]);
+                    
+                    if (insertResult.rows.length > 0) {
+                        const newPage = insertResult.rows[0];
+                        synchronizedPages.push({
+                            id: newPage.id,
+                            url: newPage.url,
+                            title: newPage.title || crawlerPage.title,
+                            page_type: newPage.page_type,
+                            created_at: crawlerPage.first_discovered_at
+                        });
+                        console.log(`✅ Created new discovered page: ${crawlerPage.url}`);
+                    } else {
+                        console.log(`⚠️ Failed to create discovered page: ${crawlerPage.url} - No rows returned`);
+                    }
+                } catch (insertError) {
+                    console.error(`❌ Error creating discovered page: ${crawlerPage.url}`, insertError.message);
+                }
+            }
+        }
+        
+        console.log(`✅ Synchronized ${synchronizedPages.length} pages to discovered_pages`);
+        return synchronizedPages;
         
     } catch (error) {
         console.error('Error getting selected pages from crawlers:', error);
