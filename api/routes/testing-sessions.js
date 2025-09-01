@@ -1333,18 +1333,33 @@ async function getSelectedPagesFromCrawlers(client, selectedPageIds, selectedCra
         `;
         
         console.log(`🔍 DEBUG: Querying with page IDs:`, selectedPageIds);
+        console.log(`🔍 DEBUG: selectedPageIds array type:`, Array.isArray(selectedPageIds));
+        console.log(`🔍 DEBUG: selectedPageIds sample:`, selectedPageIds.slice(0, 3));
         let result, crawlerPages;
         try {
             result = await client.query(query, [selectedPageIds]);
             crawlerPages = result.rows;
+            console.log(`🔍 DEBUG: SQL query executed successfully, rows returned:`, crawlerPages.length);
         } catch (error) {
             console.error('🔍 DEBUG: Database query error:', error);
+            console.error('🔍 DEBUG: Error details:', error.message);
+            console.error('🔍 DEBUG: Query was:', query);
+            console.error('🔍 DEBUG: Parameters were:', selectedPageIds);
             throw error;
         }
         
         console.log(`✅ Retrieved ${crawlerPages.length} pages from crawler data`);
         if (crawlerPages.length > 0) {
             console.log(`🔍 DEBUG: First page:`, crawlerPages[0]);
+        } else {
+            console.log(`❌ DEBUG: No pages found! Let's check what's in the database...`);
+            try {
+                const debugQuery = `SELECT id, url FROM crawler_discovered_pages WHERE crawler_id = $1 LIMIT 5`;
+                const debugResult = await client.query(debugQuery, ['cbc3331b-0e56-46bc-860d-af493a5a4bb6']);
+                console.log(`🔍 DEBUG: Sample pages in database for this crawler:`, debugResult.rows);
+            } catch (debugError) {
+                console.error(`🔍 DEBUG: Error checking database:`, debugError.message);
+            }
         }
         
         if (crawlerPages.length === 0) {
@@ -1366,80 +1381,18 @@ async function getSelectedPagesFromCrawlers(client, selectedPageIds, selectedCra
             console.log(`🔄 Deduplicated ${crawlerPages.length} pages to ${deduplicatedCrawlerPages.length} unique URLs`);
         }
         
-        // Synchronize pages to discovered_pages table
-        const synchronizedPages = [];
+        // Convert crawler pages to the format expected by createTestInstances
+        console.log(`✅ BYPASSING SYNCHRONIZATION: Using crawler pages directly for session creation`);
+        const pages = deduplicatedCrawlerPages.map(crawlerPage => ({
+            id: crawlerPage.crawler_page_id,
+            url: crawlerPage.url,
+            title: crawlerPage.title || crawlerPage.url,
+            page_type: 'content', // Default page type
+            created_at: crawlerPage.first_discovered_at
+        }));
         
-        for (const crawlerPage of deduplicatedCrawlerPages) {
-            // Check if page already exists in discovered_pages
-            const existingPageQuery = `
-                SELECT dp.id, dp.url, dp.title, dp.page_type
-                FROM discovered_pages dp
-                JOIN site_discovery sd ON dp.discovery_id = sd.id
-                WHERE dp.url = $1
-                AND sd.project_id = (
-                    SELECT project_id FROM web_crawlers wc WHERE wc.id = $2
-                )
-                LIMIT 1
-            `;
-            
-            const existingPageResult = await client.query(existingPageQuery, [crawlerPage.url, crawlerPage.crawler_id]);
-            
-            if (existingPageResult.rows.length > 0) {
-                // Page already exists, use it
-                const existingPage = existingPageResult.rows[0];
-                synchronizedPages.push({
-                    id: existingPage.id,
-                    url: existingPage.url,
-                    title: existingPage.title || crawlerPage.title,
-                    page_type: existingPage.page_type,
-                    created_at: crawlerPage.first_discovered_at
-                });
-                console.log(`✅ Using existing discovered page: ${crawlerPage.url}`);
-            } else {
-                // Page doesn't exist, create it
-                const insertPageQuery = `
-                    INSERT INTO discovered_pages (discovery_id, url, title, page_type)
-                    SELECT 
-                        sd.id,
-                        $1,
-                        $2,
-                        CASE
-                            WHEN $1 LIKE '%form%' OR $1 LIKE '%login%' OR $1 LIKE '%register%' THEN 'form'
-                            WHEN $1 LIKE '%app%' OR $1 LIKE '%dashboard%' OR $1 LIKE '%admin%' THEN 'application'
-                            WHEN $1 = sd.primary_url THEN 'homepage'
-                            ELSE 'content'
-                        END
-                    FROM site_discovery sd
-                    JOIN web_crawlers wc ON sd.project_id = wc.project_id
-                    WHERE wc.id = $3
-                    LIMIT 1
-                    RETURNING id, url, title, page_type
-                `;
-                
-                const insertResult = await client.query(insertPageQuery, [
-                    crawlerPage.url,
-                    crawlerPage.title,
-                    crawlerPage.crawler_id
-                ]);
-                
-                if (insertResult.rows.length > 0) {
-                    const newPage = insertResult.rows[0];
-                    synchronizedPages.push({
-                        id: newPage.id,
-                        url: newPage.url,
-                        title: newPage.title,
-                        page_type: newPage.page_type,
-                        created_at: crawlerPage.first_discovered_at
-                    });
-                    console.log(`✅ Created new discovered page: ${crawlerPage.url}`);
-                } else {
-                    console.log(`⚠️ Failed to create discovered page: ${crawlerPage.url}`);
-                }
-            }
-        }
-        
-        console.log(`✅ Synchronized ${synchronizedPages.length} pages to discovered_pages`);
-        return synchronizedPages;
+        console.log(`✅ Converted ${pages.length} crawler pages for session creation`);
+        return pages;
         
     } catch (error) {
         console.error('Error getting selected pages from crawlers:', error);
