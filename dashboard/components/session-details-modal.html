@@ -2256,27 +2256,31 @@
                                                 <!-- Test Results Section -->
                                                 <div class="mt-4">
                                                     <label class="block text-xs font-medium text-gray-600 mb-1">Test Results:</label>
-                                                    <div :id="'results-editor-' + instance.id" 
-                                                         class="border border-gray-300 rounded min-h-[100px] cursor-text"
-                                                         @click="initTinyMCE('results-editor-' + instance.id, instance.results || '', (content) => { 
-                                                             trackRequirementChange('instance_results_' + instance.id, content);
-                                                             updateInstanceField(instance.id, 'results', content);
-                                                         })"
-                                                         x-text="instance.results || 'Click to add test results...'">
-                                                    </div>
+                                                    <textarea :id="'results-editor-' + instance.id" 
+                                                              class="w-full border border-gray-300 rounded min-h-[100px] p-3 text-sm resize-vertical"
+                                                              :value="instance.results || ''"
+                                                              placeholder="Click to add test results..."
+                                                              @focus="initTinyMCE('results-editor-' + instance.id, instance.results || '', (content) => { 
+                                                                  trackRequirementChange('instance_results_' + instance.id, content);
+                                                                  updateInstanceField(instance.id, 'results', content);
+                                                              })"
+                                                              @input="updateInstanceField(instance.id, 'results', $event.target.value)"
+                                                              rows="4"></textarea>
                                                 </div>
                                                 
                                                 <!-- Test Recommendations Section -->
                                                 <div class="mt-4">
                                                     <label class="block text-xs font-medium text-gray-600 mb-1">Recommendations:</label>
-                                                    <div :id="'recommendations-editor-' + instance.id" 
-                                                         class="border border-gray-300 rounded min-h-[100px] cursor-text"
-                                                         @click="initTinyMCE('recommendations-editor-' + instance.id, instance.recommendations || '', (content) => { 
-                                                             trackRequirementChange('instance_recommendations_' + instance.id, content);
-                                                             updateInstanceField(instance.id, 'recommendations', content);
-                                                         })"
-                                                         x-text="instance.recommendations || 'Click to add recommendations...'">
-                                                    </div>
+                                                    <textarea :id="'recommendations-editor-' + instance.id" 
+                                                              class="w-full border border-gray-300 rounded min-h-[100px] p-3 text-sm resize-vertical"
+                                                              :value="instance.recommendations || ''"
+                                                              placeholder="Click to add recommendations..."
+                                                              @focus="initTinyMCE('recommendations-editor-' + instance.id, instance.recommendations || '', (content) => { 
+                                                                  trackRequirementChange('instance_recommendations_' + instance.id, content);
+                                                                  updateInstanceField(instance.id, 'recommendations', content);
+                                                              })"
+                                                              @input="updateInstanceField(instance.id, 'recommendations', $event.target.value)"
+                                                              rows="4"></textarea>
                                                 </div>
                                             </div>
                                         </div>

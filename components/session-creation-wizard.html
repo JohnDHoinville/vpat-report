@@ -167,6 +167,7 @@
                                 <input type="checkbox" 
                                        x-model="sessionWizard.conformance_levels"
                                        value="wcag_22_a"
+                                       @change="loadAvailableRequirements()"
                                        class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
                                 <span class="ml-3 text-sm">Level A 
                                     <span class="text-gray-500">(<span x-text="getRequirementCount('wcag_22_a')"></span> requirements)</span>
@@ -176,6 +177,7 @@
                                 <input type="checkbox" 
                                        x-model="sessionWizard.conformance_levels"
                                        value="wcag_22_aa"
+                                       @change="loadAvailableRequirements()"
                                        class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
                                 <span class="ml-3 text-sm">Level AA 
                                     <span class="text-gray-500">(<span x-text="getRequirementCount('wcag_22_aa')"></span> requirements)</span>
@@ -185,6 +187,7 @@
                                 <input type="checkbox" 
                                        x-model="sessionWizard.conformance_levels"
                                        value="wcag_22_aaa"
+                                       @change="loadAvailableRequirements()"
                                        class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
                                 <span class="ml-3 text-sm">Level AAA 
                                     <span class="text-gray-500">(<span x-text="getRequirementCount('wcag_22_aaa')"></span> requirements)</span>
@@ -468,8 +471,11 @@
                 <!-- Manual Requirement Selection -->
                 <div x-show="!sessionWizard.smart_filtering" class="space-y-4">
                     <h6 class="font-medium text-gray-900">Manual Requirement Selection</h6>
+                    <div class="text-sm text-gray-600 mb-2">
+                        Select individual requirements from <span x-text="availableRequirements?.length || 0"></span> available requirements for your chosen conformance levels.
+                    </div>
                     <div class="max-h-64 overflow-y-auto border border-gray-200 rounded-lg p-4">
-                        <template x-for="requirement in getSelectedRequirements()" :key="requirement.requirement_id">
+                        <template x-for="requirement in availableRequirements" :key="requirement.requirement_id || requirement.id">
                             <label class="flex items-start py-2">
                                 <input type="checkbox" 
                                        x-model="sessionWizard.manual_requirements"

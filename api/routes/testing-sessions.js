@@ -1217,17 +1217,17 @@ async function getRequirementsForWizardLevels(conformanceLevels, smartFiltering 
         
         // Map both wizard and database conformance levels to database values
         const levelMapping = {
-            // Wizard format (preferred)
-            'wcag_22_a': { type: 'wcag', level: 'A' },
-            'wcag_22_aa': { type: 'wcag', level: 'AA' },
-            'wcag_22_aaa': { type: 'wcag', level: 'AAA' },
+            // Wizard format (preferred) - WCAG 2.2 specific
+            'wcag_22_a': { type: 'wcag', level: 'A', version: '2.2' },
+            'wcag_22_aa': { type: 'wcag', level: 'AA', version: '2.2' },
+            'wcag_22_aaa': { type: 'wcag', level: 'AAA', version: '2.2' },
             'section_508_base': { type: 'section508', level: 'Required' },
             'section_508_enhanced': { type: 'section508', level: 'Required' },
             
-            // Legacy format (for compatibility)
-            'wcag_a': { type: 'wcag', level: 'A' },
-            'wcag_aa': { type: 'wcag', level: 'AA' },
-            'wcag_aaa': { type: 'wcag', level: 'AAA' },
+            // Legacy format (for compatibility) - WCAG 2.1 for backward compatibility
+            'wcag_a': { type: 'wcag', level: 'A', version: '2.1' },
+            'wcag_aa': { type: 'wcag', level: 'AA', version: '2.1' },
+            'wcag_aaa': { type: 'wcag', level: 'AAA', version: '2.1' },
             'section508_base': { type: 'section508', level: 'Required' }
         };
         
@@ -1239,12 +1239,18 @@ async function getRequirementsForWizardLevels(conformanceLevels, smartFiltering 
         for (const level of conformanceLevels) {
             const mapping = levelMapping[level];
             if (mapping) {
-                console.log(`✅ Mapped ${level} -> ${mapping.type}:${mapping.level}`);
+                console.log(`✅ Mapped ${level} -> ${mapping.type}:${mapping.level}${mapping.version ? ` (v${mapping.version})` : ''}`);
                 
-                // Use exact database values (case-sensitive)
-                whereConditions.push(`(standard_type = $${paramIndex} AND level = $${paramIndex + 1})`);
-                queryParams.push(mapping.type, mapping.level);
-                paramIndex += 2;
+                // Use exact database values (case-sensitive) with version filtering
+                if (mapping.version) {
+                    whereConditions.push(`(standard_type = $${paramIndex} AND level = $${paramIndex + 1} AND version = $${paramIndex + 2})`);
+                    queryParams.push(mapping.type, mapping.level, mapping.version);
+                    paramIndex += 3;
+                } else {
+                    whereConditions.push(`(standard_type = $${paramIndex} AND level = $${paramIndex + 1})`);
+                    queryParams.push(mapping.type, mapping.level);
+                    paramIndex += 2;
+                }
             } else {
                 console.log(`⚠️ Unknown conformance level: ${level}`);
             }
@@ -1860,5 +1866,55 @@ function generateHTMLVPAT(vpatDocument) {
 </html>
     `.trim();
 }
+
+/**
+ * POST /api/testing-sessions/requirements
+ * Get requirements for specified conformance levels with proper version filtering
+ */
+router.post('/requirements', authenticateToken, async (req, res) => {
+    try {
+        const { conformance_levels = [], smart_filtering = true, manual_requirements = [] } = req.body;
+        
+        console.log('📋 Getting requirements for conformance levels:', conformance_levels);
+        
+        if (!Array.isArray(conformance_levels) || conformance_levels.length === 0) {
+            return res.status(400).json({
+                success: false,
+                error: 'conformance_levels array is required'
+            });
+        }
+        
+        const requirements = await getRequirementsForWizardLevels(
+            conformance_levels, 
+            smart_filtering, 
+            manual_requirements
+        );
+        
+        console.log(`✅ Found ${requirements.length} requirements for levels: ${conformance_levels.join(', ')}`);
+        
+        // Map the response format to match what frontend expects
+        const mappedRequirements = requirements.map(req => ({
+            ...req,
+            standard_type: req.requirement_type, // Map requirement_type -> standard_type for frontend compatibility
+            requirement_id: req.id, // Map id -> requirement_id for frontend filtering
+            criterion: req.criterion_number // Map criterion_number -> criterion for frontend filtering
+        }));
+        
+        res.json({
+            success: true,
+            data: mappedRequirements,
+            count: mappedRequirements.length,
+            conformance_levels: conformance_levels
+        });
+        
+    } catch (error) {
+        console.error('Error getting requirements:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to get requirements',
+            details: error.message
+        });
+    }
+});
 
 module.exports = router; 

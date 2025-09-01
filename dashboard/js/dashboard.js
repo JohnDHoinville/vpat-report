@@ -898,7 +898,7 @@ window.dashboard = function() {
                     
                     try {
                         // Try the unified requirements endpoint for this session
-                        requirementsResponse = await this.apiCall(`/unified-requirements/session/${sessionId}?_t=${Date.now()}`);
+                        requirementsResponse = await this.apiCall(`/api/unified-requirements/session/${sessionId}?_t=${Date.now()}`);
                         
                         if (requirementsResponse.success && requirementsResponse.data?.requirements) {
                             requirementsData = requirementsResponse.data.requirements;
@@ -911,7 +911,7 @@ window.dashboard = function() {
                         } else {
                             // Fallback to conformance level endpoint
                             console.log(`📋 Trying conformance level endpoint for ${conformanceLevel}`);
-                            requirementsResponse = await this.apiCall(`/unified-requirements/conformance/${conformanceLevel}`);
+                            requirementsResponse = await this.apiCall(`/api/unified-requirements/conformance/${conformanceLevel}`);
                             
                             if (requirementsResponse.success && requirementsResponse.data?.requirements) {
                                 requirementsData = requirementsResponse.data.requirements;
@@ -1218,7 +1218,7 @@ window.dashboard = function() {
         // Update requirement status override
         updateRequirementStatus: async function(requirementId, status) {
             try {
-                const response = await this.apiCall(`/unified-requirements/${requirementId}/status`, {
+                const response = await this.apiCall(`/api/unified-requirements/${requirementId}/status`, {
                     method: 'PUT',
                     body: JSON.stringify({ status_override: status })
                 });
@@ -3200,7 +3200,7 @@ MANUAL PHASE:
 
             try {
                 console.log('🔧 Making API call to save status override...');
-                const response = await this.apiCall(`/unified-requirements/${this.currentRequirement.id}/status-override`, {
+                const response = await this.apiCall(`/api/unified-requirements/${this.currentRequirement.id}/status-override`, {
                     method: 'PUT',
                     body: JSON.stringify({ 
                         manual_status_override: status 
@@ -3241,7 +3241,7 @@ MANUAL PHASE:
             if (!this.currentRequirement) return;
 
             try {
-                const response = await this.apiCall(`/unified-requirements/${this.currentRequirement.id}/status-override`, {
+                const response = await this.apiCall(`/api/unified-requirements/${this.currentRequirement.id}/status-override`, {
                     method: 'DELETE'
                 });
 
@@ -4363,7 +4363,7 @@ MANUAL PHASE:
             
             try {
                 // Reload the current requirement details
-                const response = await this.apiCall(`/unified-requirements/session/${this.selectedTestSession.id}?_t=${Date.now()}`);
+                const response = await this.apiCall(`/api/unified-requirements/session/${this.selectedTestSession.id}?_t=${Date.now()}`);
                 if (response.success) {
                     const updatedRequirement = response.data.requirements.find(req => req.id === requirementId);
                     if (updatedRequirement) {
@@ -15787,7 +15787,25 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
             try {
                 console.log('📋 Loading available requirements...');
                 
-                const response = await this.apiCall('/unified-requirements');
+                // Use the testing sessions endpoint which has proper WCAG version filtering
+                // Pass ONLY the selected conformance levels to get the exact requirements needed
+                const selectedLevels = this.sessionWizard?.conformance_levels || [];
+                
+                if (selectedLevels.length === 0) {
+                    console.log('⚠️ No conformance levels selected, clearing requirements');
+                    this.requirements = [];
+                    return;
+                }
+                
+                console.log('🎯 Loading requirements for ONLY selected levels:', selectedLevels);
+                
+                const response = await this.apiCall('/testing-sessions/requirements', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        conformance_levels: selectedLevels,
+                        smart_filtering: false
+                    })
+                });
                 if (response.success && response.data) {
                     // Handle the actual API response structure: response.data.requirements
                     const requirements = response.data.requirements || response.data;
@@ -16996,7 +17014,7 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
                 
                 try {
                     // Try authenticated endpoint first - use session-specific unified requirements
-                    requirementsResponse = await this.apiCall(`/unified-requirements/session/${sessionId}?_t=${Date.now()}`);
+                    requirementsResponse = await this.apiCall(`/api/unified-requirements/session/${sessionId}?_t=${Date.now()}`);
                 } catch (authError) {
                     console.warn('🔓 Authenticated API failed, trying test endpoint:', authError.message);
                     
