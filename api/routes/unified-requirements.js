@@ -526,9 +526,12 @@ router.get('/session/:sessionId', async (req, res) => {
             whereCondition = `WHERE ur.standard_type = 'wcag' AND ur.level IN ('A', 'AA')`;
         }
         
-        // Get requirements with test instance statuses from unified_requirements (same table used in session creation)
+        // 🎯 STRICT SESSION-ONLY MODE: Only return requirements that exist in this session's test_instances
+        console.log(`🔒 SESSION-ONLY API: Loading STRICTLY session requirements for ${sessionId}`);
+        console.log(`🎯 Session conformance level: ${conformanceLevel}`);
+        
         const result = await pool.query(`
-            SELECT 
+            SELECT DISTINCT
                 ur.id,
                 ur.standard_type,
                 ur.requirement_id as criterion_number,
@@ -581,9 +584,8 @@ router.get('/session/:sessionId', async (req, res) => {
                     ELSE 'not_tested'
                 END as manual_status
             FROM unified_requirements ur
-            LEFT JOIN test_instances ti ON ur.id = ti.requirement_id AND ti.session_id = $1
+            INNER JOIN test_instances ti ON ur.id = ti.requirement_id AND ti.session_id = $1
             LEFT JOIN requirement_status_overrides rso ON ur.id = rso.requirement_id
-            ${whereCondition}
             GROUP BY ur.id, ur.standard_type, ur.requirement_id, ur.title, ur.description, ur.level, ur.test_method, ur.tool_mappings, ur.manual_test_procedure, ur.understanding_url, ur.applies_to_page_types, ur.created_at, rso.manual_status_override
             ORDER BY ur.standard_type, ur.requirement_id
         `, [sessionId]);
@@ -593,6 +595,9 @@ router.get('/session/:sessionId', async (req, res) => {
         console.log(`🔍 DEBUG API: Found ${failedReqs.length} expected failed requirements:`, 
             failedReqs.map(r => ({id: r.criterion_number, automated_status: r.automated_status, failed_instances: r.failed_instances})));
 
+        console.log(`✅ SESSION-ONLY API: Returning ${result.rows.length} requirements for session ${sessionId}`);
+        console.log(`📋 Requirements: ${result.rows.map(r => r.criterion_number).join(', ')}`);
+        
         res.json({
             success: true,
             data: {

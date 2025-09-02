@@ -1,0 +1,52 @@
+                                                                                              List of relations
+ Schema |             Name              | Type  |     Owner     | Persistence | Access method |    Size    |                                           Description                                            
+--------+-------------------------------+-------+---------------+-------------+---------------+------------+--------------------------------------------------------------------------------------------------
+ public | api_activity_log              | table | johnhoinville | permanent   | heap          | 7864 kB    | 
+ public | auth_configs                  | table | johnhoinville | permanent   | heap          | 16 kB      | 
+ public | automated_result_review_queue | table | johnhoinville | permanent   | heap          | 8192 bytes | Queue for automated test results requiring human review
+ public | automated_test_results        | table | johnhoinville | permanent   | heap          | 1024 kB    | Results from automated testing tools (axe, pa11y, lighthouse)
+ public | automated_test_rules          | table | johnhoinville | permanent   | heap          | 16 kB      | 
+ public | automated_test_runs           | table | johnhoinville | permanent   | heap          | 16 kB      | Tracks automated test run executions across multiple pages and tools
+ public | change_approval_escalations   | table | johnhoinville | permanent   | heap          | 8192 bytes | Escalation tracking for overdue approvals
+ public | change_approval_requests      | table | johnhoinville | permanent   | heap          | 8192 bytes | Individual requests for approval of test changes
+ public | change_approval_rules         | table | johnhoinville | permanent   | heap          | 16 kB      | Rules that define when test changes require approval
+ public | change_approvals              | table | johnhoinville | permanent   | heap          | 8192 bytes | Individual approval decisions for change requests
+ public | coverage_metrics              | table | johnhoinville | permanent   | heap          | 8192 bytes | Stores automated coverage metrics and performance data
+ public | crawler_auth_sessions         | table | johnhoinville | permanent   | heap          | 80 kB      | Persistent authentication sessions for SAML and other auth methods
+ public | crawler_discovered_pages      | table | johnhoinville | permanent   | heap          | 14 MB      | Pages discovered during crawler runs, integrated with testing workflow
+ public | crawler_metrics               | table | johnhoinville | permanent   | heap          | 8192 bytes | Performance and operational metrics for crawler optimization
+ public | crawler_runs                  | table | johnhoinville | permanent   | heap          | 48 kB      | Individual execution runs of web crawlers with detailed progress tracking
+ public | database_backups              | table | johnhoinville | permanent   | heap          | 16 kB      | 
+ public | discovered_pages              | table | johnhoinville | permanent   | heap          | 64 kB      | Individual pages found during site discovery process
+ public | evidence_repository           | table | johnhoinville | permanent   | heap          | 8192 bytes | Centralized storage for evidence files
+ public | frontend_test_runs            | table | postgres      | permanent   | heap          | 16 kB      | Frontend test execution batches (Playwright, Cypress, etc.) linked to compliance sessions
+ public | manual_test_evidence          | table | johnhoinville | permanent   | heap          | 8192 bytes | 
+ public | manual_test_results           | table | johnhoinville | permanent   | heap          | 8192 bytes | Manual testing results with evidence capture and retesting support
+ public | manual_workflow_tasks         | table | postgres      | permanent   | heap          | 8192 bytes | Manual testing tasks created from automated violation detection
+ public | project_roles                 | table | postgres      | permanent   | heap          | 16 kB      | Defines available authentication roles for each project
+ public | projects                      | table | johnhoinville | permanent   | heap          | 16 kB      | Main project container for accessibility testing engagements
+ public | requirement_status_overrides  | table | johnhoinville | permanent   | heap          | 0 bytes    | Stores manual status overrides for requirements that override computed status
+ public | section_508_requirements      | table | johnhoinville | permanent   | heap          | 16 kB      | Section 508 requirements and testing procedures
+ public | site_discovery                | table | johnhoinville | permanent   | heap          | 16 kB      | Site crawling and page discovery results for comprehensive testing
+ public | test_audit_log                | table | postgres      | permanent   | heap          | 240 kB     | 
+ public | test_evidence                 | table | johnhoinville | permanent   | heap          | 8192 bytes | 
+ public | test_instance_audit_log       | table | johnhoinville | permanent   | heap          | 1992 kB    | Audit trail of all changes to test instances with evidence
+ public | test_instances                | table | postgres      | permanent   | heap          | 4688 kB    | 
+ public | test_requirements             | table | postgres      | permanent   | heap          | 104 kB     | 
+ public | test_result_instances         | table | postgres      | permanent   | heap          | 8192 bytes | Unified tracking of all test results (automated + manual) for compliance session management
+ public | test_sessions                 | table | postgres      | permanent   | heap          | 5336 kB    | 
+ public | user_permissions              | table | postgres      | permanent   | heap          | 8192 bytes | 
+ public | user_sessions                 | table | postgres      | permanent   | heap          | 240 kB     | 
+ public | users                         | table | postgres      | permanent   | heap          | 16 kB      | 
+ public | violations                    | table | johnhoinville | permanent   | heap          | 896 kB     | Detailed accessibility violations with remediation guidance
+ public | vpat_reports                  | table | johnhoinville | permanent   | heap          | 8192 bytes | Generated VPAT reports combining automated and manual test results
+ public | wcag_requirements             | table | johnhoinville | permanent   | heap          | 224 kB     | WCAG 2.1 Level AA & AAA requirements with step-by-step testing procedures
+ public | wcag_requirements_backup      | table | johnhoinville | permanent   | heap          | 48 kB      | 
+ public | web_crawlers                  | table | johnhoinville | permanent   | heap          | 64 kB      | Main table for storing web crawler configurations with SAML authentication and advanced features
+ public | workflow_audit_log            | table | postgres      | permanent   | heap          | 8192 bytes | Audit trail for all workflow actions and changes
+ public | workflow_configuration        | table | postgres      | permanent   | heap          | 8192 bytes | Configuration settings for workflow automation
+ public | workflow_metrics              | table | postgres      | permanent   | heap          | 0 bytes    | Daily metrics for workflow performance and quality
+ public | workflow_notifications        | table | postgres      | permanent   | heap          | 8192 bytes | Notifications for workflow events and task assignments
+ public | workflow_task_dependencies    | table | postgres      | permanent   | heap          | 0 bytes    | Dependencies between workflow tasks
+(47 rows)
+

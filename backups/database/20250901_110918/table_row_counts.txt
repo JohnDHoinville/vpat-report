@@ -1,0 +1,52 @@
+-- Table Row Counts as of Mon Sep  1 11:10:06 EDT 2025
+ schemaname |          table_name           | row_count 
+------------+-------------------------------+-----------
+ public     | api_activity_log              |     15354
+ public     | test_instances                |      6669
+ public     | crawler_discovered_pages      |      5538
+ public     | violations                    |      1839
+ public     | test_instance_audit_log       |      1005
+ public     | test_audit_log                |       892
+ public     | automated_test_results        |       333
+ public     | user_sessions                 |       256
+ public     | wcag_requirements             |       137
+ public     | discovered_pages              |       104
+ public     | test_requirements             |        66
+ public     | test_sessions                 |        49
+ public     | crawler_runs                  |        30
+ public     | automated_test_runs           |        23
+ public     | frontend_test_runs            |        13
+ public     | section_508_requirements      |        11
+ public     | web_crawlers                  |        11
+ public     | site_discovery                |        11
+ public     | user_permissions              |        10
+ public     | wcag_requirements_backup      |         8
+ public     | users                         |         8
+ public     | crawler_auth_sessions         |         8
+ public     | project_roles                 |         6
+ public     | projects                      |         5
+ public     | automated_test_rules          |         5
+ public     | auth_configs                  |         4
+ public     | change_approval_rules         |         4
+ public     | database_backups              |         3
+ public     | workflow_configuration        |         1
+ public     | test_result_instances         |         0
+ public     | workflow_task_dependencies    |         0
+ public     | evidence_repository           |         0
+ public     | vpat_reports                  |         0
+ public     | test_evidence                 |         0
+ public     | workflow_audit_log            |         0
+ public     | manual_test_evidence          |         0
+ public     | change_approvals              |         0
+ public     | workflow_notifications        |         0
+ public     | coverage_metrics              |         0
+ public     | change_approval_escalations   |         0
+ public     | requirement_status_overrides  |         0
+ public     | workflow_metrics              |         0
+ public     | change_approval_requests      |         0
+ public     | crawler_metrics               |         0
+ public     | manual_workflow_tasks         |         0
+ public     | manual_test_results           |         0
+ public     | automated_result_review_queue |         0
+(47 rows)
+

@@ -1,0 +1,6 @@
+                                                     List of databases
+         Name          |     Owner     | Encoding | Collate | Ctype | Access privileges | Size  | Tablespace | Description 
+-----------------------+---------------+----------+---------+-------+-------------------+-------+------------+-------------
+ accessibility_testing | johnhoinville | UTF8     | C       | C     |                   | 57 MB | pg_default | 
+(1 row)
+

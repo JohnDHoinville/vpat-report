@@ -1,0 +1,5 @@
+ total_wcag_requirements 
+-------------------------
+                     148
+(1 row)
+

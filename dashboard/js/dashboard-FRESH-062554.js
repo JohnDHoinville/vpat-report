@@ -6,7 +6,7 @@
 
 // Make dashboard function globally available
 window.dashboard = function() {
-    console.log('🚀 Dashboard v4.0 - NUCLEAR CACHE BUST - NO DOUBLE API PREFIX - Loaded at', new Date().toISOString());
+    console.log('🚀 Dashboard v6.0 - FRESH FILE - NO FETCH OVERRIDE - Loaded at', new Date().toISOString());
     
     // 🚨 VERIFY NO FALLBACKS ARE ACTIVE
     if (this.toString().includes('fallback')) {
@@ -14,19 +14,22 @@ window.dashboard = function() {
         throw new Error('FALLBACK CODE FOUND - CACHE NOT CLEARED');
     }
     
-    // 🔍 TRACE API CALLS TO FIND DOUBLE /api/ PREFIX
-    console.log('🔍 v4.0 API TRACING ENABLED');
+    // 🔍 NO FETCH OVERRIDE - CLEAN DEBUGGING
+    console.log('🔍 v6.0 NO FETCH OVERRIDE - CLEAN DEBUGGING MODE');
+    console.log('🌐 Testing backend connectivity...');
     
-    // Override apiCall to trace all requests
-    const originalApiCall = this.apiCall;
-    this.apiCall = function(endpoint, options = {}) {
-        console.log('🔍 API CALL TRACE:', endpoint, 'options:', options);
-        if (endpoint.includes('unified-requirements')) {
-            console.log('🎯 UNIFIED-REQUIREMENTS CALL DETECTED:', endpoint);
-            console.trace('Call stack trace:');
-        }
-        return originalApiCall.call(this, endpoint, options);
-    };
+    // Test backend connectivity immediately
+    fetch('http://localhost:3001/api/health')
+        .then(response => {
+            console.log('✅ Backend connectivity test successful:', response.status);
+            return response.json();
+        })
+        .then(data => {
+            console.log('✅ Backend health check:', data);
+        })
+        .catch(error => {
+            console.error('❌ Backend connectivity test failed:', error.message);
+        });
     
     // 🛡️ INITIALIZATION GUARD - Prevent double initialization
     if (window._dashboardInitialized) {

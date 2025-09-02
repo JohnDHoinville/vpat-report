@@ -1,0 +1,6 @@
+                                          List of relations
+ Schema |          Name           |   Type   |     Owner     | Persistence |    Size    | Description 
+--------+-------------------------+----------+---------------+-------------+------------+-------------
+ public | coverage_metrics_id_seq | sequence | johnhoinville | permanent   | 8192 bytes | 
+(1 row)
+

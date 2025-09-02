@@ -100,7 +100,7 @@ export const API_ENDPOINTS = {
     // Requirements endpoints
     REQUIREMENTS: {
         TEST: '/api/requirements/test',
-        BY_SESSION: (sessionId) => `/api/unified-requirements/session/${sessionId}`
+        BY_SESSION: (sessionId) => `/unified-requirements/session/${sessionId}`
     },
 
     // Admin endpoints

@@ -6,7 +6,7 @@
 
 // Make dashboard function globally available
 window.dashboard = function() {
-    console.log('🚀 Dashboard v4.0 - NUCLEAR CACHE BUST - NO DOUBLE API PREFIX - Loaded at', new Date().toISOString());
+    console.log('🚀 Dashboard v5.0 - TIMESTAMP CACHE BYPASS - FALLBACK BLOCKER - Loaded at', new Date().toISOString());
     
     // 🚨 VERIFY NO FALLBACKS ARE ACTIVE
     if (this.toString().includes('fallback')) {
@@ -14,18 +14,20 @@ window.dashboard = function() {
         throw new Error('FALLBACK CODE FOUND - CACHE NOT CLEARED');
     }
     
-    // 🔍 TRACE API CALLS TO FIND DOUBLE /api/ PREFIX
-    console.log('🔍 v4.0 API TRACING ENABLED');
+    // 🚨 BLOCK DOUBLE /api/ PREFIX CALLS (TEMPORARILY DISABLED FOR DEBUGGING)
+    console.log('🔍 v5.0 DOUBLE-API BLOCKER TEMPORARILY DISABLED FOR DEBUGGING');
     
-    // Override apiCall to trace all requests
-    const originalApiCall = this.apiCall;
-    this.apiCall = function(endpoint, options = {}) {
-        console.log('🔍 API CALL TRACE:', endpoint, 'options:', options);
-        if (endpoint.includes('unified-requirements')) {
-            console.log('🎯 UNIFIED-REQUIREMENTS CALL DETECTED:', endpoint);
-            console.trace('Call stack trace:');
+    // Store original fetch for restoration
+    window._originalFetch = window.fetch;
+    
+    // Monitor API calls without blocking
+    const originalFetch = window.fetch;
+    window.fetch = function(url, options) {
+        if (typeof url === 'string' && url.includes('/api/api/')) {
+            console.error('🚨 DOUBLE /api/ CALL DETECTED (NOT BLOCKED):', url);
         }
-        return originalApiCall.call(this, endpoint, options);
+        console.log('📡 API CALL:', url);
+        return originalFetch.call(this, url, options);
     };
     
     // 🛡️ INITIALIZATION GUARD - Prevent double initialization

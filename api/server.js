@@ -65,6 +65,7 @@ app.use(accessLogger);
 app.use(cors({
     origin: process.env.CORS_ORIGINS?.split(',') || [
         'http://localhost:3000',
+        'http://localhost:8000',  // Python HTTP server (current frontend)
         'http://localhost:8080',
         'http://localhost:8081', // Dashboard frontend
         'http://127.0.0.1:3000',

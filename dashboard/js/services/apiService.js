@@ -521,7 +521,7 @@ window.DashboardAPI.requirements = {
     },
 
     async getBySession(sessionId) {
-        return window.DashboardAPI.client.apiCall(`/api/unified-requirements/session/${sessionId}`);
+        return window.DashboardAPI.client.apiCall(`/unified-requirements/session/${sessionId}`);
     },
 
     async getByConformanceLevel(level) {
