@@ -8900,6 +8900,228 @@ URL exclusions help you avoid crawling repetitive or irrelevant pages, making yo
             this.newManualUrlForTesting = true;
         },
 
+        // Parse bulk URLs from text input
+        parseBulkUrls() {
+            const text = this.bulkUrlText || '';
+            const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+            
+            // Limit to 1000 URLs
+            const limitedLines = lines.slice(0, 1000);
+            
+            // Basic URL validation
+            const validUrls = limitedLines.filter(line => {
+                try {
+                    // Add protocol if missing
+                    const url = line.match(/^https?:\/\//) ? line : `https://${line}`;
+                    new URL(url);
+                    return true;
+                } catch {
+                    return false;
+                }
+            });
+
+            this.parsedUrls = validUrls;
+            
+            if (limitedLines.length !== lines.length) {
+                this.showNotification('warning', 'URL Limit', `Only the first 1000 URLs will be processed. ${lines.length - 1000} URLs were truncated.`);
+            }
+            
+            if (validUrls.length !== limitedLines.length) {
+                this.showNotification('warning', 'Invalid URLs', `${limitedLines.length - validUrls.length} invalid URLs were filtered out.`);
+            }
+        },
+
+        // Handle bulk file upload
+        async handleBulkFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            // Check file size (1MB limit)
+            if (file.size > 1024 * 1024) {
+                this.showNotification('error', 'File Too Large', 'Maximum file size is 1MB');
+                event.target.value = '';
+                return;
+            }
+
+            try {
+                const text = await this.readFileAsText(file);
+                const extension = file.name.toLowerCase().split('.').pop();
+
+                if (extension === 'txt') {
+                    // Handle text file - one URL per line
+                    this.bulkUrlText = text;
+                    this.parseBulkUrls();
+                } else if (extension === 'csv') {
+                    // Handle CSV file
+                    this.parseCsvFile(text);
+                } else {
+                    this.showNotification('error', 'Invalid File Type', 'Only .txt and .csv files are supported');
+                    event.target.value = '';
+                }
+            } catch (error) {
+                console.error('Error reading file:', error);
+                this.showNotification('error', 'File Read Error', 'Failed to read the uploaded file');
+                event.target.value = '';
+            }
+        },
+
+        // Read file as text
+        readFileAsText(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => resolve(e.target.result);
+                reader.onerror = reject;
+                reader.readAsText(file);
+            });
+        },
+
+        // Parse CSV file
+        parseCsvFile(csvText) {
+            const lines = csvText.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+            if (lines.length === 0) {
+                this.showNotification('error', 'Empty File', 'The CSV file appears to be empty');
+                return;
+            }
+
+            // Check if first line is a header
+            const firstLine = lines[0].toLowerCase();
+            const hasHeader = firstLine.includes('url') || firstLine.includes('title');
+            const dataLines = hasHeader ? lines.slice(1) : lines;
+
+            // Limit to 1000 URLs
+            const limitedLines = dataLines.slice(0, 1000);
+            
+            const parsedUrls = [];
+            const errors = [];
+
+            limitedLines.forEach((line, index) => {
+                try {
+                    // Parse CSV line (basic CSV parsing)
+                    const columns = this.parseCsvLine(line);
+                    
+                    if (columns.length === 0 || !columns[0]) {
+                        errors.push(`Line ${index + 1}: Empty URL`);
+                        return;
+                    }
+
+                    const urlData = {
+                        url: columns[0],
+                        title: columns[1] || null,
+                        page_type: columns[2] || 'content',
+                        requires_auth: this.parseBooleanValue(columns[3]),
+                        has_forms: this.parseBooleanValue(columns[4]),
+                        selected_for_testing: columns[5] !== undefined ? this.parseBooleanValue(columns[5]) : true
+                    };
+
+                    // Validate URL
+                    const url = urlData.url.match(/^https?:\/\//) ? urlData.url : `https://${urlData.url}`;
+                    new URL(url);
+                    
+                    parsedUrls.push(url);
+                } catch (error) {
+                    errors.push(`Line ${index + 1}: Invalid URL format - ${columns[0]}`);
+                }
+            });
+
+            this.parsedUrls = parsedUrls;
+            
+            if (errors.length > 0) {
+                this.showNotification('warning', 'CSV Parse Errors', `${errors.length} lines had errors and were skipped. Check console for details.`);
+                console.warn('CSV parsing errors:', errors);
+            }
+            
+            if (limitedLines.length !== dataLines.length) {
+                this.showNotification('warning', 'URL Limit', `Only the first 1000 URLs will be processed. ${dataLines.length - 1000} URLs were truncated.`);
+            }
+        },
+
+        // Basic CSV line parser
+        parseCsvLine(line) {
+            const result = [];
+            let current = '';
+            let inQuotes = false;
+            
+            for (let i = 0; i < line.length; i++) {
+                const char = line[i];
+                
+                if (char === '"') {
+                    inQuotes = !inQuotes;
+                } else if (char === ',' && !inQuotes) {
+                    result.push(current.trim());
+                    current = '';
+                } else {
+                    current += char;
+                }
+            }
+            
+            result.push(current.trim());
+            return result;
+        },
+
+        // Parse boolean value from CSV
+        parseBooleanValue(value) {
+            if (value === undefined || value === null || value === '') return false;
+            const lowerValue = String(value).toLowerCase().trim();
+            return lowerValue === 'true' || lowerValue === '1' || lowerValue === 'yes' || lowerValue === 'y';
+        },
+
+        // Import bulk URLs
+        async importBulkUrls() {
+            if (!this.selectedCrawlerForPages || this.parsedUrls.length === 0) {
+                this.showNotification('error', 'Validation Error', 'No URLs to import or crawler not selected');
+                return;
+            }
+
+            this.importProgress = {
+                current: 0,
+                total: this.parsedUrls.length,
+                importing: true
+            };
+
+            try {
+                console.log('🔍 DEBUG: Starting bulk URL import:', {
+                    crawlerId: this.selectedCrawlerForPages.id,
+                    urlCount: this.parsedUrls.length,
+                    defaultSettings: this.bulkUrlSettings
+                });
+
+                const response = await this.apiCall(`/web-crawlers/crawlers/${this.selectedCrawlerForPages.id}/pages/bulk`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        urls: this.parsedUrls,
+                        defaultSettings: this.bulkUrlSettings
+                    })
+                });
+
+                if (response.success) {
+                    this.importResults = response.data;
+                    this.showNotification('success', 'Import Complete', 
+                        `${response.data.imported} URLs imported, ${response.data.skipped} skipped (duplicates)`);
+                    
+                    // Reset form state
+                    this.bulkUrlText = '';
+                    this.parsedUrls = [];
+                    
+                    console.log('✅ Bulk import completed:', response.data);
+                } else {
+                    this.showNotification('error', 'Import Failed', response.message || 'Failed to import URLs');
+                }
+            } catch (error) {
+                console.error('Error importing bulk URLs:', error);
+                this.showNotification('error', 'Network Error', 'Failed to import URLs');
+            } finally {
+                this.importProgress = { current: 0, total: 0, importing: false };
+            }
+        },
+
+        // Refresh crawler pages after bulk import
+        async refreshCrawlerPages() {
+            if (this.selectedCrawlerForPages) {
+                await this.loadCrawlerPages(this.selectedCrawlerForPages.id);
+                this.updateFilteredCrawlerPages();
+            }
+        },
+
         // Save UI page selections to persist them across modal reopens
         async saveCrawlerPageSelections() {
             if (!this.selectedCrawlerForPages) {

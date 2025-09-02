@@ -732,7 +732,7 @@
         </div>
     </div>
 
-    <!-- Add Manual URL Modal -->
+    <!-- Add Manual URL Modal (Tabbed) -->
     <div x-show="showAddManualUrlModal" 
          x-transition:enter="transition ease-out duration-300"
          x-transition:enter-start="opacity-0"
@@ -741,12 +741,26 @@
          x-transition:leave-start="opacity-100"
          x-transition:leave-end="opacity-0"
          class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
-         @click.self="showAddManualUrlModal = false">
-        <div class="bg-white rounded-lg shadow-xl max-w-lg w-full">
+         @click.self="showAddManualUrlModal = false"
+         x-data="{
+            activeTab: 'single',
+            bulkUrlText: '',
+            bulkUrlFile: null,
+            bulkUrlSettings: {
+                page_type: 'content',
+                selected_for_testing: true,
+                requires_auth: false,
+                has_forms: false
+            },
+            parsedUrls: [],
+            importProgress: { current: 0, total: 0, importing: false },
+            importResults: null
+         }">
+        <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
             <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
                 <div>
-                    <h3 class="text-lg font-semibold text-gray-900">Add Manual URL</h3>
-                    <p class="text-sm text-gray-600 mt-1">Add a URL that the crawler may have missed</p>
+                    <h3 class="text-lg font-semibold text-gray-900">Add URLs to Crawler</h3>
+                    <p class="text-sm text-gray-600 mt-1">Add single URL or import multiple URLs at once</p>
                 </div>
                 <button @click="showAddManualUrlModal = false" 
                         class="text-gray-400 hover:text-gray-600">
@@ -754,81 +768,271 @@
                 </button>
             </div>
             
-            <form @submit.prevent="addManualUrl()" class="p-6 space-y-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">URL</label>
-                    <input x-model="newManualUrl" type="url" required
-                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                           placeholder="https://example.com/page">
-                    <p class="text-xs text-gray-500 mt-1">Enter the complete URL including https://</p>
+            <!-- Tab Navigation -->
+            <div class="border-b border-gray-200">
+                <nav class="flex">
+                    <button @click="activeTab = 'single'"
+                            :class="activeTab === 'single' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
+                            class="px-6 py-3 border-b-2 font-medium text-sm">
+                        <i class="fas fa-plus mr-2"></i>Single URL
+                    </button>
+                    <button @click="activeTab = 'bulk'"
+                            :class="activeTab === 'bulk' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
+                            class="px-6 py-3 border-b-2 font-medium text-sm">
+                        <i class="fas fa-upload mr-2"></i>Bulk Import
+                    </button>
+                </nav>
+            </div>
+            
+            <div class="overflow-y-auto max-h-[70vh]">
+                <!-- Single URL Tab -->
+                <div x-show="activeTab === 'single'" class="p-6">
+                    <form @submit.prevent="addManualUrl()" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">URL</label>
+                            <input x-model="newManualUrl" type="url" required
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                                   placeholder="https://example.com/page">
+                            <p class="text-xs text-gray-500 mt-1">Enter the complete URL including https://</p>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Page Title (Optional)</label>
+                            <input x-model="newManualUrlTitle" type="text"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                                   placeholder="Page title or description">
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Page Type</label>
+                                <select x-model="newManualUrlType"
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500">
+                                    <option value="content">Content Page</option>
+                                    <option value="form">Form Page</option>
+                                    <option value="login">Login Page</option>
+                                    <option value="admin">Admin Page</option>
+                                    <option value="api">API Endpoint</option>
+                                    <option value="other">Other</option>
+                                </select>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Depth Level</label>
+                                <input x-model="newManualUrlDepth" type="number" min="0" max="10"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                                       placeholder="1">
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-center space-x-4">
+                            <label class="flex items-center">
+                                <input x-model="newManualUrlRequiresAuth" type="checkbox" 
+                                       class="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded">
+                                <span class="ml-2 text-sm text-gray-700">Requires Authentication</span>
+                            </label>
+                            
+                            <label class="flex items-center">
+                                <input x-model="newManualUrlHasForms" type="checkbox" 
+                                       class="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded">
+                                <span class="ml-2 text-sm text-gray-700">Contains Forms</span>
+                            </label>
+                        </div>
+                        
+                        <div class="flex items-center">
+                            <label class="flex items-center">
+                                <input x-model="newManualUrlForTesting" type="checkbox" 
+                                       class="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded">
+                                <span class="ml-2 text-sm text-gray-700">Include in Testing Sessions</span>
+                            </label>
+                            <p class="ml-6 text-xs text-gray-500">WCAG requirements will determine which tests are manual/automated</p>
+                        </div>
+                        
+                        <div class="flex justify-end space-x-3 pt-4">
+                            <button type="button" @click="showAddManualUrlModal = false"
+                                    class="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
+                                Cancel
+                            </button>
+                            <button type="submit"
+                                    :disabled="!newManualUrl || addingManualUrl"
+                                    class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-green-400 transition-colors">
+                                <i x-show="addingManualUrl" class="fas fa-spinner fa-spin mr-2"></i>
+                                <span x-show="!addingManualUrl">Add URL</span>
+                                <span x-show="addingManualUrl">Adding...</span>
+                            </button>
+                        </div>
+                    </form>
                 </div>
                 
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Page Title (Optional)</label>
-                    <input x-model="newManualUrlTitle" type="text"
-                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                           placeholder="Page title or description">
-                </div>
-                
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Page Type</label>
-                        <select x-model="newManualUrlType"
-                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500">
-                            <option value="content">Content Page</option>
-                            <option value="form">Form Page</option>
-                            <option value="login">Login Page</option>
-                            <option value="admin">Admin Page</option>
-                            <option value="api">API Endpoint</option>
-                            <option value="other">Other</option>
-                        </select>
+                <!-- Bulk Import Tab -->
+                <div x-show="activeTab === 'bulk'" class="p-6">
+                    <div x-show="!importResults">
+                        <!-- Input Methods -->
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Import Method</label>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <!-- Text Input -->
+                                    <div class="border-2 border-dashed border-gray-300 rounded-lg p-4">
+                                        <h4 class="font-medium text-gray-900 mb-2">
+                                            <i class="fas fa-keyboard mr-2 text-blue-500"></i>Paste URLs
+                                        </h4>
+                                        <textarea x-model="bulkUrlText" 
+                                                  @input="parseBulkUrls()"
+                                                  rows="8" 
+                                                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                                                  placeholder="https://example.com/page1&#10;https://example.com/page2&#10;https://example.com/page3&#10;..."></textarea>
+                                        <p class="text-xs text-gray-500 mt-1">One URL per line (max 1000 URLs)</p>
+                                    </div>
+                                    
+                                    <!-- File Upload -->
+                                    <div class="border-2 border-dashed border-gray-300 rounded-lg p-4">
+                                        <h4 class="font-medium text-gray-900 mb-2">
+                                            <i class="fas fa-file-upload mr-2 text-purple-500"></i>Upload File
+                                        </h4>
+                                        <input type="file" 
+                                               @change="handleBulkFileUpload($event)"
+                                               accept=".txt,.csv"
+                                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500">
+                                        <p class="text-xs text-gray-500 mt-2">
+                                            <strong>Text files (.txt):</strong> One URL per line<br>
+                                            <strong>CSV files (.csv):</strong> url,title,page_type,requires_auth,has_forms,selected_for_testing
+                                        </p>
+                                        <p class="text-xs text-gray-500 mt-1">Maximum file size: 1MB, max 1000 URLs</p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Bulk Settings -->
+                            <div x-show="parsedUrls.length > 0" class="border-t pt-4">
+                                <h4 class="font-medium text-gray-900 mb-3">
+                                    <i class="fas fa-cog mr-2 text-gray-500"></i>Default Settings for All URLs
+                                </h4>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Default Page Type</label>
+                                        <select x-model="bulkUrlSettings.page_type"
+                                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500">
+                                            <option value="content">Content Page</option>
+                                            <option value="form">Form Page</option>
+                                            <option value="login">Login Page</option>
+                                            <option value="admin">Admin Page</option>
+                                            <option value="api">API Endpoint</option>
+                                            <option value="other">Other</option>
+                                        </select>
+                                    </div>
+                                    
+                                    <div class="flex items-center space-x-4">
+                                        <label class="flex items-center">
+                                            <input x-model="bulkUrlSettings.requires_auth" type="checkbox" 
+                                                   class="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded">
+                                            <span class="ml-2 text-sm text-gray-700">Requires Auth</span>
+                                        </label>
+                                        
+                                        <label class="flex items-center">
+                                            <input x-model="bulkUrlSettings.has_forms" type="checkbox" 
+                                                   class="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded">
+                                            <span class="ml-2 text-sm text-gray-700">Has Forms</span>
+                                        </label>
+                                    </div>
+                                </div>
+                                
+                                <div class="mt-3">
+                                    <label class="flex items-center">
+                                        <input x-model="bulkUrlSettings.selected_for_testing" type="checkbox" 
+                                               class="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded">
+                                        <span class="ml-2 text-sm text-gray-700">Include all URLs in Testing Sessions</span>
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <!-- URL Preview -->
+                            <div x-show="parsedUrls.length > 0" class="border-t pt-4">
+                                <h4 class="font-medium text-gray-900 mb-3">
+                                    <i class="fas fa-eye mr-2 text-blue-500"></i>Preview (<span x-text="parsedUrls.length"></span> URLs)
+                                </h4>
+                                <div class="max-h-40 overflow-y-auto border border-gray-200 rounded-md">
+                                    <template x-for="(url, index) in parsedUrls.slice(0, 10)" :key="index">
+                                        <div class="px-3 py-2 border-b border-gray-100 text-sm">
+                                            <span class="text-blue-600" x-text="url"></span>
+                                        </div>
+                                    </template>
+                                    <div x-show="parsedUrls.length > 10" class="px-3 py-2 text-xs text-gray-500 italic">
+                                        ... and <span x-text="parsedUrls.length - 10"></span> more URLs
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Import Progress -->
+                        <div x-show="importProgress.importing" class="mt-4 p-4 bg-blue-50 rounded-lg">
+                            <div class="flex items-center">
+                                <i class="fas fa-spinner fa-spin text-blue-500 mr-2"></i>
+                                <span class="text-blue-700">
+                                    Importing URLs... (<span x-text="importProgress.current"></span>/<span x-text="importProgress.total"></span>)
+                                </span>
+                            </div>
+                            <div class="mt-2 w-full bg-blue-200 rounded-full h-2">
+                                <div class="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+                                     :style="`width: ${(importProgress.current / importProgress.total) * 100}%`"></div>
+                            </div>
+                        </div>
+                        
+                        <!-- Action Buttons -->
+                        <div class="flex justify-end space-x-3 pt-4">
+                            <button type="button" @click="showAddManualUrlModal = false"
+                                    class="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
+                                Cancel
+                            </button>
+                            <button type="button" @click="importBulkUrls()"
+                                    :disabled="parsedUrls.length === 0 || importProgress.importing"
+                                    class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-purple-400 transition-colors">
+                                <i x-show="importProgress.importing" class="fas fa-spinner fa-spin mr-2"></i>
+                                <span x-show="!importProgress.importing">Import <span x-text="parsedUrls.length"></span> URLs</span>
+                                <span x-show="importProgress.importing">Importing...</span>
+                            </button>
+                        </div>
                     </div>
                     
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Depth Level</label>
-                        <input x-model="newManualUrlDepth" type="number" min="0" max="10"
-                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                               placeholder="1">
+                    <!-- Import Results -->
+                    <div x-show="importResults" class="space-y-4">
+                        <div class="text-center">
+                            <div class="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4">
+                                <i class="fas fa-check text-2xl text-green-600"></i>
+                            </div>
+                            <h3 class="text-lg font-semibold text-gray-900">Import Complete!</h3>
+                            <p class="text-gray-600 mt-1" x-show="importResults">
+                                <span x-text="importResults?.imported || 0"></span> URLs imported, 
+                                <span x-text="importResults?.skipped || 0"></span> skipped (duplicates)
+                            </p>
+                        </div>
+                        
+                        <!-- Error Summary -->
+                        <div x-show="importResults?.errors?.length > 0" class="bg-red-50 border border-red-200 rounded-lg p-4">
+                            <h4 class="font-medium text-red-800 mb-2">
+                                <i class="fas fa-exclamation-triangle mr-2"></i>Errors (<span x-text="importResults.errors.length"></span>)
+                            </h4>
+                            <div class="max-h-32 overflow-y-auto">
+                                <template x-for="error in importResults.errors" :key="error">
+                                    <p class="text-sm text-red-700" x-text="error"></p>
+                                </template>
+                            </div>
+                        </div>
+                        
+                        <!-- Success Actions -->
+                        <div class="flex justify-center space-x-3">
+                            <button type="button" @click="showAddManualUrlModal = false; refreshCrawlerPages()"
+                                    class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+                                <i class="fas fa-check mr-2"></i>Done
+                            </button>
+                            <button type="button" @click="importResults = null; parsedUrls = []; bulkUrlText = ''"
+                                    class="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
+                                <i class="fas fa-plus mr-2"></i>Import More URLs
+                            </button>
+                        </div>
                     </div>
                 </div>
-                
-                <div class="flex items-center space-x-4">
-                    <label class="flex items-center">
-                        <input x-model="newManualUrlRequiresAuth" type="checkbox" 
-                               class="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded">
-                        <span class="ml-2 text-sm text-gray-700">Requires Authentication</span>
-                    </label>
-                    
-                    <label class="flex items-center">
-                        <input x-model="newManualUrlHasForms" type="checkbox" 
-                               class="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded">
-                        <span class="ml-2 text-sm text-gray-700">Contains Forms</span>
-                    </label>
-                </div>
-                
-                <div class="flex items-center">
-                    <label class="flex items-center">
-                        <input x-model="newManualUrlForTesting" type="checkbox" 
-                               class="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded">
-                        <span class="ml-2 text-sm text-gray-700">Include in Testing Sessions</span>
-                    </label>
-                    <p class="ml-6 text-xs text-gray-500">WCAG requirements will determine which tests are manual/automated</p>
-                </div>
-                
-                <div class="flex justify-end space-x-3 pt-4">
-                    <button type="button" @click="showAddManualUrlModal = false"
-                            class="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
-                        Cancel
-                    </button>
-                    <button type="submit"
-                            :disabled="!newManualUrl || addingManualUrl"
-                            class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-green-400 transition-colors">
-                        <i x-show="addingManualUrl" class="fas fa-spinner fa-spin mr-2"></i>
-                        <span x-show="!addingManualUrl">Add URL</span>
-                        <span x-show="addingManualUrl">Adding...</span>
-                    </button>
-                </div>
-            </form>
+            </div>
         </div>
     </div>
 </div> 

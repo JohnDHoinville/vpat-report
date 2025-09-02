@@ -1002,6 +1002,185 @@ router.post('/crawlers/:crawlerId/pages', authenticateToken, async (req, res) =>
 });
 
 /**
+ * Bulk import URLs to crawler
+ */
+router.post('/crawlers/:crawlerId/pages/bulk', authenticateToken, async (req, res) => {
+    try {
+        const { crawlerId } = req.params;
+        const { urls, defaultSettings } = req.body;
+
+        console.log(`🔍 DEBUG: Bulk importing ${urls?.length || 0} URLs to crawler ${crawlerId}`);
+
+        // Validate input
+        if (!urls || !Array.isArray(urls) || urls.length === 0) {
+            return res.status(400).json({
+                success: false,
+                error: 'URLs array is required and cannot be empty'
+            });
+        }
+
+        // Enforce 1000 URL limit
+        if (urls.length > 1000) {
+            return res.status(400).json({
+                success: false,
+                error: `Too many URLs. Maximum allowed: 1000, received: ${urls.length}`
+            });
+        }
+
+        const client = await crawlerService.pool.connect();
+        
+        try {
+            // Check if crawler exists and user has access
+            const crawlerQuery = `
+                SELECT id, project_id, name 
+                FROM web_crawlers 
+                WHERE id = $1
+            `;
+            const crawlerResult = await client.query(crawlerQuery, [crawlerId]);
+            
+            if (crawlerResult.rows.length === 0) {
+                return res.status(404).json({
+                    success: false,
+                    error: 'Crawler not found'
+                });
+            }
+
+            const crawler = crawlerResult.rows[0];
+
+            // Start transaction
+            await client.query('BEGIN');
+
+            // Get existing URLs to check for duplicates
+            const existingUrlsQuery = `
+                SELECT url FROM crawler_pages 
+                WHERE crawler_id = $1
+            `;
+            const existingUrlsResult = await client.query(existingUrlsQuery, [crawlerId]);
+            const existingUrls = new Set(existingUrlsResult.rows.map(row => row.url.toLowerCase()));
+
+            // Process URLs
+            const results = {
+                total: urls.length,
+                imported: 0,
+                skipped: 0,
+                errors: [],
+                imported_urls: [],
+                skipped_urls: []
+            };
+
+            for (let i = 0; i < urls.length; i++) {
+                const urlData = urls[i];
+                let url, title, page_type, requires_auth, has_forms, selected_for_testing;
+
+                // Handle different input formats
+                if (typeof urlData === 'string') {
+                    // Plain URL string
+                    url = urlData.trim();
+                    title = null;
+                    page_type = defaultSettings?.page_type || 'content';
+                    requires_auth = defaultSettings?.requires_auth || false;
+                    has_forms = defaultSettings?.has_forms || false;
+                    selected_for_testing = defaultSettings?.selected_for_testing || true;
+                } else if (typeof urlData === 'object') {
+                    // URL object with metadata
+                    url = urlData.url?.trim();
+                    title = urlData.title || null;
+                    page_type = urlData.page_type || defaultSettings?.page_type || 'content';
+                    requires_auth = urlData.requires_auth !== undefined ? urlData.requires_auth : (defaultSettings?.requires_auth || false);
+                    has_forms = urlData.has_forms !== undefined ? urlData.has_forms : (defaultSettings?.has_forms || false);
+                    selected_for_testing = urlData.selected_for_testing !== undefined ? urlData.selected_for_testing : (defaultSettings?.selected_for_testing || true);
+                } else {
+                    results.errors.push(`Invalid URL format at index ${i}: ${JSON.stringify(urlData)}`);
+                    continue;
+                }
+
+                if (!url) {
+                    results.errors.push(`Empty URL at index ${i}`);
+                    continue;
+                }
+
+                // Ensure URL has protocol
+                if (!url.match(/^https?:\/\//)) {
+                    url = `https://${url}`;
+                }
+
+                // Validate URL format
+                try {
+                    new URL(url);
+                } catch {
+                    results.errors.push(`Invalid URL format at index ${i}: ${url}`);
+                    continue;
+                }
+
+                // Check for duplicates (skip duplicates as requested)
+                if (existingUrls.has(url.toLowerCase())) {
+                    results.skipped++;
+                    results.skipped_urls.push(url);
+                    continue;
+                }
+
+                // Insert the page
+                try {
+                    const insertQuery = `
+                        INSERT INTO crawler_pages (
+                            crawler_id, url, title, page_type, depth, status_code, 
+                            discovered_manually, requires_auth, has_forms, selected_for_testing,
+                            created_at, updated_at
+                        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
+                        RETURNING id, url
+                    `;
+                    
+                    const insertResult = await client.query(insertQuery, [
+                        crawlerId,
+                        url,
+                        title,
+                        page_type,
+                        1, // depth
+                        200, // status_code (default for manual entry)
+                        true, // discovered_manually
+                        requires_auth,
+                        has_forms,
+                        selected_for_testing
+                    ]);
+
+                    results.imported++;
+                    results.imported_urls.push(url);
+                    existingUrls.add(url.toLowerCase()); // Add to set to prevent duplicates within this batch
+
+                } catch (insertError) {
+                    console.error(`Error inserting URL ${url}:`, insertError);
+                    results.errors.push(`Failed to insert URL: ${url} - ${insertError.message}`);
+                }
+            }
+
+            // Commit transaction
+            await client.query('COMMIT');
+
+            console.log(`✅ Bulk import completed for crawler ${crawlerId}:`, results);
+
+            res.json({
+                success: true,
+                message: `Bulk import completed. ${results.imported} URLs imported, ${results.skipped} skipped.`,
+                data: results
+            });
+
+        } catch (error) {
+            await client.query('ROLLBACK');
+            throw error;
+        } finally {
+            client.release();
+        }
+
+    } catch (error) {
+        console.error('Error in bulk URL import:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+/**
  * Save UI page selections for a crawler
  */
 router.put('/crawlers/:crawlerId/page-selections', authenticateToken, async (req, res) => {
